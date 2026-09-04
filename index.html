@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CSStats — Lifter / Dragger Matrix</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">Flexible teammate analysis</div>
+        <h1>Who lifts the lobby—and who drags it?</h1>
+        <p class="lede">Load saved CSStats profiles from the same date range, then compare the whole group, a single pair, or any include/exclude combination.</p>
+      </div>
+      <div class="privacy"><span class="privacy-dot" aria-hidden="true"></span>Local only · no web requests</div>
+    </header>
+
+    <section class="panel upload-panel">
+      <div class="drop-zone" id="dropZone">
+        <div>
+          <h2>Choose all player exports</h2>
+          <p>Select two or more saved HTML/text profile pages at once.</p>
+          <label class="button button-primary choose" for="fileInput">Choose files</label>
+          <input class="file-input" id="fileInput" type="file" multiple accept=".html,.htm,.txt,text/html,text/plain">
+        </div>
+      </div>
+      <div class="file-list" id="fileList"></div>
+      <div class="actions">
+        <button class="button button-primary" id="analyzeButton" type="button" disabled>Build matrix</button>
+        <button class="button button-secondary" id="clearButton" type="button" disabled>Clear</button>
+        <div class="status" id="status" role="status" aria-live="polite">Choose at least two files.</div>
+      </div>
+    </section>
+
+    <div class="results" id="results" hidden>
+      <nav class="mode-tabs" role="tablist" aria-label="Comparison mode">
+        <button class="tab-button" id="groupTab" type="button" role="tab" aria-selected="true" aria-controls="groupView">Group Matrix</button>
+        <button class="tab-button" id="comboTab" type="button" role="tab" aria-selected="false" aria-controls="comboView">Combinations</button>
+      </nav>
+
+      <div class="mode-view" id="groupView" role="tabpanel" aria-labelledby="groupTab">
+        <div class="warning-list" id="warnings"></div>
+
+      <section class="panel section-panel">
+        <div class="section-head">
+          <div>
+            <h2>Overall classifications</h2>
+            <p>Each player’s weighted effect across everyone else.</p>
+          </div>
+          <div class="legend">
+            <span class="badge lifter">Lifter</span>
+            <span class="badge exister">Exister</span>
+            <span class="badge dragger">Dragger</span>
+          </div>
+        </div>
+        <div class="verdict-grid" id="verdictGrid"></div>
+      </section>
+
+      <section class="panel section-panel">
+        <div class="section-head">
+          <div>
+            <h2>Impact versus personal performance</h2>
+            <p>Teammate effect on the X axis; the player’s own average rating on the Y axis.</p>
+          </div>
+          <div class="chart-key" aria-label="Classification colors">
+            <span><i class="key-lifter"></i>Lifter</span>
+            <span><i class="key-exister"></i>Exister</span>
+            <span><i class="key-dragger"></i>Dragger</span>
+          </div>
+        </div>
+        <div class="chart-frame">
+          <svg class="impact-chart" id="impactChart" viewBox="0 0 1080 580" role="img" aria-labelledby="chartTitle chartDescription">
+            <title id="chartTitle">Lifter and dragger impact versus personal performance</title>
+            <desc id="chartDescription">A labeled scatterplot comparing each player’s groupwide teammate impact score with their own average CSStats rating.</desc>
+          </svg>
+        </div>
+        <p class="chart-note">Quadrants split at neutral teammate impact (0.00) and neutral personal rating (1.00). Formal verdicts still use ±0.25 impact thresholds.</p>
+      </section>
+
+      <section class="panel section-panel">
+        <div class="section-head">
+          <div>
+            <h2>Fun facts</h2>
+            <p>Superlatives, strange pairings, and notable outliers from the loaded match histories.</p>
+          </div>
+        </div>
+        <div class="fact-grid" id="funFacts"></div>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="table-heading">
+          <div>
+            <h2>Impact matrix</h2>
+            <p>Rows are whose performance changed; columns are whose presence is being tested.</p>
+          </div>
+          <button class="button button-primary" id="downloadButton" type="button">Download matrix CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table class="matrix-table">
+            <thead id="matrixHead"></thead>
+            <tbody id="matrixBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="table-heading">
+          <div>
+            <h2>Pair details</h2>
+            <p>Raw changes in the row player’s performance when the column player is present.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Measured player</th><th>Player present</th><th>Class</th><th>With</th><th>Without</th><th>Δ Win rate</th><th>Δ Rating</th><th>Confidence</th></tr>
+            </thead>
+            <tbody id="detailsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <details>
+          <summary>How classifications work</summary>
+          <div class="method">
+            <p>For every row/column pair, the tool compares the row player’s matches with the column player against all of the row player’s other matches. The impact score is <strong>80% win-rate delta and 20% rating delta</strong>. ADR and K/D do not affect classifications. Small comparison groups are automatically shrunk toward Exister.</p>
+            <p><strong>Lifter</strong> means an adjusted score of at least +0.25; <strong>Dragger</strong> means −0.25 or lower; everything between is <strong>Exister</strong>. These are descriptive associations, not proof that one teammate caused the change. Rank differences, maps, opponents, and overlapping parties can all matter.</p>
+          </div>
+        </details>
+      </section>
+      </div>
+
+      <div class="mode-view" id="comboView" role="tabpanel" aria-labelledby="comboTab" hidden>
+        <section class="panel section-panel">
+          <div class="section-head combo-heading">
+            <div>
+              <h2>Build a lineup condition</h2>
+              <p>A qualifying match contains every Included player and none of the Excluded players. Ignored players do not affect the filter.</p>
+            </div>
+            <div class="combo-limit" id="comboSelectionCount">0 / 5 selected</div>
+          </div>
+          <div class="combo-roster" id="comboRoster"></div>
+          <div class="actions combo-actions">
+            <button class="button button-primary" id="comboRun" type="button" disabled>Run combination</button>
+            <button class="button button-secondary" id="comboReset" type="button">Reset</button>
+            <div class="status" id="comboStatus" role="status" aria-live="polite">Include at least one player.</div>
+          </div>
+        </section>
+
+        <div class="warning-list" id="comboWarnings"></div>
+
+        <div class="combo-results" id="comboResults" hidden>
+          <section class="panel section-panel">
+            <h2 id="comboTitle">Combination results</h2>
+            <div class="combo-summary">
+              <div class="combo-stat"><span class="label">Qualifying matches</span><strong class="blue" id="comboMatchTotal">—</strong><small>All conditions satisfied</small></div>
+              <div class="combo-stat"><span class="label">Included</span><strong id="comboIncludedTotal">—</strong><small>Must all be present</small></div>
+              <div class="combo-stat"><span class="label">Excluded</span><strong id="comboExcludedTotal">—</strong><small>Must all be absent</small></div>
+              <div class="combo-stat"><span class="label">Comparison matches</span><strong id="comboRemovedTotal">—</strong><small>Included lineup with any excluded player</small></div>
+            </div>
+          </section>
+
+          <section class="panel table-panel">
+            <div class="table-heading">
+              <div><h2>Performance with and without excluded players</h2><p>Match count, record, and win rate are shared team results. Personal stats are color-coded per player; lower average deaths is better.</p></div>
+              <button class="button button-primary" id="comboDownload" type="button">Download CSV</button>
+            </div>
+            <div class="table-wrap">
+              <table class="combo-stats-table">
+                <thead><tr><th>Player</th><th>Group</th><th>Matches</th><th>Record</th><th>Win rate</th><th>K/D</th><th>Avg K</th><th>Avg D</th><th>Avg A</th><th>HS%</th><th>ADR</th><th>Rating</th></tr></thead>
+                <tbody id="comboStatsBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="panel table-panel">
+            <div class="table-heading">
+              <div><h2>Qualifying matches</h2><p id="comboMatchLabel">Result and score use the first included player’s perspective.</p></div>
+            </div>
+            <div class="table-wrap">
+              <table class="combo-match-table">
+                <thead id="comboMatchHead"></thead>
+                <tbody id="comboMatchBody"></tbody>
+              </table>
+              <div class="empty" id="comboEmpty" hidden>No matches satisfy this combination.</div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script defer src="./js/config.js"></script>
+  <script defer src="./js/chart.js"></script>
+  <script defer src="./js/combinations.js"></script>
+  <script defer src="./js/app.js"></script>
+</body>
+</html>
