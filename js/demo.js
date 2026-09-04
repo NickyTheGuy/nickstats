@@ -173,26 +173,26 @@
     cell(row, `${player.opening_kills}-${player.opening_deaths}`);
     cell(row, `${player.trade_kills ?? 0}-${player.traded_deaths ?? 0}`);
     if (state.expandedGroups.utility) {
-      cell(row, player.enemies_flashed ?? 0);
-      cell(row, player.flash_assists ?? 0);
-      cell(row, player.grenade_damage?.high_explosive ?? 0);
-      cell(row, player.grenade_damage?.fire ?? 0);
+      cell(row, player.enemies_flashed ?? 0, "demo-group-cell utility-cell");
+      cell(row, player.flash_assists ?? 0, "demo-group-cell utility-cell");
+      cell(row, player.grenade_damage?.high_explosive ?? 0, "demo-group-cell utility-cell");
+      cell(row, player.grenade_damage?.fire ?? 0, "demo-group-cell utility-cell");
     } else {
-      cell(row, `${player.enemies_flashed ?? 0}/${player.flash_assists ?? 0} · ${player.grenade_damage?.total ?? 0}`);
+      cell(row, `${player.enemies_flashed ?? 0}/${player.flash_assists ?? 0} · ${player.grenade_damage?.total ?? 0}`, "demo-group-cell utility-cell");
     }
     if (state.expandedGroups.clutches) {
       for (let opponents = 5; opponents >= 1; opponents -= 1) {
-        cell(row, player.clutch_wins?.[opponents] ?? 0);
+        cell(row, player.clutch_wins?.[opponents] ?? 0, "demo-group-cell clutches-cell");
       }
     } else {
-      cell(row, [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_wins?.[opponents] ?? 0), 0));
+      cell(row, [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_wins?.[opponents] ?? 0), 0), "demo-group-cell clutches-cell");
     }
     if (state.expandedGroups.multikills) {
       for (let kills = 5; kills >= 1; kills -= 1) {
-        cell(row, player.kill_rounds?.[kills] ?? 0);
+        cell(row, player.kill_rounds?.[kills] ?? 0, "demo-group-cell multikills-cell");
       }
     } else {
-      cell(row, [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0));
+      cell(row, [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0), "demo-group-cell multikills-cell");
     }
     const ratingClass = player.rating >= 1.10 ? "rating-good" : player.rating <= 0.90 ? "rating-bad" : "rating-average";
     cell(row, player.rating.toFixed(2), `demo-rating ${ratingClass}`);
@@ -212,7 +212,7 @@
     const expanded = state.expandedGroups[group];
     const th = document.createElement("th");
     th.colSpan = expanded ? labels.length : 1;
-    th.className = "demo-toggle-heading";
+    th.className = `demo-toggle-heading ${group}-heading`;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "demo-column-toggle";
@@ -226,7 +226,7 @@
       child.textContent = detail;
       if (detail === "EF") child.title = "Enemies flashed";
       if (detail === "FA") child.title = "Flash assists";
-      child.className = "demo-group-detail";
+      child.className = `demo-group-detail ${group}-cell`;
       detailRow.appendChild(child);
     });
   }
