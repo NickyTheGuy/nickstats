@@ -104,11 +104,13 @@ async function parseDemo(fileName, buffer) {
           tradedDeaths: 0,
           enemiesFlashed: 0,
           flashAssists: 0,
+          heDamage: 0,
+          fireDamage: 0,
           rounds: 0,
           openingKills: 0,
           openingDeaths: 0,
           multikillRounds: 0,
-          killRoundsByCount: { 2: 0, 3: 0, 4: 0, 5: 0 },
+          killRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
           clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
         };
       }
@@ -180,11 +182,13 @@ async function parseDemo(fileName, buffer) {
       row.tradedDeaths = 0;
       row.enemiesFlashed = 0;
       row.flashAssists = 0;
+      row.heDamage = 0;
+      row.fireDamage = 0;
       row.rounds = 0;
       row.openingKills = 0;
       row.openingDeaths = 0;
       row.multikillRounds = 0;
-      row.killRoundsByCount = { 2: 0, 3: 0, 4: 0, 5: 0 };
+      row.killRoundsByCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       row.clutchWins = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     }
   }
@@ -217,7 +221,7 @@ async function parseDemo(fileName, buffer) {
         row.kastRounds += 1;
       }
       if (kills >= 2) row.multikillRounds += 1;
-      if (kills >= 2) row.killRoundsByCount[Math.min(5, kills)] += 1;
+      if (kills >= 1) row.killRoundsByCount[Math.min(5, kills)] += 1;
     }
 
     for (const candidate of round.clutchCandidates) {
@@ -367,7 +371,11 @@ async function parseDemo(fileName, buffer) {
     const attackerTeam = teamNow.get(attackerId);
     const victimTeam = teamNow.get(victimId);
     if (attackerTeam && victimTeam && attackerTeam === victimTeam) return;
-    row.damage += Math.max(0, number(event.dmg_health));
+    const damage = Math.max(0, number(event.dmg_health));
+    row.damage += damage;
+    const weapon = String(event.weapon || "").toLocaleLowerCase();
+    if (weapon === "hegrenade") row.heDamage += damage;
+    if (weapon === "inferno" || weapon === "molotov" || weapon === "incgrenade") row.fireDamage += damage;
   }
 
   parser.registerPostInterceptor(InterceptorStage.DEMO_PACKET, async demoPacket => {
@@ -599,6 +607,11 @@ function finishPlayer(row) {
     traded_deaths: row.tradedDeaths,
     enemies_flashed: row.enemiesFlashed,
     flash_assists: row.flashAssists,
+    grenade_damage: {
+      high_explosive: row.heDamage,
+      fire: row.fireDamage,
+      total: row.heDamage + row.fireDamage
+    },
     opening_kills: row.openingKills,
     opening_deaths: row.openingDeaths,
     multikill_rounds: row.multikillRounds,
