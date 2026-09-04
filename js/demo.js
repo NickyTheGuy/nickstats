@@ -66,7 +66,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260904-15");
+      const worker = new Worker("./js/demo-worker.js?v=20260904-16");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -310,6 +310,7 @@
     const score = teams.length >= 2 && teams.every(team => Number.isFinite(team.score)) ? `${teams[0].score}–${teams[1].score}` : "Unknown";
     $("demoSummary").replaceChildren(
       summaryCard("File", state.file?.name || "Demo"),
+      summaryCard("Match ID", result.provider_match_id || `SHA ${String(result.demo_sha256 || "").slice(0, 12)}…`),
       summaryCard("Map", result.map || "Unknown"),
       summaryCard("Rounds", String(result.rounds || 0)),
       summaryCard("Score", score)
@@ -338,7 +339,7 @@
       if (data.byteLength > 450 * 1024 * 1024) {
         throw new Error("The uncompressed demo exceeds the 450 MB browser prototype limit.");
       }
-      setStatus("Parsing rounds and player events locally…");
+      setStatus("Fingerprinting and parsing the demo locally…");
       const result = await parseWithWorker(state.file.name.replace(/\.gz$/i, ""), data);
       if (!result || result.error) throw new Error(result?.error || "The parser returned no match data.");
       state.result = result;
