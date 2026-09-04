@@ -90,6 +90,8 @@ async function parseDemo(fileName, buffer) {
           userIds: new Set(),
           name,
           steamId,
+          isBot: Boolean(values.fakeplayer) || !steamId,
+          observedOpponents: new Set(),
           kills: 0,
           deaths: 0,
           assists: 0,
@@ -120,6 +122,7 @@ async function parseDemo(fileName, buffer) {
       identityRows.set(`name:${normalizeName(name)}`, row);
     } else {
       if (values.name) row.name = values.name;
+      if (values.fakeplayer) row.isBot = true;
       const steamId = steamIdOf(values);
       if (steamId) {
         row.steamId = steamId;
@@ -197,12 +200,13 @@ async function parseDemo(fileName, buffer) {
     // round_prestart for the next round can precede the delayed
     // round_officially_ended event for the previous one.
     if (round.finished || (requireActivity && !round.hasActivity)) return false;
-    // FACEIT demos do not always populate player_team/player_spawn team data
-    // until the side switch. User-info identities are available earlier, so use
-    // the deduplicated match roster for KAST participation. Otherwise the entire
-    // first half silently receives no round credit.
     refreshControllerTeams();
-    const participants = new Set(stats.values());
+    const participants = new Set(
+      [...round.participants].map(userId => stats.get(userId)).filter(Boolean)
+    );
+    if (participants.size === 0) {
+      for (const row of stats.values()) participants.add(row);
+    }
 
     for (const row of participants) {
       const userIds = row.userIds || new Set([row.userId]);
@@ -282,12 +286,18 @@ async function parseDemo(fileName, buffer) {
     const enemyKill = attacker && victim && attackerId !== victimId &&
       (!attackerTeam || !victimTeam || attackerTeam !== victimTeam);
 
+    if (attackerId !== null) round.participants.add(attackerId);
+    if (victimId !== null) round.participants.add(victimId);
+    if (assisterId !== null) round.participants.add(assisterId);
+
     if (victim) {
       victim.deaths += 1;
       round.deaths.add(victimId);
     }
 
     if (enemyKill) {
+      attacker.observedOpponents.add(victim);
+      victim.observedOpponents.add(attacker);
       attacker.kills += 1;
       round.kills.add(attackerId);
       round.killCounts.set(attackerId, (round.killCounts.get(attackerId) || 0) + 1);
@@ -335,7 +345,10 @@ async function parseDemo(fileName, buffer) {
 
   function detectClutchCandidates() {
     const aliveBySide = new Map([[2, []], [3, []]]);
-    for (const row of new Set(stats.values())) {
+    const participants = new Set(
+      [...round.participants].map(userId => stats.get(userId)).filter(Boolean)
+    );
+    for (const row of participants) {
       const side = teamNow.get(row.userId);
       if (side !== 2 && side !== 3) continue;
       const died = [...row.userIds].some(userId => round.deaths.has(userId));
@@ -355,6 +368,8 @@ async function parseDemo(fileName, buffer) {
     const attackerId = integer(event.attacker);
     const victimId = integer(event.userid);
     if (attackerId === null || victimId === null || attackerId === victimId) return;
+    round.participants.add(attackerId);
+    round.participants.add(victimId);
     const attacker = stats.get(attackerId);
     if (!attacker) return;
     const attackerTeam = teamNow.get(attackerId);
@@ -366,6 +381,8 @@ async function parseDemo(fileName, buffer) {
     const attackerId = integer(event.attacker);
     const victimId = integer(event.userid);
     if (attackerId === null || victimId === null || attackerId === victimId) return;
+    round.participants.add(attackerId);
+    round.participants.add(victimId);
     const row = stats.get(attackerId);
     if (!row) return;
     const attackerTeam = teamNow.get(attackerId);
@@ -424,7 +441,7 @@ async function parseDemo(fileName, buffer) {
       case "round_prestart":
         // Both events can occur for one round, and a delayed official-end event
         // can arrive between them. Do not throw away a round with real activity.
-        if (round.finished || !round.hasActivity) round = freshRound();
+        if (round.finished) round = freshRound();
         break;
       case "round_end":
         finishRound(integer(gameEvent.winner));
@@ -456,6 +473,7 @@ async function parseDemo(fileName, buffer) {
       case "player_spawn": {
         const userId = integer(gameEvent.userid);
         const team = integer(gameEvent.teamnum ?? gameEvent.team);
+        if (userId !== null) round.participants.add(userId);
         if (userId !== null && (team === 2 || team === 3)) {
           teamNow.set(userId, team);
           if (!originalTeam.has(userId)) originalTeam.set(userId, team);
@@ -516,9 +534,6 @@ async function parseDemo(fileName, buffer) {
 
   const officialRounds = endState?.teams.reduce((total, team) => total + (team.score || 0), 0) || 0;
   if (officialRounds > 0) completedRounds = officialRounds;
-  if (completedRounds > 0) {
-    for (const row of stats.values()) row.rounds = completedRounds;
-  }
 
   const activePlayers = [...new Set(stats.values())].filter(row =>
     row.kills || row.deaths || row.assists || row.damage
@@ -528,7 +543,23 @@ async function parseDemo(fileName, buffer) {
     throw new Error("The demo parsed, but no player statistics were found.");
   }
 
-  const assignments = finalTeams.size ? finalTeams : originalTeam;
+  const assignments = new Map(originalTeam);
+  for (const [userId, team] of finalTeams) assignments.set(userId, team);
+  const officialTeamIds = [...new Set(finalTeams.values())].filter(team => team === 2 || team === 3);
+  if (officialTeamIds.length === 2) {
+    for (const row of activePlayers) {
+      if (!row.isBot) continue;
+      const opposingTeams = new Map();
+      for (const opponent of row.observedOpponents) {
+        const team = finalTeams.get(opponent.userId);
+        if (team === 2 || team === 3) opposingTeams.set(team, (opposingTeams.get(team) || 0) + 1);
+      }
+      const opponentTeam = [...opposingTeams].sort((a, b) => b[1] - a[1])[0]?.[0];
+      if (opponentTeam) {
+        assignments.set(row.userId, officialTeamIds.find(team => team !== opponentTeam));
+      }
+    }
+  }
   const officialTeamData = new Map((endState?.teams || []).map(team => [team.id, team]));
   const groups = groupPlayers(activePlayers, assignments);
   const teams = [...groups.entries()]
@@ -538,10 +569,10 @@ async function parseDemo(fileName, buffer) {
       return {
         id: String(teamId),
         name: official?.name || `Team ${index + 1}`,
-        score: official?.score ?? (assignments === originalTeam && teamScores.has(teamId) ? teamScores.get(teamId) : null),
+        score: official?.score ?? (teamScores.has(teamId) ? teamScores.get(teamId) : null),
         players: players
           .map(row => finishPlayer(row))
-          .sort((a, b) => b.rating - a.rating || b.kills - a.kills)
+          .sort((a, b) => Number(a.is_bot) - Number(b.is_bot) || b.rating - a.rating || b.kills - a.kills)
       };
     });
 
@@ -567,6 +598,7 @@ function freshRound() {
     clutchCandidates: [],
     killCounts: new Map(),
     pendingDeaths: [],
+    participants: new Set(),
     openingRecorded: false,
     bombPlanted: false,
     winnerSide: null,
@@ -589,6 +621,7 @@ function finishPlayer(row) {
   return {
     name: row.name,
     steam_id: row.steamId,
+    is_bot: row.isBot,
     kills: row.kills,
     deaths: row.deaths,
     assists: row.assists,
