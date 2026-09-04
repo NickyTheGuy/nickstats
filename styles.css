@@ -785,11 +785,22 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 
 .demo-team table {
-  min-width: 760px;
+  min-width: 1480px;
 }
 
 .demo-player-name {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #101722;
   font-weight: 800;
+}
+
+.demo-team thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #172131;
 }
 
 .demo-player-name small {
