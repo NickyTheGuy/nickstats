@@ -56,6 +56,7 @@ async function parseDemo(fileName, buffer) {
 
   const descriptors = new Map();
   const stats = new Map();
+  const identityRows = new Map();
   const teamNow = new Map();
   const originalTeam = new Map();
   const teamScores = new Map();
@@ -79,26 +80,44 @@ async function parseDemo(fileName, buffer) {
     if (!Number.isInteger(userId)) return null;
     let row = stats.get(userId);
     if (!row) {
-      row = {
-        userId,
-        name: values.name || `Player ${userId}`,
-        steamId: steamIdOf(values),
-        kills: 0,
-        deaths: 0,
-        assists: 0,
-        headshots: 0,
-        damage: 0,
-        kastRounds: 0,
-        rounds: 0,
-        openingKills: 0,
-        openingDeaths: 0,
-        multikillRounds: 0
-      };
+      const steamId = steamIdOf(values);
+      const name = values.name || `Player ${userId}`;
+      row = (steamId && identityRows.get(`steam:${steamId}`)) ||
+        identityRows.get(`name:${normalizeName(name)}`);
+      if (!row) {
+        row = {
+          userId,
+          userIds: new Set(),
+          name,
+          steamId,
+          kills: 0,
+          deaths: 0,
+          assists: 0,
+          headshots: 0,
+          damage: 0,
+          kastRounds: 0,
+          killRounds: 0,
+          assistRounds: 0,
+          survivalRounds: 0,
+          tradeRounds: 0,
+          rounds: 0,
+          openingKills: 0,
+          openingDeaths: 0,
+          multikillRounds: 0
+        };
+      }
+      row.userIds.add(userId);
       stats.set(userId, row);
+      if (steamId) identityRows.set(`steam:${steamId}`, row);
+      identityRows.set(`name:${normalizeName(name)}`, row);
     } else {
       if (values.name) row.name = values.name;
       const steamId = steamIdOf(values);
-      if (steamId) row.steamId = steamId;
+      if (steamId) {
+        row.steamId = steamId;
+        identityRows.set(`steam:${steamId}`, row);
+      }
+      identityRows.set(`name:${normalizeName(row.name)}`, row);
     }
     return row;
   }
@@ -129,6 +148,10 @@ async function parseDemo(fileName, buffer) {
       row.headshots = 0;
       row.damage = 0;
       row.kastRounds = 0;
+      row.killRounds = 0;
+      row.assistRounds = 0;
+      row.survivalRounds = 0;
+      row.tradeRounds = 0;
       row.rounds = 0;
       row.openingKills = 0;
       row.openingDeaths = 0;
@@ -138,19 +161,29 @@ async function parseDemo(fileName, buffer) {
 
   function finishRound(winningSide) {
     if (round.finished) return;
-    const participants = [...stats.keys()].filter(userId => {
+    const participants = new Set();
+    for (const [userId, row] of stats) {
       const team = teamNow.get(userId);
-      return team === 2 || team === 3;
-    });
+      if (team === 2 || team === 3) participants.add(row);
+    }
 
-    for (const userId of participants) {
-      const row = stats.get(userId);
+    for (const row of participants) {
+      const userIds = row.userIds || new Set([row.userId]);
+      const has = set => [...userIds].some(userId => set.has(userId));
+      const kills = [...userIds].reduce((total, userId) => total + (round.killCounts.get(userId) || 0), 0);
+      const hadKill = has(round.kills);
+      const hadAssist = has(round.assists);
+      const wasTraded = has(round.traded);
+      const survived = !has(round.deaths);
       row.rounds += 1;
-      const survived = !round.deaths.has(userId);
-      if (survived || round.kills.has(userId) || round.assists.has(userId) || round.traded.has(userId)) {
+      if (hadKill) row.killRounds += 1;
+      if (hadAssist) row.assistRounds += 1;
+      if (survived) row.survivalRounds += 1;
+      if (wasTraded) row.tradeRounds += 1;
+      if (survived || hadKill || hadAssist || wasTraded) {
         row.kastRounds += 1;
       }
-      if ((round.killCounts.get(userId) || 0) >= 2) row.multikillRounds += 1;
+      if (kills >= 2) row.multikillRounds += 1;
     }
 
     const stableWinner = dominantOriginalTeam(winningSide);
@@ -390,7 +423,7 @@ async function parseDemo(fileName, buffer) {
     for (const row of stats.values()) row.rounds = completedRounds;
   }
 
-  const activePlayers = [...stats.values()].filter(row =>
+  const activePlayers = [...new Set(stats.values())].filter(row =>
     row.kills || row.deaths || row.assists || row.damage
   );
 
@@ -462,6 +495,14 @@ function finishPlayer(row) {
     headshot_percent: row.kills ? 100 * row.headshots / row.kills : 0,
     adr,
     kast,
+    kast_rounds: row.kastRounds,
+    rounds_played: rounds,
+    kast_components: {
+      kill_rounds: row.killRounds,
+      assist_rounds: row.assistRounds,
+      survival_rounds: row.survivalRounds,
+      trade_rounds: row.tradeRounds
+    },
     opening_kills: row.openingKills,
     opening_deaths: row.openingDeaths,
     multikill_rounds: row.multikillRounds,
