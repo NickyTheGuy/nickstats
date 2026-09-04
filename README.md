@@ -9,6 +9,8 @@ The selected HTML and demo files are processed in the browser. NickStats does no
 
 Demo statistics use the roster present when each round goes live as the denominator, so transient pre-freeze spawns do not count. Bots that enter live play remain separate, visibly labeled rows and are identified in JSON so future aggregate analysis can exclude them by default.
 
+Parsed results include a FACEIT match ID extracted from an original FACEIT filename when available, plus a SHA-256 fingerprint of the uncompressed demo. `match_uid` prefers the provider ID and falls back to the fingerprint, while `demo_sha256` can always be used for exact duplicate detection.
+
 ## Run it
 
 Open the published GitHub Pages site, or clone/download the repository and serve the folder with any static web server. The CSStats file analyzer also works when `index.html` is opened directly. The demo parser is intended for the HTTPS GitHub Pages version because its parser library is loaded from a pinned CDN URL.
