@@ -138,9 +138,9 @@
           <div class="section-head combo-heading">
             <div>
               <h2>Build a lineup condition</h2>
-              <p>Compare the Included lineup with every Excluded player absent against the same lineup with every Excluded player present. Ignored players do not affect either group.</p>
+              <p>Choose up to five Included players and any number of Excluded players. Compare all Excluded absent against all Excluded present whenever the full roster can fit on one team.</p>
             </div>
-            <div class="combo-limit" id="comboSelectionCount">0 / 5 selected</div>
+            <div class="combo-limit" id="comboSelectionCount">0 / 5 included · 0 excluded</div>
           </div>
           <div class="combo-roster" id="comboRoster"></div>
           <div class="actions combo-actions">
@@ -158,8 +158,8 @@
             <div class="combo-summary">
               <div class="combo-stat"><span class="label">Qualifying matches</span><strong class="blue" id="comboMatchTotal">—</strong><small>All conditions satisfied</small></div>
               <div class="combo-stat"><span class="label">Included</span><strong id="comboIncludedTotal">—</strong><small>Must all be present</small></div>
-              <div class="combo-stat"><span class="label">Excluded</span><strong id="comboExcludedTotal">—</strong><small>Must all be absent</small></div>
-              <div class="combo-stat"><span class="label">Comparison matches</span><strong id="comboRemovedTotal">—</strong><small>Included + all Excluded together</small></div>
+              <div class="combo-stat"><span class="label">Excluded</span><strong id="comboExcludedTotal">—</strong><small>All absent in first group</small></div>
+              <div class="combo-stat"><span class="label">Comparison matches</span><strong id="comboRemovedTotal">—</strong><small>All selected together, when possible</small></div>
             </div>
           </section>
 
