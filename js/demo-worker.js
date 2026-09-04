@@ -53,6 +53,8 @@ async function parseDemo(fileName, buffer) {
       MessagePacketType.CS_UM_END_OF_MATCH_ALL_PLAYERS_DATA
     ]
   }));
+  const providerMatchId = faceitMatchId(fileName);
+  const demoSha256 = await sha256(buffer);
 
   const descriptors = new Map();
   const stats = new Map();
@@ -615,12 +617,27 @@ async function parseDemo(fileName, buffer) {
     format_version: 1,
     parser: "@deademx/cs2",
     parser_version: "4.0.0",
+    match_uid: providerMatchId ? `faceit:${providerMatchId}` : `sha256:${demoSha256}`,
+    provider: providerMatchId ? "faceit" : null,
+    provider_match_id: providerMatchId,
+    demo_sha256: demoSha256,
     source_file: fileName,
     map: mapName,
     rounds: completedRounds,
     player_count: activePlayers.length,
     teams
   };
+}
+
+function faceitMatchId(fileName) {
+  const match = String(fileName || "").match(/(?:^|[^0-9a-f])(1-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?=-|\.|$)/i);
+  return match ? match[1].toLocaleLowerCase() : null;
+}
+
+async function sha256(buffer) {
+  if (!self.crypto?.subtle) throw new Error("This browser cannot create a secure demo fingerprint.");
+  const digest = await self.crypto.subtle.digest("SHA-256", buffer);
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function freshRound() {
