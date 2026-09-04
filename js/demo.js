@@ -66,7 +66,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260904-12");
+      const worker = new Worker("./js/demo-worker.js?v=20260904-13");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -165,7 +165,14 @@
     const nameCell = document.createElement("td");
     nameCell.className = "demo-player-name";
     nameCell.textContent = player.name || "Unknown player";
+    if (player.is_bot) {
+      const badge = document.createElement("span");
+      badge.className = "demo-bot-badge";
+      badge.textContent = "BOT";
+      nameCell.appendChild(badge);
+    }
     row.appendChild(nameCell);
+    cell(row, player.rounds_played ?? 0);
     cell(row, `${player.kills}-${player.deaths}-${player.assists}`);
     cell(row, `${player.headshot_percent.toFixed(0)}%`);
     cell(row, player.adr.toFixed(1));
@@ -241,7 +248,7 @@
   }
 
   function scoreboardColumnWidths() {
-    const widths = [160, 90, 62, 72, 72, 82, 88];
+    const widths = [160, 58, 90, 62, 72, 72, 82, 88];
     widths.push(...(state.expandedGroups.utility ? [58, 58, 82, 82] : [132]));
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
     widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
@@ -282,7 +289,7 @@
     const thead = document.createElement("thead");
     const header = document.createElement("tr");
     const detailHeader = document.createElement("tr");
-    ["Player", "K-D-A", "HS%", "ADR", "KAST", "Opening", "Trade K-D"]
+    ["Player", "Rnds", "K-D-A", "HS%", "ADR", "KAST", "Opening", "Trade K-D"]
       .forEach(label => regularHeader(header, label));
     groupHeader(header, detailHeader, "utility", "Utility", ["EF", "FA", "HE Dmg", "Fire Dmg"], "EF/FA · Dmg");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"]);
