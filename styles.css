@@ -824,6 +824,19 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   text-align: center;
 }
 
+.utility-heading,
+.utility-cell { background: rgba(104, 164, 255, .075); }
+
+.clutches-heading,
+.clutches-cell { background: rgba(98, 212, 157, .065); }
+
+.multikills-heading,
+.multikills-cell { background: rgba(255, 201, 105, .065); }
+
+.demo-toggle-heading.utility-heading { box-shadow: inset 0 2px var(--blue); }
+.demo-toggle-heading.clutches-heading { box-shadow: inset 0 2px var(--green); }
+.demo-toggle-heading.multikills-heading { box-shadow: inset 0 2px var(--amber); }
+
 .demo-player-name {
   position: sticky;
   left: 0;
@@ -832,7 +845,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   font-weight: 800;
 }
 
-.demo-team thead th:first-child {
+.demo-team thead tr:first-child > th:first-child {
   position: sticky;
   left: 0;
   z-index: 2;
