@@ -100,10 +100,16 @@ async function parseDemo(fileName, buffer) {
           assistRounds: 0,
           survivalRounds: 0,
           tradeRounds: 0,
+          tradeKills: 0,
+          tradedDeaths: 0,
+          enemiesFlashed: 0,
+          flashAssists: 0,
           rounds: 0,
           openingKills: 0,
           openingDeaths: 0,
-          multikillRounds: 0
+          multikillRounds: 0,
+          killRoundsByCount: { 2: 0, 3: 0, 4: 0, 5: 0 },
+          clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
         };
       }
       row.userIds.add(userId);
@@ -137,6 +143,24 @@ async function parseDemo(fileName, buffer) {
     }
   }
 
+  function refreshControllerTeams() {
+    let demo;
+    try {
+      demo = parser.getDemo();
+    } catch {
+      return;
+    }
+    const byName = new Map();
+    for (const row of new Set(stats.values())) byName.set(normalizeName(row.name), row);
+    for (const entity of demo.getEntitiesByClassNameIterator("CCSPlayerController")) {
+      const team = integer(entity.getField("m_iTeamNum"));
+      const row = byName.get(normalizeName(entity.getField("m_iszPlayerName")));
+      if (!row || (team !== 2 && team !== 3)) continue;
+      for (const userId of row.userIds) teamNow.set(userId, team);
+      if (!originalTeam.has(row.userId)) originalTeam.set(row.userId, team);
+    }
+  }
+
   function resetMatchCounters() {
     completedRounds = 0;
     round = freshRound();
@@ -152,10 +176,16 @@ async function parseDemo(fileName, buffer) {
       row.assistRounds = 0;
       row.survivalRounds = 0;
       row.tradeRounds = 0;
+      row.tradeKills = 0;
+      row.tradedDeaths = 0;
+      row.enemiesFlashed = 0;
+      row.flashAssists = 0;
       row.rounds = 0;
       row.openingKills = 0;
       row.openingDeaths = 0;
       row.multikillRounds = 0;
+      row.killRoundsByCount = { 2: 0, 3: 0, 4: 0, 5: 0 };
+      row.clutchWins = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     }
   }
 
@@ -167,6 +197,7 @@ async function parseDemo(fileName, buffer) {
     // until the side switch. User-info identities are available earlier, so use
     // the deduplicated match roster for KAST participation. Otherwise the entire
     // first half silently receives no round credit.
+    refreshControllerTeams();
     const participants = new Set(stats.values());
 
     for (const row of participants) {
@@ -186,6 +217,13 @@ async function parseDemo(fileName, buffer) {
         row.kastRounds += 1;
       }
       if (kills >= 2) row.multikillRounds += 1;
+      if (kills >= 2) row.killRoundsByCount[Math.min(5, kills)] += 1;
+    }
+
+    for (const candidate of round.clutchCandidates) {
+      if (candidate.side === winningSide && candidate.opponents >= 1 && candidate.opponents <= 5) {
+        candidate.row.clutchWins[candidate.opponents] += 1;
+      }
     }
 
     const stableWinner = dominantOriginalTeam(winningSide);
@@ -229,6 +267,7 @@ async function parseDemo(fileName, buffer) {
   }
 
   function handleDeath(event, tick) {
+    refreshControllerTeams();
     const attackerId = integer(event.attacker);
     const victimId = integer(event.userid);
     const assisterId = integer(event.assister);
@@ -257,11 +296,18 @@ async function parseDemo(fileName, buffer) {
       }
 
       const tradeWindow = Math.max(1, Math.round(5 / tickInterval));
+      let isTradeKill = false;
       for (const prior of round.pendingDeaths) {
         if (prior.killer === victimId && prior.victimTeam === attackerTeam && tick - prior.tick <= tradeWindow) {
-          round.traded.add(prior.victim);
+          if (!round.traded.has(prior.victim)) {
+            round.traded.add(prior.victim);
+            isTradeKill = true;
+            const tradedVictim = stats.get(prior.victim);
+            if (tradedVictim) tradedVictim.tradedDeaths += 1;
+          }
         }
       }
+      if (isTradeKill) attacker.tradeKills += 1;
       round.pendingDeaths.push({
         victim: victimId,
         killer: attackerId,
@@ -276,8 +322,40 @@ async function parseDemo(fileName, buffer) {
       if (assister && assisterId !== attackerId) {
         assister.assists += 1;
         round.assists.add(assisterId);
+        if (event.assistedflash) assister.flashAssists += 1;
       }
     }
+
+    detectClutchCandidates();
+  }
+
+  function detectClutchCandidates() {
+    const aliveBySide = new Map([[2, []], [3, []]]);
+    for (const row of new Set(stats.values())) {
+      const side = teamNow.get(row.userId);
+      if (side !== 2 && side !== 3) continue;
+      const died = [...row.userIds].some(userId => round.deaths.has(userId));
+      if (!died) aliveBySide.get(side).push(row);
+    }
+    for (const side of [2, 3]) {
+      const alive = aliveBySide.get(side);
+      const opponents = aliveBySide.get(side === 2 ? 3 : 2).length;
+      if (alive.length !== 1 || opponents < 1 || round.clutchSides.has(side)) continue;
+      round.clutchSides.add(side);
+      round.clutchCandidates.push({ row: alive[0], side, opponents });
+    }
+  }
+
+  function handleBlind(event) {
+    refreshControllerTeams();
+    const attackerId = integer(event.attacker);
+    const victimId = integer(event.userid);
+    if (attackerId === null || victimId === null || attackerId === victimId) return;
+    const attacker = stats.get(attackerId);
+    if (!attacker) return;
+    const attackerTeam = teamNow.get(attackerId);
+    const victimTeam = teamNow.get(victimId);
+    if (attackerTeam && victimTeam && attackerTeam !== victimTeam) attacker.enemiesFlashed += 1;
   }
 
   function handleDamage(event) {
@@ -384,6 +462,10 @@ async function parseDemo(fileName, buffer) {
         round.hasActivity = true;
         handleDamage(gameEvent);
         break;
+      case "player_blind":
+        round.hasActivity = true;
+        handleBlind(gameEvent);
+        break;
     }
   });
 
@@ -473,6 +555,8 @@ function freshRound() {
     deaths: new Set(),
     assists: new Set(),
     traded: new Set(),
+    clutchSides: new Set(),
+    clutchCandidates: [],
     killCounts: new Map(),
     pendingDeaths: [],
     openingRecorded: false,
@@ -511,9 +595,15 @@ function finishPlayer(row) {
       survival_rounds: row.survivalRounds,
       trade_rounds: row.tradeRounds
     },
+    trade_kills: row.tradeKills,
+    traded_deaths: row.tradedDeaths,
+    enemies_flashed: row.enemiesFlashed,
+    flash_assists: row.flashAssists,
     opening_kills: row.openingKills,
     opening_deaths: row.openingDeaths,
     multikill_rounds: row.multikillRounds,
+    kill_rounds: row.killRoundsByCount,
+    clutch_wins: row.clutchWins,
     rating: Math.max(0, rating)
   };
 }
