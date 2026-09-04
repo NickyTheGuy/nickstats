@@ -22,9 +22,11 @@ No server, package installation, build command, or internet connection is requir
 
 ## Combination rules
 
-Each loaded player can be set to **Include**, **Exclude**, or **Ignore**. Choose at least one Included player; Included plus Excluded players cannot total more than five.
+Each loaded player can be set to **Include**, **Exclude**, or **Ignore**. Choose between one and five Included players. Any number of loaded players may be Excluded, which allows a single player’s matches to be filtered against an entire friend group.
 
-The Included players define a fixed baseline. For every Included player, the performance table compares matches where every Included player is together and all Excluded players are absent against matches where every Included and every Excluded player is together. Matches containing only some of the Excluded players are omitted from both groups. It never substitutes unrelated matches from an individual player’s full history.
+The Included players define a fixed baseline. For every Included player, the performance table compares matches where every Included player is together and all Excluded players are absent against matches where every Included and every Excluded player is together. When Included plus Excluded exceeds five, the complete “With excluded” lineup is impossible and only the “Without excluded” group is calculated. Matches containing only some of the Excluded players are omitted from both groups.
+
+When five players are Included, they already fill the team. Excluded selections are redundant in that case, so the app skips processing the Excluded match histories. The app never substitutes unrelated matches from an individual player’s full history.
 
 Within each player’s two comparison rows, better performance values are green and worse values are red. Average deaths is scored in reverse, so fewer deaths is better. Equal values and comparisons without matches remain neutral.
 
