@@ -22,9 +22,9 @@ No server, package installation, build command, or internet connection is requir
 
 ## Combination rules
 
-Each loaded player can be set to **Include**, **Exclude**, or **Ignore**. A match qualifies only when every Included player appears in the match and no Excluded player appears. Choose at least one Included player; Included plus Excluded players cannot total more than five.
+Each loaded player can be set to **Include**, **Exclude**, or **Ignore**. Choose at least one Included player; Included plus Excluded players cannot total more than five.
 
-The Included players define a fixed baseline. For every Included player, the performance table compares matches where every Included player is together and all Excluded players are absent against matches where every Included player is together and at least one Excluded player is present. It never substitutes unrelated matches from an individual player’s full history.
+The Included players define a fixed baseline. For every Included player, the performance table compares matches where every Included player is together and all Excluded players are absent against matches where every Included and every Excluded player is together. Matches containing only some of the Excluded players are omitted from both groups. It never substitutes unrelated matches from an individual player’s full history.
 
 Within each player’s two comparison rows, better performance values are green and worse values are red. Average deaths is scored in reverse, so fewer deaths is better. Equal values and comparisons without matches remain neutral.
 
