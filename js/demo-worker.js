@@ -1,6 +1,6 @@
 "use strict";
 
-const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@3.0.1/dist/deadem-cs2.min.js";
+const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
 let libraryError = null;
 
 try {
@@ -40,7 +40,6 @@ async function parseDemo(fileName, buffer) {
   } = self.deademCs2;
 
   const parser = new Parser(new ParserConfiguration({
-    parserThreads: 0,
     messagePacketTypes: [
       MessagePacketType.SVC_SERVER_INFO,
       MessagePacketType.GE_SOURCE1_LEGACY_GAME_EVENT_LIST,
@@ -340,7 +339,7 @@ async function parseDemo(fileName, buffer) {
   return {
     format_version: 1,
     parser: "@deademx/cs2",
-    parser_version: "3.0.1",
+    parser_version: "4.0.0",
     source_file: fileName,
     map: mapName,
     rounds: completedRounds,
