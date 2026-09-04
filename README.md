@@ -13,7 +13,7 @@ Open the published GitHub Pages site, or clone/download the repository and serve
 
 ## Demo prototype
 
-The Demo Parser tab uses [`@deademx/cs2` 4.0.0](https://github.com/Igor-Losev/deadem/tree/v4.0.0/packages/cs2) in a Web Worker. It reads kills, deaths, assists, headshots, damage, trade kills and deaths, enemies flashed, flash assists, openings, exact 2K–5K rounds, 1v1–1v5 clutch wins, team assignments, the map, and round winners from the demo event stream.
+The Demo Parser tab uses [`@deademx/cs2` 4.0.0](https://github.com/Igor-Losev/deadem/tree/v4.0.0/packages/cs2) in a Web Worker. It reads kills, deaths, assists, headshots, damage, trade kills and deaths, enemies flashed, flash assists, HE and fire grenade damage, openings, exact 1K–5K rounds, 1v1–1v5 clutch wins, team assignments, the map, and round winners from the demo event stream.
 
 The displayed preview rating uses the commonly published HLTV Rating 2.0 approximation:
 
