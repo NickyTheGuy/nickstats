@@ -7,6 +7,8 @@ A static, browser-only Counter-Strike stats analyzer. It currently supports two 
 
 The selected HTML and demo files are processed in the browser. NickStats does not upload them or require a server.
 
+Demo statistics use each player's actual spawned rounds as the denominator. Bots remain separate, visibly labeled rows and are identified in JSON so future aggregate analysis can exclude them by default.
+
 ## Run it
 
 Open the published GitHub Pages site, or clone/download the repository and serve the folder with any static web server. The CSStats file analyzer also works when `index.html` is opened directly. The demo parser is intended for the HTTPS GitHub Pages version because its parser library is loaded from a pinned CDN URL.
