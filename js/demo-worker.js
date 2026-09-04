@@ -44,8 +44,10 @@ async function parseDemo(fileName, buffer) {
   } = self.deademCs2;
 
   const parser = new Parser(new ParserConfiguration({
+    entityClasses: ["CCSTeam", "CCSPlayerController"],
     messagePacketTypes: [
       MessagePacketType.SVC_SERVER_INFO,
+      MessagePacketType.SVC_PACKET_ENTITIES,
       MessagePacketType.GE_SOURCE1_LEGACY_GAME_EVENT_LIST,
       MessagePacketType.GE_SOURCE1_LEGACY_GAME_EVENT,
       MessagePacketType.CS_UM_END_OF_MATCH_ALL_PLAYERS_DATA
@@ -66,6 +68,7 @@ async function parseDemo(fileName, buffer) {
     match_end: 0
   };
   let matchEnd = null;
+  let endState = null;
   let mapName = "";
   let tickInterval = 1 / 64;
   let completedRounds = 0;
@@ -305,6 +308,9 @@ async function parseDemo(fileName, buffer) {
       case "round_officially_ended":
         finishRound(inferWinnerSide());
         break;
+      case "cs_win_panel_match":
+        finishRound(inferWinnerSide());
+        break;
       case "bomb_planted":
         round.bombPlanted = true;
         break;
@@ -351,6 +357,7 @@ async function parseDemo(fileName, buffer) {
     });
     await parser.parse(readable);
     refreshUserInfo();
+    endState = readEndState(parser.getDemo());
   } finally {
     await parser.dispose();
   }
@@ -374,7 +381,15 @@ async function parseDemo(fileName, buffer) {
     throw error;
   }
 
-  applyMatchEndData(matchEnd, stats, originalTeam);
+  const finalTeams = applyMatchEndData(matchEnd, stats);
+  applyControllerStats(endState, stats, finalTeams);
+
+  const officialRounds = endState?.teams.reduce((total, team) => total + (team.score || 0), 0) || 0;
+  if (officialRounds > 0) completedRounds = officialRounds;
+  if (completedRounds > 0) {
+    for (const row of stats.values()) row.rounds = completedRounds;
+  }
+
   const activePlayers = [...stats.values()].filter(row =>
     row.kills || row.deaths || row.assists || row.damage
   );
@@ -383,17 +398,22 @@ async function parseDemo(fileName, buffer) {
     throw new Error("The demo parsed, but no player statistics were found.");
   }
 
-  const groups = groupPlayers(activePlayers, originalTeam);
+  const assignments = finalTeams.size ? finalTeams : originalTeam;
+  const officialTeamData = new Map((endState?.teams || []).map(team => [team.id, team]));
+  const groups = groupPlayers(activePlayers, assignments);
   const teams = [...groups.entries()]
     .sort(([a], [b]) => String(a).localeCompare(String(b)))
-    .map(([teamId, players], index) => ({
-      id: String(teamId),
-      name: `Team ${index + 1}`,
-      score: teamScores.has(teamId) ? teamScores.get(teamId) : null,
-      players: players
-        .map(row => finishPlayer(row))
-        .sort((a, b) => b.rating - a.rating || b.kills - a.kills)
-    }));
+    .map(([teamId, players], index) => {
+      const official = officialTeamData.get(teamId);
+      return {
+        id: String(teamId),
+        name: official?.name || `Team ${index + 1}`,
+        score: official?.score ?? (assignments === originalTeam && teamScores.has(teamId) ? teamScores.get(teamId) : null),
+        players: players
+          .map(row => finishPlayer(row))
+          .sort((a, b) => b.rating - a.rating || b.kills - a.kills)
+      };
+    });
 
   return {
     format_version: 1,
@@ -449,27 +469,80 @@ function finishPlayer(row) {
   };
 }
 
-function applyMatchEndData(matchEnd, stats, originalTeam) {
-  if (!Array.isArray(matchEnd?.allplayerdata)) return;
+function readEndState(demo) {
+  const teams = [];
+  const players = [];
+
+  for (const entity of demo.getEntitiesByClassNameIterator("CCSTeam")) {
+    const id = integer(entity.getField("m_iTeamNum"));
+    if (id !== 2 && id !== 3) continue;
+    teams.push({
+      id,
+      score: numberOrNull(entity.getField("m_iScore")),
+      name: entity.getField("m_szClanTeamname") || ""
+    });
+  }
+
+  for (const entity of demo.getEntitiesByClassNameIterator("CCSPlayerController")) {
+    const team = integer(entity.getField("m_iTeamNum"));
+    const name = entity.getField("m_iszPlayerName") || "";
+    if (!name || (team !== 2 && team !== 3)) continue;
+    players.push({
+      name,
+      team,
+      kills: numberOrNull(entity.getField("m_pActionTrackingServices.m_iKills")),
+      deaths: numberOrNull(entity.getField("m_pActionTrackingServices.m_iDeaths")),
+      assists: numberOrNull(entity.getField("m_pActionTrackingServices.m_iAssists")),
+      headshots: numberOrNull(entity.getField("m_pActionTrackingServices.m_iHeadShotKills")),
+      damage: numberOrNull(entity.getField("m_pActionTrackingServices.m_iDamage"))
+    });
+  }
+
+  return { teams, players };
+}
+
+function applyMatchEndData(matchEnd, stats) {
+  const finalTeams = new Map();
+  if (!Array.isArray(matchEnd?.allplayerdata)) return finalTeams;
   const bySteam = new Map();
+  const byName = new Map();
   for (const row of stats.values()) {
     if (row.steamId) bySteam.set(row.steamId, row);
+    if (row.name) byName.set(normalizeName(row.name), row);
   }
   for (const player of matchEnd.allplayerdata) {
     const steamId = steamIdOf(player);
-    const row = steamId ? bySteam.get(steamId) : null;
+    const row = (steamId ? bySteam.get(steamId) : null) || byName.get(normalizeName(player.name));
     if (!row) continue;
     if (player.name) row.name = player.name;
-    if (!originalTeam.has(row.userId) && (player.teamnumber === 2 || player.teamnumber === 3)) {
-      originalTeam.set(row.userId, player.teamnumber);
+    if (player.teamnumber === 2 || player.teamnumber === 3) {
+      finalTeams.set(row.userId, player.teamnumber);
     }
+  }
+  return finalTeams;
+}
+
+function applyControllerStats(endState, stats, finalTeams) {
+  if (!endState) return;
+  const byName = new Map();
+  for (const row of stats.values()) {
+    const key = normalizeName(row.name);
+    if (!byName.has(key)) byName.set(key, row);
+  }
+  for (const player of endState.players) {
+    const row = byName.get(normalizeName(player.name));
+    if (!row) continue;
+    for (const field of ["kills", "deaths", "assists", "headshots", "damage"]) {
+      if (player[field] !== null) row[field] = player[field];
+    }
+    finalTeams.set(row.userId, player.team);
   }
 }
 
-function groupPlayers(players, originalTeam) {
+function groupPlayers(players, assignments) {
   const groups = new Map();
   for (const row of players) {
-    const id = originalTeam.get(row.userId) || "unknown";
+    const id = assignments.get(row.userId) || "unknown";
     if (!groups.has(id)) groups.set(id, []);
     groups.get(id).push(row);
   }
@@ -516,6 +589,15 @@ function integer(value) {
 function number(value) {
   const result = Number(value);
   return Number.isFinite(result) ? result : 0;
+}
+
+function numberOrNull(value) {
+  const result = Number(value);
+  return Number.isFinite(result) ? result : null;
+}
+
+function normalizeName(value) {
+  return String(value || "").trim().toLocaleLowerCase();
 }
 
 function friendlyError(error) {
