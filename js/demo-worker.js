@@ -101,7 +101,6 @@ async function parseDemo(fileName, buffer) {
           survivalRounds: 0,
           tradeRounds: 0,
           rounds: 0,
-          kastAudit: [],
           openingKills: 0,
           openingDeaths: 0,
           multikillRounds: 0
@@ -154,7 +153,6 @@ async function parseDemo(fileName, buffer) {
       row.survivalRounds = 0;
       row.tradeRounds = 0;
       row.rounds = 0;
-      row.kastAudit = [];
       row.openingKills = 0;
       row.openingDeaths = 0;
       row.multikillRounds = 0;
@@ -177,12 +175,7 @@ async function parseDemo(fileName, buffer) {
       const kills = [...userIds].reduce((total, userId) => total + (round.killCounts.get(userId) || 0), 0);
       const hadKill = has(round.kills);
       const hadAssist = has(round.assists);
-      const assistDetails = [...userIds].flatMap(userId => round.assistDetails.get(userId) || []);
       const wasTraded = has(round.traded);
-      const trade = [...userIds]
-        .map(userId => round.tradeDetails.get(userId))
-        .filter(Boolean)
-        .sort((a, b) => a.delayTicks - b.delayTicks)[0] || null;
       const survived = !has(round.deaths);
       row.rounds += 1;
       if (hadKill) row.killRounds += 1;
@@ -193,25 +186,6 @@ async function parseDemo(fileName, buffer) {
         row.kastRounds += 1;
       }
       if (kills >= 2) row.multikillRounds += 1;
-      row.kastAudit.push({
-        round: completedRounds + 1,
-        kills,
-        kill: hadKill,
-        assist: hadAssist,
-        assists: assistDetails.map(detail => ({
-          attacker: stats.get(detail.attacker)?.name || `Player ${detail.attacker}`,
-          victim: stats.get(detail.victim)?.name || `Player ${detail.victim}`,
-          flash: detail.flash
-        })),
-        survived,
-        traded: wasTraded,
-        trade: trade ? {
-          killer: stats.get(trade.killer)?.name || `Player ${trade.killer}`,
-          trader: stats.get(trade.trader)?.name || `Player ${trade.trader}`,
-          delay_seconds: Number((trade.delayTicks * tickInterval).toFixed(3))
-        } : null,
-        credited: survived || hadKill || hadAssist || wasTraded
-      });
     }
 
     const stableWinner = dominantOriginalTeam(winningSide);
@@ -286,15 +260,6 @@ async function parseDemo(fileName, buffer) {
       for (const prior of round.pendingDeaths) {
         if (prior.killer === victimId && prior.victimTeam === attackerTeam && tick - prior.tick <= tradeWindow) {
           round.traded.add(prior.victim);
-          const detail = {
-            killer: victimId,
-            trader: attackerId,
-            delayTicks: tick - prior.tick
-          };
-          const existing = round.tradeDetails.get(prior.victim);
-          if (!existing || detail.delayTicks < existing.delayTicks) {
-            round.tradeDetails.set(prior.victim, detail);
-          }
         }
       }
       round.pendingDeaths.push({
@@ -311,12 +276,6 @@ async function parseDemo(fileName, buffer) {
       if (assister && assisterId !== attackerId) {
         assister.assists += 1;
         round.assists.add(assisterId);
-        if (!round.assistDetails.has(assisterId)) round.assistDetails.set(assisterId, []);
-        round.assistDetails.get(assisterId).push({
-          attacker: attackerId,
-          victim: victimId,
-          flash: Boolean(event.assistedflash)
-        });
       }
     }
   }
@@ -513,9 +472,7 @@ function freshRound() {
     kills: new Set(),
     deaths: new Set(),
     assists: new Set(),
-    assistDetails: new Map(),
     traded: new Set(),
-    tradeDetails: new Map(),
     killCounts: new Map(),
     pendingDeaths: [],
     openingRecorded: false,
@@ -554,7 +511,6 @@ function finishPlayer(row) {
       survival_rounds: row.survivalRounds,
       trade_rounds: row.tradeRounds
     },
-    kast_round_audit: row.kastAudit,
     opening_kills: row.openingKills,
     opening_deaths: row.openingDeaths,
     multikill_rounds: row.multikillRounds,
