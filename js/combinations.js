@@ -157,27 +157,35 @@
     const fullTeam = included.length === MAX_INCLUDED;
     const comparisonPossible = excluded.length > 0 && included.length + excluded.length <= MAX_INCLUDED;
     const includedMaps = included.map(player => new Map(player.rows.map(row => [row.id, row])));
-    const excludedMaps = fullTeam ? [] : excluded.map(player => new Set(player.rows.map(row => row.id)));
+    const excludedEntries = fullTeam ? [] : excluded.map(player => ({
+      player,
+      matchIds: new Set(player.rows.map(row => row.id))
+    }));
+    const teammatePresent = (row, entry) => Array.isArray(row.teammateIds)
+      ? row.teammateIds.includes(entry.player.profileId)
+      : entry.matchIds.has(row.id);
     const firstRows = included[0].rows;
     const baseMatches = firstRows
-      .filter(row => includedMaps.every(map => map.has(row.id)))
+      .filter(row => includedMaps.every((map, index) =>
+        map.has(row.id) && (index === 0 || !Array.isArray(row.teammateIds) || row.teammateIds.includes(included[index].profileId))
+      ))
       .map(firstRow => ({
         id: firstRow.id,
         rows: included.map((player, index) => ({ player, row: includedMaps[index].get(firstRow.id) }))
       }));
     const matches = (fullTeam
       ? baseMatches.slice()
-      : baseMatches.filter(match => excludedMaps.every(map => !map.has(match.id))))
+      : baseMatches.filter(match => excludedEntries.every(entry => !teammatePresent(match.rows[0].row, entry))))
       .sort((a, b) => b.rows[0].row.date - a.rows[0].row.date);
     const comparisonMatches = comparisonPossible
       ? baseMatches
-          .filter(match => excludedMaps.every(map => map.has(match.id)))
+          .filter(match => excludedEntries.every(entry => teammatePresent(match.rows[0].row, entry)))
           .sort((a, b) => b.rows[0].row.date - a.rows[0].row.date)
       : [];
-    const partialMatches = !fullTeam && excludedMaps.length > 1
+    const partialMatches = !fullTeam && excludedEntries.length > 1
       ? baseMatches.filter(match => {
-          const presentCount = excludedMaps.filter(map => map.has(match.id)).length;
-          return presentCount > 0 && presentCount < excludedMaps.length;
+          const presentCount = excludedEntries.filter(entry => teammatePresent(match.rows[0].row, entry)).length;
+          return presentCount > 0 && presentCount < excludedEntries.length;
         })
       : [];
 
@@ -291,10 +299,10 @@
       const linkCell = document.createElement("td");
       const link = document.createElement("a");
       link.className = "match-link";
-      link.href = `https://csstats.gg/match/${match.id}`;
+      link.href = first.matchUrl || `https://csstats.gg/match/${match.id}`;
       link.target = "_blank";
       link.rel = "noreferrer";
-      link.textContent = `#${match.id}`;
+      link.textContent = first.source === "faceit" ? "FACEIT" : `#${match.id}`;
       linkCell.appendChild(link);
       tr.appendChild(linkCell);
       body.appendChild(tr);
@@ -350,7 +358,7 @@
       const first = match.rows[0].row;
       const playerValues = match.rows.flatMap(({ row }) => [row.k, row.d, row.a, row.hs, row.adr, row.rating]);
       lines.push([
-        first.date ? new Date(first.date * 1000).toISOString() : "", match.id, `https://csstats.gg/match/${match.id}`,
+        first.date ? new Date(first.date * 1000).toISOString() : "", match.id, first.matchUrl || `https://csstats.gg/match/${match.id}`,
         first.map, resultLabel(first.result), first.score[0], first.score[1], ...playerValues
       ].map(csvCell).join(","));
     });

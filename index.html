@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CSStats — Lifter / Dragger Matrix</title>
+  <title>Counter-Strike — Lifter / Dragger Matrix</title>
   <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
@@ -12,12 +12,24 @@
       <div>
         <div class="eyebrow">Flexible teammate analysis</div>
         <h1>Who lifts the lobby—and who drags it?</h1>
-        <p class="lede">Load saved CSStats profiles from the same date range, then compare the whole group, a single pair, or any include/exclude combination.</p>
+        <p class="lede">Compare teammates from saved CSStats pages or the official FACEIT API, using the same matrix and lineup tools.</p>
       </div>
-      <div class="privacy"><span class="privacy-dot" aria-hidden="true"></span>Local only · no web requests</div>
+      <div class="privacy"><span class="privacy-dot" aria-hidden="true"></span>Local analysis · optional direct FACEIT access</div>
     </header>
 
-    <section class="panel upload-panel">
+    <nav class="source-tabs" role="tablist" aria-label="Data source">
+      <button class="source-tab" id="csstatsSourceTab" type="button" role="tab" aria-selected="true" aria-controls="csstatsSource">CSStats Files</button>
+      <button class="source-tab" id="faceitSourceTab" type="button" role="tab" aria-selected="false" aria-controls="faceitSource">FACEIT API</button>
+    </nav>
+
+    <section class="panel upload-panel source-view" id="csstatsSource" role="tabpanel" aria-labelledby="csstatsSourceTab">
+      <div class="source-intro">
+        <div>
+          <h2>Saved CSStats pages</h2>
+          <p>The original offline method. Nothing is uploaded or requested from CSStats.</p>
+        </div>
+        <span class="source-badge">Manual import</span>
+      </div>
       <div class="drop-zone" id="dropZone">
         <div>
           <h2>Choose all player exports</h2>
@@ -34,11 +46,49 @@
       </div>
     </section>
 
+    <section class="panel upload-panel source-view" id="faceitSource" role="tabpanel" aria-labelledby="faceitSourceTab" hidden>
+      <div class="source-intro">
+        <div>
+          <h2>FACEIT Data API</h2>
+          <p>Load official FACEIT match history directly, with exact teammate rosters.</p>
+        </div>
+        <span class="source-badge experimental">Test version</span>
+      </div>
+      <div class="faceit-form">
+        <label class="field field-key">
+          <span>Client-side API key</span>
+          <input id="faceitApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a FACEIT client-side key">
+          <small>Kept only in this browser tab’s session storage; never committed to GitHub.</small>
+        </label>
+        <label class="field">
+          <span>From</span>
+          <input id="faceitFrom" type="date">
+        </label>
+        <label class="field">
+          <span>Through</span>
+          <input id="faceitTo" type="date">
+        </label>
+        <label class="field field-players">
+          <span>Players</span>
+          <textarea id="faceitPlayers" rows="7" spellcheck="false" placeholder="One per line: FACEIT nickname, Steam64 ID, or FACEIT profile URL"></textarea>
+          <small>Use the same players here that you load in the CSStats tab for a direct comparison.</small>
+        </label>
+      </div>
+      <div class="actions">
+        <button class="button button-primary" id="faceitLoad" type="button">Load from FACEIT</button>
+        <button class="button button-secondary" id="faceitClear" type="button">Clear FACEIT results</button>
+        <div class="status" id="faceitStatus" role="status" aria-live="polite">Enter at least two players and a date range.</div>
+      </div>
+    </section>
+
     <div class="results" id="results" hidden>
-      <nav class="mode-tabs" role="tablist" aria-label="Comparison mode">
+      <div class="results-toolbar">
+        <nav class="mode-tabs" role="tablist" aria-label="Comparison mode">
         <button class="tab-button" id="groupTab" type="button" role="tab" aria-selected="true" aria-controls="groupView">Group Matrix</button>
         <button class="tab-button" id="comboTab" type="button" role="tab" aria-selected="false" aria-controls="comboView">Combinations</button>
       </nav>
+        <span class="analysis-source" id="analysisSource">Showing CSStats files</span>
+      </div>
 
       <div class="mode-view" id="groupView" role="tabpanel" aria-labelledby="groupTab">
         <div class="warning-list" id="warnings"></div>
@@ -73,7 +123,7 @@
         <div class="chart-frame">
           <svg class="impact-chart" id="impactChart" viewBox="0 0 1080 580" role="img" aria-labelledby="chartTitle chartDescription">
             <title id="chartTitle">Lifter and dragger impact versus personal performance</title>
-            <desc id="chartDescription">A labeled scatterplot comparing each player’s groupwide teammate impact score with their own average CSStats rating.</desc>
+            <desc id="chartDescription">A labeled scatterplot comparing each player’s groupwide teammate impact score with their own average match rating.</desc>
           </svg>
         </div>
         <p class="chart-note">Quadrants split at neutral teammate impact (0.00) and neutral personal rating (1.00). Formal verdicts still use ±0.25 impact thresholds.</p>
@@ -197,5 +247,6 @@
   <script defer src="./js/chart.js"></script>
   <script defer src="./js/combinations.js"></script>
   <script defer src="./js/app.js"></script>
+  <script defer src="./js/faceit.js"></script>
 </body>
 </html>
