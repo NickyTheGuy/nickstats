@@ -14,7 +14,7 @@
     rejectReady: null,
     resolveParse: null,
     rejectParse: null,
-    expandedGroups: { clutches: false, multikills: false }
+    expandedGroups: { utility: false, clutches: false, multikills: false }
   };
 
   function setStatus(message, error = false) {
@@ -66,7 +66,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260904-11");
+      const worker = new Worker("./js/demo-worker.js?v=20260904-12");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -172,8 +172,14 @@
     cell(row, `${player.kast.toFixed(1)}%`);
     cell(row, `${player.opening_kills}-${player.opening_deaths}`);
     cell(row, `${player.trade_kills ?? 0}-${player.traded_deaths ?? 0}`);
-    cell(row, player.enemies_flashed ?? 0);
-    cell(row, player.flash_assists ?? 0);
+    if (state.expandedGroups.utility) {
+      cell(row, player.enemies_flashed ?? 0);
+      cell(row, player.flash_assists ?? 0);
+      cell(row, player.grenade_damage?.high_explosive ?? 0);
+      cell(row, player.grenade_damage?.fire ?? 0);
+    } else {
+      cell(row, `${player.enemies_flashed ?? 0}/${player.flash_assists ?? 0} · ${player.grenade_damage?.total ?? 0}`);
+    }
     if (state.expandedGroups.clutches) {
       for (let opponents = 5; opponents >= 1; opponents -= 1) {
         cell(row, player.clutch_wins?.[opponents] ?? 0);
@@ -182,11 +188,11 @@
       cell(row, [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_wins?.[opponents] ?? 0), 0));
     }
     if (state.expandedGroups.multikills) {
-      for (let kills = 5; kills >= 2; kills -= 1) {
+      for (let kills = 5; kills >= 1; kills -= 1) {
         cell(row, player.kill_rounds?.[kills] ?? 0);
       }
     } else {
-      cell(row, [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0));
+      cell(row, [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0));
     }
     const ratingClass = player.rating >= 1.10 ? "rating-good" : player.rating <= 0.90 ? "rating-bad" : "rating-average";
     cell(row, player.rating.toFixed(2), `demo-rating ${ratingClass}`);
@@ -202,7 +208,7 @@
     row.appendChild(th);
   }
 
-  function groupHeader(topRow, detailRow, group, label, labels) {
+  function groupHeader(topRow, detailRow, group, label, labels, collapsedLabel = "Total") {
     const expanded = state.expandedGroups[group];
     const th = document.createElement("th");
     th.colSpan = expanded ? labels.length : 1;
@@ -215,9 +221,11 @@
     button.addEventListener("click", () => toggleColumnGroup(group));
     th.appendChild(button);
     topRow.appendChild(th);
-    (expanded ? labels : ["Total"]).forEach(detail => {
+    (expanded ? labels : [collapsedLabel]).forEach(detail => {
       const child = document.createElement("th");
       child.textContent = detail;
+      if (detail === "EF") child.title = "Enemies flashed";
+      if (detail === "FA") child.title = "Flash assists";
       child.className = "demo-group-detail";
       detailRow.appendChild(child);
     });
@@ -247,15 +255,16 @@
     const wrap = document.createElement("div");
     wrap.className = "table-wrap";
     const table = document.createElement("table");
-    table.className = `demo-score-table${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.multikills ? " multikills-expanded" : ""}`;
+    table.className = `demo-score-table${state.expandedGroups.utility ? " utility-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.multikills ? " multikills-expanded" : ""}`;
     table.setAttribute("aria-label", `${team.name || `Team ${index + 1}`} player statistics`);
     const thead = document.createElement("thead");
     const header = document.createElement("tr");
     const detailHeader = document.createElement("tr");
-    ["Player", "K-D-A", "HS%", "ADR", "KAST", "Opening", "Trade K-D", "EF", "FA"]
+    ["Player", "K-D-A", "HS%", "ADR", "KAST", "Opening", "Trade K-D"]
       .forEach(label => regularHeader(header, label));
+    groupHeader(header, detailHeader, "utility", "Utility", ["EF", "FA", "HE Dmg", "Fire Dmg"], "EF/FA · Dmg");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"]);
-    groupHeader(header, detailHeader, "multikills", "Multikills", ["5K", "4K", "3K", "2K"]);
+    groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
     regularHeader(header, "Rating");
     thead.append(header, detailHeader);
     const body = document.createElement("tbody");
