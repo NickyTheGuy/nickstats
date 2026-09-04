@@ -65,7 +65,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260904-10");
+      const worker = new Worker("./js/demo-worker.js?v=20260904-11");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -174,7 +174,16 @@
     cell(row, player.adr.toFixed(1));
     cell(row, `${player.kast.toFixed(1)}%`);
     cell(row, `${player.opening_kills}-${player.opening_deaths}`);
-    cell(row, player.multikill_rounds);
+    cell(row, player.trade_kills ?? 0);
+    cell(row, player.traded_deaths ?? 0);
+    cell(row, player.enemies_flashed ?? 0);
+    cell(row, player.flash_assists ?? 0);
+    for (let opponents = 1; opponents <= 5; opponents += 1) {
+      cell(row, player.clutch_wins?.[opponents] ?? 0);
+    }
+    for (let kills = 2; kills <= 5; kills += 1) {
+      cell(row, player.kill_rounds?.[kills] ?? 0);
+    }
     cell(row, player.rating.toFixed(2), "demo-rating");
     return row;
   }
@@ -196,7 +205,12 @@
     const table = document.createElement("table");
     const thead = document.createElement("thead");
     const header = document.createElement("tr");
-    ["Player", "K-D", "A", "HS%", "ADR", "KAST", "Opening", "2K+ rounds", "Rating"].forEach(label => {
+    [
+      "Player", "K-D", "A", "HS%", "ADR", "KAST", "Opening",
+      "Trade K", "Traded D", "Enemies flashed", "Flash A",
+      "1v1", "1v2", "1v3", "1v4", "1v5",
+      "2K", "3K", "4K", "5K", "Rating"
+    ].forEach(label => {
       const th = document.createElement("th");
       th.textContent = label;
       header.appendChild(th);
