@@ -165,11 +165,11 @@ async function parseDemo(fileName, buffer) {
     // round_prestart for the next round can precede the delayed
     // round_officially_ended event for the previous one.
     if (round.finished || (requireActivity && !round.hasActivity)) return false;
-    const participants = new Set();
-    for (const [userId, row] of stats) {
-      const team = teamNow.get(userId);
-      if (team === 2 || team === 3) participants.add(row);
-    }
+    // FACEIT demos do not always populate player_team/player_spawn team data
+    // until the side switch. User-info identities are available earlier, so use
+    // the deduplicated match roster for KAST participation. Otherwise the entire
+    // first half silently receives no round credit.
+    const participants = new Set(stats.values());
 
     for (const row of participants) {
       const userIds = row.userIds || new Set([row.userId]);
