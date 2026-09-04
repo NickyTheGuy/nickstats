@@ -101,6 +101,7 @@ async function parseDemo(fileName, buffer) {
           survivalRounds: 0,
           tradeRounds: 0,
           rounds: 0,
+          kastAudit: [],
           openingKills: 0,
           openingDeaths: 0,
           multikillRounds: 0
@@ -153,14 +154,17 @@ async function parseDemo(fileName, buffer) {
       row.survivalRounds = 0;
       row.tradeRounds = 0;
       row.rounds = 0;
+      row.kastAudit = [];
       row.openingKills = 0;
       row.openingDeaths = 0;
       row.multikillRounds = 0;
     }
   }
 
-  function finishRound(winningSide) {
-    if (round.finished) return;
+  function finishRound(winningSide, requireActivity = false) {
+    // round_prestart for the next round can precede the delayed
+    // round_officially_ended event for the previous one.
+    if (round.finished || (requireActivity && !round.hasActivity)) return false;
     const participants = new Set();
     for (const [userId, row] of stats) {
       const team = teamNow.get(userId);
@@ -184,6 +188,15 @@ async function parseDemo(fileName, buffer) {
         row.kastRounds += 1;
       }
       if (kills >= 2) row.multikillRounds += 1;
+      row.kastAudit.push({
+        round: completedRounds + 1,
+        kills,
+        kill: hadKill,
+        assist: hadAssist,
+        survived,
+        traded: wasTraded,
+        credited: survived || hadKill || hadAssist || wasTraded
+      });
     }
 
     const stableWinner = dominantOriginalTeam(winningSide);
@@ -192,6 +205,7 @@ async function parseDemo(fileName, buffer) {
     }
     completedRounds += 1;
     round.finished = true;
+    return true;
   }
 
   function inferWinnerSide() {
@@ -333,16 +347,18 @@ async function parseDemo(fileName, buffer) {
         break;
       case "round_start":
       case "round_prestart":
-        round = freshRound();
+        // Both events can occur for one round, and a delayed official-end event
+        // can arrive between them. Do not throw away a round with real activity.
+        if (round.finished || !round.hasActivity) round = freshRound();
         break;
       case "round_end":
         finishRound(integer(gameEvent.winner));
         break;
       case "round_officially_ended":
-        finishRound(inferWinnerSide());
+        finishRound(inferWinnerSide(), true);
         break;
       case "cs_win_panel_match":
-        finishRound(inferWinnerSide());
+        finishRound(inferWinnerSide(), true);
         break;
       case "bomb_planted":
         round.bombPlanted = true;
@@ -372,9 +388,11 @@ async function parseDemo(fileName, buffer) {
         break;
       }
       case "player_death":
+        round.hasActivity = true;
         handleDeath(gameEvent, demoPacket.tick);
         break;
       case "player_hurt":
+        round.hasActivity = true;
         handleDamage(gameEvent);
         break;
     }
@@ -471,6 +489,7 @@ function freshRound() {
     openingRecorded: false,
     bombPlanted: false,
     winnerSide: null,
+    hasActivity: false,
     finished: false
   };
 }
@@ -503,6 +522,7 @@ function finishPlayer(row) {
       survival_rounds: row.survivalRounds,
       trade_rounds: row.tradeRounds
     },
+    kast_round_audit: row.kastAudit,
     opening_kills: row.openingKills,
     opening_deaths: row.openingDeaths,
     multikill_rounds: row.multikillRounds,
