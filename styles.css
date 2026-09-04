@@ -788,28 +788,14 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 
 .demo-team table {
+  width: 100%;
   min-width: 1020px;
+  table-layout: fixed;
 }
 
 .demo-score-table th,
 .demo-score-table td {
   text-align: center;
-}
-
-.demo-team table.clutches-expanded,
-.demo-team table.utility-expanded,
-.demo-team table.multikills-expanded {
-  min-width: 1260px;
-}
-
-.demo-team table.utility-expanded.clutches-expanded,
-.demo-team table.utility-expanded.multikills-expanded,
-.demo-team table.clutches-expanded.multikills-expanded {
-  min-width: 1480px;
-}
-
-.demo-team table.utility-expanded.clutches-expanded.multikills-expanded {
-  min-width: 1700px;
 }
 
 .demo-toggle-heading {
