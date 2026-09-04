@@ -240,6 +240,27 @@
     });
   }
 
+  function scoreboardColumnWidths() {
+    const widths = [160, 90, 62, 72, 72, 82, 88];
+    widths.push(...(state.expandedGroups.utility ? [58, 58, 82, 82] : [132]));
+    widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
+    widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
+    widths.push(72);
+    return widths;
+  }
+
+  function scoreboardColumns(table) {
+    const colgroup = document.createElement("colgroup");
+    const widths = scoreboardColumnWidths();
+    for (const width of widths) {
+      const column = document.createElement("col");
+      column.style.width = `${width}px`;
+      colgroup.appendChild(column);
+    }
+    table.style.minWidth = `${widths.reduce((sum, width) => sum + width, 0)}px`;
+    table.appendChild(colgroup);
+  }
+
   function renderTeam(team, index, outcome) {
     const section = document.createElement("section");
     section.className = "demo-team";
@@ -257,6 +278,7 @@
     const table = document.createElement("table");
     table.className = `demo-score-table${state.expandedGroups.utility ? " utility-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.multikills ? " multikills-expanded" : ""}`;
     table.setAttribute("aria-label", `${team.name || `Team ${index + 1}`} player statistics`);
+    scoreboardColumns(table);
     const thead = document.createElement("thead");
     const header = document.createElement("tr");
     const detailHeader = document.createElement("tr");
