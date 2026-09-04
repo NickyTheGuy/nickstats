@@ -13,7 +13,8 @@
     resolveReady: null,
     rejectReady: null,
     resolveParse: null,
-    rejectParse: null
+    rejectParse: null,
+    expandedGroups: { clutches: false, multikills: false }
   };
 
   function setStatus(message, error = false) {
@@ -168,24 +169,67 @@
     steam.textContent = player.steam_id || "No Steam ID";
     nameCell.appendChild(steam);
     row.appendChild(nameCell);
-    cell(row, `${player.kills}-${player.deaths}`);
-    cell(row, player.assists);
+    cell(row, `${player.kills}-${player.deaths}-${player.assists}`);
     cell(row, `${player.headshot_percent.toFixed(0)}%`);
     cell(row, player.adr.toFixed(1));
     cell(row, `${player.kast.toFixed(1)}%`);
     cell(row, `${player.opening_kills}-${player.opening_deaths}`);
-    cell(row, player.trade_kills ?? 0);
-    cell(row, player.traded_deaths ?? 0);
+    cell(row, `${player.trade_kills ?? 0}-${player.traded_deaths ?? 0}`);
     cell(row, player.enemies_flashed ?? 0);
     cell(row, player.flash_assists ?? 0);
-    for (let opponents = 1; opponents <= 5; opponents += 1) {
-      cell(row, player.clutch_wins?.[opponents] ?? 0);
+    if (state.expandedGroups.clutches) {
+      for (let opponents = 5; opponents >= 1; opponents -= 1) {
+        cell(row, player.clutch_wins?.[opponents] ?? 0);
+      }
+    } else {
+      cell(row, [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_wins?.[opponents] ?? 0), 0));
     }
-    for (let kills = 2; kills <= 5; kills += 1) {
-      cell(row, player.kill_rounds?.[kills] ?? 0);
+    if (state.expandedGroups.multikills) {
+      for (let kills = 5; kills >= 2; kills -= 1) {
+        cell(row, player.kill_rounds?.[kills] ?? 0);
+      }
+    } else {
+      cell(row, [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0));
     }
     cell(row, player.rating.toFixed(2), "demo-rating");
     return row;
+  }
+
+  function regularHeader(row, label) {
+    const th = document.createElement("th");
+    th.textContent = label;
+    th.rowSpan = 2;
+    row.appendChild(th);
+  }
+
+  function groupHeader(topRow, detailRow, group, label, labels) {
+    const expanded = state.expandedGroups[group];
+    const th = document.createElement("th");
+    th.colSpan = expanded ? labels.length : 1;
+    th.className = "demo-toggle-heading";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "demo-column-toggle";
+    button.setAttribute("aria-expanded", String(expanded));
+    button.textContent = `${label} ${expanded ? "▾" : "▸"}`;
+    button.addEventListener("click", () => toggleColumnGroup(group));
+    th.appendChild(button);
+    topRow.appendChild(th);
+    (expanded ? labels : ["Total"]).forEach(detail => {
+      const child = document.createElement("th");
+      child.textContent = detail;
+      child.className = "demo-group-detail";
+      detailRow.appendChild(child);
+    });
+  }
+
+  function toggleColumnGroup(group) {
+    const scrollPositions = [...document.querySelectorAll(".demo-team .table-wrap")].map(wrap => wrap.scrollLeft);
+    state.expandedGroups[group] = !state.expandedGroups[group];
+    render(state.result);
+    document.querySelectorAll(".demo-team .table-wrap").forEach((wrap, index) => {
+      wrap.scrollLeft = scrollPositions[index] || 0;
+    });
   }
 
   function renderTeam(team, index) {
@@ -203,19 +247,16 @@
     const wrap = document.createElement("div");
     wrap.className = "table-wrap";
     const table = document.createElement("table");
+    table.className = `demo-score-table${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.multikills ? " multikills-expanded" : ""}`;
     const thead = document.createElement("thead");
     const header = document.createElement("tr");
-    [
-      "Player", "K-D", "A", "HS%", "ADR", "KAST", "Opening",
-      "Trade K", "Traded D", "Enemies flashed", "Flash A",
-      "1v1", "1v2", "1v3", "1v4", "1v5",
-      "2K", "3K", "4K", "5K", "Rating"
-    ].forEach(label => {
-      const th = document.createElement("th");
-      th.textContent = label;
-      header.appendChild(th);
-    });
-    thead.appendChild(header);
+    const detailHeader = document.createElement("tr");
+    ["Player", "K-D-A", "HS%", "ADR", "KAST", "Opening", "Trade K-D", "Enemies flashed", "Flash A"]
+      .forEach(label => regularHeader(header, label));
+    groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"]);
+    groupHeader(header, detailHeader, "multikills", "Multikills", ["5K", "4K", "3K", "2K"]);
+    regularHeader(header, "Rating");
+    thead.append(header, detailHeader);
     const body = document.createElement("tbody");
     team.players.forEach(player => body.appendChild(playerRow(player)));
     table.append(thead, body);
