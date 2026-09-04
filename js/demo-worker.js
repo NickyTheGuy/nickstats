@@ -166,6 +166,24 @@ async function parseDemo(fileName, buffer) {
     }
   }
 
+  function captureLiveParticipants() {
+    refreshControllerTeams();
+    let demo;
+    try {
+      demo = parser.getDemo();
+    } catch {
+      return;
+    }
+    const byName = new Map();
+    for (const row of new Set(stats.values())) byName.set(normalizeName(row.name), row);
+    for (const entity of demo.getEntitiesByClassNameIterator("CCSPlayerController")) {
+      const team = integer(entity.getField("m_iTeamNum"));
+      const row = byName.get(normalizeName(entity.getField("m_iszPlayerName")));
+      if (!row || (team !== 2 && team !== 3)) continue;
+      round.participants.add(row.userId);
+    }
+  }
+
   function resetMatchCounters() {
     completedRounds = 0;
     round = freshRound();
@@ -204,7 +222,7 @@ async function parseDemo(fileName, buffer) {
     const participants = new Set(
       [...round.participants].map(userId => stats.get(userId)).filter(Boolean)
     );
-    if (participants.size === 0) {
+    if (participants.size === 0 && !round.freezeSeen) {
       for (const row of stats.values()) participants.add(row);
     }
 
@@ -446,6 +464,14 @@ async function parseDemo(fileName, buffer) {
       case "round_end":
         finishRound(integer(gameEvent.winner));
         break;
+      case "round_freeze_end":
+        round.freezeSeen = true;
+        round.live = true;
+        // Discard transient pre-freeze spawns (for example a bot created while
+        // a player reconnects) and snapshot the roster that actually goes live.
+        round.participants.clear();
+        captureLiveParticipants();
+        break;
       case "round_officially_ended":
         finishRound(inferWinnerSide(), true);
         break;
@@ -481,14 +507,17 @@ async function parseDemo(fileName, buffer) {
         break;
       }
       case "player_death":
+        if (!round.live) break;
         round.hasActivity = true;
         handleDeath(gameEvent, demoPacket.tick);
         break;
       case "player_hurt":
+        if (!round.live) break;
         round.hasActivity = true;
         handleDamage(gameEvent);
         break;
       case "player_blind":
+        if (!round.live) break;
         round.hasActivity = true;
         handleBlind(gameEvent);
         break;
@@ -602,6 +631,8 @@ function freshRound() {
     openingRecorded: false,
     bombPlanted: false,
     winnerSide: null,
+    freezeSeen: false,
+    live: false,
     hasActivity: false,
     finished: false
   };
