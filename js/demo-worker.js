@@ -26,7 +26,11 @@ self.addEventListener("message", async event => {
     const result = await parseDemo(event.data.name, event.data.data);
     self.postMessage({ type: "result", result });
   } catch (error) {
-    self.postMessage({ type: "error", message: friendlyError(error) });
+    self.postMessage({
+      type: "error",
+      message: friendlyError(error),
+      diagnostics: error?.diagnostics || null
+    });
   }
 });
 
@@ -53,6 +57,14 @@ async function parseDemo(fileName, buffer) {
   const teamNow = new Map();
   const originalTeam = new Map();
   const teamScores = new Map();
+  const eventCounts = new Map();
+  const packetCounts = {
+    demo_packets: 0,
+    server_info: 0,
+    event_lists: 0,
+    game_events: 0,
+    match_end: 0
+  };
   let matchEnd = null;
   let mapName = "";
   let tickInterval = 1 / 64;
@@ -229,17 +241,20 @@ async function parseDemo(fileName, buffer) {
   }
 
   parser.registerPostInterceptor(InterceptorStage.DEMO_PACKET, async demoPacket => {
+    packetCounts.demo_packets += 1;
     if (!demoPacket.getIsInitial()) refreshUserInfo();
   });
 
   parser.registerPostInterceptor(InterceptorStage.MESSAGE_PACKET, async (demoPacket, messagePacket) => {
     if (messagePacket.type === MessagePacketType.SVC_SERVER_INFO) {
+      packetCounts.server_info += 1;
       mapName = messagePacket.data.mapName || mapName;
       tickInterval = number(messagePacket.data.tickInterval) || tickInterval;
       return;
     }
 
     if (messagePacket.type === MessagePacketType.GE_SOURCE1_LEGACY_GAME_EVENT_LIST) {
+      packetCounts.event_lists += 1;
       for (const descriptor of messagePacket.data.descriptors || []) {
         descriptors.set(descriptor.eventid, descriptor);
       }
@@ -247,13 +262,16 @@ async function parseDemo(fileName, buffer) {
     }
 
     if (messagePacket.type === MessagePacketType.CS_UM_END_OF_MATCH_ALL_PLAYERS_DATA) {
+      packetCounts.match_end += 1;
       matchEnd = messagePacket.data;
       return;
     }
 
     if (messagePacket.type !== MessagePacketType.GE_SOURCE1_LEGACY_GAME_EVENT) return;
+    packetCounts.game_events += 1;
     const descriptor = descriptors.get(messagePacket.data.eventid);
     if (!descriptor) return;
+    eventCounts.set(descriptor.name, (eventCounts.get(descriptor.name) || 0) + 1);
     const gameEvent = zip(descriptor, messagePacket.data.keys || []);
 
     switch (descriptor.name) {
@@ -312,7 +330,22 @@ async function parseDemo(fileName, buffer) {
   }
 
   if (completedRounds === 0) {
-    throw new Error("No completed rounds were found. This may not be a supported CS2 match demo.");
+    const error = new Error("No completed rounds were found. This may not be a supported CS2 match demo.");
+    error.diagnostics = {
+      format_version: 1,
+      parser: "@deademx/cs2",
+      parser_version: "4.0.0",
+      source_file: fileName,
+      source_bytes: buffer.byteLength,
+      map: mapName || null,
+      tick_interval: tickInterval,
+      completed_rounds: completedRounds,
+      user_info_players: stats.size,
+      descriptor_count: descriptors.size,
+      packet_counts: packetCounts,
+      event_counts: Object.fromEntries([...eventCounts].sort(([a], [b]) => a.localeCompare(b)))
+    };
+    throw error;
   }
 
   applyMatchEndData(matchEnd, stats, originalTeam);

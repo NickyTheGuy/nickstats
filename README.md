@@ -25,6 +25,8 @@ Rating = 0.0073 × KAST + 0.3591 × KPR − 0.5329 × DPR
 
 It is not CSStats’ proprietary rating and should be treated as an experimental comparison metric. Parsing support can lag behind Counter-Strike demo format changes.
 
+If a demo contains no recognizable completed rounds, the app offers a small diagnostics JSON download. It contains parser, packet, and event counts—not demo contents or player names.
+
 ## CSStats workflow
 
 1. Save every relevant CSStats profile page using the same filters and date range.

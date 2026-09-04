@@ -7,6 +7,7 @@
     csstatsResultsVisible: false,
     file: null,
     result: null,
+    diagnostics: null,
     worker: null,
     workerReady: null,
     resolveReady: null,
@@ -84,6 +85,8 @@
           state.rejectParse = null;
         } else if (message.type === "error") {
           const error = new Error(message.message || "The demo parser failed.");
+          state.diagnostics = message.diagnostics || null;
+          $("demoDiagnosticsButton").hidden = !state.diagnostics;
           if (state.rejectParse) {
             state.rejectParse(error);
             state.resolveParse = null;
@@ -111,7 +114,9 @@
     }
     state.file = file;
     state.result = null;
+    state.diagnostics = null;
     $("demoResults").hidden = true;
+    $("demoDiagnosticsButton").hidden = true;
     $("demoFileLabel").textContent = `${file.name} · ${formatBytes(file.size)}`;
     $("demoParseButton").disabled = false;
     $("demoClearButton").disabled = false;
@@ -220,6 +225,8 @@
 
   async function parseDemo() {
     if (!state.file) return;
+    state.diagnostics = null;
+    $("demoDiagnosticsButton").hidden = true;
     $("demoParseButton").disabled = true;
     setStatus("Loading the browser demo parser…");
     try {
@@ -235,7 +242,8 @@
       render(result);
       setStatus(`Parsed ${result.rounds} rounds and ${result.player_count} players.`);
     } catch (error) {
-      setStatus(error.message || "The demo could not be parsed.", true);
+      const nextStep = state.diagnostics ? " Download diagnostics and send me the JSON." : "";
+      setStatus((error.message || "The demo could not be parsed.") + nextStep, true);
     } finally {
       $("demoParseButton").disabled = !state.file;
     }
@@ -244,10 +252,12 @@
   function clear() {
     state.file = null;
     state.result = null;
+    state.diagnostics = null;
     $("demoInput").value = "";
     $("demoFileLabel").textContent = "Choose a FACEIT or CS2 demo";
     $("demoParseButton").disabled = true;
     $("demoClearButton").disabled = true;
+    $("demoDiagnosticsButton").hidden = true;
     $("demoResults").hidden = true;
     setStatus("Choose one demo file.");
   }
@@ -265,11 +275,25 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  function downloadDiagnostics() {
+    if (!state.diagnostics) return;
+    const blob = new Blob([JSON.stringify(state.diagnostics, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${(state.file?.name || "demo").replace(/\.dem(?:\.gz)?$/i, "")}-diagnostics.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   $("csstatsDataTab").addEventListener("click", () => switchSource("csstats"));
   $("demoDataTab").addEventListener("click", () => switchSource("demo"));
   $("demoInput").addEventListener("change", event => chooseFile(event.target.files[0]));
   $("demoParseButton").addEventListener("click", parseDemo);
   $("demoClearButton").addEventListener("click", clear);
+  $("demoDiagnosticsButton").addEventListener("click", downloadDiagnostics);
   $("demoDownloadButton").addEventListener("click", downloadJson);
 
   const drop = $("demoDropZone");
