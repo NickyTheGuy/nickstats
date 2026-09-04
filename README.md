@@ -7,7 +7,7 @@ A static, browser-only Counter-Strike stats analyzer. It currently supports two 
 
 The selected HTML and demo files are processed in the browser. NickStats does not upload them or require a server.
 
-Demo statistics use each player's actual spawned rounds as the denominator. Bots remain separate, visibly labeled rows and are identified in JSON so future aggregate analysis can exclude them by default.
+Demo statistics use the roster present when each round goes live as the denominator, so transient pre-freeze spawns do not count. Bots that enter live play remain separate, visibly labeled rows and are identified in JSON so future aggregate analysis can exclude them by default.
 
 ## Run it
 
