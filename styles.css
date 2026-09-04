@@ -774,10 +774,13 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 
 .demo-team-score {
-  color: var(--blue);
+  color: var(--muted);
   font-size: 25px;
   font-weight: 900;
 }
+
+.demo-team-score.score-winner { color: var(--green); }
+.demo-team-score.score-loser { color: var(--red); }
 
 .demo-team .table-wrap {
   border: 0;
@@ -786,6 +789,11 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 
 .demo-team table {
   min-width: 1020px;
+}
+
+.demo-score-table th,
+.demo-score-table td {
+  text-align: center;
 }
 
 .demo-team table.clutches-expanded,
@@ -838,19 +846,13 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   background: #172131;
 }
 
-.demo-player-name small {
-  display: block;
-  max-width: 145px;
-  overflow: hidden;
-  color: var(--muted);
-  font-weight: 500;
-  text-overflow: ellipsis;
-}
-
 .demo-rating {
-  color: var(--blue);
   font-weight: 900;
 }
+
+.demo-rating.rating-good { color: var(--green); }
+.demo-rating.rating-average { color: var(--amber); }
+.demo-rating.rating-bad { color: var(--red); }
 
 @media (max-width: 900px) {
   .demo-teams {
