@@ -142,6 +142,8 @@ h1 {
 .button:disabled { cursor: not-allowed; opacity: .45; box-shadow: none; }
 
 .button[hidden] { display: none; }
+
+.demo-results[hidden] { display: none; }
 .choose { display: inline-block; margin-top: 18px; }
 
 .file-input {
