@@ -196,6 +196,8 @@
   function regularHeader(row, label) {
     const th = document.createElement("th");
     th.textContent = label;
+    if (label === "EF") th.title = "Enemies flashed";
+    if (label === "FA") th.title = "Flash assists";
     th.rowSpan = 2;
     row.appendChild(th);
   }
@@ -246,10 +248,11 @@
     wrap.className = "table-wrap";
     const table = document.createElement("table");
     table.className = `demo-score-table${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.multikills ? " multikills-expanded" : ""}`;
+    table.setAttribute("aria-label", `${team.name || `Team ${index + 1}`} player statistics`);
     const thead = document.createElement("thead");
     const header = document.createElement("tr");
     const detailHeader = document.createElement("tr");
-    ["Player", "K-D-A", "HS%", "ADR", "KAST", "Opening", "Trade K-D", "Enemies flashed", "Flash A"]
+    ["Player", "K-D-A", "HS%", "ADR", "KAST", "Opening", "Trade K-D", "EF", "FA"]
       .forEach(label => regularHeader(header, label));
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"]);
     groupHeader(header, detailHeader, "multikills", "Multikills", ["5K", "4K", "3K", "2K"]);
@@ -257,7 +260,8 @@
     thead.append(header, detailHeader);
     const body = document.createElement("tbody");
     team.players.forEach(player => body.appendChild(playerRow(player)));
-    table.append(thead, body);
+    if (index === 0) table.appendChild(thead);
+    table.appendChild(body);
     wrap.appendChild(table);
     section.append(heading, wrap);
     return section;
