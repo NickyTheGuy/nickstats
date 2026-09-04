@@ -134,6 +134,7 @@ async function parseDemo(fileName, buffer) {
   }
 
   function finishRound(winningSide) {
+    if (round.finished) return;
     const participants = [...stats.keys()].filter(userId => {
       const team = teamNow.get(userId);
       return team === 2 || team === 3;
@@ -154,7 +155,19 @@ async function parseDemo(fileName, buffer) {
       teamScores.set(stableWinner, (teamScores.get(stableWinner) || 0) + 1);
     }
     completedRounds += 1;
-    round = freshRound();
+    round.finished = true;
+  }
+
+  function inferWinnerSide() {
+    if (round.winnerSide === 2 || round.winnerSide === 3) return round.winnerSide;
+    const alive = { 2: 0, 3: 0 };
+    for (const [userId, team] of teamNow) {
+      if ((team === 2 || team === 3) && !round.deaths.has(userId)) alive[team] += 1;
+    }
+    if (alive[2] === 0 && alive[3] > 0) return 3;
+    if (alive[3] === 0 && alive[2] > 0) return 2;
+    if (!round.bombPlanted) return 3;
+    return null;
   }
 
   function dominantOriginalTeam(side) {
@@ -283,10 +296,23 @@ async function parseDemo(fileName, buffer) {
         }
         break;
       case "round_start":
+      case "round_prestart":
         round = freshRound();
         break;
       case "round_end":
         finishRound(integer(gameEvent.winner));
+        break;
+      case "round_officially_ended":
+        finishRound(inferWinnerSide());
+        break;
+      case "bomb_planted":
+        round.bombPlanted = true;
+        break;
+      case "bomb_defused":
+        round.winnerSide = 3;
+        break;
+      case "bomb_exploded":
+        round.winnerSide = 2;
         break;
       case "player_team": {
         const userId = integer(gameEvent.userid);
@@ -389,7 +415,10 @@ function freshRound() {
     traded: new Set(),
     killCounts: new Map(),
     pendingDeaths: [],
-    openingRecorded: false
+    openingRecorded: false,
+    bombPlanted: false,
+    winnerSide: null,
+    finished: false
   };
 }
 
