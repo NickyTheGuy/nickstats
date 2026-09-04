@@ -165,9 +165,6 @@
     const nameCell = document.createElement("td");
     nameCell.className = "demo-player-name";
     nameCell.textContent = player.name || "Unknown player";
-    const steam = document.createElement("small");
-    steam.textContent = player.steam_id || "No Steam ID";
-    nameCell.appendChild(steam);
     row.appendChild(nameCell);
     cell(row, `${player.kills}-${player.deaths}-${player.assists}`);
     cell(row, `${player.headshot_percent.toFixed(0)}%`);
@@ -191,7 +188,8 @@
     } else {
       cell(row, [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0));
     }
-    cell(row, player.rating.toFixed(2), "demo-rating");
+    const ratingClass = player.rating >= 1.10 ? "rating-good" : player.rating <= 0.90 ? "rating-bad" : "rating-average";
+    cell(row, player.rating.toFixed(2), `demo-rating ${ratingClass}`);
     return row;
   }
 
@@ -232,7 +230,7 @@
     });
   }
 
-  function renderTeam(team, index) {
+  function renderTeam(team, index, outcome) {
     const section = document.createElement("section");
     section.className = "demo-team";
     const heading = document.createElement("div");
@@ -240,7 +238,7 @@
     const name = document.createElement("h3");
     name.textContent = team.name || `Team ${index + 1}`;
     const score = document.createElement("span");
-    score.className = "demo-team-score";
+    score.className = `demo-team-score${outcome ? ` score-${outcome}` : ""}`;
     score.textContent = Number.isFinite(team.score) ? team.score : "—";
     heading.append(name, score);
 
@@ -274,7 +272,15 @@
       summaryCard("Rounds", String(result.rounds || 0)),
       summaryCard("Score", score)
     );
-    $("demoTeams").replaceChildren(...teams.map(renderTeam));
+    const finiteScores = teams.map(team => team.score).filter(Number.isFinite);
+    const highScore = finiteScores.length ? Math.max(...finiteScores) : null;
+    const lowScore = finiteScores.length ? Math.min(...finiteScores) : null;
+    $("demoTeams").replaceChildren(...teams.map((team, index) => {
+      const outcome = highScore === lowScore || !Number.isFinite(team.score)
+        ? ""
+        : team.score === highScore ? "winner" : "loser";
+      return renderTeam(team, index, outcome);
+    }));
     $("demoResults").hidden = false;
   }
 
