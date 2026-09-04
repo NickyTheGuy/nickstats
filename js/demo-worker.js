@@ -177,6 +177,7 @@ async function parseDemo(fileName, buffer) {
       const kills = [...userIds].reduce((total, userId) => total + (round.killCounts.get(userId) || 0), 0);
       const hadKill = has(round.kills);
       const hadAssist = has(round.assists);
+      const assistDetails = [...userIds].flatMap(userId => round.assistDetails.get(userId) || []);
       const wasTraded = has(round.traded);
       const trade = [...userIds]
         .map(userId => round.tradeDetails.get(userId))
@@ -197,6 +198,11 @@ async function parseDemo(fileName, buffer) {
         kills,
         kill: hadKill,
         assist: hadAssist,
+        assists: assistDetails.map(detail => ({
+          attacker: stats.get(detail.attacker)?.name || `Player ${detail.attacker}`,
+          victim: stats.get(detail.victim)?.name || `Player ${detail.victim}`,
+          flash: detail.flash
+        })),
         survived,
         traded: wasTraded,
         trade: trade ? {
@@ -305,6 +311,12 @@ async function parseDemo(fileName, buffer) {
       if (assister && assisterId !== attackerId) {
         assister.assists += 1;
         round.assists.add(assisterId);
+        if (!round.assistDetails.has(assisterId)) round.assistDetails.set(assisterId, []);
+        round.assistDetails.get(assisterId).push({
+          attacker: attackerId,
+          victim: victimId,
+          flash: Boolean(event.assistedflash)
+        });
       }
     }
   }
@@ -501,6 +513,7 @@ function freshRound() {
     kills: new Set(),
     deaths: new Set(),
     assists: new Set(),
+    assistDetails: new Map(),
     traded: new Set(),
     tradeDetails: new Map(),
     killCounts: new Map(),
