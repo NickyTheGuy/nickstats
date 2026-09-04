@@ -159,7 +159,7 @@
     if (!included.length || included.length + excluded.length > MAX_SELECTED) return null;
 
     const includedMaps = included.map(player => new Map(player.rows.map(row => [row.id, row])));
-    const excludedIds = new Set(excluded.flatMap(player => player.rows.map(row => row.id)));
+    const excludedMaps = excluded.map(player => new Set(player.rows.map(row => row.id)));
     const firstRows = included[0].rows;
     const baseMatches = firstRows
       .filter(row => includedMaps.every(map => map.has(row.id)))
@@ -167,10 +167,22 @@
         id: firstRow.id,
         rows: included.map((player, index) => ({ player, row: includedMaps[index].get(firstRow.id) }))
       }));
-    const matches = baseMatches.filter(match => !excludedIds.has(match.id)).sort((a, b) => b.rows[0].row.date - a.rows[0].row.date);
-    const comparisonMatches = baseMatches.filter(match => excludedIds.has(match.id)).sort((a, b) => b.rows[0].row.date - a.rows[0].row.date);
+    const matches = baseMatches
+      .filter(match => excludedMaps.every(map => !map.has(match.id)))
+      .sort((a, b) => b.rows[0].row.date - a.rows[0].row.date);
+    const comparisonMatches = excludedMaps.length
+      ? baseMatches
+          .filter(match => excludedMaps.every(map => map.has(match.id)))
+          .sort((a, b) => b.rows[0].row.date - a.rows[0].row.date)
+      : [];
+    const partialMatches = excludedMaps.length > 1
+      ? baseMatches.filter(match => {
+          const presentCount = excludedMaps.filter(map => map.has(match.id)).length;
+          return presentCount > 0 && presentCount < excludedMaps.length;
+        })
+      : [];
 
-    return { included, excluded, baseMatches, matches, comparisonMatches, removed: comparisonMatches.length };
+    return { included, excluded, baseMatches, matches, comparisonMatches, partialMatches, removed: comparisonMatches.length };
   }
 
   function renderWarnings(current) {
@@ -181,6 +193,12 @@
       const warning = document.createElement("div");
       warning.className = "warning";
       warning.textContent = `${differing} qualifying ${differing === 1 ? "match has" : "matches have"} different results across included profiles. Those players may have been opponents; the match table uses ${current.included[0].label}’s result and score.`;
+      warnings.appendChild(warning);
+    }
+    if (current.partialMatches.length) {
+      const warning = document.createElement("div");
+      warning.className = "warning";
+      warning.textContent = `${current.partialMatches.length} ${current.partialMatches.length === 1 ? "match contains" : "matches contain"} only some Excluded players and ${current.partialMatches.length === 1 ? "is" : "are"} omitted from both comparison groups.`;
       warnings.appendChild(warning);
     }
   }
@@ -202,7 +220,7 @@
       const withoutStats = summarize(withoutRows);
       const groups = [
         [hasExclusions ? "Without excluded" : "Included lineup", withStats, sharedWithoutStats, "condition-with"],
-        [hasExclusions ? "With excluded (any)" : "No exclusion comparison", withoutStats, sharedWithStats, "condition-without"]
+        [hasExclusions ? "With excluded" : "No exclusion comparison", withoutStats, sharedWithStats, "condition-without"]
       ];
       const colors = {
         kd: comparisonClasses(withStats, withoutStats, "kd"),
