@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const MAX_SELECTED = 5;
+  const MAX_INCLUDED = 5;
   const state = { players: [], choices: new Map(), current: null };
   const $ = id => document.getElementById(id);
 
@@ -16,10 +16,6 @@
 
   function selectedPlayers(choice) {
     return state.players.filter(player => choiceFor(player) === choice);
-  }
-
-  function selectionCount() {
-    return state.players.filter(player => choiceFor(player) !== "ignore").length;
   }
 
   function setStatus(message, error = false) {
@@ -93,19 +89,19 @@
 
   function updateControls(message) {
     const included = selectedPlayers("include").length;
-    const total = selectionCount();
-    $("comboSelectionCount").textContent = `${total} / ${MAX_SELECTED} selected · ${included} included`;
-    $("comboRun").disabled = included === 0 || total > MAX_SELECTED;
+    const excluded = selectedPlayers("exclude").length;
+    $("comboSelectionCount").textContent = `${included} / ${MAX_INCLUDED} included · ${excluded} excluded`;
+    $("comboRun").disabled = included === 0 || included > MAX_INCLUDED;
     if (message) setStatus(message, true);
     else if (!included) setStatus("Include at least one player.");
-    else setStatus(`${included} included, ${selectedPlayers("exclude").length} excluded. Ready to run.`);
+    else setStatus(`${included} included, ${excluded} excluded. Ready to run.`);
   }
 
   function setChoice(player, choice) {
     const oldChoice = choiceFor(player);
     if (oldChoice === choice) return;
-    if (choice !== "ignore" && oldChoice === "ignore" && selectionCount() >= MAX_SELECTED) {
-      updateControls(`Only ${MAX_SELECTED} included and excluded players can be selected at once.`);
+    if (choice === "include" && oldChoice !== "include" && selectedPlayers("include").length >= MAX_INCLUDED) {
+      updateControls(`A team can have at most ${MAX_INCLUDED} Included players.`);
       return;
     }
     state.choices.set(player.profileId, choice);
@@ -156,10 +152,12 @@
   function findCombination() {
     const included = selectedPlayers("include");
     const excluded = selectedPlayers("exclude");
-    if (!included.length || included.length + excluded.length > MAX_SELECTED) return null;
+    if (!included.length || included.length > MAX_INCLUDED) return null;
 
+    const fullTeam = included.length === MAX_INCLUDED;
+    const comparisonPossible = excluded.length > 0 && included.length + excluded.length <= MAX_INCLUDED;
     const includedMaps = included.map(player => new Map(player.rows.map(row => [row.id, row])));
-    const excludedMaps = excluded.map(player => new Set(player.rows.map(row => row.id)));
+    const excludedMaps = fullTeam ? [] : excluded.map(player => new Set(player.rows.map(row => row.id)));
     const firstRows = included[0].rows;
     const baseMatches = firstRows
       .filter(row => includedMaps.every(map => map.has(row.id)))
@@ -167,27 +165,39 @@
         id: firstRow.id,
         rows: included.map((player, index) => ({ player, row: includedMaps[index].get(firstRow.id) }))
       }));
-    const matches = baseMatches
-      .filter(match => excludedMaps.every(map => !map.has(match.id)))
+    const matches = (fullTeam
+      ? baseMatches.slice()
+      : baseMatches.filter(match => excludedMaps.every(map => !map.has(match.id))))
       .sort((a, b) => b.rows[0].row.date - a.rows[0].row.date);
-    const comparisonMatches = excludedMaps.length
+    const comparisonMatches = comparisonPossible
       ? baseMatches
           .filter(match => excludedMaps.every(map => map.has(match.id)))
           .sort((a, b) => b.rows[0].row.date - a.rows[0].row.date)
       : [];
-    const partialMatches = excludedMaps.length > 1
+    const partialMatches = !fullTeam && excludedMaps.length > 1
       ? baseMatches.filter(match => {
           const presentCount = excludedMaps.filter(map => map.has(match.id)).length;
           return presentCount > 0 && presentCount < excludedMaps.length;
         })
       : [];
 
-    return { included, excluded, baseMatches, matches, comparisonMatches, partialMatches, removed: comparisonMatches.length };
+    return { included, excluded, baseMatches, matches, comparisonMatches, partialMatches, fullTeam, comparisonPossible, removed: comparisonMatches.length };
   }
 
   function renderWarnings(current) {
     const warnings = $("comboWarnings");
     warnings.replaceChildren();
+    if (current.fullTeam && current.excluded.length) {
+      const warning = document.createElement("div");
+      warning.className = "warning";
+      warning.textContent = "Five Included players already fill the team. Excluded selections are redundant, so their match histories were not checked.";
+      warnings.appendChild(warning);
+    } else if (current.excluded.length && !current.comparisonPossible) {
+      const warning = document.createElement("div");
+      warning.className = "warning";
+      warning.textContent = `The ${current.included.length + current.excluded.length}-player “With excluded” roster cannot fit on one team. “Without excluded” is still calculated normally.`;
+      warnings.appendChild(warning);
+    }
     const differing = current.matches.filter(match => new Set(match.rows.map(item => item.row.result)).size > 1).length;
     if (differing) {
       const warning = document.createElement("div");
@@ -220,7 +230,7 @@
       const withoutStats = summarize(withoutRows);
       const groups = [
         [hasExclusions ? "Without excluded" : "Included lineup", withStats, sharedWithoutStats, "condition-with"],
-        [hasExclusions ? "With excluded" : "No exclusion comparison", withoutStats, sharedWithStats, "condition-without"]
+        [!hasExclusions ? "No exclusion comparison" : current.comparisonPossible ? "With excluded" : "With excluded (not possible)", withoutStats, sharedWithStats, "condition-without"]
       ];
       const colors = {
         kd: comparisonClasses(withStats, withoutStats, "kd"),
@@ -312,7 +322,7 @@
   function run() {
     const current = findCombination();
     if (!current) {
-      updateControls("Choose at least one Included player and no more than five selected players.");
+      updateControls("Choose between one and five Included players.");
       return;
     }
     state.current = current;
