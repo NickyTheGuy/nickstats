@@ -14,10 +14,15 @@
         <h1>Who lifts the lobby—and who drags it?</h1>
         <p class="lede">Load saved CSStats profiles from the same date range, then compare the whole group or any include/exclude combination.</p>
       </div>
-      <div class="privacy"><span class="privacy-dot" aria-hidden="true"></span>Local only · no web requests</div>
+      <div class="privacy"><span class="privacy-dot" aria-hidden="true"></span>Private by design · selected files stay local</div>
     </header>
 
-    <section class="panel upload-panel">
+        <nav class="data-tabs" role="tablist" aria-label="Data source">
+      <button class="data-tab" id="csstatsDataTab" type="button" role="tab" aria-selected="true" aria-controls="csstatsDataView">CSStats Files</button>
+      <button class="data-tab" id="demoDataTab" type="button" role="tab" aria-selected="false" aria-controls="demoDataView">Demo Parser <span class="tab-beta">Experimental</span></button>
+    </nav>
+
+<section class="panel upload-panel data-view" id="csstatsDataView" role="tabpanel" aria-labelledby="csstatsDataTab">
       <div class="drop-zone" id="dropZone">
         <div>
           <h2>Choose all player exports</h2>
@@ -31,6 +36,41 @@
         <button class="button button-primary" id="analyzeButton" type="button" disabled>Build matrix</button>
         <button class="button button-secondary" id="clearButton" type="button" disabled>Clear</button>
         <div class="status" id="status" role="status" aria-live="polite">Choose at least two files.</div>
+      </div>
+    </section>
+
+    <section class="panel demo-panel data-view" id="demoDataView" role="tabpanel" aria-labelledby="demoDataTab" hidden>
+      <div class="section-head">
+        <div>
+          <div class="eyebrow">Local browser prototype</div>
+          <h2>Parse one CS2 demo</h2>
+          <p>Choose a <code>.dem</code> or <code>.dem.gz</code> file. It is processed inside your browser and never uploaded.</p>
+        </div>
+        <span class="demo-local-badge">Stays on this device</span>
+      </div>
+
+      <div class="demo-drop" id="demoDropZone">
+        <div>
+          <strong id="demoFileLabel">Choose a FACEIT or CS2 demo</strong>
+          <span>The first load downloads the parser; parsing may briefly use substantial memory.</span>
+        </div>
+        <label class="button button-primary" for="demoInput">Choose demo</label>
+        <input class="file-input" id="demoInput" type="file" accept=".dem,.gz,.dem.gz,application/gzip">
+      </div>
+
+      <div class="actions">
+        <button class="button button-primary" id="demoParseButton" type="button" disabled>Parse demo</button>
+        <button class="button button-secondary" id="demoClearButton" type="button" disabled>Clear</button>
+        <div class="status" id="demoStatus" role="status" aria-live="polite">Choose one demo file.</div>
+      </div>
+
+      <div class="demo-results" id="demoResults" hidden>
+        <div class="demo-summary" id="demoSummary"></div>
+        <div class="warning" id="demoWarning">Preview rating uses a published HLTV-style approximation. Demo parsing is experimental; verify the scoreboard before relying on it.</div>
+        <div class="demo-teams" id="demoTeams"></div>
+        <div class="actions">
+          <button class="button button-primary" id="demoDownloadButton" type="button">Download parsed JSON</button>
+        </div>
       </div>
     </section>
 
@@ -197,5 +237,6 @@
   <script defer src="./js/chart.js"></script>
   <script defer src="./js/combinations.js"></script>
   <script defer src="./js/app.js"></script>
+  <script defer src="./js/demo.js"></script>
 </body>
 </html>

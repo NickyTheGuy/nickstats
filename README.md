@@ -1,49 +1,53 @@
-# CSStats Lifter / Dragger Analyzer
+# NickStats
 
-A fully offline browser app for comparing saved CSStats profile pages.
+A static, browser-only Counter-Strike stats analyzer. It currently supports two data sources:
+
+- **CSStats Files** — compare saved CSStats profile exports in a group matrix or include/exclude lineup conditions.
+- **Demo Parser (experimental)** — select one CS2 `.dem` or `.dem.gz` and build a local match scoreboard.
+
+The selected HTML and demo files are processed in the browser. NickStats does not upload them or require a server.
 
 ## Run it
 
-1. Extract this project folder.
-2. Double-click `index.html` to open it in Safari, Chrome, or Firefox.
-3. Choose two or more saved CSStats profile exports.
-4. Switch between **Group Matrix** and **Combinations** after building the analysis. A two-player combination replaces the former 1-on-1 mode.
+Open the published GitHub Pages site, or clone/download the repository and serve the folder with any static web server. The CSStats file analyzer also works when `index.html` is opened directly. The demo parser is intended for the HTTPS GitHub Pages version because its parser library is loaded from a pinned CDN URL.
 
-No server, package installation, build command, or internet connection is required.
+## Demo prototype
 
-## Project structure
+The Demo Parser tab uses [`@deademx/cs2` 3.0.1](https://github.com/Igor-Losev/deadem/tree/v3.0.1/packages/cs2) in a Web Worker. It reads kills, deaths, assists, headshots, damage, trades, openings, multikill rounds, team assignments, the map, and round winners from the demo event stream.
 
-- `index.html` — page structure and accessible interface markup.
-- `styles.css` — all layout, colors, tables, tabs, and chart styling.
-- `js/config.js` — scoring weights, thresholds, filter definitions, and shrinkage settings.
-- `js/chart.js` — scatterplot rendering and quadrant labels.
-- `js/combinations.js` — include/exclude lineup filtering, combination summaries, match tables, and CSV export.
-- `js/app.js` — file loading, CSStats parsing, pair analysis, UI rendering, downloads, and event handling.
+The displayed preview rating uses the commonly published HLTV Rating 2.0 approximation:
 
-## Combination rules
+```
+Impact = 2.13 × KPR + 0.42 × APR − 0.41
+Rating = 0.0073 × KAST + 0.3591 × KPR − 0.5329 × DPR
+       + 0.2372 × Impact + 0.0032 × ADR + 0.1587
+```
 
-Each loaded player can be set to **Include**, **Exclude**, or **Ignore**. Choose between one and five Included players. Any number of loaded players may be Excluded, which allows a single player’s matches to be filtered against an entire friend group.
+It is not CSStats’ proprietary rating and should be treated as an experimental comparison metric. Parsing support can lag behind Counter-Strike demo format changes.
 
-The Included players define a fixed baseline. For every Included player, the performance table compares matches where every Included player is together and all Excluded players are absent against matches where every Included and every Excluded player is together. When Included plus Excluded exceeds five, the complete “With excluded” lineup is impossible and only the “Without excluded” group is calculated. Matches containing only some of the Excluded players are omitted from both groups.
+## CSStats workflow
 
-When five players are Included, they already fill the team. Excluded selections are redundant in that case, so the app skips processing the Excluded match histories. The app never substitutes unrelated matches from an individual player’s full history.
+1. Save every relevant CSStats profile page using the same filters and date range.
+2. Choose all saved files in **CSStats Files**.
+3. Use **Group Matrix** for all-to-all teammate impact or **Combinations** for lineup conditions.
+4. Export the matrix or qualifying matches as CSV.
 
-Within each player’s two comparison rows, better performance values are green and worse values are red. Average deaths is scored in reverse, so fewer deaths is better. Equal values and comparisons without matches remain neutral.
+Classifications use:
 
-Because the tool is intended for teammates, match count, record, and win rate are treated as shared lineup outcomes and use the first Included player’s result as the common team perspective. K/D, kills, deaths, assists, headshots, ADR, and rating remain player-specific.
+```
+Impact score = 0.80 × win-rate delta + 0.20 × rating delta
+```
 
-To recreate the old one-on-one view for Player A versus Player B, **Include Player A** and **Exclude Player B**. To analyze Players A and B together with and without Player C, Include A and B and Exclude C.
+ADR and K/D are displayed but do not affect the Lifter/Dragger classification.
 
-## Scoring configuration
+## Files
 
-The current impact score uses:
-
-- 80% win-rate delta
-- 20% rating delta
-- no ADR or K/D contribution
-
-Edit `js/config.js` to change weights, metric scales, shrinkage, or Lifter/Dragger thresholds.
-
-## Data model
-
-For each directional pair, the app compares the measured player’s matches with the other player against the measured player’s matches without them. Small samples are shrunk toward Exister. The results are associations, not proof of causation.
+- `index.html` — interface markup
+- `styles.css` — presentation
+- `js/config.js` — comparison weights and thresholds
+- `js/chart.js` — group scatterplot
+- `js/combinations.js` — include/exclude analysis
+- `js/app.js` — CSStats parsing, matrix analysis, and interface behavior
+- `js/demo.js` — demo upload, worker control, and scoreboard rendering
+- `js/demo-worker.js` — local CS2 demo parsing and aggregation
+- `THIRD_PARTY_NOTICES.md` — parser dependency attribution
