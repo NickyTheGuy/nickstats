@@ -302,7 +302,9 @@ async function parseDemo(fileName, buffer) {
     const attackerTeam = teamNow.get(attackerId);
     const victimTeam = teamNow.get(victimId);
     const enemyKill = attacker && victim && attackerId !== victimId &&
-      (!attackerTeam || !victimTeam || attackerTeam !== victimTeam);
+      (attackerTeam === 2 || attackerTeam === 3) &&
+      (victimTeam === 2 || victimTeam === 3) &&
+      attackerTeam !== victimTeam;
 
     if (attackerId !== null) round.participants.add(attackerId);
     if (victimId !== null) round.participants.add(victimId);
@@ -349,7 +351,7 @@ async function parseDemo(fileName, buffer) {
       round.pendingDeaths = round.pendingDeaths.filter(item => tick - item.tick <= tradeWindow);
     }
 
-    if (assisterId !== null && assisterId !== victimId) {
+    if (enemyKill && assisterId !== null && assisterId !== victimId) {
       const assister = stats.get(assisterId);
       if (assister && assisterId !== attackerId) {
         assister.assists += 1;
@@ -392,7 +394,10 @@ async function parseDemo(fileName, buffer) {
     if (!attacker) return;
     const attackerTeam = teamNow.get(attackerId);
     const victimTeam = teamNow.get(victimId);
-    if (attackerTeam && victimTeam && attackerTeam !== victimTeam) attacker.enemiesFlashed += 1;
+    if ((attackerTeam === 2 || attackerTeam === 3) &&
+        (victimTeam === 2 || victimTeam === 3) && attackerTeam !== victimTeam) {
+      attacker.enemiesFlashed += 1;
+    }
   }
 
   function handleDamage(event) {
@@ -405,7 +410,8 @@ async function parseDemo(fileName, buffer) {
     if (!row) return;
     const attackerTeam = teamNow.get(attackerId);
     const victimTeam = teamNow.get(victimId);
-    if (attackerTeam && victimTeam && attackerTeam === victimTeam) return;
+    if ((attackerTeam !== 2 && attackerTeam !== 3) ||
+        (victimTeam !== 2 && victimTeam !== 3) || attackerTeam === victimTeam) return;
     const damage = Math.max(0, number(event.dmg_health));
     row.damage += damage;
     const weapon = String(event.weapon || "").toLocaleLowerCase();
