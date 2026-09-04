@@ -747,7 +747,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 
 .demo-teams {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
 
