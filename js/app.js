@@ -1,14 +1,7 @@
 (() => {
   "use strict";
 
-  const state = {
-    files: [],
-    analysis: null,
-    analyses: { csstats: null, faceit: null },
-    activeSource: "csstats",
-    activeTab: "group"
-  };
-  const sourceLabels = { csstats: "CSStats files", faceit: "FACEIT API" };
+  const state = { files: [], analysis: null, activeTab: "group" };
   const { filterIds, filterNames, scoring } = window.CSStatsConfig;
   const $ = id => document.getElementById(id);
 
@@ -37,7 +30,9 @@
       remove.textContent = "×";
       remove.addEventListener("click", () => {
         state.files.splice(index, 1);
-        clearAnalysis("csstats");
+        state.analysis = null;
+        window.CSStatsCombinations.clear();
+        $("results").hidden = true;
         renderFileList();
       });
       chip.append(name, remove);
@@ -133,7 +128,7 @@
     rows = Array.from(new Map(rows.filter(row => row.id).map(row => [row.id, row])).values());
     if (!profileId) throw new Error(`${file.name} does not look like a saved CSStats profile.`);
     if (!rows.length) throw new Error(`No matches were found in ${file.name}.`);
-    return { fileName: file.name, label: prettyFileLabel(file.name, alias), alias, profileId, source: "csstats", filters, rows };
+    return { fileName: file.name, label: prettyFileLabel(file.name, alias), alias, profileId, filters, rows };
   }
 
   function summarize(rows) {
@@ -231,9 +226,6 @@
         const a = first.filters[id], b = player.filters[id];
         if (a && b && a.value !== b.value) warnings.push(`${player.label} uses a different ${filterNames[id]} (${b.label} vs ${a.label}).`);
       }
-    }
-    for (const player of players) {
-      if (player.missingRatings) warnings.push(`${player.label}: ${player.missingRatings} FACEIT matches had no recognized rating field; those rating values are shown as 0 in this test version.`);
     }
     const container = $("warnings");
     container.replaceChildren(...warnings.map(message => el("div", message, "warning")));
@@ -413,53 +405,8 @@
     renderMatrix(analysis);
     renderDetails(analysis.pairs);
     window.CSStatsCombinations.setPlayers(analysis.players);
-    $("analysisSource").textContent = `Showing ${sourceLabels[state.activeSource]}`;
     switchTab(state.activeTab);
     $("results").hidden = false;
-  }
-
-  function loadPlayers(source, players) {
-    const unique = [];
-    const seen = new Set();
-    for (const player of players) {
-      if (!player?.profileId || seen.has(player.profileId)) continue;
-      seen.add(player.profileId);
-      unique.push(player);
-    }
-    if (unique.length < 2) throw new Error("At least two different profiles are required.");
-    unique.sort((a, b) => a.label.localeCompare(b.label));
-    const analysis = buildAnalysis(unique);
-    state.analyses[source] = analysis;
-    if (state.activeSource === source) {
-      state.analysis = analysis;
-      render(analysis);
-    }
-    return analysis;
-  }
-
-  function clearAnalysis(source) {
-    state.analyses[source] = null;
-    if (state.activeSource === source) {
-      state.analysis = null;
-      window.CSStatsCombinations.clear();
-      $("results").hidden = true;
-    }
-  }
-
-  function switchSource(source) {
-    if (!Object.hasOwn(sourceLabels, source)) return;
-    state.activeSource = source;
-    const csstats = source === "csstats";
-    $("csstatsSourceTab").setAttribute("aria-selected", String(csstats));
-    $("faceitSourceTab").setAttribute("aria-selected", String(!csstats));
-    $("csstatsSource").hidden = !csstats;
-    $("faceitSource").hidden = csstats;
-    state.analysis = state.analyses[source];
-    if (state.analysis) render(state.analysis);
-    else {
-      window.CSStatsCombinations.clear();
-      $("results").hidden = true;
-    }
   }
 
   async function analyze() {
@@ -467,10 +414,21 @@
     setStatus("Reading profiles and comparing every pair…");
     try {
       const parsed = await Promise.all(state.files.map(parseExport));
-      const analysis = loadPlayers("csstats", parsed);
-      setStatus(`Done: ${analysis.players.length} players and ${analysis.pairs.length} pairwise comparisons.`);
+      const unique = [];
+      const seen = new Set();
+      for (const player of parsed) {
+        if (seen.has(player.profileId)) continue;
+        seen.add(player.profileId);
+        unique.push(player);
+      }
+      if (unique.length < 2) throw new Error("The selected files contain fewer than two different profiles.");
+      unique.sort((a, b) => a.label.localeCompare(b.label));
+      state.analysis = buildAnalysis(unique);
+      render(state.analysis);
+      setStatus(`Done: ${unique.length} players and ${state.analysis.pairs.length} pairwise comparisons.`);
     } catch (error) {
-      clearAnalysis("csstats");
+      state.analysis = null;
+      $("results").hidden = true;
       setStatus(error.message || "The profiles could not be analyzed.", true);
     } finally {
       $("analyzeButton").disabled = state.files.length < 2;
@@ -496,7 +454,7 @@
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${state.activeSource}-lifter-dragger-matrix.csv`;
+    anchor.download = "csstats-lifter-dragger-matrix.csv";
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -510,12 +468,8 @@
   ["dragleave", "drop"].forEach(type => zone.addEventListener(type, event => { event.preventDefault(); zone.classList.remove("dragging"); }));
   zone.addEventListener("drop", event => addFiles(event.dataTransfer.files));
   $("analyzeButton").addEventListener("click", analyze);
-  $("clearButton").addEventListener("click", () => { state.files = []; clearAnalysis("csstats"); renderFileList(); });
+  $("clearButton").addEventListener("click", () => { state.files = []; state.analysis = null; window.CSStatsCombinations.clear(); $("results").hidden = true; renderFileList(); });
   $("downloadButton").addEventListener("click", downloadCsv);
   $("groupTab").addEventListener("click", () => switchTab("group"));
   $("comboTab").addEventListener("click", () => switchTab("combo"));
-  $("csstatsSourceTab").addEventListener("click", () => switchSource("csstats"));
-  $("faceitSourceTab").addEventListener("click", () => switchSource("faceit"));
-
-  window.CSStatsApp = Object.freeze({ loadPlayers, clearAnalysis, switchSource });
 })();

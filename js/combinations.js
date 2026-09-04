@@ -302,7 +302,7 @@
       link.href = first.matchUrl || `https://csstats.gg/match/${match.id}`;
       link.target = "_blank";
       link.rel = "noreferrer";
-      link.textContent = first.source === "faceit" ? "FACEIT" : `#${match.id}`;
+      link.textContent = first.matchUrl ? "Open" : `#${match.id}`;
       linkCell.appendChild(link);
       tr.appendChild(linkCell);
       body.appendChild(tr);

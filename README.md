@@ -1,102 +1,49 @@
-# Counter-Strike teammate comparison
+# CSStats Lifter / Dragger Analyzer
 
-A browser-only teammate analysis tool for CS2. It can use either saved CSStats profile pages or the official FACEIT Data API, then sends both sources through the same matrix, lineup-condition, chart, fun-fact, and CSV views.
+A fully offline browser app for comparing saved CSStats profile pages.
 
-Open the GitHub Pages site, or open `index.html` directly for the CSStats-file workflow. No build step or server is required.
+## Run it
 
-## Data sources
+1. Extract this project folder.
+2. Double-click `index.html` to open it in Safari, Chrome, or Firefox.
+3. Choose two or more saved CSStats profile exports.
+4. Switch between **Group Matrix** and **Combinations** after building the analysis. A two-player combination replaces the former 1-on-1 mode.
 
-### CSStats Files
+No server, package installation, build command, or internet connection is required.
 
-This is the original method:
+## Project structure
 
-1. Sign in to CSStats normally.
-2. Open each profile’s Matches tab with matching filters.
-3. Save each page as HTML.
-4. Select all exports in **CSStats Files** and build the matrix.
+- `index.html` — page structure and accessible interface markup.
+- `styles.css` — all layout, colors, tables, tabs, and chart styling.
+- `js/config.js` — scoring weights, thresholds, filter definitions, and shrinkage settings.
+- `js/chart.js` — scatterplot rendering and quadrant labels.
+- `js/combinations.js` — include/exclude lineup filtering, combination summaries, match tables, and CSV export.
+- `js/app.js` — file loading, CSStats parsing, pair analysis, UI rendering, downloads, and event handling.
 
-The app reads those files locally. It does not log into, scrape, or send requests to CSStats.
+## Combination rules
 
-### FACEIT API (test version)
+Each loaded player can be set to **Include**, **Exclude**, or **Ignore**. Choose between one and five Included players. Any number of loaded players may be Excluded, which allows a single player’s matches to be filtered against an entire friend group.
 
-This method loads FACEIT-only matches directly from FACEIT’s official Data API:
+The Included players define a fixed baseline. For every Included player, the performance table compares matches where every Included player is together and all Excluded players are absent against matches where every Included and every Excluded player is together. When Included plus Excluded exceeds five, the complete “With excluded” lineup is impossible and only the “Without excluded” group is calculated. Matches containing only some of the Excluded players are omitted from both groups.
 
-1. Create a FACEIT app and a client-side API key in FACEIT App Studio.
-2. Restrict the key to the GitHub Pages domain when configuring it.
-3. Open the **FACEIT API** source tab.
-4. Paste the key, select a date range, and enter at least two players—one nickname, Steam64 ID, or FACEIT profile URL per line.
-5. Click **Load from FACEIT**.
+When five players are Included, they already fill the team. Excluded selections are redundant in that case, so the app skips processing the Excluded match histories. The app never substitutes unrelated matches from an individual player’s full history.
 
-The key is sent only to FACEIT, kept in `sessionStorage` for the current browser session, and is never stored in this repository. The app requests players sequentially rather than launching a burst of parallel requests.
+Within each player’s two comparison rows, better performance values are green and worse values are red. Average deaths is scored in reverse, so fewer deaths is better. Equal values and comparisons without matches remain neutral.
 
-The adapter uses:
+Because the tool is intended for teammates, match count, record, and win rate are treated as shared lineup outcomes and use the first Included player’s result as the common team perspective. K/D, kills, deaths, assists, headshots, ADR, and rating remain player-specific.
 
-- `GET /players`
-- `GET /players/{player_id}/history`
-- `GET /players/{player_id}/games/cs2/stats`
+To recreate the old one-on-one view for Player A versus Player B, **Include Player A** and **Exclude Player B**. To analyze Players A and B together with and without Player C, Include A and B and Exclude C.
 
-FACEIT match history includes the actual team rosters. The FACEIT source therefore distinguishes teammates from opponents exactly; the older CSStats-file source must infer shared matches from matching IDs.
+## Scoring configuration
 
-FACEIT returns game statistics as flexible name/value fields. This test version recognizes common names for kills, deaths, assists, headshot percentage, ADR, map, score, and rating. If a match has no recognized rating field, the app shows a warning and uses `0` for that match’s rating. This is intentionally visible so the first live tests can reveal any current FACEIT field-name differences.
-
-## Switching sources
-
-The source tabs keep separate cached analyses in the page. You can:
-
-1. Build the old CSStats result.
-2. Switch to FACEIT and load the same players/date range.
-3. Switch back and forth without reselecting the files or repeating the API calls.
-
-The badge above the results identifies which source is currently displayed.
-
-## Analysis modes
-
-### Group Matrix
-
-For each ordered player pair, the row player’s matches with the column teammate are compared with the row player’s other matches.
-
-Impact score:
+The current impact score uses:
 
 - 80% win-rate delta
 - 20% rating delta
-- K/D and ADR do not affect classification
-- Small samples shrink toward Exister
+- no ADR or K/D contribution
 
-The adjusted thresholds are:
+Edit `js/config.js` to change weights, metric scales, shrinkage, or Lifter/Dragger thresholds.
 
-- Lifter: at least `+0.25`
-- Dragger: at most `-0.25`
-- Exister: between those values
+## Data model
 
-### Combinations
-
-Each loaded player can be:
-
-- **Included** — must be on the team
-- **Excluded** — must not be on the team
-- **Ignored** — does not affect the condition
-
-Rules:
-
-- At least one and at most five players can be Included.
-- Any number of loaded players can be Excluded.
-- **Without excluded** means every Included player is together and none of the Excluded players is on that team.
-- **With excluded** means every Included and every Excluded player is together. This comparison appears only when that complete roster fits within five team slots.
-- If five players are Included, the team is already complete and exclusions are redundant.
-- Matches containing only some selected Excluded players are omitted from both comparison groups.
-
-Match count, record, and win rate are shared team outcomes. Kills, deaths, assists, headshot percentage, ADR, K/D, and rating remain player-specific.
-
-## Files
-
-- `index.html` — interface markup
-- `styles.css` — presentation and responsive layout
-- `js/config.js` — scoring weights and thresholds
-- `js/chart.js` — scatterplot rendering
-- `js/combinations.js` — lineup condition logic and CSV export
-- `js/app.js` — shared parsing, analysis, matrix, and source switching
-- `js/faceit.js` — FACEIT API client and response normalization
-
-## Interpretation
-
-These results describe association, not causation. Rank differences, opponent strength, maps, overlapping parties, role, and sample size can all influence the numbers.
+For each directional pair, the app compares the measured player’s matches with the other player against the measured player’s matches without them. Small samples are shrunk toward Exister. The results are associations, not proof of causation.
