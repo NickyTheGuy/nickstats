@@ -785,7 +785,42 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 
 .demo-team table {
+  min-width: 1020px;
+}
+
+.demo-team table.clutches-expanded,
+.demo-team table.multikills-expanded {
+  min-width: 1260px;
+}
+
+.demo-team table.clutches-expanded.multikills-expanded {
   min-width: 1480px;
+}
+
+.demo-toggle-heading {
+  padding: 0;
+  text-align: center;
+}
+
+.demo-column-toggle {
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  color: var(--blue);
+  background: transparent;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.demo-column-toggle:hover,
+.demo-column-toggle:focus-visible {
+  background: rgba(52, 124, 240, .1);
+  outline: none;
+}
+
+.demo-group-detail {
+  text-align: center;
 }
 
 .demo-player-name {
