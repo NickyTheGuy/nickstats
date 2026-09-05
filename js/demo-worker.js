@@ -1675,6 +1675,7 @@ function finishPlayer(row) {
     kills: row.kills,
     deaths: row.deaths,
     assists: row.assists,
+    headshots: row.headshots,
     damage: row.damage,
     headshot_percent: row.kills ? 100 * row.headshots / row.kills : 0,
     adr,
@@ -1789,9 +1790,11 @@ function finishPlayer(row) {
 
 function speedSummary(total, samples, maximum, percentTotal, percentSamples, percentMaximum) {
   return {
+    total,
     average: samples ? total / samples : null,
     maximum: samples ? maximum : null,
     samples,
+    percent_total: percentTotal,
     average_percent_of_max: percentSamples ? percentTotal / percentSamples : null,
     maximum_percent_of_max: percentSamples ? percentMaximum : null,
     percent_samples: percentSamples
