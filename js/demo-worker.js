@@ -488,14 +488,13 @@ async function parseDemo(fileName, buffer) {
       let isTradeKill = false;
       for (const prior of round.pendingDeaths) {
         if (prior.killer === victimId && prior.victimTeam === attackerTeam && tradeIsOpen(prior, attacker.userId, tick)) {
-          if (!round.traded.has(prior.victim)) {
-            round.traded.add(prior.victim);
-          }
           // A kill proves the trader could act even when the initial proximity
           // heuristic did not recognize the opportunity.
           recordTradeAttempt(prior, attacker, "kill");
           refreshTradeEngagement(prior, attacker.userId, tick);
           if (prior.capableTraders.has(attacker.userId)) {
+            // KAST uses the same qualified trade success as Trade K-D.
+            round.traded.add(prior.victim);
             isTradeKill = true;
             const tradedVictim = stats.get(prior.victim);
             if (tradedVictim && !prior.tradeRecorded) {
