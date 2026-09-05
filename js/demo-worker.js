@@ -1,6 +1,8 @@
 "use strict";
 
 const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
+const TRADE_WINDOW_SECONDS = 5;
+const TRADE_PROXIMITY_UNITS = 750;
 let libraryError = null;
 
 try {
@@ -44,7 +46,7 @@ async function parseDemo(fileName, buffer) {
   } = self.deademCs2;
 
   const parser = new Parser(new ParserConfiguration({
-    entityClasses: ["CCSTeam", "CCSPlayerController"],
+    entityClasses: ["CCSTeam", "CCSPlayerController", "CCSPlayerPawn"],
     messagePacketTypes: [
       MessagePacketType.SVC_SERVER_INFO,
       MessagePacketType.SVC_PACKET_ENTITIES,
@@ -106,6 +108,14 @@ async function parseDemo(fileName, buffer) {
           tradeRounds: 0,
           tradeKills: 0,
           tradedDeaths: 0,
+          tradeOpportunities: 0,
+          tradeAttempts: 0,
+          tradeSuccesses: 0,
+          tradeableDeaths: 0,
+          tradedTradeableDeaths: 0,
+          tradedBy: new Map(),
+          damageAssistedKills: 0,
+          flashAssistedKills: 0,
           enemiesFlashed: 0,
           flashAssists: 0,
           heDamage: 0,
@@ -203,6 +213,14 @@ async function parseDemo(fileName, buffer) {
       row.tradeRounds = 0;
       row.tradeKills = 0;
       row.tradedDeaths = 0;
+      row.tradeOpportunities = 0;
+      row.tradeAttempts = 0;
+      row.tradeSuccesses = 0;
+      row.tradeableDeaths = 0;
+      row.tradedTradeableDeaths = 0;
+      row.tradedBy = new Map();
+      row.damageAssistedKills = 0;
+      row.flashAssistedKills = 0;
       row.enemiesFlashed = 0;
       row.flashAssists = 0;
       row.heDamage = 0;
@@ -294,6 +312,40 @@ async function parseDemo(fileName, buffer) {
     return best;
   }
 
+  function nearbyLivingTeammates(victimId, victimTeam) {
+    if (victimTeam !== 2 && victimTeam !== 3) return new Set();
+    let demo;
+    try {
+      demo = parser.getDemo();
+    } catch {
+      return new Set();
+    }
+    const positions = new Map();
+    const byName = new Map();
+    for (const row of new Set(stats.values())) byName.set(normalizeName(row.name), row);
+    for (const pawn of demo.getEntitiesByClassNameIterator("CCSPlayerPawn")) {
+      const controller = demo.getEntityByHandle(pawn.getField("m_hController"));
+      if (!controller) continue;
+      const row = byName.get(normalizeName(controller.getField("m_iszPlayerName")));
+      const position = pawnPosition(pawn);
+      if (row && position) positions.set(row.userId, position);
+    }
+    const victimRow = stats.get(victimId);
+    const victimPosition = victimRow ? positions.get(victimRow.userId) : null;
+    if (!victimPosition) return new Set();
+    const nearby = new Set();
+    for (const row of new Set(stats.values())) {
+      const rowTeam = [...row.userIds].map(userId => teamNow.get(userId)).find(team => team === 2 || team === 3);
+      if (row === victimRow || rowTeam !== victimTeam) continue;
+      const died = [...row.userIds].some(userId => round.deaths.has(userId));
+      const position = positions.get(row.userId);
+      if (!died && position && distance(position, victimPosition) <= TRADE_PROXIMITY_UNITS) {
+        nearby.add(row.userId);
+      }
+    }
+    return nearby;
+  }
+
   function handleDeath(event, tick) {
     refreshControllerTeams();
     const attackerId = integer(event.attacker);
@@ -312,9 +364,11 @@ async function parseDemo(fileName, buffer) {
     if (victimId !== null) round.participants.add(victimId);
     if (assisterId !== null) round.participants.add(assisterId);
 
+    const nearbyTraders = enemyKill ? nearbyLivingTeammates(victimId, victimTeam) : new Set();
     if (victim) {
       victim.deaths += 1;
       round.deaths.add(victimId);
+      if (nearbyTraders.size) victim.tradeableDeaths += 1;
     }
 
     if (enemyKill) {
@@ -331,7 +385,7 @@ async function parseDemo(fileName, buffer) {
         round.openingRecorded = true;
       }
 
-      const tradeWindow = Math.max(1, Math.round(5 / tickInterval));
+      const tradeWindow = Math.max(1, Math.round(TRADE_WINDOW_SECONDS / tickInterval));
       let isTradeKill = false;
       for (const prior of round.pendingDeaths) {
         if (prior.killer === victimId && prior.victimTeam === attackerTeam && tick - prior.tick <= tradeWindow) {
@@ -339,7 +393,15 @@ async function parseDemo(fileName, buffer) {
             round.traded.add(prior.victim);
             isTradeKill = true;
             const tradedVictim = stats.get(prior.victim);
-            if (tradedVictim) tradedVictim.tradedDeaths += 1;
+            if (tradedVictim) {
+              tradedVictim.tradedDeaths += 1;
+              tradedVictim.tradedBy.set(attacker.name, (tradedVictim.tradedBy.get(attacker.name) || 0) + 1);
+              if (prior.capableTraders.has(attacker.userId)) tradedVictim.tradedTradeableDeaths += 1;
+            }
+          }
+          if (prior.capableTraders.has(attacker.userId) && !prior.successfulTraders.has(attacker.userId)) {
+            prior.successfulTraders.add(attacker.userId);
+            attacker.tradeSuccesses += 1;
           }
         }
       }
@@ -348,8 +410,15 @@ async function parseDemo(fileName, buffer) {
         victim: victimId,
         killer: attackerId,
         victimTeam,
-        tick
+        tick,
+        capableTraders: nearbyTraders,
+        attemptedTraders: new Set(),
+        successfulTraders: new Set()
       });
+      for (const traderId of nearbyTraders) {
+        const trader = stats.get(traderId);
+        if (trader) trader.tradeOpportunities += 1;
+      }
       round.pendingDeaths = round.pendingDeaths.filter(item => tick - item.tick <= tradeWindow);
     }
 
@@ -358,7 +427,12 @@ async function parseDemo(fileName, buffer) {
       if (assister && assisterId !== attackerId) {
         assister.assists += 1;
         round.assists.add(assisterId);
-        if (event.assistedflash) assister.flashAssists += 1;
+        if (event.assistedflash) {
+          assister.flashAssists += 1;
+          attacker.flashAssistedKills += 1;
+        } else {
+          attacker.damageAssistedKills += 1;
+        }
       }
     }
 
@@ -402,7 +476,7 @@ async function parseDemo(fileName, buffer) {
     }
   }
 
-  function handleDamage(event) {
+  function handleDamage(event, tick) {
     const attackerId = integer(event.attacker);
     const victimId = integer(event.userid);
     if (attackerId === null || victimId === null || attackerId === victimId) return;
@@ -416,6 +490,15 @@ async function parseDemo(fileName, buffer) {
         (victimTeam !== 2 && victimTeam !== 3) || attackerTeam === victimTeam) return;
     const damage = Math.max(0, number(event.dmg_health));
     row.damage += damage;
+    if (damage > 0) {
+      const tradeWindow = Math.max(1, Math.round(TRADE_WINDOW_SECONDS / tickInterval));
+      for (const prior of round.pendingDeaths) {
+        if (prior.killer !== victimId || tick - prior.tick > tradeWindow ||
+            !prior.capableTraders.has(row.userId) || prior.attemptedTraders.has(row.userId)) continue;
+        prior.attemptedTraders.add(row.userId);
+        row.tradeAttempts += 1;
+      }
+    }
     const weapon = String(event.weapon || "").toLocaleLowerCase();
     if (weapon === "hegrenade") row.heDamage += damage;
     if (weapon === "inferno" || weapon === "molotov" || weapon === "incgrenade") row.fireDamage += damage;
@@ -522,7 +605,7 @@ async function parseDemo(fileName, buffer) {
       case "player_hurt":
         if (!round.live) break;
         round.hasActivity = true;
-        handleDamage(gameEvent);
+        handleDamage(gameEvent, demoPacket.tick);
         break;
       case "player_blind":
         if (!round.live) break;
@@ -624,6 +707,13 @@ async function parseDemo(fileName, buffer) {
     source_file: fileName,
     map: mapName,
     rounds: completedRounds,
+    trade_definition: {
+      window_seconds: TRADE_WINDOW_SECONDS,
+      proximity_units: TRADE_PROXIMITY_UNITS,
+      opportunity: "Living teammate within the proximity radius when a teammate dies",
+      attempt: "An eligible teammate damages the killer during the trade window",
+      success: "An eligible teammate kills the killer during the trade window"
+    },
     player_count: activePlayers.length,
     teams
   };
@@ -692,6 +782,20 @@ function finishPlayer(row) {
     },
     trade_kills: row.tradeKills,
     traded_deaths: row.tradedDeaths,
+    trade_opportunities: row.tradeOpportunities,
+    trade_attempts: row.tradeAttempts,
+    trade_successes: row.tradeSuccesses,
+    trade_attempt_percent: row.tradeOpportunities ? 100 * row.tradeAttempts / row.tradeOpportunities : 0,
+    trade_success_percent: row.tradeOpportunities ? 100 * row.tradeSuccesses / row.tradeOpportunities : 0,
+    tradeable_deaths: row.tradeableDeaths,
+    traded_tradeable_deaths: row.tradedTradeableDeaths,
+    traded_death_percent: row.tradeableDeaths ? 100 * row.tradedTradeableDeaths / row.tradeableDeaths : 0,
+    traded_by: Object.fromEntries([...row.tradedBy].sort(([a], [b]) => a.localeCompare(b))),
+    assisted_kills: {
+      damage: row.damageAssistedKills,
+      flash: row.flashAssistedKills,
+      total: row.damageAssistedKills + row.flashAssistedKills
+    },
     enemies_flashed: row.enemiesFlashed,
     flash_assists: row.flashAssists,
     grenade_damage: {
@@ -706,6 +810,26 @@ function finishPlayer(row) {
     clutch_wins: row.clutchWins,
     rating: Math.max(0, rating)
   };
+}
+
+function pawnPosition(pawn) {
+  const cellX = numberOrNull(pawn.getField("CBodyComponent.m_cellX"));
+  const cellY = numberOrNull(pawn.getField("CBodyComponent.m_cellY"));
+  const cellZ = numberOrNull(pawn.getField("CBodyComponent.m_cellZ"));
+  const vector = pawn.getField("CBodyComponent.m_vecOrigin");
+  const vecX = numberOrNull(pawn.getField("CBodyComponent.m_vecX")) ?? numberOrNull(vector?.[0]);
+  const vecY = numberOrNull(pawn.getField("CBodyComponent.m_vecY")) ?? numberOrNull(vector?.[1]);
+  const vecZ = numberOrNull(pawn.getField("CBodyComponent.m_vecZ")) ?? numberOrNull(vector?.[2]) ?? 0;
+  if (cellX === null || cellY === null || vecX === null || vecY === null) return null;
+  return {
+    x: cellX * 128 + vecX,
+    y: cellY * 128 + vecY,
+    z: (cellZ ?? 0) * 128 + vecZ
+  };
+}
+
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 }
 
 function readEndState(demo) {
