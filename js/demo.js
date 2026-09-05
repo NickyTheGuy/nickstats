@@ -35,15 +35,15 @@
     ] },
     blindContext: { id: "blindContext", modes: [
       { label: "K", value: player => player.kill_context?.blinded_enemy_kills ?? 0 },
-      { label: "D", value: player => player.kill_context?.deaths_while_blind ?? 0 }
+      { label: "D", value: player => player.kill_context?.deaths_while_blind ?? 0, direction: "asc" }
     ] },
     wallContext: { id: "wallContext", modes: [
       { label: "K", value: player => player.kill_context?.wallbang_kills ?? 0 },
-      { label: "D", value: player => player.kill_context?.wallbang_deaths ?? 0 }
+      { label: "D", value: player => player.kill_context?.wallbang_deaths ?? 0, direction: "asc" }
     ] },
     smokeContext: { id: "smokeContext", modes: [
       { label: "K", value: player => player.kill_context?.smoke_kills ?? 0 },
-      { label: "D", value: player => player.kill_context?.smoke_deaths ?? 0 }
+      { label: "D", value: player => player.kill_context?.smoke_deaths ?? 0, direction: "asc" }
     ] },
     speedContext: { id: "speedContext", modes: [
       { label: "K", value: player => player.kill_context?.speed_on_kill?.average ?? -1 },
@@ -51,11 +51,11 @@
     ] },
     killContextSummary: { id: "killContextSummary", modes: [
       { label: "Blind K", value: player => player.kill_context?.blinded_enemy_kills ?? 0 },
-      { label: "Blind D", value: player => player.kill_context?.deaths_while_blind ?? 0 },
+      { label: "Blind D", value: player => player.kill_context?.deaths_while_blind ?? 0, direction: "asc" },
       { label: "Wall K", value: player => player.kill_context?.wallbang_kills ?? 0 },
-      { label: "Wall D", value: player => player.kill_context?.wallbang_deaths ?? 0 },
+      { label: "Wall D", value: player => player.kill_context?.wallbang_deaths ?? 0, direction: "asc" },
       { label: "Smoke K", value: player => player.kill_context?.smoke_kills ?? 0 },
-      { label: "Smoke D", value: player => player.kill_context?.smoke_deaths ?? 0 },
+      { label: "Smoke D", value: player => player.kill_context?.smoke_deaths ?? 0, direction: "asc" },
       { label: "Speed K", value: player => player.kill_context?.speed_on_kill?.average ?? -1 },
       { label: "Speed D", value: player => player.kill_context?.killer_speed_on_death?.average ?? -1 }
     ] },
