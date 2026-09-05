@@ -794,11 +794,11 @@ function finishPlayer(row) {
     trade_attempts: row.tradeAttempts,
     trade_successes: row.tradeSuccesses,
     trade_attempt_percent: row.tradeOpportunities ? 100 * row.tradeAttempts / row.tradeOpportunities : 0,
-    trade_success_percent: row.tradeOpportunities ? 100 * row.tradeSuccesses / row.tradeOpportunities : 0,
+    trade_success_percent: row.tradeAttempts ? 100 * row.tradeSuccesses / row.tradeAttempts : 0,
     tradeable_deaths: row.tradeableDeaths,
     attempted_tradeable_deaths: row.attemptedTradeableDeaths,
     traded_tradeable_deaths: row.tradedTradeableDeaths,
-    traded_death_percent: row.tradeableDeaths ? 100 * row.tradedTradeableDeaths / row.tradeableDeaths : 0,
+    traded_death_percent: row.attemptedTradeableDeaths ? 100 * row.tradedTradeableDeaths / row.attemptedTradeableDeaths : 0,
     traded_by: Object.fromEntries([...row.tradedBy].sort(([a], [b]) => a.localeCompare(b))),
     assisted_kills: {
       damage: row.damageAssistedKills,
