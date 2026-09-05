@@ -23,6 +23,20 @@ const WEAPON_MAX_SPEED = Object.freeze({
   sg556: [210, 150], ssg08: [230, 230], taser: [220, 220], tec9: [240, 240],
   ump45: [230, 230], usp_silencer: [240, 240], xm1014: [215, 215]
 });
+const ADDITIVE_STAT_FIELDS = [
+  "kills", "deaths", "assists", "headshots", "damage", "kastRounds", "killRounds",
+  "assistRounds", "survivalRounds", "tradeRounds", "tradeKills", "tradedDeaths",
+  "tradeOpportunities", "tradeAttempts", "tradeSuccesses", "tradeableDeaths",
+  "attemptedTradeableDeaths", "tradedTradeableDeaths", "damageAssistedKills",
+  "flashAssistedKills", "enemiesFlashed", "flashAssists", "heDamage", "fireDamage",
+  "blindedEnemyKills", "deathsWhileBlind", "killsWhileBlind", "deathsToBlindKiller",
+  "wallbangKills", "wallbangDeaths", "killPenetrations", "deathPenetrations",
+  "smokeKills", "smokeDeaths", "airborneKills", "deathsToAirborneKiller",
+  "speedOnKillTotal", "speedOnKillSamples", "speedOnKillPercentTotal",
+  "speedOnKillPercentSamples", "killerSpeedTotal", "killerSpeedSamples",
+  "killerSpeedPercentTotal", "killerSpeedPercentSamples", "rounds", "openingKills",
+  "openingDeaths", "multikillRounds"
+];
 let libraryError = null;
 
 try {
@@ -120,6 +134,7 @@ async function parseDemo(fileName, buffer) {
           steamId,
           isBot: Boolean(values.fakeplayer) || !steamId,
           observedOpponents: new Set(),
+          sideStats: new Map(),
           weaponStats: new Map(),
           duelStats: new Map(),
           kills: 0,
@@ -173,6 +188,9 @@ async function parseDemo(fileName, buffer) {
           killerSpeedPercentTotal: 0,
           killerSpeedPercentSamples: 0,
           maxKillerSpeedPercent: 0,
+          speedOnKillValues: [],
+          killerSpeedValues: [],
+          roundWins: 0,
           rounds: 0,
           openingKills: 0,
           openingDeaths: 0,
@@ -259,6 +277,7 @@ async function parseDemo(fileName, buffer) {
     derivedSpeeds.clear();
     for (const row of stats.values()) {
       row.kills = 0;
+      row.sideStats = new Map();
       row.weaponStats = new Map();
       row.duelStats = new Map();
       row.deaths = 0;
@@ -311,12 +330,154 @@ async function parseDemo(fileName, buffer) {
       row.killerSpeedPercentTotal = 0;
       row.killerSpeedPercentSamples = 0;
       row.maxKillerSpeedPercent = 0;
+      row.speedOnKillValues = [];
+      row.killerSpeedValues = [];
+      row.roundWins = 0;
       row.rounds = 0;
       row.openingKills = 0;
       row.openingDeaths = 0;
       row.multikillRounds = 0;
       row.killRoundsByCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       row.clutchWins = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    }
+  }
+
+  function emptySideRow(row) {
+    const side = {
+      userId: row.userId,
+      userIds: new Set(row.userIds),
+      name: row.name,
+      steamId: row.steamId,
+      isBot: row.isBot,
+      weaponStats: new Map(),
+      duelStats: new Map(),
+      tradedBy: new Map(),
+      tradeProximityDistances: [],
+      provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0 },
+      killRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      maxSpeedOnKill: 0,
+      maxSpeedOnKillPercent: 0,
+      maxKillerSpeed: 0,
+      maxKillerSpeedPercent: 0,
+      roundWins: 0
+    };
+    for (const field of ADDITIVE_STAT_FIELDS) side[field] = 0;
+    return side;
+  }
+
+  function ensureSideRow(row, side) {
+    if (side !== 2 && side !== 3) return null;
+    let result = row.sideStats.get(side);
+    if (!result) {
+      result = emptySideRow(row);
+      row.sideStats.set(side, result);
+    }
+    result.name = row.name;
+    result.steamId = row.steamId;
+    result.isBot = row.isBot;
+    result.userIds = new Set(row.userIds);
+    return result;
+  }
+
+  function playerStatsSnapshot(row) {
+    const snapshot = {
+      scalar: {},
+      tradedBy: new Map(row.tradedBy),
+      proximityLength: row.tradeProximityDistances.length,
+      proven: { ...row.provenTradeOpportunities },
+      killRounds: { ...row.killRoundsByCount },
+      clutches: { ...row.clutchWins },
+      weapons: new Map([...row.weaponStats].map(([key, value]) => [key, { ...value }])),
+      duels: new Map([...row.duelStats].map(([key, value]) => [key, { ...value }])),
+      speedValueLength: row.speedOnKillValues.length,
+      killerSpeedValueLength: row.killerSpeedValues.length
+    };
+    for (const field of ADDITIVE_STAT_FIELDS) snapshot.scalar[field] = row[field] || 0;
+    return snapshot;
+  }
+
+  function rowSide(row) {
+    for (const userId of row.userIds) {
+      const side = teamNow.get(userId);
+      if (side === 2 || side === 3) return side;
+    }
+    return null;
+  }
+
+  function beginRoundSideTracking() {
+    if (round.sideTrackingStarted) return;
+    refreshUserInfo();
+    refreshControllerTeams();
+    for (const row of new Set(stats.values())) {
+      round.statBaselines.set(row, playerStatsSnapshot(row));
+      const side = rowSide(row);
+      if (side) round.sideAssignments.set(row, side);
+    }
+    round.sideTrackingStarted = true;
+  }
+
+  function refreshRoundSideAssignments() {
+    beginRoundSideTracking();
+    refreshControllerTeams();
+    for (const row of new Set(stats.values())) {
+      if (!round.statBaselines.has(row)) round.statBaselines.set(row, playerStatsSnapshot(row));
+      const side = rowSide(row);
+      if (side) round.sideAssignments.set(row, side);
+    }
+  }
+
+  function addMapDeltas(target, after, before, fields) {
+    for (const [key, value] of after) {
+      const old = before.get(key) || {};
+      let destination = target.get(key);
+      if (!destination) {
+        destination = fields.includes("weapon")
+          ? { weapon: value.weapon, kills: 0, shots: 0, damage: 0, purchases: 0 }
+          : Object.fromEntries(fields.map(field => [field, 0]));
+        target.set(key, destination);
+      }
+      for (const field of fields) {
+        if (field === "weapon") continue;
+        destination[field] += (value[field] || 0) - (old[field] || 0);
+      }
+    }
+  }
+
+  function allocateRoundToSides(participants, winningSide) {
+    refreshRoundSideAssignments();
+    for (const row of new Set(stats.values())) {
+      const side = round.sideAssignments.get(row);
+      const before = round.statBaselines.get(row);
+      if (!before || (side !== 2 && side !== 3)) continue;
+      const target = ensureSideRow(row, side);
+      const after = playerStatsSnapshot(row);
+      for (const field of ADDITIVE_STAT_FIELDS) {
+        target[field] += after.scalar[field] - before.scalar[field];
+      }
+      for (const [name, count] of after.tradedBy) {
+        const difference = count - (before.tradedBy.get(name) || 0);
+        if (difference) target.tradedBy.set(name, (target.tradedBy.get(name) || 0) + difference);
+      }
+      target.tradeProximityDistances.push(...row.tradeProximityDistances.slice(before.proximityLength));
+      for (const key of Object.keys(target.provenTradeOpportunities)) {
+        target.provenTradeOpportunities[key] += (after.proven[key] || 0) - (before.proven[key] || 0);
+      }
+      for (const key of [1, 2, 3, 4, 5]) {
+        target.killRoundsByCount[key] += (after.killRounds[key] || 0) - (before.killRounds[key] || 0);
+        target.clutchWins[key] += (after.clutches[key] || 0) - (before.clutches[key] || 0);
+      }
+      addMapDeltas(target.weaponStats, after.weapons, before.weapons, ["weapon", "kills", "shots", "damage", "purchases"]);
+      addMapDeltas(target.duelStats, after.duels, before.duels, ["kills", "deaths"]);
+      for (const value of row.speedOnKillValues.slice(before.speedValueLength)) {
+        target.maxSpeedOnKill = Math.max(target.maxSpeedOnKill, value.speed);
+        if (value.percent !== null) target.maxSpeedOnKillPercent = Math.max(target.maxSpeedOnKillPercent, value.percent);
+      }
+      for (const value of row.killerSpeedValues.slice(before.killerSpeedValueLength)) {
+        target.maxKillerSpeed = Math.max(target.maxKillerSpeed, value.speed);
+        if (value.percent !== null) target.maxKillerSpeedPercent = Math.max(target.maxKillerSpeedPercent, value.percent);
+      }
+      if (participants.has(row) && side === winningSide) target.roundWins += 1;
     }
   }
 
@@ -357,6 +518,8 @@ async function parseDemo(fileName, buffer) {
         candidate.row.clutchWins[candidate.opponents] += 1;
       }
     }
+
+    allocateRoundToSides(participants, winningSide);
 
     const stableWinner = dominantOriginalTeam(winningSide);
     if (stableWinner !== null) {
@@ -655,14 +818,16 @@ async function parseDemo(fileName, buffer) {
       }
       if (attackerMotion) {
         const attackerSpeed = attackerMotion.speed;
+        const percent = attackerMotion.maxSpeed > 0 ? 100 * attackerSpeed / attackerMotion.maxSpeed : null;
+        attacker.speedOnKillValues.push({ speed: attackerSpeed, percent });
+        victim.killerSpeedValues.push({ speed: attackerSpeed, percent });
         attacker.speedOnKillTotal += attackerSpeed;
         attacker.speedOnKillSamples += 1;
         attacker.maxSpeedOnKill = Math.max(attacker.maxSpeedOnKill, attackerSpeed);
         victim.killerSpeedTotal += attackerSpeed;
         victim.killerSpeedSamples += 1;
         victim.maxKillerSpeed = Math.max(victim.maxKillerSpeed, attackerSpeed);
-        if (attackerMotion.maxSpeed > 0) {
-          const percent = 100 * attackerSpeed / attackerMotion.maxSpeed;
+        if (percent !== null) {
           attacker.speedOnKillPercentTotal += percent;
           attacker.speedOnKillPercentSamples += 1;
           attacker.maxSpeedOnKillPercent = Math.max(attacker.maxSpeedOnKillPercent, percent);
@@ -957,6 +1122,7 @@ async function parseDemo(fileName, buffer) {
         // Both events can occur for one round, and a delayed official-end event
         // can arrive between them. Do not throw away a round with real activity.
         if (round.finished) round = freshRound();
+        beginRoundSideTracking();
         break;
       case "round_end":
         finishRound(integer(gameEvent.winner));
@@ -968,6 +1134,7 @@ async function parseDemo(fileName, buffer) {
         // a player reconnects) and snapshot the roster that actually goes live.
         round.participants.clear();
         captureLiveParticipants();
+        refreshRoundSideAssignments();
         break;
       case "round_officially_ended":
         finishRound(inferWinnerSide(), true);
@@ -1104,12 +1271,23 @@ async function parseDemo(fileName, buffer) {
     .sort(([a], [b]) => String(a).localeCompare(String(b)))
     .map(([teamId, players], index) => {
       const official = officialTeamData.get(teamId);
+      const outputPlayers = players.map(row => {
+        const output = finishPlayer(row);
+        output.by_side = {
+          T: finishPlayer(ensureSideRow(row, 2)),
+          CT: finishPlayer(ensureSideRow(row, 3))
+        };
+        return output;
+      });
       return {
         id: String(teamId),
         name: official?.name || `Team ${index + 1}`,
         score: official?.score ?? (teamScores.has(teamId) ? teamScores.get(teamId) : null),
-        players: players
-          .map(row => finishPlayer(row))
+        side_scores: {
+          T: Math.max(0, ...outputPlayers.map(player => player.by_side.T.round_wins || 0)),
+          CT: Math.max(0, ...outputPlayers.map(player => player.by_side.CT.round_wins || 0))
+        },
+        players: outputPlayers
           .sort((a, b) => Number(a.is_bot) - Number(b.is_bot) || b.rating - a.rating || b.kills - a.kills)
       };
     });
@@ -1125,6 +1303,11 @@ async function parseDemo(fileName, buffer) {
     source_file: fileName,
     map: mapName,
     rounds: completedRounds,
+    side_definition: {
+      T: 2,
+      CT: 3,
+      method: "Each completed round is attributed from the player's live team assignment; regulation and overtime side swaps are handled as recorded in the demo"
+    },
     speed_definition: {
       units: "Source 2 game units per second",
       component: "horizontal",
@@ -1178,6 +1361,9 @@ function freshRound() {
     killCounts: new Map(),
     pendingDeaths: [],
     participants: new Set(),
+    statBaselines: new Map(),
+    sideAssignments: new Map(),
+    sideTrackingStarted: false,
     openingRecorded: false,
     bombPlanted: false,
     winnerSide: null,
@@ -1189,15 +1375,16 @@ function freshRound() {
 }
 
 function finishPlayer(row) {
-  const rounds = Math.max(1, row.rounds);
+  const roundsPlayed = row.rounds || 0;
+  const rounds = Math.max(1, roundsPlayed);
   const kpr = row.kills / rounds;
   const dpr = row.deaths / rounds;
   const apr = row.assists / rounds;
   const adr = row.damage / rounds;
   const kast = 100 * row.kastRounds / rounds;
   const impact = 2.13 * kpr + 0.42 * apr - 0.41;
-  const rating = 0.0073 * kast + 0.3591 * kpr - 0.5329 * dpr +
-    0.2372 * impact + 0.0032 * adr + 0.1587;
+  const rating = roundsPlayed ? 0.0073 * kast + 0.3591 * kpr - 0.5329 * dpr +
+    0.2372 * impact + 0.0032 * adr + 0.1587 : 0;
 
   return {
     name: row.name,
@@ -1210,7 +1397,8 @@ function finishPlayer(row) {
     adr,
     kast,
     kast_rounds: row.kastRounds,
-    rounds_played: rounds,
+    rounds_played: roundsPlayed,
+    round_wins: row.roundWins || 0,
     kast_components: {
       kill_rounds: row.killRounds,
       assist_rounds: row.assistRounds,
