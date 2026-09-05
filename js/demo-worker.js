@@ -14,6 +14,9 @@ const NON_WEAPON_SPEED_KILLS = new Set([
   "hegrenade", "inferno", "molotov", "incgrenade", "flashbang",
   "smokegrenade", "decoy", "tagrenade", "c4", "planted_c4", "world"
 ]);
+const PASSIVE_USAGE_EXCLUDED_WEAPONS = new Set([
+  "glock", "hkp2000", "usp_silencer", "knife"
+]);
 const WEAPON_MAX_SPEED = Object.freeze({
   ak47: [215, 215], aug: [220, 150], awp: [200, 100], bizon: [240, 240],
   cz75a: [240, 240], deagle: [230, 230], elite: [240, 240], famas: [220, 220],
@@ -1147,6 +1150,7 @@ async function parseDemo(fileName, buffer) {
     const row = stats.get(userId);
     if (!row) return;
     const weapon = itemEventWeapon(ctPistolChoice, row, event);
+    if (PASSIVE_USAGE_EXCLUDED_WEAPONS.has(weaponStatId(weapon))) return;
     noteWeaponUse(row, weapon);
   }
 
@@ -1452,7 +1456,8 @@ async function parseDemo(fileName, buffer) {
     weapon_usage_definition: {
       method: "Distinct completed rounds in which the player picked up, equipped, fired, damaged with, or killed with the weapon",
       counting: "Each player/weapon combination counts at most once per round",
-      scope: "Includes carried weapons and mid-round pickups; excludes world and C4 events"
+      scope: "Includes carried weapons and mid-round pickups; excludes world and C4 events",
+      default_equipment: "Glock, USP-S, P2000, and knife ignore passive pickup/equip events and count only rounds with firing, damage, or a kill"
     },
     speed_definition: {
       units: "Source 2 game units per second",
