@@ -55,7 +55,7 @@ Trade calibration traces remain available while a demo is being parsed but are d
 
 ## Compact match JSON
 
-**Download compact JSON** writes the versioned `nickstats.match/2` storage schema. It is minified and normalized for a future match database rather than being a dump of the browser's display object. Player identity is stored once, while duel and trade matrix entries reference the match-level player index.
+**Download compact JSON** writes the versioned `nickstats.match/3` storage schema. It is minified and normalized for a future match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship entries reference the match-level player index.
 
 Each player's `all`, `T`, and `CT` records contain only base counters. Fixed arrays use these layouts:
 
@@ -64,17 +64,18 @@ Each player's `all`, `T`, and `CT` records contain only base counters. Fixed arr
 - `opening`: kills, deaths
 - `trade_k`: opportunities, attempts, successes
 - `trade_d`: tradeable deaths, attempted tradeable deaths, traded deaths
-- `assisted`: damage-assisted kills, flash-assisted kills
-- `utility`: enemies flashed, flash assists, HE damage, fire damage
+- `utility`: enemies flashed, HE damage, fire damage
 - `clutches`: 1v1 through 1v5 wins
 - `kill_rounds`: 1K through 5K rounds
 - `weapons`: weapon, kills, shots, damage, rounds used
 - `duels`: opponent player index, kills, deaths
 - `trades`: teammate player index, opportunities, attempts, successes
+- `contexts`: victim player index, blinded victim, blind attacker, wallbang, penetration count, smoke, airborne, moving, still, running, unique unfair
+- `assisted_by`: assister player index, damage-assisted kills, flash-assisted kills
 
-`context` follows the paired order Blind, attacker-blind, Wall, penetrations, Smoke, Air, Moving, Still, Running, and Unfair; each pair is kills then deaths. `speed` stores raw total, sample count, maximum, percent-of-maximum total, percent sample count, and percent maximum for kills, followed by the same six values for deaths.
+`contexts` is stored only from killer to victim. Summing a player's rows reconstructs their kill-side context totals; transposing entries that point to that player reconstructs their mirrored death totals. `assisted_by` is stored from the player receiving the assisted kill to the assister. It can be summed for assisted-kill totals or transposed for assists supplied to teammates. This preserves everything needed for future context and assisted-kill matrices without duplicating both directions. `speed` stores raw total, sample count, maximum, percent-of-maximum total, percent sample count, and percent maximum for kills, followed by the same six values for deaths.
 
-ADR, KAST percentage, headshot percentage, rating, trade percentages, duel differential, assisted/utility totals, multikill totals, `traded_by`, and textual definition blocks are not stored because they can be reconstructed from these counters and the schema/build version. Match-level and per-player trade audits are also excluded. Runtime rendering still uses the full readable object, so compact storage does not change the visible scoreboard.
+ADR, KAST percentage, headshot percentage, rating, trade percentages, duel differential, assisted-kill totals, flash-assist totals, kill-context totals, utility totals, multikill totals, `traded_by`, and textual definition blocks are not stored because they can be reconstructed from these counters and the schema/build version. Match-level and per-player trade audits are also excluded. Runtime rendering still uses the full readable object, so compact storage does not change the visible scoreboard.
 
 The displayed preview rating uses the commonly published HLTV Rating 2.0 approximation:
 
