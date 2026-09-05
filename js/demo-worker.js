@@ -7,6 +7,7 @@ const TRADE_ENGAGEMENT_LULL_SECONDS = 2;
 const BULLET_PATH_TOLERANCE_UNITS = 96;
 const HE_MAX_DAMAGE_UNARMORED = 98;
 const HE_MAX_DAMAGE_ARMORED = 57;
+const RUNNING_ACCURACY_THRESHOLD_PERCENT = 34;
 const TRADE_AUDIT_RADII = [150, 200, 250, 300, 400, 500];
 const NON_WEAPON_SPEED_KILLS = new Set([
   "hegrenade", "inferno", "molotov", "incgrenade", "flashbang",
@@ -32,6 +33,7 @@ const ADDITIVE_STAT_FIELDS = [
   "blindedEnemyKills", "deathsWhileBlind", "killsWhileBlind", "deathsToBlindKiller",
   "wallbangKills", "wallbangDeaths", "killPenetrations", "deathPenetrations",
   "smokeKills", "smokeDeaths", "airborneKills", "deathsToAirborneKiller",
+  "runningKills", "deathsToRunningKiller", "unfairKills", "unfairDeaths",
   "speedOnKillTotal", "speedOnKillSamples", "speedOnKillPercentTotal",
   "speedOnKillPercentSamples", "killerSpeedTotal", "killerSpeedSamples",
   "killerSpeedPercentTotal", "killerSpeedPercentSamples", "rounds", "openingKills",
@@ -176,6 +178,10 @@ async function parseDemo(fileName, buffer) {
           smokeDeaths: 0,
           airborneKills: 0,
           deathsToAirborneKiller: 0,
+          runningKills: 0,
+          deathsToRunningKiller: 0,
+          unfairKills: 0,
+          unfairDeaths: 0,
           speedOnKillTotal: 0,
           speedOnKillSamples: 0,
           maxSpeedOnKill: 0,
@@ -318,6 +324,10 @@ async function parseDemo(fileName, buffer) {
       row.smokeDeaths = 0;
       row.airborneKills = 0;
       row.deathsToAirborneKiller = 0;
+      row.runningKills = 0;
+      row.deathsToRunningKiller = 0;
+      row.unfairKills = 0;
+      row.unfairDeaths = 0;
       row.speedOnKillTotal = 0;
       row.speedOnKillSamples = 0;
       row.maxSpeedOnKill = 0;
@@ -796,6 +806,7 @@ async function parseDemo(fileName, buffer) {
       const attackerInAir = Boolean(event.attackerinair);
       const speedEligible = !isNonWeaponSpeedKill(event.weapon);
       const attackerMotion = speedEligible ? currentPlayerMotion(attackerId, tick, event) : null;
+      let runningKill = false;
       if (victimWasBlind) {
         attacker.blindedEnemyKills += 1;
         victim.deathsWhileBlind += 1;
@@ -830,6 +841,7 @@ async function parseDemo(fileName, buffer) {
         victim.killerSpeedSamples += 1;
         victim.maxKillerSpeed = Math.max(victim.maxKillerSpeed, attackerSpeed);
         if (percent !== null) {
+          runningKill = percent > RUNNING_ACCURACY_THRESHOLD_PERCENT;
           attacker.speedOnKillPercentTotal += percent;
           attacker.speedOnKillPercentSamples += 1;
           attacker.maxSpeedOnKillPercent = Math.max(attacker.maxSpeedOnKillPercent, percent);
@@ -837,6 +849,15 @@ async function parseDemo(fileName, buffer) {
           victim.killerSpeedPercentSamples += 1;
           victim.maxKillerSpeedPercent = Math.max(victim.maxKillerSpeedPercent, percent);
         }
+      }
+      if (runningKill) {
+        attacker.runningKills += 1;
+        victim.deathsToRunningKiller += 1;
+      }
+      if (victimWasBlind || penetrations > 0 || throughSmoke || attackerInAir || runningKill) {
+        // The collapsed total is event-based, so overlapping contexts count once.
+        attacker.unfairKills += 1;
+        victim.unfairDeaths += 1;
       }
       round.kills.add(attackerId);
       round.killCounts.set(attackerId, (round.killCounts.get(attackerId) || 0) + 1);
@@ -1310,6 +1331,11 @@ async function parseDemo(fileName, buffer) {
       CT: 3,
       method: "Each completed round is attributed from the player's live team assignment; regulation and overtime side swaps are handled as recorded in the demo"
     },
+    kill_context_definition: {
+      running_threshold_percent_of_weapon_max: RUNNING_ACCURACY_THRESHOLD_PERCENT,
+      running: "Killer horizontal speed above 34% of the current weapon's maximum movement speed; non-weapon kills are excluded",
+      unfair: "Unique enemy kills or deaths involving a blinded victim, penetration, smoke, airborne killer, or running killer; overlapping contexts count once"
+    },
     speed_definition: {
       units: "Source 2 game units per second",
       component: "horizontal",
@@ -1452,6 +1478,10 @@ function finishPlayer(row) {
       smoke_deaths: row.smokeDeaths,
       airborne_kills: row.airborneKills,
       deaths_to_airborne_killer: row.deathsToAirborneKiller,
+      running_kills: row.runningKills,
+      deaths_to_running_killer: row.deathsToRunningKiller,
+      unfair_kills: row.unfairKills,
+      unfair_deaths: row.unfairDeaths,
       speed_on_kill: speedSummary(row.speedOnKillTotal, row.speedOnKillSamples, row.maxSpeedOnKill,
         row.speedOnKillPercentTotal, row.speedOnKillPercentSamples, row.maxSpeedOnKillPercent),
       killer_speed_on_death: speedSummary(row.killerSpeedTotal, row.killerSpeedSamples, row.maxKillerSpeed,
