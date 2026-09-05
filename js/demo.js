@@ -162,7 +162,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-16");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-17");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -574,6 +574,81 @@
     return section;
   }
 
+  function weaponName(id) {
+    const names = {
+      ak47: "AK-47", aug: "AUG", awp: "AWP", bizon: "PP-Bizon", cz75a: "CZ75-Auto",
+      deagle: "Desert Eagle", elite: "Dual Berettas", famas: "FAMAS", fiveseven: "Five-SeveN",
+      g3sg1: "G3SG1", galilar: "Galil AR", glock: "Glock-18", hkp2000: "P2000",
+      m249: "M249", m4a1: "M4A4", m4a1_silencer: "M4A1-S", mac10: "MAC-10",
+      mag7: "MAG-7", mp5sd: "MP5-SD", mp7: "MP7", mp9: "MP9", negev: "Negev",
+      nova: "Nova", p250: "P250", p90: "P90", revolver: "R8 Revolver", sawedoff: "Sawed-Off",
+      scar20: "SCAR-20", sg556: "SG 553", ssg08: "SSG 08", taser: "Zeus x27",
+      tec9: "Tec-9", ump45: "UMP-45", usp_silencer: "USP-S", xm1014: "XM1014",
+      hegrenade: "HE Grenade", flashbang: "Flashbang", smokegrenade: "Smoke Grenade",
+      decoy: "Decoy", fire: "Molotov / Incendiary", knife: "Knife"
+    };
+    return names[id] || String(id || "Unknown").replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase());
+  }
+
+  function renderWeaponPlayer(player) {
+    const details = document.createElement("details");
+    details.className = "demo-weapon-player";
+    const summary = document.createElement("summary");
+    const name = document.createElement("strong");
+    name.textContent = player.name || "Unknown player";
+    const totals = document.createElement("span");
+    const weapons = Array.isArray(player.weapon_stats) ? player.weapon_stats : [];
+    totals.textContent = `${weapons.reduce((sum, stat) => sum + (stat.kills || 0), 0)} kills · ${weapons.reduce((sum, stat) => sum + (stat.shots || 0), 0)} shots`;
+    summary.append(name, totals);
+    details.appendChild(summary);
+
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap";
+    const table = document.createElement("table");
+    table.className = "demo-weapon-table";
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    ["Weapon", "Kills", "Shots", "Damage", "Bought"].forEach(label => {
+      const th = document.createElement("th");
+      th.textContent = label;
+      headRow.appendChild(th);
+    });
+    head.appendChild(headRow);
+    const body = document.createElement("tbody");
+    weapons.forEach(stat => {
+      const row = document.createElement("tr");
+      cell(row, weaponName(stat.weapon));
+      cell(row, stat.kills || 0);
+      cell(row, stat.shots || 0);
+      cell(row, stat.damage || 0);
+      cell(row, stat.purchases || 0);
+      body.appendChild(row);
+    });
+    if (!weapons.length) {
+      const row = document.createElement("tr");
+      const empty = document.createElement("td");
+      empty.colSpan = 5;
+      empty.className = "empty";
+      empty.textContent = "No weapon events were recorded.";
+      row.appendChild(empty);
+      body.appendChild(row);
+    }
+    table.append(head, body);
+    wrap.appendChild(table);
+    details.appendChild(wrap);
+    return details;
+  }
+
+  function renderWeaponTeam(team) {
+    const section = document.createElement("section");
+    section.className = "demo-weapon-team";
+    const heading = document.createElement("h4");
+    heading.textContent = team.name || "Team";
+    section.appendChild(heading);
+    (team.players || []).forEach(player => section.appendChild(renderWeaponPlayer(player)));
+    return section;
+  }
+
   function render(result) {
     const teams = Array.isArray(result.teams) ? result.teams : [];
     const score = teams.length >= 2 && teams.every(team => Number.isFinite(team.score)) ? `${teams[0].score}–${teams[1].score}` : "Unknown";
@@ -593,6 +668,7 @@
         : team.score === highScore ? "winner" : "loser";
       return renderTeam(team, index, outcome);
     }));
+    $("demoWeapons").replaceChildren(...teams.map(renderWeaponTeam));
     $("demoResults").hidden = false;
   }
 
