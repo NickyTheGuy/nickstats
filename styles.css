@@ -782,6 +782,54 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .demo-team-score.score-winner { color: var(--green); }
 .demo-team-score.score-loser { color: var(--red); }
 
+.demo-weapon-section {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(8, 12, 19, .42);
+}
+
+.demo-weapon-heading {
+  padding: 15px 17px;
+  border-bottom: 1px solid var(--line);
+}
+
+.demo-weapon-heading h3,
+.demo-weapon-team h4 { margin: 0; }
+
+.demo-weapon-heading p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.demo-weapon-teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.demo-weapon-team { min-width: 0; padding: 15px; }
+.demo-weapon-team + .demo-weapon-team { border-top: 1px solid var(--line); }
+.demo-weapon-team h4 { margin-bottom: 9px; font-size: 15px; }
+
+.demo-weapon-player {
+  border-top: 1px solid rgba(238, 243, 251, .09);
+}
+
+.demo-weapon-player summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 3px;
+  cursor: pointer;
+}
+
+.demo-weapon-player summary span { color: var(--muted); font-size: 12px; }
+.demo-weapon-player .table-wrap { margin-bottom: 10px; }
+.demo-weapon-table { width: 100%; min-width: 400px; }
+.demo-weapon-table th, .demo-weapon-table td { padding: 8px 10px; text-align: center; }
+.demo-weapon-table th:first-child, .demo-weapon-table td:first-child { text-align: left; }
+
 .demo-team .table-wrap {
   border: 0;
   border-radius: 0;
@@ -936,6 +984,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   .demo-teams {
     grid-template-columns: 1fr;
   }
+
 }
 
 @media (max-width: 700px) {
