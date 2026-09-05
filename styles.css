@@ -824,6 +824,12 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   text-align: center;
 }
 
+.trades-heading,
+.trades-cell { background: rgba(85, 214, 210, .065); }
+
+.assistedKills-heading,
+.assistedKills-cell { background: rgba(190, 130, 255, .065); }
+
 .utility-heading,
 .utility-cell { background: rgba(104, 164, 255, .075); }
 
@@ -834,6 +840,8 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .multikills-cell { background: rgba(255, 201, 105, .065); }
 
 .demo-toggle-heading.utility-heading { box-shadow: inset 0 2px var(--blue); }
+.demo-toggle-heading.trades-heading { box-shadow: inset 0 2px #55d6d2; }
+.demo-toggle-heading.assistedKills-heading { box-shadow: inset 0 2px #be82ff; }
 .demo-toggle-heading.clutches-heading { box-shadow: inset 0 2px var(--green); }
 .demo-toggle-heading.multikills-heading { box-shadow: inset 0 2px var(--amber); }
 
