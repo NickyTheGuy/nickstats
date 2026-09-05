@@ -162,7 +162,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-18");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-19");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -693,16 +693,18 @@
         if (columnIndex > 0 && columnEntry.teamIndex !== players[columnIndex - 1].teamIndex) {
           td.classList.add("duel-team-column-start");
         }
-        if (rowEntry === columnEntry || rowEntry.teamIndex === columnEntry.teamIndex) {
+        const duel = duelMap.get(duelIdentity(columnEntry.player.steam_id, columnEntry.player.name));
+        if (!duel) {
           td.textContent = "—";
           td.classList.add("duel-unavailable");
         } else {
-          const duel = duelMap.get(duelIdentity(columnEntry.player.steam_id, columnEntry.player.name));
-          const kills = duel?.kills || 0;
-          const deaths = duel?.deaths || 0;
+          const kills = duel.kills || 0;
+          const deaths = duel.deaths || 0;
           const differential = kills - deaths;
           td.textContent = `${kills}-${deaths}`;
-          td.title = `${rowEntry.player.name}: ${kills} kills and ${deaths} deaths against ${columnEntry.player.name}`;
+          td.title = rowEntry === columnEntry
+            ? `${rowEntry.player.name}: ${deaths} self-kill${deaths === 1 ? "" : "s"}`
+            : `${rowEntry.player.name}: ${kills} kills and ${deaths} deaths against ${columnEntry.player.name}`;
           td.classList.add(differential > 0 ? "duel-positive" : differential < 0 ? "duel-negative" : "duel-even");
         }
         row.appendChild(td);
