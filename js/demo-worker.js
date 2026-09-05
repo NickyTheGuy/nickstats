@@ -598,10 +598,10 @@ async function parseDemo(fileName, buffer) {
     if (victimId !== null) round.participants.add(victimId);
     if (assisterId !== null) round.participants.add(assisterId);
 
-    if (attacker && victim) {
-      if (attacker === victim || attackerId === victimId) {
+    if (victim) {
+      if (attacker === victim || attackerId === victimId || attackerId === null || attackerId === 0) {
         duelStat(victim, victim).deaths += 1;
-      } else {
+      } else if (attacker) {
         duelStat(attacker, victim).kills += 1;
         duelStat(victim, attacker).deaths += 1;
       }
