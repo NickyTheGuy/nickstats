@@ -106,6 +106,7 @@ async function parseDemo(fileName, buffer) {
   const blindUntilTick = new Map();
   const positionSamples = new Map();
   const derivedSpeeds = new Map();
+  const ctPistolChoice = new Map();
   const tradeAudit = [];
   const packetCounts = {
     demo_packets: 0,
@@ -288,6 +289,7 @@ async function parseDemo(fileName, buffer) {
     blindUntilTick.clear();
     positionSamples.clear();
     derivedSpeeds.clear();
+    ctPistolChoice.clear();
     for (const row of stats.values()) {
       row.kills = 0;
       row.sideStats = new Map();
@@ -786,6 +788,22 @@ async function parseDemo(fileName, buffer) {
     weapons.add(id);
   }
 
+  function combatEventWeapon(row, weapon) {
+    const id = normalizedWeapon(weapon);
+    if (id === "usp_silencer") {
+      ctPistolChoice.set(row, "usp_silencer");
+      return "usp_silencer";
+    }
+    if (id === "hkp2000") {
+      const choice = ctPistolChoice.get(row);
+      if (choice) return choice;
+      // A weapon_fire event is strong enough to identify a real P2000. Generic
+      // equip/pickup and player_hurt events are resolved elsewhere/after fire.
+      return "hkp2000";
+    }
+    return weapon;
+  }
+
   function duelStat(row, opponent) {
     if (!row || !opponent) return null;
     let stat = row.duelStats.get(opponent);
@@ -838,9 +856,10 @@ async function parseDemo(fileName, buffer) {
       attacker.observedOpponents.add(victim);
       victim.observedOpponents.add(attacker);
       attacker.kills += 1;
-      const killWeapon = weaponStat(attacker, event.weapon);
+      const resolvedWeapon = combatEventWeapon(attacker, event.weapon);
+      const killWeapon = weaponStat(attacker, resolvedWeapon);
       if (killWeapon) killWeapon.kills += 1;
-      noteWeaponUse(attacker, event.weapon);
+      noteWeaponUse(attacker, resolvedWeapon);
       const victimWasBlind = (blindUntilTick.get(victim.userId) ?? -1) >= tick;
       const attackerWasBlind = Boolean(event.attackerblind);
       const penetrations = Math.max(0, integer(event.penetrated) ?? 0);
@@ -1085,9 +1104,10 @@ async function parseDemo(fileName, buffer) {
     // Side ADR uses event-time damage rather than a later cumulative delta.
     // This keeps the numerator and the live-round denominator on the same side.
     ensureSideRow(row, attackerTeam).damage += damage;
-    const damageWeapon = weaponStat(row, event.weapon);
+    const resolvedWeapon = combatEventWeapon(row, event.weapon);
+    const damageWeapon = weaponStat(row, resolvedWeapon);
     if (damageWeapon) damageWeapon.damage += damage;
-    noteWeaponUse(row, event.weapon);
+    noteWeaponUse(row, resolvedWeapon);
     if (damage > 0 && damageProvesTradeAttempt(event, damage)) {
       for (const prior of round.pendingDeaths) {
         if (prior.killer === victimId && tradeIsOpen(prior, row.userId, tick)) {
@@ -1113,16 +1133,21 @@ async function parseDemo(fileName, buffer) {
     const row = stats.get(userId);
     if (!row) return;
     round.participants.add(userId);
-    const stat = weaponStat(row, event.weapon);
+    const resolvedWeapon = combatEventWeapon(row, event.weapon);
+    if (normalizedWeapon(event.weapon) === "hkp2000" && !ctPistolChoice.has(row)) {
+      ctPistolChoice.set(row, "hkp2000");
+    }
+    const stat = weaponStat(row, resolvedWeapon);
     if (stat) stat.shots += 1;
-    noteWeaponUse(row, event.weapon);
+    noteWeaponUse(row, resolvedWeapon);
   }
 
   function handleItemSeen(event) {
     const userId = integer(event.userid);
     const row = stats.get(userId);
-    const weapon = itemEventWeapon(event);
-    if (row) noteWeaponUse(row, weapon);
+    if (!row) return;
+    const weapon = itemEventWeapon(ctPistolChoice, row, event);
+    noteWeaponUse(row, weapon);
   }
 
   function handleBulletImpact(event, tick) {
@@ -1666,15 +1691,30 @@ function weaponStatId(weapon) {
   return name;
 }
 
-function itemEventWeapon(event) {
+function itemEventWeapon(choices, row, event) {
   const definitionIndex = integer(
     event?.defindex ?? event?.itemdefindex ?? event?.item_def_index
   );
   // CS2 sometimes labels both CT starter pistols as the hkp2000 weapon family
   // in pickup/equip events. Their item definition indices remain distinct.
-  if (definitionIndex === 61) return "usp_silencer";
-  if (definitionIndex === 32) return "hkp2000";
-  return event?.item ?? event?.weapon;
+  if (definitionIndex === 61) {
+    choices.set(row, "usp_silencer");
+    return "usp_silencer";
+  }
+  if (definitionIndex === 32) {
+    choices.set(row, "hkp2000");
+    return "hkp2000";
+  }
+  const weapon = event?.item ?? event?.weapon;
+  const id = normalizedWeapon(weapon);
+  if (id === "usp_silencer") {
+    choices.set(row, "usp_silencer");
+    return "usp_silencer";
+  }
+  // An unindexed hkp2000 inventory event is ambiguous. Use a previously learned
+  // loadout choice, but never create a P2000 statistic from this label alone.
+  if (id === "hkp2000") return choices.get(row) || null;
+  return weapon;
 }
 
 function isNonWeaponSpeedKill(weapon) {
