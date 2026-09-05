@@ -657,6 +657,26 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   margin: 0;
 }
 
+.demo-prototype-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.demo-build {
+  padding: 3px 7px;
+  border: 1px solid rgba(104, 164, 255, .35);
+  border-radius: 999px;
+  color: #a9c9ff;
+  background: rgba(52, 124, 240, .1);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .05em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .demo-panel .section-head p {
   margin-top: 5px;
   color: var(--muted);
