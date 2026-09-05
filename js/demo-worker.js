@@ -141,6 +141,7 @@ async function parseDemo(fileName, buffer) {
           sideStats: new Map(),
           weaponStats: new Map(),
           duelStats: new Map(),
+          tradeMatchups: new Map(),
           kills: 0,
           deaths: 0,
           assists: 0,
@@ -292,6 +293,7 @@ async function parseDemo(fileName, buffer) {
       row.sideStats = new Map();
       row.weaponStats = new Map();
       row.duelStats = new Map();
+      row.tradeMatchups = new Map();
       row.deaths = 0;
       row.assists = 0;
       row.headshots = 0;
@@ -372,6 +374,7 @@ async function parseDemo(fileName, buffer) {
       damage: 0,
       weaponStats: new Map(),
       duelStats: new Map(),
+      tradeMatchups: new Map(),
       tradedBy: new Map(),
       tradeProximityDistances: [],
       provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0 },
@@ -411,6 +414,7 @@ async function parseDemo(fileName, buffer) {
       clutches: { ...row.clutchWins },
       weapons: new Map([...row.weaponStats].map(([key, value]) => [key, { ...value }])),
       duels: new Map([...row.duelStats].map(([key, value]) => [key, { ...value }])),
+      tradeMatchups: new Map([...row.tradeMatchups].map(([key, value]) => [key, { ...value }])),
       speedValueLength: row.speedOnKillValues.length,
       killerSpeedValueLength: row.killerSpeedValues.length
     };
@@ -492,6 +496,7 @@ async function parseDemo(fileName, buffer) {
       }
       addMapDeltas(target.weaponStats, after.weapons, before.weapons, ["weapon", "kills", "shots", "damage", "purchases"]);
       addMapDeltas(target.duelStats, after.duels, before.duels, ["kills", "deaths"]);
+      addMapDeltas(target.tradeMatchups, after.tradeMatchups, before.tradeMatchups, ["opportunities", "attempts", "successes"]);
       for (const value of row.speedOnKillValues.slice(before.speedValueLength)) {
         target.maxSpeedOnKill = Math.max(target.maxSpeedOnKill, value.speed);
         if (value.percent !== null) target.maxSpeedOnKillPercent = Math.max(target.maxSpeedOnKillPercent, value.percent);
@@ -688,11 +693,23 @@ async function parseDemo(fileName, buffer) {
     return [...prior.engagementTicks.values()].some(lastTick => tick - lastTick <= lull);
   }
 
+  function tradeMatchupStat(trader, teammate) {
+    if (!trader || !teammate) return null;
+    let stat = trader.tradeMatchups.get(teammate);
+    if (!stat) {
+      stat = { opportunities: 0, attempts: 0, successes: 0 };
+      trader.tradeMatchups.set(teammate, stat);
+    }
+    return stat;
+  }
+
   function ensureTradeOpportunity(prior, trader, source = "proven") {
     if (!prior || !trader || prior.capableTraders.has(trader.userId)) return;
     const hadOpportunity = prior.capableTraders.size > 0;
     prior.capableTraders.add(trader.userId);
     trader.tradeOpportunities += 1;
+    const victim = stats.get(prior.victim);
+    if (victim) tradeMatchupStat(trader, victim).opportunities += 1;
     if (Object.hasOwn(trader.provenTradeOpportunities, source)) {
       trader.provenTradeOpportunities[source] += 1;
     }
@@ -707,7 +724,6 @@ async function parseDemo(fileName, buffer) {
       success: false
     });
     if (!hadOpportunity) {
-      const victim = stats.get(prior.victim);
       if (victim) victim.tradeableDeaths += 1;
     }
   }
@@ -717,6 +733,8 @@ async function parseDemo(fileName, buffer) {
     if (!prior || !trader || prior.attemptedTraders.has(trader.userId)) return;
     prior.attemptedTraders.add(trader.userId);
     trader.tradeAttempts += 1;
+    const victim = stats.get(prior.victim);
+    if (victim) tradeMatchupStat(trader, victim).attempts += 1;
     const auditCandidate = prior.audit.candidates.find(candidate => candidate.player === trader.name);
     if (auditCandidate) {
       auditCandidate.attempted = true;
@@ -724,7 +742,6 @@ async function parseDemo(fileName, buffer) {
     }
     if (!prior.deathAttempted) {
       prior.deathAttempted = true;
-      const victim = stats.get(prior.victim);
       if (victim) victim.attemptedTradeableDeaths += 1;
     }
   }
@@ -913,6 +930,7 @@ async function parseDemo(fileName, buffer) {
             if (!prior.successfulTraders.has(attacker.userId)) {
               prior.successfulTraders.add(attacker.userId);
               attacker.tradeSuccesses += 1;
+              if (tradedVictim) tradeMatchupStat(attacker, tradedVictim).successes += 1;
               const auditCandidate = prior.audit.candidates.find(candidate => candidate.player === attacker.name);
               if (auditCandidate) auditCandidate.success = true;
             }
@@ -954,7 +972,10 @@ async function parseDemo(fileName, buffer) {
       });
       for (const traderId of nearbyTraders) {
         const trader = stats.get(traderId);
-        if (trader) trader.tradeOpportunities += 1;
+        if (trader) {
+          trader.tradeOpportunities += 1;
+          tradeMatchupStat(trader, victim).opportunities += 1;
+        }
       }
       round.pendingDeaths = round.pendingDeaths.filter(item => pendingTradeIsAlive(item, tick));
     }
@@ -1499,6 +1520,17 @@ function finishPlayer(row) {
     traded_tradeable_deaths: row.tradedTradeableDeaths,
     traded_death_percent: row.attemptedTradeableDeaths ? 100 * row.tradedDeaths / row.attemptedTradeableDeaths : 0,
     traded_by: Object.fromEntries([...row.tradedBy].sort(([a], [b]) => a.localeCompare(b))),
+    trade_matchups: [...row.tradeMatchups.entries()]
+      .map(([teammate, stat]) => ({
+        teammate: teammate.name,
+        teammate_steam_id: teammate.steamId,
+        teammate_is_bot: teammate.isBot,
+        opportunities: stat.opportunities,
+        attempts: stat.attempts,
+        successes: stat.successes
+      }))
+      .filter(stat => stat.opportunities || stat.attempts || stat.successes)
+      .sort((a, b) => b.opportunities - a.opportunities || b.attempts - a.attempts || b.successes - a.successes || a.teammate.localeCompare(b.teammate)),
     trade_opportunity_audit: {
       proximity_counts_by_radius: Object.fromEntries(TRADE_AUDIT_RADII.map(radius => [
         radius,
