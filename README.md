@@ -55,23 +55,25 @@ Trade calibration traces remain available while a demo is being parsed but are d
 
 ## Compact match JSON
 
-**Download compact JSON** writes the versioned `nickstats.match/4` storage schema. It is minified and normalized for a future match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship entries reference the match-level player index.
+**Download compact JSON** writes the versioned `nickstats.match/5` storage schema. It is minified and normalized for a future match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship entries reference the match-level player index.
 
-Each player's `all`, `T`, and `CT` records contain only base counters. Fixed arrays use these layouts:
+Each player has a `sides` array in T, CT order. The full-match view is deliberately not stored: every ALL counter and relationship can be reconstructed by merging those two side records, using the maximum rather than the sum for speed maxima. Fixed arrays use these layouts:
 
 - `rounds`: played, won
 - `kda`: kills, deaths, assists, headshots, damage
 - `opening`: kills, deaths
-- `trade_k`: opportunities, attempts, successes
+- `trade_kills`: unique trade kills; opportunities and attempts come from summing `trades`
 - `trade_d`: tradeable deaths, attempted tradeable deaths, traded deaths
 - `utility`: enemies flashed, HE damage, fire damage
 - `clutches`: 1v1 through 1v5 wins
 - `kill_rounds`: 1K through 5K rounds
 - `weapons`: weapon, kills, shots, damage, rounds used
-- `duels`: opponent player index, kills, deaths
+- `duels`: opponent player index, kills
 - `trades`: teammate player index, opportunities, attempts, successes
 - `contexts`: victim player index, blinded victim, blind attacker, wallbang, penetration count, smoke, airborne, moving, still, running, grenade out, knife out, unique equipment disadvantage, unique unfair
 - `assisted_by`: assister player index, damage-assisted kills, flash-assisted kills
+
+`duels` stores only the killer-to-victim direction. Transposing those entries reconstructs deaths to other players; subtracting all incoming player kills from the victim's K-D-A death counter reconstructs genuine self/world deaths for the diagonal. For side views, opposing-team deaths use the opposite side's incoming kills and teamkill deaths use the same side.
 
 `contexts` is stored only from killer to victim. Summing a player's rows reconstructs their kill-side context totals; transposing entries that point to that player reconstructs their mirrored death totals. `assisted_by` is stored from the player receiving the assisted kill to the assister. It can be summed for assisted-kill totals or transposed for assists supplied to teammates. This preserves everything needed for future context and assisted-kill matrices without duplicating both directions. `speed` stores raw total, sample count, maximum, percent-of-maximum total, percent sample count, and percent maximum for kills, followed by the same six values for deaths.
 
