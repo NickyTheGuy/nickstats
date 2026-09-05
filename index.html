@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CSStats — Lifter / Dragger Matrix</title>
-  <link rel="stylesheet" href="./styles.css?v=20260905-10">
+  <link rel="stylesheet" href="./styles.css?v=20260905-11">
 </head>
 <body>
   <main class="shell">
@@ -66,6 +66,14 @@
       </div>
 
       <div class="demo-results" id="demoResults" hidden>
+        <div class="demo-side-filter" role="group" aria-label="Filter demo statistics by player side">
+          <span>Player side</span>
+          <div class="demo-side-buttons">
+            <button class="demo-side-button active" type="button" data-demo-side="ALL" aria-pressed="true">ALL</button>
+            <button class="demo-side-button" type="button" data-demo-side="CT" aria-pressed="false">CT</button>
+            <button class="demo-side-button" type="button" data-demo-side="T" aria-pressed="false">T</button>
+          </div>
+        </div>
         <div class="demo-summary" id="demoSummary"></div>
         <div class="warning" id="demoWarning">Preview rating uses a published HLTV-style approximation. Demo parsing is experimental; verify the scoreboard before relying on it.</div>
         <div class="demo-teams" id="demoTeams"></div>
@@ -252,6 +260,6 @@
   <script defer src="./js/chart.js"></script>
   <script defer src="./js/combinations.js"></script>
   <script defer src="./js/app.js"></script>
-  <script defer src="./js/demo.js?v=20260905-22"></script>
+  <script defer src="./js/demo.js?v=20260905-23"></script>
 </body>
 </html>
