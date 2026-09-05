@@ -848,12 +848,12 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .demo-toggle-heading.clutches-heading { border-top: 3px dotted var(--green); }
 .demo-toggle-heading.multikills-heading { border-top: 3px ridge var(--amber); }
 
-.demo-score-table :is(th, td):not(.trades-cell) + :is(th, td).trades-cell,
-.demo-score-table :is(th, td):not(.assistedKills-cell) + :is(th, td).assistedKills-cell,
-.demo-score-table :is(th, td):not(.utility-cell) + :is(th, td).utility-cell,
-.demo-score-table :is(th, td):not(.clutches-cell) + :is(th, td).clutches-cell,
-.demo-score-table :is(th, td):not(.multikills-cell) + :is(th, td).multikills-cell {
+.demo-score-table :is(th, td).demo-group-start {
   border-left: 2px solid rgba(238, 243, 251, .24);
+}
+
+.demo-score-table :is(th, td).demo-group-end {
+  border-right: 2px solid rgba(238, 243, 251, .24);
 }
 
 @media (forced-colors: active) {
