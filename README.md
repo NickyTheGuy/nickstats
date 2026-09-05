@@ -23,6 +23,8 @@ The first trade-opportunity model is intentionally simple and transparent. A liv
 
 Nonlethal HE damage proves an attempt only when the target's reconstructed pre-hit health was within the HE's theoretical maximum: 98 damage without armor or 57 with armor. Nonlethal incendiary, Molotov, flash, decoy, and smoke damage does not independently prove a trade attempt; a resulting kill still counts as a success. The initial proximity test is straight-line 3D distance and does not yet account for walls, sightlines, weapons, or movement paths. The parsed JSON includes the active thresholds and definitions under `trade_definition`.
 
+The five-second window determines whether a trade engagement can begin. A bullet path passing within 96 units of the original killer counts as an attempt even if the shot misses. Once established, qualifying fire or damage from either side refreshes the engagement; it expires after a two-second lull. A kill of the original killer during that uninterrupted exchange remains a trade even when the fight lasts longer than five seconds. Bullet paths use the shooter, impact, and player positions recorded in the demo. They are an approximation and can still misidentify unusually aligned players without full map collision geometry.
+
 The displayed preview rating uses the commonly published HLTV Rating 2.0 approximation:
 
 ```
