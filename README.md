@@ -21,6 +21,8 @@ The Demo Parser tab uses [`@deademx/cs2` 4.0.0](https://github.com/Igor-Losev/de
 
 Each player also receives a per-weapon ledger containing enemy kills, enemy health damage, `weapon_fire` events, and successful `item_purchase` events. A shotgun firing event counts as one shot rather than one per pellet. Armor, helmets, and defuse kits are excluded from the weapon ledger; dropped and picked-up weapons do not count as purchases.
 
+The duel ledger records each player's enemy kills and deaths against every opponent, along with the differential. Teamkills, suicides, and world deaths are excluded. The browser groups duel tables by team and keeps each player's opponent list collapsed until opened.
+
 Scoreboard headers are sortable within each team. Composite headers cycle through their component statistics and then return to the original neutral order; single-stat headers toggle between that statistic and neutral. Favorable values sort first, so death-based penalty columns use fewer-first ordering.
 
 The first trade-opportunity model is intentionally simple and transparent. A living teammate receives an opportunity when they are within 250 Source 2 game units of a teammate at the moment that teammate dies. This radius was calibrated against a known Leetify match result. A teammate outside that radius also receives a retroactive, proven opportunity if they damage or kill the killer within five seconds. Damaging the killer is an attempt; killing that player is a success. Success percentage uses attempts—not opportunities—as its denominator. A death is “tradeable” if at least one teammate met either rule, and it is counted only once regardless of how many teammates qualify. Its death-side attempt and success also count once even if multiple teammates act.
