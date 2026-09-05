@@ -51,7 +51,30 @@ The five-second window determines whether a trade engagement can begin. A bullet
 
 KAST's traded-round component uses this same qualified trade-success event. It does not maintain a separate looser trade definition.
 
-For calibration, parsed JSON includes a `trade_opportunity_audit`. Each player receives proximity-opportunity counts at 150, 200, 250, 300, 400, and 500 units, their observed proximity distances, and counts of opportunities proven by bullet path, damage, or kill. A match-level death trace records every candidate, trigger, attempt, and success. This audit does not change which opportunities appear on the scoreboard; it exists to tune the model against reference data without repeatedly guessing thresholds.
+Trade calibration traces remain available while a demo is being parsed but are deliberately omitted from the normal download. They are diagnostic data rather than match statistics and were the single largest avoidable part of stored results.
+
+## Compact match JSON
+
+**Download compact JSON** writes the versioned `nickstats.match/2` storage schema. It is minified and normalized for a future match database rather than being a dump of the browser's display object. Player identity is stored once, while duel and trade matrix entries reference the match-level player index.
+
+Each player's `all`, `T`, and `CT` records contain only base counters. Fixed arrays use these layouts:
+
+- `rounds`: played, won
+- `kda`: kills, deaths, assists, headshots, damage
+- `opening`: kills, deaths
+- `trade_k`: opportunities, attempts, successes
+- `trade_d`: tradeable deaths, attempted tradeable deaths, traded deaths
+- `assisted`: damage-assisted kills, flash-assisted kills
+- `utility`: enemies flashed, flash assists, HE damage, fire damage
+- `clutches`: 1v1 through 1v5 wins
+- `kill_rounds`: 1K through 5K rounds
+- `weapons`: weapon, kills, shots, damage, rounds used
+- `duels`: opponent player index, kills, deaths
+- `trades`: teammate player index, opportunities, attempts, successes
+
+`context` follows the paired order Blind, attacker-blind, Wall, penetrations, Smoke, Air, Moving, Still, Running, and Unfair; each pair is kills then deaths. `speed` stores raw total, sample count, maximum, percent-of-maximum total, percent sample count, and percent maximum for kills, followed by the same six values for deaths.
+
+ADR, KAST percentage, headshot percentage, rating, trade percentages, duel differential, assisted/utility totals, multikill totals, `traded_by`, and textual definition blocks are not stored because they can be reconstructed from these counters and the schema/build version. Match-level and per-player trade audits are also excluded. Runtime rendering still uses the full readable object, so compact storage does not change the visible scoreboard.
 
 The displayed preview rating uses the commonly published HLTV Rating 2.0 approximation:
 
