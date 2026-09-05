@@ -8,6 +8,7 @@ const BULLET_PATH_TOLERANCE_UNITS = 96;
 const HE_MAX_DAMAGE_UNARMORED = 98;
 const HE_MAX_DAMAGE_ARMORED = 57;
 const RUNNING_ACCURACY_THRESHOLD_PERCENT = 34;
+const STILL_SPEED_TOLERANCE = 1;
 const TRADE_AUDIT_RADII = [150, 200, 250, 300, 400, 500];
 const NON_WEAPON_SPEED_KILLS = new Set([
   "hegrenade", "inferno", "molotov", "incgrenade", "flashbang",
@@ -25,7 +26,7 @@ const WEAPON_MAX_SPEED = Object.freeze({
   ump45: [230, 230], usp_silencer: [240, 240], xm1014: [215, 215]
 });
 const ADDITIVE_STAT_FIELDS = [
-  "kills", "deaths", "assists", "headshots", "damage", "kastRounds", "killRounds",
+  "kills", "deaths", "assists", "headshots", "kastRounds", "killRounds",
   "assistRounds", "survivalRounds", "tradeRounds", "tradeKills", "tradedDeaths",
   "tradeOpportunities", "tradeAttempts", "tradeSuccesses", "tradeableDeaths",
   "attemptedTradeableDeaths", "tradedTradeableDeaths", "damageAssistedKills",
@@ -33,6 +34,7 @@ const ADDITIVE_STAT_FIELDS = [
   "blindedEnemyKills", "deathsWhileBlind", "killsWhileBlind", "deathsToBlindKiller",
   "wallbangKills", "wallbangDeaths", "killPenetrations", "deathPenetrations",
   "smokeKills", "smokeDeaths", "airborneKills", "deathsToAirborneKiller",
+  "movingKills", "deathsToMovingKiller", "stillKills", "deathsToStillKiller",
   "runningKills", "deathsToRunningKiller", "unfairKills", "unfairDeaths",
   "speedOnKillTotal", "speedOnKillSamples", "speedOnKillPercentTotal",
   "speedOnKillPercentSamples", "killerSpeedTotal", "killerSpeedSamples",
@@ -178,6 +180,10 @@ async function parseDemo(fileName, buffer) {
           smokeDeaths: 0,
           airborneKills: 0,
           deathsToAirborneKiller: 0,
+          movingKills: 0,
+          deathsToMovingKiller: 0,
+          stillKills: 0,
+          deathsToStillKiller: 0,
           runningKills: 0,
           deathsToRunningKiller: 0,
           unfairKills: 0,
@@ -324,6 +330,10 @@ async function parseDemo(fileName, buffer) {
       row.smokeDeaths = 0;
       row.airborneKills = 0;
       row.deathsToAirborneKiller = 0;
+      row.movingKills = 0;
+      row.deathsToMovingKiller = 0;
+      row.stillKills = 0;
+      row.deathsToStillKiller = 0;
       row.runningKills = 0;
       row.deathsToRunningKiller = 0;
       row.unfairKills = 0;
@@ -359,6 +369,7 @@ async function parseDemo(fileName, buffer) {
       name: row.name,
       steamId: row.steamId,
       isBot: row.isBot,
+      damage: 0,
       weaponStats: new Map(),
       duelStats: new Map(),
       tradedBy: new Map(),
@@ -806,6 +817,8 @@ async function parseDemo(fileName, buffer) {
       const attackerInAir = Boolean(event.attackerinair);
       const speedEligible = !isNonWeaponSpeedKill(event.weapon);
       const attackerMotion = speedEligible ? currentPlayerMotion(attackerId, tick, event) : null;
+      let movingKill = false;
+      let stillKill = false;
       let runningKill = false;
       if (victimWasBlind) {
         attacker.blindedEnemyKills += 1;
@@ -831,6 +844,8 @@ async function parseDemo(fileName, buffer) {
       }
       if (attackerMotion) {
         const attackerSpeed = attackerMotion.speed;
+        movingKill = attackerSpeed > STILL_SPEED_TOLERANCE;
+        stillKill = !movingKill;
         const percent = attackerMotion.maxSpeed > 0 ? 100 * attackerSpeed / attackerMotion.maxSpeed : null;
         attacker.speedOnKillValues.push({ speed: attackerSpeed, percent });
         victim.killerSpeedValues.push({ speed: attackerSpeed, percent });
@@ -849,6 +864,13 @@ async function parseDemo(fileName, buffer) {
           victim.killerSpeedPercentSamples += 1;
           victim.maxKillerSpeedPercent = Math.max(victim.maxKillerSpeedPercent, percent);
         }
+      }
+      if (movingKill) {
+        attacker.movingKills += 1;
+        victim.deathsToMovingKiller += 1;
+      } else if (stillKill) {
+        attacker.stillKills += 1;
+        victim.deathsToStillKiller += 1;
       }
       if (runningKill) {
         attacker.runningKills += 1;
@@ -1010,6 +1032,9 @@ async function parseDemo(fileName, buffer) {
         (victimTeam !== 2 && victimTeam !== 3) || attackerTeam === victimTeam) return;
     const damage = Math.max(0, number(event.dmg_health));
     row.damage += damage;
+    // Side ADR uses event-time damage rather than a later cumulative delta.
+    // This keeps the numerator and the live-round denominator on the same side.
+    ensureSideRow(row, attackerTeam).damage += damage;
     const damageWeapon = weaponStat(row, event.weapon);
     if (damageWeapon) damageWeapon.damage += damage;
     if (damage > 0 && damageProvesTradeAttempt(event, damage)) {
@@ -1332,6 +1357,8 @@ async function parseDemo(fileName, buffer) {
       method: "Each completed round is attributed from the player's live team assignment; regulation and overtime side swaps are handled as recorded in the demo"
     },
     kill_context_definition: {
+      still_speed_tolerance_units_per_second: STILL_SPEED_TOLERANCE,
+      movement: "Eligible firearm kills with a measured horizontal killer speed are classified as still (at most 1 unit/second) or moving (above 1 unit/second)",
       running_threshold_percent_of_weapon_max: RUNNING_ACCURACY_THRESHOLD_PERCENT,
       running: "Killer horizontal speed above 34% of the current weapon's maximum movement speed; non-weapon kills are excluded",
       unfair: "Unique enemy kills or deaths involving a blinded victim, penetration, smoke, airborne killer, or running killer; overlapping contexts count once"
@@ -1478,6 +1505,10 @@ function finishPlayer(row) {
       smoke_deaths: row.smokeDeaths,
       airborne_kills: row.airborneKills,
       deaths_to_airborne_killer: row.deathsToAirborneKiller,
+      moving_kills: row.movingKills,
+      deaths_to_moving_killer: row.deathsToMovingKiller,
+      still_kills: row.stillKills,
+      deaths_to_still_killer: row.deathsToStillKiller,
       running_kills: row.runningKills,
       deaths_to_running_killer: row.deathsToRunningKiller,
       unfair_kills: row.unfairKills,
