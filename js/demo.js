@@ -170,7 +170,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-34");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-35");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -974,9 +974,133 @@
     setStatus("Choose one demo file.");
   }
 
+  function compactMatchResult(result) {
+    const sourceTeams = Array.isArray(result.teams) ? result.teams : [];
+    const sourcePlayers = sourceTeams.flatMap(team => team.players || []);
+    const playerIndex = new Map(sourcePlayers.map((player, index) => [player, index]));
+    const steamIndexes = new Map();
+    const nameIndexes = new Map();
+
+    sourcePlayers.forEach((player, index) => {
+      if (player.steam_id) {
+        const key = String(player.steam_id);
+        if (!steamIndexes.has(key)) steamIndexes.set(key, []);
+        steamIndexes.get(key).push(index);
+      }
+      const key = `${player.name || ""}\u0000${Boolean(player.is_bot)}`;
+      if (!nameIndexes.has(key)) nameIndexes.set(key, []);
+      nameIndexes.get(key).push(index);
+    });
+
+    const referenceIndex = (name, steamId, isBot) => {
+      const steamMatches = steamId == null ? [] : (steamIndexes.get(String(steamId)) || []);
+      if (steamMatches.length === 1) return steamMatches[0];
+      const matches = nameIndexes.get(`${name || ""}\u0000${Boolean(isBot)}`) || [];
+      return matches.length === 1 ? matches[0] : null;
+    };
+
+    const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+    const rounded = value => Math.round(number(value) * 1000) / 1000;
+    const countArray = (counts, length = 5) => Array.from({ length }, (_, index) => number(counts?.[index + 1]));
+    const speedArray = summary => {
+      const samples = number(summary?.samples);
+      const percentSamples = number(summary?.percent_samples);
+      const total = summary?.total ?? (samples ? number(summary?.average) * samples : 0);
+      const percentTotal = summary?.percent_total ?? (percentSamples ? number(summary?.average_percent_of_max) * percentSamples : 0);
+      return [
+        rounded(total), samples, summary?.maximum == null ? null : rounded(summary.maximum),
+        rounded(percentTotal), percentSamples, summary?.maximum_percent_of_max == null ? null : rounded(summary.maximum_percent_of_max)
+      ];
+    };
+
+    const compactStats = player => {
+      if (!player) return null;
+      const context = player.kill_context || {};
+      const kills = number(player.kills);
+      const headshots = player.headshots == null
+        ? Math.round(kills * number(player.headshot_percent) / 100)
+        : number(player.headshots);
+      return {
+        rounds: [number(player.rounds_played), number(player.round_wins)],
+        kda: [kills, number(player.deaths), number(player.assists), headshots, number(player.damage)],
+        kast_rounds: number(player.kast_rounds),
+        opening: [number(player.opening_kills), number(player.opening_deaths)],
+        trade_k: [number(player.trade_opportunities), number(player.trade_attempts), number(player.trade_kills ?? player.trade_successes)],
+        trade_d: [number(player.tradeable_deaths), number(player.attempted_tradeable_deaths), number(player.traded_deaths ?? player.traded_tradeable_deaths)],
+        assisted: [number(player.assisted_kills?.damage), number(player.assisted_kills?.flash)],
+        utility: [
+          number(player.enemies_flashed), number(player.flash_assists),
+          number(player.grenade_damage?.high_explosive), number(player.grenade_damage?.fire)
+        ],
+        context: [
+          number(context.blinded_enemy_kills), number(context.deaths_while_blind),
+          number(context.kills_while_blind), number(context.deaths_to_blind_killer),
+          number(context.wallbang_kills), number(context.wallbang_deaths),
+          number(context.penetrations_on_kills), number(context.penetrations_on_deaths),
+          number(context.smoke_kills), number(context.smoke_deaths),
+          number(context.airborne_kills), number(context.deaths_to_airborne_killer),
+          number(context.moving_kills), number(context.deaths_to_moving_killer),
+          number(context.still_kills), number(context.deaths_to_still_killer),
+          number(context.running_kills), number(context.deaths_to_running_killer),
+          number(context.unfair_kills), number(context.unfair_deaths)
+        ],
+        speed: [...speedArray(context.speed_on_kill), ...speedArray(context.killer_speed_on_death)],
+        clutches: countArray(player.clutch_wins),
+        kill_rounds: countArray(player.kill_rounds),
+        weapons: (player.weapon_stats || []).map(stat => [
+          stat.weapon, number(stat.kills), number(stat.shots), number(stat.damage), number(stat.rounds_used)
+        ]),
+        duels: (player.duels || []).map(duel => [
+          referenceIndex(duel.opponent, duel.opponent_steam_id, duel.opponent_is_bot),
+          number(duel.kills), number(duel.deaths)
+        ]).filter(duel => duel[0] != null),
+        trades: (player.trade_matchups || []).map(trade => [
+          referenceIndex(trade.teammate, trade.teammate_steam_id, trade.teammate_is_bot),
+          number(trade.opportunities), number(trade.attempts), number(trade.successes)
+        ]).filter(trade => trade[0] != null)
+      };
+    };
+
+    const trade = result.trade_definition || {};
+    const movement = result.kill_context_definition || {};
+    return {
+      schema: "nickstats.match/2",
+      nickstats_build: "2026.09.05.14",
+      parser: [result.parser, result.parser_version],
+      id: {
+        faceit: result.provider_match_id || null,
+        sha256: result.demo_sha256
+      },
+      map: result.map,
+      rounds: result.rounds,
+      rules: {
+        trade: [
+          trade.window_seconds, trade.proximity_units, trade.engagement_lull_seconds,
+          trade.bullet_path_tolerance_units, trade.he_damage_caps?.unarmored, trade.he_damage_caps?.armored
+        ],
+        movement: [movement.still_speed_tolerance_units_per_second, movement.running_threshold_percent_of_weapon_max]
+      },
+      teams: sourceTeams.map(team => ({
+        id: team.id,
+        name: team.name,
+        score: team.score,
+        side_scores: [number(team.side_scores?.T), number(team.side_scores?.CT)],
+        players: (team.players || []).map(player => playerIndex.get(player))
+      })),
+      players: sourcePlayers.map(player => ({
+        name: player.name,
+        steam_id: player.steam_id,
+        ...(player.is_bot ? { bot: true } : {}),
+        all: compactStats(player),
+        T: compactStats(player.by_side?.T),
+        CT: compactStats(player.by_side?.CT)
+      }))
+    };
+  }
+
   function downloadJson() {
     if (!state.result) return;
-    const blob = new Blob([JSON.stringify(state.result, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(compactMatchResult(state.result))], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
