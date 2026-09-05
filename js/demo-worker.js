@@ -112,6 +112,7 @@ async function parseDemo(fileName, buffer) {
           tradeAttempts: 0,
           tradeSuccesses: 0,
           tradeableDeaths: 0,
+          attemptedTradeableDeaths: 0,
           tradedTradeableDeaths: 0,
           tradedBy: new Map(),
           damageAssistedKills: 0,
@@ -217,6 +218,7 @@ async function parseDemo(fileName, buffer) {
       row.tradeAttempts = 0;
       row.tradeSuccesses = 0;
       row.tradeableDeaths = 0;
+      row.attemptedTradeableDeaths = 0;
       row.tradedTradeableDeaths = 0;
       row.tradedBy = new Map();
       row.damageAssistedKills = 0;
@@ -413,7 +415,8 @@ async function parseDemo(fileName, buffer) {
         tick,
         capableTraders: nearbyTraders,
         attemptedTraders: new Set(),
-        successfulTraders: new Set()
+        successfulTraders: new Set(),
+        deathAttempted: false
       });
       for (const traderId of nearbyTraders) {
         const trader = stats.get(traderId);
@@ -497,6 +500,11 @@ async function parseDemo(fileName, buffer) {
             !prior.capableTraders.has(row.userId) || prior.attemptedTraders.has(row.userId)) continue;
         prior.attemptedTraders.add(row.userId);
         row.tradeAttempts += 1;
+        if (!prior.deathAttempted) {
+          prior.deathAttempted = true;
+          const tradeableVictim = stats.get(prior.victim);
+          if (tradeableVictim) tradeableVictim.attemptedTradeableDeaths += 1;
+        }
       }
     }
     const weapon = String(event.weapon || "").toLocaleLowerCase();
@@ -788,6 +796,7 @@ function finishPlayer(row) {
     trade_attempt_percent: row.tradeOpportunities ? 100 * row.tradeAttempts / row.tradeOpportunities : 0,
     trade_success_percent: row.tradeOpportunities ? 100 * row.tradeSuccesses / row.tradeOpportunities : 0,
     tradeable_deaths: row.tradeableDeaths,
+    attempted_tradeable_deaths: row.attemptedTradeableDeaths,
     traded_tradeable_deaths: row.tradedTradeableDeaths,
     traded_death_percent: row.tradeableDeaths ? 100 * row.tradedTradeableDeaths / row.tradeableDeaths : 0,
     traded_by: Object.fromEntries([...row.tradedBy].sort(([a], [b]) => a.localeCompare(b))),
