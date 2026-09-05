@@ -50,8 +50,8 @@
       { label: "D", value: player => player.kill_context?.deaths_to_airborne_killer ?? 0, direction: "asc" }
     ] },
     speedContext: { id: "speedContext", modes: [
-      { label: "K", value: player => player.kill_context?.speed_on_kill?.average ?? -1 },
-      { label: "D", value: player => player.kill_context?.killer_speed_on_death?.average ?? -1 }
+      { label: "K", value: player => player.kill_context?.speed_on_kill?.average_percent_of_max ?? -1 },
+      { label: "D", value: player => player.kill_context?.killer_speed_on_death?.average_percent_of_max ?? -1 }
     ] },
     killContextSummary: { id: "killContextSummary", modes: [
       { label: "Blind K", value: player => player.kill_context?.blinded_enemy_kills ?? 0 },
@@ -62,8 +62,8 @@
       { label: "Smoke D", value: player => player.kill_context?.smoke_deaths ?? 0, direction: "asc" },
       { label: "Air K", value: player => player.kill_context?.airborne_kills ?? 0 },
       { label: "Air D", value: player => player.kill_context?.deaths_to_airborne_killer ?? 0, direction: "asc" },
-      { label: "Speed K", value: player => player.kill_context?.speed_on_kill?.average ?? -1 },
-      { label: "Speed D", value: player => player.kill_context?.killer_speed_on_death?.average ?? -1 }
+      { label: "Speed% K", value: player => player.kill_context?.speed_on_kill?.average_percent_of_max ?? -1 },
+      { label: "Speed% D", value: player => player.kill_context?.killer_speed_on_death?.average_percent_of_max ?? -1 }
     ] },
     tradeKD: { id: "tradeKD", modes: [
       { label: "K", value: player => player.trade_kills ?? 0 },
@@ -162,7 +162,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-15");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-16");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -258,7 +258,7 @@
   }
 
   function speedValue(value) {
-    return Number.isFinite(value) ? value.toFixed(0) : "—";
+    return Number.isFinite(value) ? `${value.toFixed(0)}%` : "—";
   }
 
   function playerRow(player) {
@@ -284,7 +284,7 @@
     const wall = `${context.wallbang_kills ?? 0}-${context.wallbang_deaths ?? 0}`;
     const smoke = `${context.smoke_kills ?? 0}-${context.smoke_deaths ?? 0}`;
     const air = `${context.airborne_kills ?? 0}-${context.deaths_to_airborne_killer ?? 0}`;
-    const speed = `${speedValue(context.speed_on_kill?.average)}-${speedValue(context.killer_speed_on_death?.average)}`;
+    const speed = `${speedValue(context.speed_on_kill?.average_percent_of_max)}-${speedValue(context.killer_speed_on_death?.average_percent_of_max)}`;
     if (state.expandedGroups.killContext) {
       cell(row, blind, "demo-group-cell killContext-cell");
       cell(row, wall, "demo-group-cell killContext-cell");
@@ -386,8 +386,8 @@
       if (detail === "Wall K-D") child.title = "Wallbang kills – wallbang deaths";
       if (detail === "Smoke K-D") child.title = "Kills through smoke – deaths through smoke";
       if (detail === "Air K-D") child.title = "Kills while airborne – deaths to airborne killers";
-      if (detail === "Spd K-D") child.title = "Average horizontal speed on kills – average horizontal speed of your killers (units/second)";
-      if (detail === "B · W · S · A · Spd") child.title = "Blind, wallbang, smoke, airborne, and average killer-speed K-D pairs";
+      if (detail === "Spd% K-D") child.title = "Average horizontal killer speed as a percentage of the held weapon maximum: your kills – your deaths";
+      if (detail === "B · W · S · A · Spd%") child.title = "Blind, wallbang, smoke, airborne, and weapon-relative killer-speed K-D pairs";
       child.className = `demo-group-detail ${group}-cell`;
       if (index === 0) child.classList.add("demo-group-start");
       if (index === details.length - 1) child.classList.add("demo-group-end");
@@ -408,12 +408,12 @@
         "D (Succ%)": sortSpecs.tradeDResult
       },
       killContext: {
-        "B · W · S · A · Spd": sortSpecs.killContextSummary,
+        "B · W · S · A · Spd%": sortSpecs.killContextSummary,
         "Blind K-D": sortSpecs.blindContext,
         "Wall K-D": sortSpecs.wallContext,
         "Smoke K-D": sortSpecs.smokeContext,
         "Air K-D": sortSpecs.airContext,
-        "Spd K-D": sortSpecs.speedContext
+        "Spd% K-D": sortSpecs.speedContext
       },
       assistedKills: {
         Total: sortSpecs.assistedTotal,
@@ -557,7 +557,7 @@
     const detailHeader = document.createElement("tr");
     ["Player", "Rnds", "K-D-A", "HS%", "ADR", "KAST", "Opening"]
       .forEach(label => regularHeader(header, label));
-    groupHeader(header, detailHeader, "killContext", "Kill context", ["Blind K-D", "Wall K-D", "Smoke K-D", "Air K-D", "Spd K-D"], "B · W · S · A · Spd");
+    groupHeader(header, detailHeader, "killContext", "Kill context", ["Blind K-D", "Wall K-D", "Smoke K-D", "Air K-D", "Spd% K-D"], "B · W · S · A · Spd%");
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     groupHeader(header, detailHeader, "assistedKills", "Assisted K", ["Dmg", "Flash"]);
     groupHeader(header, detailHeader, "utility", "Utility", ["EF", "FA", "HE Dmg", "Fire Dmg"], "EF/FA · Dmg");
