@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CSStats — Lifter / Dragger Matrix</title>
-  <link rel="stylesheet" href="./styles.css?v=20260905-13">
+  <link rel="stylesheet" href="./styles.css?v=20260905-14">
 </head>
 <body>
   <main class="shell">
@@ -44,7 +44,7 @@
         <div>
           <div class="demo-prototype-line">
             <div class="eyebrow">Local browser prototype</div>
-            <span class="demo-build">Build 2026.09.05.4</span>
+            <span class="demo-build">Build 2026.09.05.5</span>
           </div>
           <h2>Parse one CS2 demo</h2>
           <p>Choose a <code>.dem</code> or <code>.dem.gz</code> file. It is processed inside your browser and never uploaded.</p>
@@ -79,27 +79,35 @@
             <button class="demo-side-button" type="button" data-demo-side="T" aria-pressed="false">T</button>
           </div>
         </div>
-        <div class="demo-teams" id="demoTeams"></div>
-        <section class="demo-weapon-section" aria-labelledby="demoWeaponTitle">
-          <div class="demo-weapon-heading">
-            <h3 id="demoWeaponTitle">Weapon breakdown</h3>
-            <p>Enemy kills and damage, firing events, and purchases. Expand a player to inspect their weapons.</p>
+        <nav class="demo-result-tabs" role="tablist" aria-label="Demo result section">
+          <button class="demo-result-tab active" id="demoScoreboardTab" type="button" role="tab" aria-selected="true" aria-controls="demoScoreboardView" data-demo-result-view="scoreboard">Scoreboard</button>
+          <button class="demo-result-tab" id="demoDuelsTab" type="button" role="tab" aria-selected="false" aria-controls="demoDuelsView" data-demo-result-view="duels">Duels</button>
+          <button class="demo-result-tab" id="demoTradesTab" type="button" role="tab" aria-selected="false" aria-controls="demoTradesView" data-demo-result-view="trades">Trades</button>
+          <button class="demo-result-tab" id="demoWeaponsTab" type="button" role="tab" aria-selected="false" aria-controls="demoWeaponsView" data-demo-result-view="weapons">Weapons</button>
+        </nav>
+        <div class="demo-analysis-panel" id="demoScoreboardView" role="tabpanel" aria-labelledby="demoScoreboardTab">
+          <div class="demo-teams" id="demoTeams"></div>
+        </div>
+        <section class="demo-duel-section demo-analysis-panel" id="demoDuelsView" role="tabpanel" aria-labelledby="demoDuelsTab" hidden>
+          <div class="demo-duel-heading">
+            <h3 id="demoDuelTitle">Duels</h3>
+            <p>Rows are players; columns are opponents. Cells show kills-deaths, including teamkills and self-kills.</p>
           </div>
-          <div class="demo-weapon-teams" id="demoWeapons"></div>
+          <div id="demoDuels"></div>
         </section>
-        <section class="demo-trade-section" aria-labelledby="demoTradeTitle">
+        <section class="demo-trade-section demo-analysis-panel" id="demoTradesView" role="tabpanel" aria-labelledby="demoTradesTab" hidden>
           <div class="demo-trade-heading">
             <h3 id="demoTradeTitle">Trade responses</h3>
             <p>Rows are potential traders; columns are teammates who died. Cells show opportunities / attempts / successes.</p>
           </div>
           <div id="demoTrades"></div>
         </section>
-        <section class="demo-duel-section" aria-labelledby="demoDuelTitle">
-          <div class="demo-duel-heading">
-            <h3 id="demoDuelTitle">Duels</h3>
-            <p>Rows are players; columns are opponents. Cells show kills-deaths, including teamkills and self-kills.</p>
+        <section class="demo-weapon-section demo-analysis-panel" id="demoWeaponsView" role="tabpanel" aria-labelledby="demoWeaponsTab" hidden>
+          <div class="demo-weapon-heading">
+            <h3 id="demoWeaponTitle">Weapon breakdown</h3>
+            <p>Enemy kills and damage, firing events, and purchases. Expand a player to inspect their weapons.</p>
           </div>
-          <div id="demoDuels"></div>
+          <div class="demo-weapon-teams" id="demoWeapons"></div>
         </section>
         <div class="actions">
           <button class="button button-primary" id="demoDownloadButton" type="button">Download parsed JSON</button>
@@ -270,6 +278,6 @@
   <script defer src="./js/chart.js"></script>
   <script defer src="./js/combinations.js"></script>
   <script defer src="./js/app.js"></script>
-  <script defer src="./js/demo.js?v=20260905-29"></script>
+  <script defer src="./js/demo.js?v=20260905-30"></script>
 </body>
 </html>
