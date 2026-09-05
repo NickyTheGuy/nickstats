@@ -550,6 +550,7 @@ async function parseDemo(fileName, buffer) {
     }
     completedRounds += 1;
     round.finished = true;
+    round.live = false;
     return true;
   }
 
@@ -1448,6 +1449,7 @@ function finishPlayer(row) {
     kills: row.kills,
     deaths: row.deaths,
     assists: row.assists,
+    damage: row.damage,
     headshot_percent: row.kills ? 100 * row.headshots / row.kills : 0,
     adr,
     kast,
