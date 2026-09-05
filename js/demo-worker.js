@@ -1022,7 +1022,23 @@ async function parseDemo(fileName, buffer) {
   function handleDamage(event, tick) {
     const attackerId = integer(event.attacker);
     const victimId = integer(event.userid);
-    if (attackerId === null || victimId === null || attackerId === victimId) return;
+    if (victimId === null) return;
+    const rawDamage = Math.max(0, number(event.dmg_health));
+    const healthAfter = numberOrNull(event.health);
+    let damage = rawDamage;
+    if (healthAfter !== null) {
+      const clampedAfter = Math.max(0, Math.min(100, healthAfter));
+      const recordedBefore = round.healthByUser.get(victimId);
+      const inferredBefore = Math.min(100, clampedAfter + rawDamage);
+      const healthBefore = Number.isFinite(recordedBefore) && recordedBefore >= clampedAfter
+        ? recordedBefore
+        : inferredBefore;
+      damage = Math.max(0, Math.min(rawDamage, healthBefore - clampedAfter));
+      round.healthByUser.set(victimId, clampedAfter);
+    }
+    // Track the victim's health even for world, self, and team damage so the
+    // next enemy hit is capped against the correct remaining health.
+    if (attackerId === null || attackerId === victimId) return;
     round.participants.add(attackerId);
     round.participants.add(victimId);
     const row = stats.get(attackerId);
@@ -1031,7 +1047,6 @@ async function parseDemo(fileName, buffer) {
     const victimTeam = teamNow.get(victimId);
     if ((attackerTeam !== 2 && attackerTeam !== 3) ||
         (victimTeam !== 2 && victimTeam !== 3) || attackerTeam === victimTeam) return;
-    const damage = Math.max(0, number(event.dmg_health));
     row.damage += damage;
     // Side ADR uses event-time damage rather than a later cumulative delta.
     // This keeps the numerator and the live-round denominator on the same side.
@@ -1183,6 +1198,10 @@ async function parseDemo(fileName, buffer) {
         // a player reconnects) and snapshot the roster that actually goes live.
         round.participants.clear();
         captureLiveParticipants();
+        round.healthByUser.clear();
+        for (const row of new Set([...round.participants].map(userId => stats.get(userId)).filter(Boolean))) {
+          for (const userId of row.userIds) round.healthByUser.set(userId, 100);
+        }
         refreshRoundSideAssignments();
         break;
       case "round_officially_ended":
@@ -1364,6 +1383,11 @@ async function parseDemo(fileName, buffer) {
       running: "Killer horizontal speed above 34% of the current weapon's maximum movement speed; non-weapon kills are excluded",
       unfair: "Unique enemy kills or deaths involving a blinded victim, penetration, smoke, airborne killer, or running killer; overlapping contexts count once"
     },
+    damage_definition: {
+      method: "Enemy health removed, reconstructed from each player_hurt event and the victim's tracked before/after health",
+      lethal_hits: "Damage is capped at the victim's remaining health so overkill weapon damage does not inflate ADR",
+      side_attribution: "Corrected damage is assigned to the attacker's live CT or T side at event time"
+    },
     speed_definition: {
       units: "Source 2 game units per second",
       component: "horizontal",
@@ -1417,6 +1441,7 @@ function freshRound() {
     killCounts: new Map(),
     pendingDeaths: [],
     participants: new Set(),
+    healthByUser: new Map(),
     statBaselines: new Map(),
     sideAssignments: new Map(),
     sideTrackingStarted: false,
