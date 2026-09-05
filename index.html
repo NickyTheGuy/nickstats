@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CSStats — Lifter / Dragger Matrix</title>
-  <link rel="stylesheet" href="./styles.css?v=20260905-7">
+  <link rel="stylesheet" href="./styles.css?v=20260905-8">
 </head>
 <body>
   <main class="shell">
@@ -69,6 +69,13 @@
         <div class="demo-summary" id="demoSummary"></div>
         <div class="warning" id="demoWarning">Preview rating uses a published HLTV-style approximation. Demo parsing is experimental; verify the scoreboard before relying on it.</div>
         <div class="demo-teams" id="demoTeams"></div>
+        <section class="demo-weapon-section" aria-labelledby="demoWeaponTitle">
+          <div class="demo-weapon-heading">
+            <h3 id="demoWeaponTitle">Weapon breakdown</h3>
+            <p>Enemy kills and damage, firing events, and purchases. Expand a player to inspect their weapons.</p>
+          </div>
+          <div class="demo-weapon-teams" id="demoWeapons"></div>
+        </section>
         <div class="actions">
           <button class="button button-primary" id="demoDownloadButton" type="button">Download parsed JSON</button>
         </div>
@@ -238,6 +245,6 @@
   <script defer src="./js/chart.js"></script>
   <script defer src="./js/combinations.js"></script>
   <script defer src="./js/app.js"></script>
-  <script defer src="./js/demo.js?v=20260905-17"></script>
+  <script defer src="./js/demo.js?v=20260905-18"></script>
 </body>
 </html>
