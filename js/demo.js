@@ -167,7 +167,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-26");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-27");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -735,6 +735,69 @@
     return wrap;
   }
 
+  function renderTradeMatrix(teams) {
+    const players = teams.flatMap((team, teamIndex) =>
+      (team.players || []).map(player => ({ player, teamIndex, teamName: team.name || `Team ${teamIndex + 1}` }))
+    );
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap demo-duel-matrix-wrap";
+    const table = document.createElement("table");
+    table.className = "demo-duel-matrix demo-trade-matrix";
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    const corner = document.createElement("th");
+    corner.textContent = "O/A/S ↓ / Teammate →";
+    corner.title = "Opportunities / attempts / successes";
+    headRow.appendChild(corner);
+    players.forEach((entry, index) => {
+      const th = document.createElement("th");
+      th.textContent = entry.player.name || "Unknown";
+      th.title = entry.teamName;
+      if (index > 0 && entry.teamIndex !== players[index - 1].teamIndex) th.classList.add("duel-team-column-start");
+      headRow.appendChild(th);
+    });
+    head.appendChild(headRow);
+
+    const body = document.createElement("tbody");
+    players.forEach((rowEntry, rowIndex) => {
+      const row = document.createElement("tr");
+      if (rowIndex > 0 && rowEntry.teamIndex !== players[rowIndex - 1].teamIndex) row.classList.add("duel-team-row-start");
+      const rowName = document.createElement("th");
+      rowName.scope = "row";
+      rowName.textContent = rowEntry.player.name || "Unknown";
+      rowName.title = `${rowEntry.teamName} · potential trader`;
+      row.appendChild(rowName);
+      const matchupMap = new Map((rowEntry.player.trade_matchups || []).map(matchup => [
+        duelIdentity(matchup.teammate_steam_id, matchup.teammate), matchup
+      ]));
+      players.forEach((columnEntry, columnIndex) => {
+        const td = document.createElement("td");
+        if (columnIndex > 0 && columnEntry.teamIndex !== players[columnIndex - 1].teamIndex) {
+          td.classList.add("duel-team-column-start");
+        }
+        const isSelf = rowEntry === columnEntry;
+        const isTeammate = rowEntry.teamIndex === columnEntry.teamIndex;
+        if (isSelf || !isTeammate) {
+          td.textContent = "—";
+          td.classList.add("duel-unavailable");
+        } else {
+          const matchup = matchupMap.get(duelIdentity(columnEntry.player.steam_id, columnEntry.player.name));
+          const opportunities = matchup?.opportunities || 0;
+          const attempts = matchup?.attempts || 0;
+          const successes = matchup?.successes || 0;
+          td.textContent = `${opportunities}/${attempts}/${successes}`;
+          td.title = `${rowEntry.player.name} responding to ${columnEntry.player.name}: ${opportunities} opportunities, ${attempts} attempts, ${successes} successes`;
+          td.classList.add(successes ? "trade-success" : attempts ? "trade-attempt" : opportunities ? "trade-opportunity" : "trade-none");
+        }
+        row.appendChild(td);
+      });
+      body.appendChild(row);
+    });
+    table.append(head, body);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
   function teamsForSide(result) {
     const teams = Array.isArray(result.teams) ? result.teams : [];
     if (state.sideFilter === "ALL") return teams;
@@ -783,6 +846,7 @@
       return renderTeam(team, index, outcome);
     }));
     $("demoWeapons").replaceChildren(...teams.map(renderWeaponTeam));
+    $("demoTrades").replaceChildren(renderTradeMatrix(teams));
     $("demoDuels").replaceChildren(renderDuelMatrix(teams));
     $("demoResults").hidden = false;
   }
