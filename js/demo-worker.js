@@ -71,6 +71,8 @@ async function parseDemo(fileName, buffer) {
   const teamScores = new Map();
   const eventCounts = new Map();
   const blindUntilTick = new Map();
+  const positionSamples = new Map();
+  const derivedSpeeds = new Map();
   const tradeAudit = [];
   const packetCounts = {
     demo_packets: 0,
@@ -230,6 +232,8 @@ async function parseDemo(fileName, buffer) {
     teamScores.clear();
     tradeAudit.length = 0;
     blindUntilTick.clear();
+    positionSamples.clear();
+    derivedSpeeds.clear();
     for (const row of stats.values()) {
       row.kills = 0;
       row.deaths = 0;
@@ -403,7 +407,7 @@ async function parseDemo(fileName, buffer) {
     return positions;
   }
 
-  function currentPlayerSpeed(userId) {
+  function currentPlayerSpeed(userId, tick) {
     let demo;
     try {
       demo = parser.getDemo();
@@ -415,9 +419,27 @@ async function parseDemo(fileName, buffer) {
     for (const pawn of demo.getEntitiesByClassNameIterator("CCSPlayerPawn")) {
       const controller = demo.getEntityByHandle(pawn.getField("m_hController"));
       if (!controller || normalizeName(controller.getField("m_iszPlayerName")) !== normalizeName(row.name)) continue;
-      return pawnHorizontalSpeed(pawn);
+      const entitySpeed = pawnHorizontalSpeed(pawn);
+      if (entitySpeed !== null) return entitySpeed;
+      break;
     }
-    return null;
+    const fallback = derivedSpeeds.get(row.userId);
+    if (!fallback || tick - fallback.tick > Math.ceil(0.25 / tickInterval)) return null;
+    return fallback.speed;
+  }
+
+  function samplePlayerMotion(tick) {
+    if (!Number.isFinite(tick)) return;
+    for (const [userId, position] of currentPlayerPositions()) {
+      const previous = positionSamples.get(userId);
+      if (previous && tick > previous.tick) {
+        const seconds = (tick - previous.tick) * tickInterval;
+        const speed = seconds > 0 ? Math.hypot(position.x - previous.position.x, position.y - previous.position.y) / seconds : null;
+        // Ignore discontinuities such as spawns, reconnects, and observer jumps.
+        if (Number.isFinite(speed) && speed <= 2000) derivedSpeeds.set(userId, { speed, tick });
+      }
+      positionSamples.set(userId, { position, tick });
+    }
   }
 
   function tradeIsOpen(prior, traderId, tick) {
@@ -535,7 +557,7 @@ async function parseDemo(fileName, buffer) {
       const penetrations = Math.max(0, integer(event.penetrated) ?? 0);
       const throughSmoke = Boolean(event.thrusmoke);
       const attackerInAir = Boolean(event.attackerinair);
-      const attackerSpeed = currentPlayerSpeed(attackerId);
+      const attackerSpeed = currentPlayerSpeed(attackerId, tick);
       if (victimWasBlind) {
         attacker.blindedEnemyKills += 1;
         victim.deathsWhileBlind += 1;
@@ -785,7 +807,10 @@ async function parseDemo(fileName, buffer) {
 
   parser.registerPostInterceptor(InterceptorStage.DEMO_PACKET, async demoPacket => {
     packetCounts.demo_packets += 1;
-    if (!demoPacket.getIsInitial()) refreshUserInfo();
+    if (!demoPacket.getIsInitial()) {
+      refreshUserInfo();
+      samplePlayerMotion(demoPacket.tick);
+    }
   });
 
   parser.registerPostInterceptor(InterceptorStage.MESSAGE_PACKET, async (demoPacket, messagePacket) => {
@@ -990,6 +1015,11 @@ async function parseDemo(fileName, buffer) {
     source_file: fileName,
     map: mapName,
     rounds: completedRounds,
+    speed_definition: {
+      units: "Source 2 game units per second",
+      component: "horizontal",
+      method: "Networked pawn velocity when available; otherwise horizontal position change between adjacent demo packets"
+    },
     trade_definition: {
       window_seconds: TRADE_WINDOW_SECONDS,
       proximity_units: TRADE_PROXIMITY_UNITS,
