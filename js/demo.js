@@ -1033,7 +1033,7 @@
         kda: [kills, number(player.deaths), number(player.assists), headshots, number(player.damage)],
         kast_rounds: number(player.kast_rounds),
         opening: [number(player.opening_kills), number(player.opening_deaths)],
-        trade_k: [number(player.trade_opportunities), number(player.trade_attempts), number(player.trade_kills ?? player.trade_successes)],
+        trade_kills: number(player.trade_kills),
         trade_d: [number(player.tradeable_deaths), number(player.attempted_tradeable_deaths), number(player.traded_deaths ?? player.traded_tradeable_deaths)],
         utility: [
           number(player.enemies_flashed), number(player.grenade_damage?.high_explosive),
@@ -1045,9 +1045,9 @@
         weapons: (player.weapon_stats || []).map(stat => [
           stat.weapon, number(stat.kills), number(stat.shots), number(stat.damage), number(stat.rounds_used)
         ]),
-        duels: (player.duels || []).map(duel => [
+        duels: (player.duels || []).filter(duel => number(duel.kills) > 0).map(duel => [
           referenceIndex(duel.opponent, duel.opponent_steam_id, duel.opponent_is_bot),
-          number(duel.kills), number(duel.deaths)
+          number(duel.kills)
         ]).filter(duel => duel[0] != null),
         trades: (player.trade_matchups || []).map(trade => [
           referenceIndex(trade.teammate, trade.teammate_steam_id, trade.teammate_is_bot),
@@ -1071,8 +1071,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/4",
-      nickstats_build: "2026.09.05.17",
+      schema: "nickstats.match/5",
+      nickstats_build: "2026.09.05.18",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -1099,9 +1099,7 @@
         name: player.name,
         steam_id: player.steam_id,
         ...(player.is_bot ? { bot: true } : {}),
-        all: compactStats(player),
-        T: compactStats(player.by_side?.T),
-        CT: compactStats(player.by_side?.CT)
+        sides: [compactStats(player.by_side?.T), compactStats(player.by_side?.CT)]
       }))
     };
   }
