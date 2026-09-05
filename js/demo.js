@@ -170,7 +170,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-36");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-37");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -1027,22 +1027,9 @@
         opening: [number(player.opening_kills), number(player.opening_deaths)],
         trade_k: [number(player.trade_opportunities), number(player.trade_attempts), number(player.trade_kills ?? player.trade_successes)],
         trade_d: [number(player.tradeable_deaths), number(player.attempted_tradeable_deaths), number(player.traded_deaths ?? player.traded_tradeable_deaths)],
-        assisted: [number(player.assisted_kills?.damage), number(player.assisted_kills?.flash)],
         utility: [
-          number(player.enemies_flashed), number(player.flash_assists),
-          number(player.grenade_damage?.high_explosive), number(player.grenade_damage?.fire)
-        ],
-        context: [
-          number(context.blinded_enemy_kills), number(context.deaths_while_blind),
-          number(context.kills_while_blind), number(context.deaths_to_blind_killer),
-          number(context.wallbang_kills), number(context.wallbang_deaths),
-          number(context.penetrations_on_kills), number(context.penetrations_on_deaths),
-          number(context.smoke_kills), number(context.smoke_deaths),
-          number(context.airborne_kills), number(context.deaths_to_airborne_killer),
-          number(context.moving_kills), number(context.deaths_to_moving_killer),
-          number(context.still_kills), number(context.deaths_to_still_killer),
-          number(context.running_kills), number(context.deaths_to_running_killer),
-          number(context.unfair_kills), number(context.unfair_deaths)
+          number(player.enemies_flashed), number(player.grenade_damage?.high_explosive),
+          number(player.grenade_damage?.fire)
         ],
         speed: [...speedArray(context.speed_on_kill), ...speedArray(context.killer_speed_on_death)],
         clutches: countArray(player.clutch_wins),
@@ -1057,15 +1044,25 @@
         trades: (player.trade_matchups || []).map(trade => [
           referenceIndex(trade.teammate, trade.teammate_steam_id, trade.teammate_is_bot),
           number(trade.opportunities), number(trade.attempts), number(trade.successes)
-        ]).filter(trade => trade[0] != null)
+        ]).filter(trade => trade[0] != null),
+        contexts: (player.kill_context_matchups || []).map(matchup => [
+          referenceIndex(matchup.victim, matchup.victim_steam_id, matchup.victim_is_bot),
+          number(matchup.blinded), number(matchup.attackerBlind), number(matchup.wallbang),
+          number(matchup.penetrations), number(matchup.smoke), number(matchup.airborne),
+          number(matchup.moving), number(matchup.still), number(matchup.running), number(matchup.unfair)
+        ]).filter(matchup => matchup[0] != null),
+        assisted_by: (player.assisted_kill_matchups || []).map(matchup => [
+          referenceIndex(matchup.assister, matchup.assister_steam_id, matchup.assister_is_bot),
+          number(matchup.damage), number(matchup.flash)
+        ]).filter(matchup => matchup[0] != null)
       };
     };
 
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/2",
-      nickstats_build: "2026.09.05.15",
+      schema: "nickstats.match/3",
+      nickstats_build: "2026.09.05.16",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
