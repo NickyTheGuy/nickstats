@@ -21,7 +21,7 @@ The Demo Parser tab uses [`@deademx/cs2` 4.0.0](https://github.com/Igor-Losev/de
 
 Each player also receives a per-weapon ledger containing enemy kills, enemy health damage, `weapon_fire` events, and successful `item_purchase` events. A shotgun firing event counts as one shot rather than one per pellet. Armor, helmets, and defuse kits are excluded from the weapon ledger; dropped and picked-up weapons do not count as purchases.
 
-The duel ledger records each player's enemy kills and deaths against every opponent, along with the differential. Teamkills, suicides, and world deaths are excluded. The browser renders this as one matrix: rows are players, columns are opponents, and each cell is the row player's kills-deaths against that opponent. Self and teammate cells are left blank, with team boundaries visually separated.
+The duel ledger records every player-attributed kill/death pairing and its differential. Enemy kills, teamkills, and self-kills are included; world deaths remain excluded because there is no player to use as a matrix column. The browser renders this as one matrix: rows are players, columns are other players, and each cell is the row player's kills-deaths against that player. A self-kill appears on the diagonal as `0-1`, and team boundaries remain visually separated. Blank cells mean no such event occurred.
 
 Scoreboard headers are sortable within each team. Composite headers cycle through their component statistics and then return to the original neutral order; single-stat headers toggle between that statistic and neutral. Favorable values sort first, so death-based penalty columns use fewer-first ordering.
 
