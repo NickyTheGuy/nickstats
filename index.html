@@ -44,7 +44,7 @@
         <div>
           <div class="demo-prototype-line">
             <div class="eyebrow">Local browser prototype</div>
-            <span class="demo-build">Build 2026.09.05.2</span>
+            <span class="demo-build">Build 2026.09.05.3</span>
           </div>
           <h2>Parse one CS2 demo</h2>
           <p>Choose a <code>.dem</code> or <code>.dem.gz</code> file. It is processed inside your browser and never uploaded.</p>
@@ -69,6 +69,8 @@
       </div>
 
       <div class="demo-results" id="demoResults" hidden>
+        <div class="demo-summary" id="demoSummary"></div>
+        <div class="warning" id="demoWarning">Preview rating uses a published HLTV-style approximation. Demo parsing is experimental; verify the scoreboard before relying on it.</div>
         <div class="demo-side-filter" role="group" aria-label="Filter demo statistics by player side">
           <span>Player side</span>
           <div class="demo-side-buttons">
@@ -77,8 +79,6 @@
             <button class="demo-side-button" type="button" data-demo-side="T" aria-pressed="false">T</button>
           </div>
         </div>
-        <div class="demo-summary" id="demoSummary"></div>
-        <div class="warning" id="demoWarning">Preview rating uses a published HLTV-style approximation. Demo parsing is experimental; verify the scoreboard before relying on it.</div>
         <div class="demo-teams" id="demoTeams"></div>
         <section class="demo-weapon-section" aria-labelledby="demoWeaponTitle">
           <div class="demo-weapon-heading">
