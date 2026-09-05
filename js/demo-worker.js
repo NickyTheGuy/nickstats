@@ -7,6 +7,7 @@ const TRADE_ENGAGEMENT_LULL_SECONDS = 2;
 const BULLET_PATH_TOLERANCE_UNITS = 96;
 const HE_MAX_DAMAGE_UNARMORED = 98;
 const HE_MAX_DAMAGE_ARMORED = 57;
+const TRADE_AUDIT_RADII = [150, 200, 250, 300, 400, 500];
 let libraryError = null;
 
 try {
@@ -69,6 +70,7 @@ async function parseDemo(fileName, buffer) {
   const originalTeam = new Map();
   const teamScores = new Map();
   const eventCounts = new Map();
+  const tradeAudit = [];
   const packetCounts = {
     demo_packets: 0,
     server_info: 0,
@@ -119,6 +121,8 @@ async function parseDemo(fileName, buffer) {
           attemptedTradeableDeaths: 0,
           tradedTradeableDeaths: 0,
           tradedBy: new Map(),
+          tradeProximityDistances: [],
+          provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0 },
           damageAssistedKills: 0,
           flashAssistedKills: 0,
           enemiesFlashed: 0,
@@ -205,6 +209,7 @@ async function parseDemo(fileName, buffer) {
     completedRounds = 0;
     round = freshRound();
     teamScores.clear();
+    tradeAudit.length = 0;
     for (const row of stats.values()) {
       row.kills = 0;
       row.deaths = 0;
@@ -225,6 +230,8 @@ async function parseDemo(fileName, buffer) {
       row.attemptedTradeableDeaths = 0;
       row.tradedTradeableDeaths = 0;
       row.tradedBy = new Map();
+      row.tradeProximityDistances = [];
+      row.provenTradeOpportunities = { bullet_path: 0, damage: 0, kill: 0 };
       row.damageAssistedKills = 0;
       row.flashAssistedKills = 0;
       row.enemiesFlashed = 0;
@@ -318,23 +325,24 @@ async function parseDemo(fileName, buffer) {
     return best;
   }
 
-  function nearbyLivingTeammates(victimId, victimTeam) {
-    if (victimTeam !== 2 && victimTeam !== 3) return new Set();
+  function livingTeammateDistances(victimId, victimTeam) {
+    if (victimTeam !== 2 && victimTeam !== 3) return new Map();
     const positions = currentPlayerPositions();
     const victimRow = stats.get(victimId);
     const victimPosition = victimRow ? positions.get(victimRow.userId) : null;
-    if (!victimPosition) return new Set();
-    const nearby = new Set();
+    if (!victimPosition) return new Map();
+    const teammateDistances = new Map();
     for (const row of new Set(stats.values())) {
       const rowTeam = [...row.userIds].map(userId => teamNow.get(userId)).find(team => team === 2 || team === 3);
       if (row === victimRow || rowTeam !== victimTeam) continue;
       const died = [...row.userIds].some(userId => round.deaths.has(userId));
       const position = positions.get(row.userId);
-      if (!died && position && distance(position, victimPosition) <= TRADE_PROXIMITY_UNITS) {
-        nearby.add(row.userId);
+      const separation = position ? distance(position, victimPosition) : null;
+      if (!died && separation !== null) {
+        teammateDistances.set(row.userId, separation);
       }
     }
-    return nearby;
+    return teammateDistances;
   }
 
   function currentPlayerPositions() {
@@ -376,22 +384,40 @@ async function parseDemo(fileName, buffer) {
     return [...prior.engagementTicks.values()].some(lastTick => tick - lastTick <= lull);
   }
 
-  function ensureTradeOpportunity(prior, trader) {
+  function ensureTradeOpportunity(prior, trader, source = "proven") {
     if (!prior || !trader || prior.capableTraders.has(trader.userId)) return;
     const hadOpportunity = prior.capableTraders.size > 0;
     prior.capableTraders.add(trader.userId);
     trader.tradeOpportunities += 1;
+    if (Object.hasOwn(trader.provenTradeOpportunities, source)) {
+      trader.provenTradeOpportunities[source] += 1;
+    }
+    prior.audit.candidates.push({
+      player: trader.name,
+      distance: Number.isFinite(prior.teammateDistances.get(trader.userId))
+        ? Math.round(prior.teammateDistances.get(trader.userId))
+        : null,
+      opportunity_source: source,
+      attempted: false,
+      attempt_source: null,
+      success: false
+    });
     if (!hadOpportunity) {
       const victim = stats.get(prior.victim);
       if (victim) victim.tradeableDeaths += 1;
     }
   }
 
-  function recordTradeAttempt(prior, trader) {
-    ensureTradeOpportunity(prior, trader);
+  function recordTradeAttempt(prior, trader, source) {
+    ensureTradeOpportunity(prior, trader, source);
     if (!prior || !trader || prior.attemptedTraders.has(trader.userId)) return;
     prior.attemptedTraders.add(trader.userId);
     trader.tradeAttempts += 1;
+    const auditCandidate = prior.audit.candidates.find(candidate => candidate.player === trader.name);
+    if (auditCandidate) {
+      auditCandidate.attempted = true;
+      auditCandidate.attempt_source = source;
+    }
     if (!prior.deathAttempted) {
       prior.deathAttempted = true;
       const victim = stats.get(prior.victim);
@@ -434,7 +460,11 @@ async function parseDemo(fileName, buffer) {
     if (victimId !== null) round.participants.add(victimId);
     if (assisterId !== null) round.participants.add(assisterId);
 
-    const nearbyTraders = enemyKill ? nearbyLivingTeammates(victimId, victimTeam) : new Set();
+    const teammateDistances = enemyKill ? livingTeammateDistances(victimId, victimTeam) : new Map();
+    const nearbyCandidates = new Map(
+      [...teammateDistances].filter(([, separation]) => separation <= TRADE_PROXIMITY_UNITS)
+    );
+    const nearbyTraders = new Set(nearbyCandidates.keys());
     if (victim) {
       victim.deaths += 1;
       round.deaths.add(victimId);
@@ -463,7 +493,7 @@ async function parseDemo(fileName, buffer) {
           }
           // A kill proves the trader could act even when the initial proximity
           // heuristic did not recognize the opportunity.
-          recordTradeAttempt(prior, attacker);
+          recordTradeAttempt(prior, attacker, "kill");
           refreshTradeEngagement(prior, attacker.userId, tick);
           if (prior.capableTraders.has(attacker.userId)) {
             isTradeKill = true;
@@ -477,11 +507,31 @@ async function parseDemo(fileName, buffer) {
             if (!prior.successfulTraders.has(attacker.userId)) {
               prior.successfulTraders.add(attacker.userId);
               attacker.tradeSuccesses += 1;
+              const auditCandidate = prior.audit.candidates.find(candidate => candidate.player === attacker.name);
+              if (auditCandidate) auditCandidate.success = true;
             }
           }
         }
       }
       if (isTradeKill) attacker.tradeKills += 1;
+      const audit = {
+        round: completedRounds + 1,
+        victim: victim.name,
+        killer: attacker.name,
+        candidates: [...nearbyCandidates].map(([traderId, separation]) => {
+          const trader = stats.get(traderId);
+          if (trader) trader.tradeProximityDistances.push(separation);
+          return {
+            player: trader?.name || `Player ${traderId}`,
+            distance: Math.round(separation),
+            opportunity_source: "proximity",
+            attempted: false,
+            attempt_source: null,
+            success: false
+          };
+        })
+      };
+      tradeAudit.push(audit);
       round.pendingDeaths.push({
         victim: victimId,
         killer: attackerId,
@@ -491,6 +541,8 @@ async function parseDemo(fileName, buffer) {
         attemptedTraders: new Set(),
         successfulTraders: new Set(),
         engagementTicks: new Map(),
+        teammateDistances,
+        audit,
         deathAttempted: false,
         tradeRecorded: false
       });
@@ -574,7 +626,7 @@ async function parseDemo(fileName, buffer) {
         if (prior.killer === victimId && tradeIsOpen(prior, row.userId, tick)) {
           // Damage proves a usable sightline/action opportunity, even when the
           // trader was farther than the initial proximity radius.
-          recordTradeAttempt(prior, row);
+          recordTradeAttempt(prior, row, "damage");
           refreshTradeEngagement(prior, row.userId, tick);
         } else if (prior.killer === attackerId) {
           const target = stats.get(victimId);
@@ -631,7 +683,7 @@ async function parseDemo(fileName, buffer) {
     }
 
     if (!best) return;
-    if (!best.reciprocal) recordTradeAttempt(best.prior, best.trader);
+    if (!best.reciprocal) recordTradeAttempt(best.prior, best.trader, "bullet_path");
     refreshTradeEngagement(best.prior, best.trader.userId, tick);
   }
 
@@ -856,6 +908,10 @@ async function parseDemo(fileName, buffer) {
       },
       grenade_attempt_rule: "Nonlethal HE damage proves an attempt only when the target's pre-hit health did not exceed the applicable maximum; other nonlethal grenade damage does not prove an attempt"
     },
+    trade_opportunity_audit: {
+      radii: TRADE_AUDIT_RADII,
+      deaths: tradeAudit
+    },
     player_count: activePlayers.length,
     teams
   };
@@ -934,6 +990,14 @@ function finishPlayer(row) {
     traded_tradeable_deaths: row.tradedTradeableDeaths,
     traded_death_percent: row.attemptedTradeableDeaths ? 100 * row.tradedDeaths / row.attemptedTradeableDeaths : 0,
     traded_by: Object.fromEntries([...row.tradedBy].sort(([a], [b]) => a.localeCompare(b))),
+    trade_opportunity_audit: {
+      proximity_counts_by_radius: Object.fromEntries(TRADE_AUDIT_RADII.map(radius => [
+        radius,
+        row.tradeProximityDistances.filter(distance => distance <= radius).length
+      ])),
+      proximity_distances: row.tradeProximityDistances.map(Math.round).sort((a, b) => a - b),
+      proven_opportunities: { ...row.provenTradeOpportunities }
+    },
     assisted_kills: {
       damage: row.damageAssistedKills,
       flash: row.flashAssistedKills,
