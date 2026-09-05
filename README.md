@@ -25,6 +25,8 @@ Nonlethal HE damage proves an attempt only when the target's reconstructed pre-h
 
 The five-second window determines whether a trade engagement can begin. A bullet path passing within 96 units of the original killer counts as an attempt even if the shot misses. Once established, qualifying fire or damage from either side refreshes the engagement; it expires after a two-second lull. A kill of the original killer during that uninterrupted exchange remains a trade even when the fight lasts longer than five seconds. Bullet paths use the shooter, impact, and player positions recorded in the demo. They are an approximation and can still misidentify unusually aligned players without full map collision geometry.
 
+For calibration, parsed JSON includes a `trade_opportunity_audit`. Each player receives proximity-opportunity counts at 150, 200, 250, 300, 400, and 500 units, their observed proximity distances, and counts of opportunities proven by bullet path, damage, or kill. A match-level death trace records every candidate, trigger, attempt, and success. This audit does not change which opportunities appear on the scoreboard; it exists to tune the model against reference data without repeatedly guessing thresholds.
+
 The displayed preview rating uses the commonly published HLTV Rating 2.0 approximation:
 
 ```
