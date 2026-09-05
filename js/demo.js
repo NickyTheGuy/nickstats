@@ -15,7 +15,8 @@
     resolveParse: null,
     rejectParse: null,
     expandedGroups: { killContext: false, trades: false, assistedKills: false, utility: false, clutches: false, multikills: false },
-    scoreboardSort: null
+    scoreboardSort: null,
+    sideFilter: "ALL"
   };
 
   const sortSpecs = {
@@ -162,7 +163,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-20");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-21");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -212,6 +213,7 @@
     state.file = file;
     state.result = null;
     state.scoreboardSort = null;
+    setSideFilter("ALL", false);
     state.diagnostics = null;
     $("demoResults").hidden = true;
     $("demoDiagnosticsButton").hidden = true;
@@ -716,15 +718,43 @@
     return wrap;
   }
 
-  function render(result) {
+  function teamsForSide(result) {
     const teams = Array.isArray(result.teams) ? result.teams : [];
+    if (state.sideFilter === "ALL") return teams;
+    return teams.map(team => ({
+      ...team,
+      score: Number.isFinite(team.side_scores?.[state.sideFilter]) ? team.side_scores[state.sideFilter] : null,
+      players: (team.players || []).map(player => {
+        const sideStats = player.by_side?.[state.sideFilter];
+        return sideStats ? { ...sideStats, by_side: player.by_side } : player;
+      })
+    }));
+  }
+
+  function setSideFilter(side, shouldRender = true) {
+    if (!["ALL", "CT", "T"].includes(side)) return;
+    state.sideFilter = side;
+    document.querySelectorAll("[data-demo-side]").forEach(button => {
+      const active = button.dataset.demoSide === side;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    if (shouldRender && state.result) render(state.result);
+  }
+
+  function render(result) {
+    const teams = teamsForSide(result);
+    const sideRounds = teams.reduce((maximum, team) => Math.max(
+      maximum,
+      ...(team.players || []).map(player => player.rounds_played || 0)
+    ), 0);
     const score = teams.length >= 2 && teams.every(team => Number.isFinite(team.score)) ? `${teams[0].score}–${teams[1].score}` : "Unknown";
     $("demoSummary").replaceChildren(
       summaryCard("File", state.file?.name || "Demo"),
       summaryCard("Match ID", result.provider_match_id || `SHA ${String(result.demo_sha256 || "").slice(0, 12)}…`),
       summaryCard("Map", result.map || "Unknown"),
-      summaryCard("Rounds", String(result.rounds || 0)),
-      summaryCard("Score", score)
+      summaryCard(state.sideFilter === "ALL" ? "Rounds" : `${state.sideFilter} rounds`, String(state.sideFilter === "ALL" ? result.rounds || 0 : sideRounds)),
+      summaryCard(state.sideFilter === "ALL" ? "Score" : `${state.sideFilter} wins`, score)
     );
     const finiteScores = teams.map(team => team.score).filter(Number.isFinite);
     const highScore = finiteScores.length ? Math.max(...finiteScores) : null;
@@ -770,6 +800,7 @@
     state.file = null;
     state.result = null;
     state.scoreboardSort = null;
+    setSideFilter("ALL", false);
     state.diagnostics = null;
     $("demoInput").value = "";
     $("demoFileLabel").textContent = "Choose a FACEIT or CS2 demo";
@@ -813,6 +844,9 @@
   $("demoClearButton").addEventListener("click", clear);
   $("demoDiagnosticsButton").addEventListener("click", downloadDiagnostics);
   $("demoDownloadButton").addEventListener("click", downloadJson);
+  document.querySelectorAll("[data-demo-side]").forEach(button => {
+    button.addEventListener("click", () => setSideFilter(button.dataset.demoSide));
+  });
 
   const drop = $("demoDropZone");
   ["dragenter", "dragover"].forEach(type => drop.addEventListener(type, event => {
