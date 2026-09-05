@@ -933,22 +933,68 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .demo-weapon-team h4 { margin-bottom: 9px; font-size: 15px; }
 
 .demo-weapon-player {
-  border-top: 1px solid rgba(238, 243, 251, .09);
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(238, 243, 251, .14);
+  border-radius: 10px;
+  background: rgba(238, 243, 251, .025);
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
 }
 
 .demo-weapon-player summary {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  align-items: center;
   gap: 12px;
-  padding: 10px 3px;
+  min-height: 50px;
+  padding: 9px 13px;
   cursor: pointer;
+  list-style: none;
 }
 
-.demo-weapon-player summary span { color: var(--muted); font-size: 12px; }
-.demo-weapon-player .table-wrap { margin-bottom: 10px; }
+.demo-weapon-player summary::-webkit-details-marker { display: none; }
+
+.demo-weapon-player summary::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--blue);
+  border-bottom: 2px solid var(--blue);
+  transform: rotate(-45deg);
+  transition: transform .16s ease;
+}
+
+.demo-weapon-player[open] {
+  border-color: rgba(104, 164, 255, .48);
+  background: rgba(104, 164, 255, .045);
+  box-shadow: 0 0 0 1px rgba(104, 164, 255, .06);
+}
+
+.demo-weapon-player[open] summary::before { transform: rotate(45deg); }
+.demo-weapon-player summary:hover { background: rgba(104, 164, 255, .07); }
+.demo-weapon-player summary:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+
+.demo-weapon-summary-main {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-width: 0;
+}
+
+.demo-weapon-summary-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.demo-weapon-action { color: #8bb7ff; font-size: 11px; font-weight: 800; }
+.demo-weapon-action::after { content: "View weapons"; }
+.demo-weapon-player[open] .demo-weapon-action::after { content: "Hide weapons"; }
+.demo-weapon-totals { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.demo-weapon-player .table-wrap { margin: 0 10px 10px; }
 .demo-weapon-table { width: 100%; min-width: 400px; }
 .demo-weapon-table th, .demo-weapon-table td { padding: 8px 10px; text-align: center; }
 .demo-weapon-table th:first-child, .demo-weapon-table td:first-child { text-align: left; }
+
+@media (max-width: 560px) {
+  .demo-weapon-action { display: none; }
+  .demo-weapon-player summary { gap: 9px; }
+}
 
 .demo-duel-matrix-wrap { border: 0; border-radius: 0; }
 .demo-duel-matrix { width: 100%; min-width: 1050px; table-layout: fixed; }
