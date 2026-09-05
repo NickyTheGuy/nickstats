@@ -3,6 +3,8 @@
 const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
 const TRADE_WINDOW_SECONDS = 5;
 const TRADE_PROXIMITY_UNITS = 500;
+const TRADE_ENGAGEMENT_LULL_SECONDS = 2;
+const BULLET_PATH_TOLERANCE_UNITS = 96;
 const HE_MAX_DAMAGE_UNARMORED = 98;
 const HE_MAX_DAMAGE_ARMORED = 57;
 let libraryError = null;
@@ -318,22 +320,7 @@ async function parseDemo(fileName, buffer) {
 
   function nearbyLivingTeammates(victimId, victimTeam) {
     if (victimTeam !== 2 && victimTeam !== 3) return new Set();
-    let demo;
-    try {
-      demo = parser.getDemo();
-    } catch {
-      return new Set();
-    }
-    const positions = new Map();
-    const byName = new Map();
-    for (const row of new Set(stats.values())) byName.set(normalizeName(row.name), row);
-    for (const pawn of demo.getEntitiesByClassNameIterator("CCSPlayerPawn")) {
-      const controller = demo.getEntityByHandle(pawn.getField("m_hController"));
-      if (!controller) continue;
-      const row = byName.get(normalizeName(controller.getField("m_iszPlayerName")));
-      const position = pawnPosition(pawn);
-      if (row && position) positions.set(row.userId, position);
-    }
+    const positions = currentPlayerPositions();
     const victimRow = stats.get(victimId);
     const victimPosition = victimRow ? positions.get(victimRow.userId) : null;
     if (!victimPosition) return new Set();
@@ -348,6 +335,45 @@ async function parseDemo(fileName, buffer) {
       }
     }
     return nearby;
+  }
+
+  function currentPlayerPositions() {
+    let demo;
+    try {
+      demo = parser.getDemo();
+    } catch {
+      return new Map();
+    }
+    const positions = new Map();
+    const byName = new Map();
+    for (const row of new Set(stats.values())) byName.set(normalizeName(row.name), row);
+    for (const pawn of demo.getEntitiesByClassNameIterator("CCSPlayerPawn")) {
+      const controller = demo.getEntityByHandle(pawn.getField("m_hController"));
+      if (!controller) continue;
+      const row = byName.get(normalizeName(controller.getField("m_iszPlayerName")));
+      const position = pawnPosition(pawn);
+      if (row && position) positions.set(row.userId, position);
+    }
+    return positions;
+  }
+
+  function tradeIsOpen(prior, traderId, tick) {
+    const tradeWindow = Math.max(1, Math.round(TRADE_WINDOW_SECONDS / tickInterval));
+    if (tick - prior.tick <= tradeWindow) return true;
+    const lastEngagement = prior.engagementTicks.get(traderId);
+    const lull = Math.max(1, Math.round(TRADE_ENGAGEMENT_LULL_SECONDS / tickInterval));
+    return Number.isFinite(lastEngagement) && tick - lastEngagement <= lull;
+  }
+
+  function refreshTradeEngagement(prior, traderId, tick) {
+    prior.engagementTicks.set(traderId, tick);
+  }
+
+  function pendingTradeIsAlive(prior, tick) {
+    const tradeWindow = Math.max(1, Math.round(TRADE_WINDOW_SECONDS / tickInterval));
+    if (tick - prior.tick <= tradeWindow) return true;
+    const lull = Math.max(1, Math.round(TRADE_ENGAGEMENT_LULL_SECONDS / tickInterval));
+    return [...prior.engagementTicks.values()].some(lastTick => tick - lastTick <= lull);
   }
 
   function ensureTradeOpportunity(prior, trader) {
@@ -429,16 +455,16 @@ async function parseDemo(fileName, buffer) {
         round.openingRecorded = true;
       }
 
-      const tradeWindow = Math.max(1, Math.round(TRADE_WINDOW_SECONDS / tickInterval));
       let isTradeKill = false;
       for (const prior of round.pendingDeaths) {
-        if (prior.killer === victimId && prior.victimTeam === attackerTeam && tick - prior.tick <= tradeWindow) {
+        if (prior.killer === victimId && prior.victimTeam === attackerTeam && tradeIsOpen(prior, attacker.userId, tick)) {
           if (!round.traded.has(prior.victim)) {
             round.traded.add(prior.victim);
           }
           // A kill proves the trader could act even when the initial proximity
           // heuristic did not recognize the opportunity.
           recordTradeAttempt(prior, attacker);
+          refreshTradeEngagement(prior, attacker.userId, tick);
           if (prior.capableTraders.has(attacker.userId)) {
             isTradeKill = true;
             const tradedVictim = stats.get(prior.victim);
@@ -464,6 +490,7 @@ async function parseDemo(fileName, buffer) {
         capableTraders: nearbyTraders,
         attemptedTraders: new Set(),
         successfulTraders: new Set(),
+        engagementTicks: new Map(),
         deathAttempted: false,
         tradeRecorded: false
       });
@@ -471,7 +498,7 @@ async function parseDemo(fileName, buffer) {
         const trader = stats.get(traderId);
         if (trader) trader.tradeOpportunities += 1;
       }
-      round.pendingDeaths = round.pendingDeaths.filter(item => tick - item.tick <= tradeWindow);
+      round.pendingDeaths = round.pendingDeaths.filter(item => pendingTradeIsAlive(item, tick));
     }
 
     if (enemyKill && assisterId !== null && assisterId !== victimId) {
@@ -543,17 +570,69 @@ async function parseDemo(fileName, buffer) {
     const damage = Math.max(0, number(event.dmg_health));
     row.damage += damage;
     if (damage > 0 && damageProvesTradeAttempt(event, damage)) {
-      const tradeWindow = Math.max(1, Math.round(TRADE_WINDOW_SECONDS / tickInterval));
       for (const prior of round.pendingDeaths) {
-        if (prior.killer !== victimId || tick - prior.tick > tradeWindow) continue;
-        // Damage proves a usable sightline/action opportunity, even when the
-        // trader was farther than the initial proximity radius.
-        recordTradeAttempt(prior, row);
+        if (prior.killer === victimId && tradeIsOpen(prior, row.userId, tick)) {
+          // Damage proves a usable sightline/action opportunity, even when the
+          // trader was farther than the initial proximity radius.
+          recordTradeAttempt(prior, row);
+          refreshTradeEngagement(prior, row.userId, tick);
+        } else if (prior.killer === attackerId) {
+          const target = stats.get(victimId);
+          if (target && prior.attemptedTraders.has(target.userId) && tradeIsOpen(prior, target.userId, tick)) {
+            refreshTradeEngagement(prior, target.userId, tick);
+          }
+        }
       }
     }
     const weapon = String(event.weapon || "").toLocaleLowerCase();
     if (weapon === "hegrenade") row.heDamage += damage;
     if (weapon === "inferno" || weapon === "molotov" || weapon === "incgrenade") row.fireDamage += damage;
+  }
+
+  function handleBulletImpact(event, tick) {
+    const shooterId = integer(event.userid);
+    const shooter = stats.get(shooterId);
+    const impact = {
+      x: numberOrNull(event.x),
+      y: numberOrNull(event.y),
+      z: numberOrNull(event.z)
+    };
+    if (!shooter || Object.values(impact).some(value => value === null)) return;
+    const positions = currentPlayerPositions();
+    const origin = positions.get(shooter.userId);
+    if (!origin) return;
+    const shotOrigin = { x: origin.x, y: origin.y, z: origin.z + 64 };
+    const shooterTeam = [...shooter.userIds].map(userId => teamNow.get(userId)).find(team => team === 2 || team === 3);
+    let best = null;
+
+    for (const prior of round.pendingDeaths) {
+      if (prior.killer !== shooterId) {
+        if (shooterTeam !== prior.victimTeam || !tradeIsOpen(prior, shooter.userId, tick)) continue;
+        const killer = stats.get(prior.killer);
+        const target = killer ? positions.get(killer.userId) : null;
+        if (!target) continue;
+        const miss = pointToSegmentDistance({ ...target, z: target.z + 40 }, shotOrigin, impact);
+        if (miss <= BULLET_PATH_TOLERANCE_UNITS && (!best || miss < best.miss)) {
+          best = { prior, trader: shooter, miss };
+        }
+        continue;
+      }
+
+      for (const traderId of prior.attemptedTraders) {
+        if (!tradeIsOpen(prior, traderId, tick)) continue;
+        const trader = stats.get(traderId);
+        const target = positions.get(traderId);
+        if (!trader || !target) continue;
+        const miss = pointToSegmentDistance({ ...target, z: target.z + 40 }, shotOrigin, impact);
+        if (miss <= BULLET_PATH_TOLERANCE_UNITS && (!best || miss < best.miss)) {
+          best = { prior, trader, miss, reciprocal: true };
+        }
+      }
+    }
+
+    if (!best) return;
+    if (!best.reciprocal) recordTradeAttempt(best.prior, best.trader);
+    refreshTradeEngagement(best.prior, best.trader.userId, tick);
   }
 
   parser.registerPostInterceptor(InterceptorStage.DEMO_PACKET, async demoPacket => {
@@ -664,6 +743,10 @@ async function parseDemo(fileName, buffer) {
         round.hasActivity = true;
         handleBlind(gameEvent);
         break;
+      case "bullet_impact":
+        if (!round.live) break;
+        handleBulletImpact(gameEvent, demoPacket.tick);
+        break;
     }
   });
 
@@ -762,9 +845,11 @@ async function parseDemo(fileName, buffer) {
     trade_definition: {
       window_seconds: TRADE_WINDOW_SECONDS,
       proximity_units: TRADE_PROXIMITY_UNITS,
-      opportunity: "Living teammate within the proximity radius when a teammate dies, or a teammate who later damages or kills the killer during the trade window",
-      attempt: "An eligible teammate damages the killer during the trade window",
-      success: "An eligible teammate kills the killer during the trade window",
+      engagement_lull_seconds: TRADE_ENGAGEMENT_LULL_SECONDS,
+      bullet_path_tolerance_units: BULLET_PATH_TOLERANCE_UNITS,
+      opportunity: "Living teammate within the proximity radius when a teammate dies, or a teammate whose shot path, damage, or kill later proves engagement with the killer",
+      attempt: "An eligible teammate damages the killer or fires a shot path near the killer during the initial trade window",
+      success: "An eligible teammate kills the killer before the active engagement expires",
       he_damage_caps: {
         unarmored: HE_MAX_DAMAGE_UNARMORED,
         armored: HE_MAX_DAMAGE_ARMORED
@@ -888,6 +973,22 @@ function pawnPosition(pawn) {
 
 function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+function pointToSegmentDistance(point, start, end) {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const dz = end.z - start.z;
+  const lengthSquared = dx * dx + dy * dy + dz * dz;
+  if (!lengthSquared) return distance(point, start);
+  const projection = ((point.x - start.x) * dx + (point.y - start.y) * dy +
+    (point.z - start.z) * dz) / lengthSquared;
+  const t = Math.max(0, Math.min(1, projection));
+  return distance(point, {
+    x: start.x + t * dx,
+    y: start.y + t * dy,
+    z: start.z + t * dz
+  });
 }
 
 function readEndState(demo) {
