@@ -25,6 +25,20 @@ const WEAPON_MAX_SPEED = Object.freeze({
   sg556: [210, 150], ssg08: [230, 230], taser: [220, 220], tec9: [240, 240],
   ump45: [230, 230], usp_silencer: [240, 240], xm1014: [215, 215]
 });
+const WEAPON_PRICES = Object.freeze({
+  ak47: 2700, aug: 3300, awp: 4750, bizon: 1400, cz75a: 500, deagle: 700,
+  elite: 300, famas: 1950, fiveseven: 500, g3sg1: 5000, galilar: 1800,
+  glock: 200, hkp2000: 200, m249: 5200, m4a1: 2900, m4a1_silencer: 2900,
+  mac10: 1050, mag7: 1300, mp5sd: 1500, mp7: 1500, mp9: 1250, negev: 1700,
+  nova: 1050, p250: 300, p90: 2350, revolver: 600, sawedoff: 1100,
+  scar20: 5000, sg556: 3000, ssg08: 1700, taser: 200, tec9: 500,
+  ump45: 1200, usp_silencer: 200, xm1014: 2000, hegrenade: 300,
+  flashbang: 200, smokegrenade: 300, decoy: 50, molotov: 400, incgrenade: 600
+});
+const DEFAULT_PISTOLS = new Set(["glock", "hkp2000", "usp_silencer"]);
+const GRENADE_BUY_LIMITS = Object.freeze({
+  hegrenade: 1, flashbang: 2, smokegrenade: 1, decoy: 1, molotov: 1, incgrenade: 1
+});
 const ADDITIVE_STAT_FIELDS = [
   "kills", "deaths", "assists", "headshots", "kastRounds", "killRounds",
   "assistRounds", "survivalRounds", "tradeRounds", "tradeKills", "tradedDeaths",
@@ -102,6 +116,7 @@ async function parseDemo(fileName, buffer) {
   const teamNow = new Map();
   const originalTeam = new Map();
   const teamScores = new Map();
+  const moneyNow = new Map();
   const eventCounts = new Map();
   const blindUntilTick = new Map();
   const positionSamples = new Map();
@@ -258,7 +273,17 @@ async function parseDemo(fileName, buffer) {
       const row = byName.get(normalizeName(entity.getField("m_iszPlayerName")));
       if (!row || (team !== 2 && team !== 3)) continue;
       for (const userId of row.userIds) teamNow.set(userId, team);
+      const account = integer(entity.getField("m_pInGameMoneyServices.m_iAccount"));
+      if (account !== null) moneyNow.set(row, account);
       if (!originalTeam.has(row.userId)) originalTeam.set(row.userId, team);
+    }
+  }
+
+  function captureRoundMoney() {
+    refreshControllerTeams();
+    for (const [row, account] of moneyNow) {
+      const previous = round.startMoney.get(row);
+      if (!Number.isFinite(previous) || account > previous) round.startMoney.set(row, account);
     }
   }
 
@@ -285,6 +310,7 @@ async function parseDemo(fileName, buffer) {
     round = freshRound();
     teamScores.clear();
     tradeAudit.length = 0;
+    moneyNow.clear();
     blindUntilTick.clear();
     positionSamples.clear();
     derivedSpeeds.clear();
@@ -434,6 +460,7 @@ async function parseDemo(fileName, buffer) {
     if (round.sideTrackingStarted) return;
     refreshUserInfo();
     refreshControllerTeams();
+    captureRoundMoney();
     for (const row of new Set(stats.values())) {
       round.statBaselines.set(row, playerStatsSnapshot(row));
       const side = rowSide(row);
@@ -1108,7 +1135,54 @@ async function parseDemo(fileName, buffer) {
     const row = stats.get(userId);
     if (!row || !isPurchasedWeapon(event.weapon)) return;
     const stat = weaponStat(row, event.weapon);
-    if (stat) stat.purchases += 1;
+    if (stat) {
+      stat.purchases += 1;
+      round.directPurchaseEvents += 1;
+    }
+  }
+
+  function handlePickup(event, tick) {
+    if (round.live) return;
+    const userId = integer(event.userid);
+    const row = stats.get(userId);
+    const weapon = event.item ?? event.weapon;
+    if (!row || !isPurchasedWeapon(weapon)) return;
+    captureRoundMoney();
+    round.purchasePickups.push({ row, weapon, tick });
+  }
+
+  function inferRoundPurchases() {
+    if (round.directPurchaseEvents || !round.purchasePickups.length) return;
+    refreshControllerTeams();
+    const pickupsByPlayer = new Map();
+    for (const pickup of round.purchasePickups) {
+      let entries = pickupsByPlayer.get(pickup.row);
+      if (!entries) pickupsByPlayer.set(pickup.row, (entries = []));
+      entries.push(pickup);
+    }
+
+    for (const [row, pickups] of pickupsByPlayer) {
+      const start = round.startMoney.get(row);
+      const end = moneyNow.get(row);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start <= end) continue;
+      let budget = start - end;
+      const side = rowSide(row);
+      const counts = new Map();
+      const candidates = pickups
+        .map(pickup => ({ ...pickup, id: normalizedWeapon(pickup.weapon), price: purchasePrice(pickup.weapon, side) }))
+        .filter(pickup => pickup.price > 0 && !DEFAULT_PISTOLS.has(pickup.id))
+        .sort((a, b) => b.price - a.price || a.tick - b.tick);
+
+      for (const pickup of candidates) {
+        const limit = GRENADE_BUY_LIMITS[pickup.id] ?? Infinity;
+        if ((counts.get(pickup.id) || 0) >= limit || pickup.price > budget) continue;
+        const stat = weaponStat(row, pickup.weapon);
+        if (!stat) continue;
+        stat.purchases += 1;
+        counts.set(pickup.id, (counts.get(pickup.id) || 0) + 1);
+        budget -= pickup.price;
+      }
+    }
   }
 
   function handleBulletImpact(event, tick) {
@@ -1213,6 +1287,7 @@ async function parseDemo(fileName, buffer) {
         finishRound(integer(gameEvent.winner));
         break;
       case "round_freeze_end":
+        inferRoundPurchases();
         round.freezeSeen = true;
         round.live = true;
         // Discard transient pre-freeze spawns (for example a bot created while
@@ -1281,6 +1356,9 @@ async function parseDemo(fileName, buffer) {
         break;
       case "item_purchase":
         handlePurchase(gameEvent);
+        break;
+      case "item_pickup":
+        handlePickup(gameEvent, demoPacket.tick);
         break;
       case "bullet_impact":
         if (!round.live) break;
@@ -1409,6 +1487,14 @@ async function parseDemo(fileName, buffer) {
       lethal_hits: "Damage is capped at the victim's remaining health so overkill weapon damage does not inflate ADR",
       side_attribution: "Corrected damage is assigned to the attacker's live CT or T side at event time"
     },
+    purchase_definition: {
+      method: eventCounts.get("item_purchase")
+        ? "Direct item_purchase game events"
+        : "Buy-phase item_pickup events reconciled against each player's recorded cash decrease and CS2 item prices",
+      caveat: eventCounts.get("item_purchase")
+        ? null
+        : "FACEIT GOTV demos omit item_purchase events. Dropped weapons and equipment spending can make inferred per-weapon counts approximate. Mid-round pickups and free spawn pistols are excluded."
+    },
     speed_definition: {
       units: "Source 2 game units per second",
       component: "horizontal",
@@ -1463,6 +1549,9 @@ function freshRound() {
     pendingDeaths: [],
     participants: new Set(),
     healthByUser: new Map(),
+    startMoney: new Map(),
+    purchasePickups: [],
+    directPurchaseEvents: 0,
     statBaselines: new Map(),
     sideAssignments: new Map(),
     sideTrackingStarted: false,
@@ -1641,8 +1730,16 @@ function weaponStatId(weapon) {
 function isPurchasedWeapon(weapon) {
   const name = normalizedWeapon(weapon);
   return Boolean(name) && !new Set([
-    "vest", "vesthelm", "assaultsuit", "kevlar", "defuser", "cutters", "nvgs"
-  ]).has(name) && !name.startsWith("item_");
+    "vest", "vesthelm", "assaultsuit", "kevlar", "defuser", "cutters", "nvgs",
+    "c4", "planted_c4", "world"
+  ]).has(name) && !name.includes("knife") && name !== "bayonet" && !name.startsWith("item_");
+}
+
+function purchasePrice(weapon, side) {
+  const name = normalizedWeapon(weapon);
+  if (name === "molotov" && side === 3) return WEAPON_PRICES.incgrenade;
+  if (name === "incgrenade" && side === 2) return WEAPON_PRICES.molotov;
+  return WEAPON_PRICES[name] || 0;
 }
 
 function isNonWeaponSpeedKill(weapon) {
