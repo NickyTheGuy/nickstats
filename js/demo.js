@@ -18,7 +18,8 @@
     scoreboardSort: null,
     sideFilter: "ALL",
     resultView: "scoreboard",
-    expandedWeaponPlayers: new Set()
+    expandedWeaponPlayers: new Set(),
+    weaponSorts: new Map()
   };
 
   const sortSpecs = {
@@ -220,6 +221,7 @@
     state.result = null;
     state.scoreboardSort = null;
     state.expandedWeaponPlayers.clear();
+    state.weaponSorts.clear();
     setSideFilter("ALL", false);
     setResultView("scoreboard");
     state.diagnostics = null;
@@ -623,12 +625,19 @@
       else state.expandedWeaponPlayers.delete(identity);
     });
     const summary = document.createElement("summary");
+    const summaryMain = document.createElement("span");
+    summaryMain.className = "demo-weapon-summary-main";
     const name = document.createElement("strong");
     name.textContent = player.name || "Unknown player";
+    const action = document.createElement("span");
+    action.className = "demo-weapon-action";
+    action.setAttribute("aria-hidden", "true");
     const totals = document.createElement("span");
+    totals.className = "demo-weapon-totals";
     const weapons = Array.isArray(player.weapon_stats) ? player.weapon_stats : [];
     totals.textContent = `${weapons.reduce((sum, stat) => sum + (stat.kills || 0), 0)} kills · ${weapons.reduce((sum, stat) => sum + (stat.shots || 0), 0)} shots`;
-    summary.append(name, totals);
+    summaryMain.append(name, action);
+    summary.append(summaryMain, totals);
     details.appendChild(summary);
 
     const wrap = document.createElement("div");
@@ -637,14 +646,21 @@
     table.className = "demo-weapon-table";
     const head = document.createElement("thead");
     const headRow = document.createElement("tr");
-    ["Weapon", "Kills", "Shots", "Damage", "Rounds used"].forEach(label => {
+    const columns = [
+      ["Weapon", "weapon"],
+      ["Kills", "kills"],
+      ["Shots", "shots"],
+      ["Damage", "damage"],
+      ["Rounds used", "rounds_used"]
+    ];
+    columns.forEach(([label, field]) => {
       const th = document.createElement("th");
-      th.textContent = label;
+      weaponSortableHeader(th, label, field, identity);
       headRow.appendChild(th);
     });
     head.appendChild(headRow);
     const body = document.createElement("tbody");
-    weapons.forEach(stat => {
+    sortedWeapons(weapons, identity).forEach(stat => {
       const row = document.createElement("tr");
       cell(row, weaponName(stat.weapon));
       cell(row, stat.kills || 0);
@@ -666,6 +682,40 @@
     wrap.appendChild(table);
     details.appendChild(wrap);
     return details;
+  }
+
+  function weaponSortableHeader(th, label, field, identity) {
+    const active = state.weaponSorts.get(identity) === field;
+    const button = document.createElement("button");
+    th.classList.add("demo-sort-heading");
+    th.setAttribute("aria-sort", active ? (field === "weapon" ? "ascending" : "descending") : "none");
+    button.type = "button";
+    button.className = "demo-sort-button";
+    button.classList.toggle("active", active);
+    button.textContent = active ? `${label} •` : label;
+    button.title = active ? "Return to the original weapon order" : `Sort by ${label}`;
+    button.addEventListener("click", () => {
+      if (active) state.weaponSorts.delete(identity);
+      else state.weaponSorts.set(identity, field);
+      rerenderWeapons();
+    });
+    th.appendChild(button);
+  }
+
+  function sortedWeapons(weapons, identity) {
+    const field = state.weaponSorts.get(identity);
+    if (!field) return weapons;
+    return weapons.map((weapon, index) => ({ weapon, index })).sort((left, right) => {
+      const comparison = field === "weapon"
+        ? weaponName(left.weapon.weapon).localeCompare(weaponName(right.weapon.weapon))
+        : (right.weapon[field] || 0) - (left.weapon[field] || 0);
+      return comparison || left.index - right.index;
+    }).map(entry => entry.weapon);
+  }
+
+  function rerenderWeapons() {
+    if (!state.result) return;
+    $("demoWeapons").replaceChildren(...teamsForSide(state.result).map(renderWeaponTeam));
   }
 
   function renderWeaponTeam(team) {
@@ -911,6 +961,7 @@
     state.result = null;
     state.scoreboardSort = null;
     state.expandedWeaponPlayers.clear();
+    state.weaponSorts.clear();
     setSideFilter("ALL", false);
     setResultView("scoreboard");
     state.diagnostics = null;
