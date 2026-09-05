@@ -417,13 +417,13 @@ async function parseDemo(fileName, buffer) {
     round.sideTrackingStarted = true;
   }
 
-  function refreshRoundSideAssignments() {
+  function refreshRoundSideAssignments(overwrite = true) {
     beginRoundSideTracking();
     refreshControllerTeams();
     for (const row of new Set(stats.values())) {
       if (!round.statBaselines.has(row)) round.statBaselines.set(row, playerStatsSnapshot(row));
       const side = rowSide(row);
-      if (side) round.sideAssignments.set(row, side);
+      if (side && (overwrite || !round.sideAssignments.has(row))) round.sideAssignments.set(row, side);
     }
   }
 
@@ -445,7 +445,9 @@ async function parseDemo(fileName, buffer) {
   }
 
   function allocateRoundToSides(participants, winningSide) {
-    refreshRoundSideAssignments();
+    // Keep the assignment captured when the round went live. A delayed
+    // official-end event can arrive after the next regulation/OT side swap.
+    refreshRoundSideAssignments(false);
     for (const row of new Set(stats.values())) {
       const side = round.sideAssignments.get(row);
       const before = round.statBaselines.get(row);
