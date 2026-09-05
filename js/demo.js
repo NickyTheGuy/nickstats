@@ -66,7 +66,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-9");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-10");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -221,12 +221,12 @@
     return row;
   }
 
-  function regularHeader(row, label, rowSpan = 3) {
+  function regularHeader(row, label) {
     const th = document.createElement("th");
     th.textContent = label;
     if (label === "EF") th.title = "Enemies flashed";
     if (label === "FA") th.title = "Flash assists";
-    th.rowSpan = rowSpan;
+    th.rowSpan = 2;
     row.appendChild(th);
   }
 
@@ -234,7 +234,6 @@
     const expanded = state.expandedGroups[group];
     const th = document.createElement("th");
     th.colSpan = expanded ? labels.length : 1;
-    th.rowSpan = 2;
     th.className = `demo-toggle-heading ${group}-heading`;
     const button = document.createElement("button");
     button.type = "button";
@@ -252,36 +251,6 @@
       child.className = `demo-group-detail ${group}-cell`;
       detailRow.appendChild(child);
     });
-  }
-
-  function tradeHeader(topRow, middleRow, detailRow) {
-    const expanded = state.expandedGroups.trades;
-    const th = document.createElement("th");
-    th.colSpan = expanded ? 6 : 1;
-    th.rowSpan = expanded ? 1 : 3;
-    th.className = "demo-toggle-heading trades-heading";
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "demo-column-toggle";
-    button.setAttribute("aria-expanded", String(expanded));
-    button.textContent = expanded ? "Trades ▾" : "Trade K-D ▸";
-    button.addEventListener("click", () => toggleColumnGroup("trades"));
-    th.appendChild(button);
-    topRow.appendChild(th);
-    if (!expanded) return;
-    for (const label of ["Trade K", "Trade D"]) {
-      const group = document.createElement("th");
-      group.colSpan = 3;
-      group.className = "demo-trade-subhead trades-cell";
-      group.textContent = label;
-      middleRow.appendChild(group);
-    }
-    for (const label of ["Opp", "Att", "K (Succ%)", "Opp", "Att", "D (Succ%)"]) {
-      const child = document.createElement("th");
-      child.className = "demo-group-detail trades-cell";
-      child.textContent = label;
-      detailRow.appendChild(child);
-    }
   }
 
   function toggleColumnGroup(group) {
@@ -336,17 +305,16 @@
     scoreboardColumns(table);
     const thead = document.createElement("thead");
     const header = document.createElement("tr");
-    const subgroupHeader = document.createElement("tr");
     const detailHeader = document.createElement("tr");
     ["Player", "Rnds", "K-D-A", "HS%", "ADR", "KAST", "Opening"]
       .forEach(label => regularHeader(header, label));
-    tradeHeader(header, subgroupHeader, detailHeader);
+    groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     groupHeader(header, detailHeader, "assistedKills", "Assisted K", ["Dmg", "Flash"]);
     groupHeader(header, detailHeader, "utility", "Utility", ["EF", "FA", "HE Dmg", "Fire Dmg"], "EF/FA · Dmg");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"]);
     groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
     regularHeader(header, "Rating");
-    thead.append(header, subgroupHeader, detailHeader);
+    thead.append(header, detailHeader);
     const body = document.createElement("tbody");
     team.players.forEach(player => body.appendChild(playerRow(player)));
     if (index === 0) table.appendChild(thead);
