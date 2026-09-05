@@ -3,6 +3,8 @@
 const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
 const TRADE_WINDOW_SECONDS = 5;
 const TRADE_PROXIMITY_UNITS = 500;
+const HE_MAX_DAMAGE_UNARMORED = 98;
+const HE_MAX_DAMAGE_ARMORED = 57;
 let libraryError = null;
 
 try {
@@ -371,6 +373,23 @@ async function parseDemo(fileName, buffer) {
     }
   }
 
+  function damageProvesTradeAttempt(event, damage) {
+    const weapon = String(event.weapon || "").toLocaleLowerCase();
+    if (weapon === "hegrenade") {
+      const healthAfter = numberOrNull(event.health);
+      if (healthAfter === null) return false;
+      const armorAfter = numberOrNull(event.armor) ?? 0;
+      const armorDamage = numberOrNull(event.dmg_armor) ?? 0;
+      const wasArmored = armorAfter + armorDamage > 0;
+      const maximum = wasArmored ? HE_MAX_DAMAGE_ARMORED : HE_MAX_DAMAGE_UNARMORED;
+      return healthAfter + damage <= maximum;
+    }
+    if (["inferno", "molotov", "incgrenade", "flashbang", "decoy", "smokegrenade"].includes(weapon)) {
+      return false;
+    }
+    return true;
+  }
+
   function handleDeath(event, tick) {
     refreshControllerTeams();
     const attackerId = integer(event.attacker);
@@ -523,7 +542,7 @@ async function parseDemo(fileName, buffer) {
         (victimTeam !== 2 && victimTeam !== 3) || attackerTeam === victimTeam) return;
     const damage = Math.max(0, number(event.dmg_health));
     row.damage += damage;
-    if (damage > 0) {
+    if (damage > 0 && damageProvesTradeAttempt(event, damage)) {
       const tradeWindow = Math.max(1, Math.round(TRADE_WINDOW_SECONDS / tickInterval));
       for (const prior of round.pendingDeaths) {
         if (prior.killer !== victimId || tick - prior.tick > tradeWindow) continue;
@@ -745,7 +764,12 @@ async function parseDemo(fileName, buffer) {
       proximity_units: TRADE_PROXIMITY_UNITS,
       opportunity: "Living teammate within the proximity radius when a teammate dies, or a teammate who later damages or kills the killer during the trade window",
       attempt: "An eligible teammate damages the killer during the trade window",
-      success: "An eligible teammate kills the killer during the trade window"
+      success: "An eligible teammate kills the killer during the trade window",
+      he_damage_caps: {
+        unarmored: HE_MAX_DAMAGE_UNARMORED,
+        armored: HE_MAX_DAMAGE_ARMORED
+      },
+      grenade_attempt_rule: "Nonlethal HE damage proves an attempt only when the target's pre-hit health did not exceed the applicable maximum; other nonlethal grenade damage does not prove an attempt"
     },
     player_count: activePlayers.length,
     teams
