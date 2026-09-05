@@ -2,7 +2,7 @@
 
 const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
 const TRADE_WINDOW_SECONDS = 5;
-const TRADE_PROXIMITY_UNITS = 500;
+const TRADE_PROXIMITY_UNITS = 250;
 const TRADE_ENGAGEMENT_LULL_SECONDS = 2;
 const BULLET_PATH_TOLERANCE_UNITS = 96;
 const HE_MAX_DAMAGE_UNARMORED = 98;
