@@ -649,64 +649,69 @@
     return section;
   }
 
-  function renderDuelPlayer(player) {
-    const details = document.createElement("details");
-    details.className = "demo-duel-player";
-    const summary = document.createElement("summary");
-    const name = document.createElement("strong");
-    name.textContent = player.name || "Unknown player";
-    const totals = document.createElement("span");
-    const duels = Array.isArray(player.duels) ? player.duels : [];
-    totals.textContent = `${player.kills || 0}-${player.deaths || 0} overall · ${duels.length} opponents`;
-    summary.append(name, totals);
-    details.appendChild(summary);
+  function duelIdentity(steamId, name) {
+    return steamId ? `steam:${steamId}` : `name:${String(name || "").toLocaleLowerCase()}`;
+  }
 
+  function renderDuelMatrix(teams) {
+    const players = teams.flatMap((team, teamIndex) =>
+      (team.players || []).map(player => ({ player, teamIndex, teamName: team.name || `Team ${teamIndex + 1}` }))
+    );
     const wrap = document.createElement("div");
-    wrap.className = "table-wrap";
+    wrap.className = "table-wrap demo-duel-matrix-wrap";
     const table = document.createElement("table");
-    table.className = "demo-duel-table";
+    table.className = "demo-duel-matrix";
     const head = document.createElement("thead");
     const headRow = document.createElement("tr");
-    ["Opponent", "Kills", "Deaths", "Diff"].forEach(label => {
+    const corner = document.createElement("th");
+    corner.textContent = "K-D ↓ / Opponent →";
+    corner.className = "duel-corner";
+    headRow.appendChild(corner);
+    players.forEach((entry, index) => {
       const th = document.createElement("th");
-      th.textContent = label;
+      th.textContent = entry.player.name || "Unknown";
+      th.title = entry.teamName;
+      if (index > 0 && entry.teamIndex !== players[index - 1].teamIndex) th.classList.add("duel-team-column-start");
       headRow.appendChild(th);
     });
     head.appendChild(headRow);
+
     const body = document.createElement("tbody");
-    duels.forEach(duel => {
+    players.forEach((rowEntry, rowIndex) => {
       const row = document.createElement("tr");
-      cell(row, duel.opponent || "Unknown player");
-      cell(row, duel.kills || 0);
-      cell(row, duel.deaths || 0);
-      const differential = duel.differential || 0;
-      cell(row, differential > 0 ? `+${differential}` : String(differential),
-        differential > 0 ? "duel-positive" : differential < 0 ? "duel-negative" : "duel-even");
+      if (rowIndex > 0 && rowEntry.teamIndex !== players[rowIndex - 1].teamIndex) row.classList.add("duel-team-row-start");
+      const rowName = document.createElement("th");
+      rowName.scope = "row";
+      rowName.textContent = rowEntry.player.name || "Unknown";
+      rowName.title = rowEntry.teamName;
+      row.appendChild(rowName);
+      const duelMap = new Map((rowEntry.player.duels || []).map(duel => [
+        duelIdentity(duel.opponent_steam_id, duel.opponent), duel
+      ]));
+      players.forEach((columnEntry, columnIndex) => {
+        const td = document.createElement("td");
+        if (columnIndex > 0 && columnEntry.teamIndex !== players[columnIndex - 1].teamIndex) {
+          td.classList.add("duel-team-column-start");
+        }
+        if (rowEntry === columnEntry || rowEntry.teamIndex === columnEntry.teamIndex) {
+          td.textContent = "—";
+          td.classList.add("duel-unavailable");
+        } else {
+          const duel = duelMap.get(duelIdentity(columnEntry.player.steam_id, columnEntry.player.name));
+          const kills = duel?.kills || 0;
+          const deaths = duel?.deaths || 0;
+          const differential = kills - deaths;
+          td.textContent = `${kills}-${deaths}`;
+          td.title = `${rowEntry.player.name}: ${kills} kills and ${deaths} deaths against ${columnEntry.player.name}`;
+          td.classList.add(differential > 0 ? "duel-positive" : differential < 0 ? "duel-negative" : "duel-even");
+        }
+        row.appendChild(td);
+      });
       body.appendChild(row);
     });
-    if (!duels.length) {
-      const row = document.createElement("tr");
-      const empty = document.createElement("td");
-      empty.colSpan = 4;
-      empty.className = "empty";
-      empty.textContent = "No enemy duels were recorded.";
-      row.appendChild(empty);
-      body.appendChild(row);
-    }
     table.append(head, body);
     wrap.appendChild(table);
-    details.appendChild(wrap);
-    return details;
-  }
-
-  function renderDuelTeam(team) {
-    const section = document.createElement("section");
-    section.className = "demo-duel-team";
-    const heading = document.createElement("h4");
-    heading.textContent = team.name || "Team";
-    section.appendChild(heading);
-    (team.players || []).forEach(player => section.appendChild(renderDuelPlayer(player)));
-    return section;
+    return wrap;
   }
 
   function render(result) {
@@ -729,7 +734,7 @@
       return renderTeam(team, index, outcome);
     }));
     $("demoWeapons").replaceChildren(...teams.map(renderWeaponTeam));
-    $("demoDuels").replaceChildren(...teams.map(renderDuelTeam));
+    $("demoDuels").replaceChildren(renderDuelMatrix(teams));
     $("demoResults").hidden = false;
   }
 
