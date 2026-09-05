@@ -14,7 +14,7 @@
     rejectReady: null,
     resolveParse: null,
     rejectParse: null,
-    expandedGroups: { utility: false, clutches: false, multikills: false }
+    expandedGroups: { trades: false, assistedKills: false, utility: false, clutches: false, multikills: false }
   };
 
   function setStatus(message, error = false) {
@@ -66,7 +66,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260904-16");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-1");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -178,7 +178,24 @@
     cell(row, player.adr.toFixed(1));
     cell(row, `${player.kast.toFixed(1)}%`);
     cell(row, `${player.opening_kills}-${player.opening_deaths}`);
-    cell(row, `${player.trade_kills ?? 0}-${player.traded_deaths ?? 0}`);
+    if (state.expandedGroups.trades) {
+      cell(row, player.trade_kills ?? 0, "demo-group-cell trades-cell");
+      cell(row, player.traded_deaths ?? 0, "demo-group-cell trades-cell");
+      cell(row, player.trade_opportunities ?? 0, "demo-group-cell trades-cell");
+      cell(row, player.trade_attempts ?? 0, "demo-group-cell trades-cell");
+      cell(row, player.trade_successes ?? 0, "demo-group-cell trades-cell");
+      cell(row, `${(player.trade_attempt_percent ?? 0).toFixed(0)}%`, "demo-group-cell trades-cell");
+      cell(row, player.tradeable_deaths ?? 0, "demo-group-cell trades-cell");
+      cell(row, `${(player.traded_death_percent ?? 0).toFixed(0)}%`, "demo-group-cell trades-cell");
+    } else {
+      cell(row, `${player.trade_kills ?? 0}-${player.traded_deaths ?? 0} · ${player.trade_attempts ?? 0}/${player.trade_opportunities ?? 0}`, "demo-group-cell trades-cell");
+    }
+    if (state.expandedGroups.assistedKills) {
+      cell(row, player.assisted_kills?.damage ?? 0, "demo-group-cell assistedKills-cell");
+      cell(row, player.assisted_kills?.flash ?? 0, "demo-group-cell assistedKills-cell");
+    } else {
+      cell(row, player.assisted_kills?.total ?? 0, "demo-group-cell assistedKills-cell");
+    }
     if (state.expandedGroups.utility) {
       cell(row, player.enemies_flashed ?? 0, "demo-group-cell utility-cell");
       cell(row, player.flash_assists ?? 0, "demo-group-cell utility-cell");
@@ -248,7 +265,9 @@
   }
 
   function scoreboardColumnWidths() {
-    const widths = [160, 58, 90, 62, 72, 72, 82, 88];
+    const widths = [160, 58, 90, 62, 72, 72, 82];
+    widths.push(...(state.expandedGroups.trades ? [52, 52, 58, 52, 52, 62, 68, 62] : [132]));
+    widths.push(...(state.expandedGroups.assistedKills ? [68, 68] : [90]));
     widths.push(...(state.expandedGroups.utility ? [58, 58, 82, 82] : [132]));
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
     widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
@@ -283,14 +302,16 @@
     const wrap = document.createElement("div");
     wrap.className = "table-wrap";
     const table = document.createElement("table");
-    table.className = `demo-score-table${state.expandedGroups.utility ? " utility-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.multikills ? " multikills-expanded" : ""}`;
+    table.className = `demo-score-table${state.expandedGroups.trades ? " trades-expanded" : ""}${state.expandedGroups.assistedKills ? " assisted-kills-expanded" : ""}${state.expandedGroups.utility ? " utility-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.multikills ? " multikills-expanded" : ""}`;
     table.setAttribute("aria-label", `${team.name || `Team ${index + 1}`} player statistics`);
     scoreboardColumns(table);
     const thead = document.createElement("thead");
     const header = document.createElement("tr");
     const detailHeader = document.createElement("tr");
-    ["Player", "Rnds", "K-D-A", "HS%", "ADR", "KAST", "Opening", "Trade K-D"]
+    ["Player", "Rnds", "K-D-A", "HS%", "ADR", "KAST", "Opening"]
       .forEach(label => regularHeader(header, label));
+    groupHeader(header, detailHeader, "trades", "Trades", ["TK", "TD", "Opp", "Att", "Suc", "Att%", "Able D", "TD%"], "TK-TD · Att/Opp");
+    groupHeader(header, detailHeader, "assistedKills", "Assisted K", ["Dmg", "Flash"]);
     groupHeader(header, detailHeader, "utility", "Utility", ["EF", "FA", "HE Dmg", "Fire Dmg"], "EF/FA · Dmg");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"]);
     groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
