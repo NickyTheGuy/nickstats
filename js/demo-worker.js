@@ -348,6 +348,29 @@ async function parseDemo(fileName, buffer) {
     return nearby;
   }
 
+  function ensureTradeOpportunity(prior, trader) {
+    if (!prior || !trader || prior.capableTraders.has(trader.userId)) return;
+    const hadOpportunity = prior.capableTraders.size > 0;
+    prior.capableTraders.add(trader.userId);
+    trader.tradeOpportunities += 1;
+    if (!hadOpportunity) {
+      const victim = stats.get(prior.victim);
+      if (victim) victim.tradeableDeaths += 1;
+    }
+  }
+
+  function recordTradeAttempt(prior, trader) {
+    ensureTradeOpportunity(prior, trader);
+    if (!prior || !trader || prior.attemptedTraders.has(trader.userId)) return;
+    prior.attemptedTraders.add(trader.userId);
+    trader.tradeAttempts += 1;
+    if (!prior.deathAttempted) {
+      prior.deathAttempted = true;
+      const victim = stats.get(prior.victim);
+      if (victim) victim.attemptedTradeableDeaths += 1;
+    }
+  }
+
   function handleDeath(event, tick) {
     refreshControllerTeams();
     const attackerId = integer(event.attacker);
@@ -394,6 +417,9 @@ async function parseDemo(fileName, buffer) {
           if (!round.traded.has(prior.victim)) {
             round.traded.add(prior.victim);
           }
+          // A kill proves the trader could act even when the initial proximity
+          // heuristic did not recognize the opportunity.
+          recordTradeAttempt(prior, attacker);
           if (prior.capableTraders.has(attacker.userId)) {
             isTradeKill = true;
             const tradedVictim = stats.get(prior.victim);
@@ -500,15 +526,10 @@ async function parseDemo(fileName, buffer) {
     if (damage > 0) {
       const tradeWindow = Math.max(1, Math.round(TRADE_WINDOW_SECONDS / tickInterval));
       for (const prior of round.pendingDeaths) {
-        if (prior.killer !== victimId || tick - prior.tick > tradeWindow ||
-            !prior.capableTraders.has(row.userId) || prior.attemptedTraders.has(row.userId)) continue;
-        prior.attemptedTraders.add(row.userId);
-        row.tradeAttempts += 1;
-        if (!prior.deathAttempted) {
-          prior.deathAttempted = true;
-          const tradeableVictim = stats.get(prior.victim);
-          if (tradeableVictim) tradeableVictim.attemptedTradeableDeaths += 1;
-        }
+        if (prior.killer !== victimId || tick - prior.tick > tradeWindow) continue;
+        // Damage proves a usable sightline/action opportunity, even when the
+        // trader was farther than the initial proximity radius.
+        recordTradeAttempt(prior, row);
       }
     }
     const weapon = String(event.weapon || "").toLocaleLowerCase();
@@ -722,7 +743,7 @@ async function parseDemo(fileName, buffer) {
     trade_definition: {
       window_seconds: TRADE_WINDOW_SECONDS,
       proximity_units: TRADE_PROXIMITY_UNITS,
-      opportunity: "Living teammate within the proximity radius when a teammate dies",
+      opportunity: "Living teammate within the proximity radius when a teammate dies, or a teammate who later damages or kills the killer during the trade window",
       attempt: "An eligible teammate damages the killer during the trade window",
       success: "An eligible teammate kills the killer during the trade window"
     },
