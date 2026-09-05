@@ -66,7 +66,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-10");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-11");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -218,7 +218,16 @@
     }
     const ratingClass = player.rating >= 1.10 ? "rating-good" : player.rating <= 0.90 ? "rating-bad" : "rating-average";
     cell(row, player.rating.toFixed(2), `demo-rating ${ratingClass}`);
+    markGroupBoundaries(row);
     return row;
+  }
+
+  function markGroupBoundaries(row) {
+    for (const group of ["trades", "assistedKills", "utility", "clutches", "multikills"]) {
+      const cells = [...row.cells].filter(item => item.classList.contains(`${group}-cell`));
+      cells[0]?.classList.add("demo-group-start");
+      cells.at(-1)?.classList.add("demo-group-end");
+    }
   }
 
   function regularHeader(row, label) {
@@ -234,7 +243,7 @@
     const expanded = state.expandedGroups[group];
     const th = document.createElement("th");
     th.colSpan = expanded ? labels.length : 1;
-    th.className = `demo-toggle-heading ${group}-heading`;
+    th.className = `demo-toggle-heading ${group}-heading demo-group-start demo-group-end`;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "demo-column-toggle";
@@ -243,12 +252,15 @@
     button.addEventListener("click", () => toggleColumnGroup(group));
     th.appendChild(button);
     topRow.appendChild(th);
-    (expanded ? labels : [collapsedLabel]).forEach(detail => {
+    const details = expanded ? labels : [collapsedLabel];
+    details.forEach((detail, index) => {
       const child = document.createElement("th");
       child.textContent = detail;
       if (detail === "EF") child.title = "Enemies flashed";
       if (detail === "FA") child.title = "Flash assists";
       child.className = `demo-group-detail ${group}-cell`;
+      if (index === 0) child.classList.add("demo-group-start");
+      if (index === details.length - 1) child.classList.add("demo-group-end");
       detailRow.appendChild(child);
     });
   }
