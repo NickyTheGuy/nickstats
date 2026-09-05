@@ -70,6 +70,7 @@ async function parseDemo(fileName, buffer) {
   const originalTeam = new Map();
   const teamScores = new Map();
   const eventCounts = new Map();
+  const blindUntilTick = new Map();
   const tradeAudit = [];
   const packetCounts = {
     demo_packets: 0,
@@ -129,6 +130,22 @@ async function parseDemo(fileName, buffer) {
           flashAssists: 0,
           heDamage: 0,
           fireDamage: 0,
+          blindedEnemyKills: 0,
+          deathsWhileBlind: 0,
+          killsWhileBlind: 0,
+          deathsToBlindKiller: 0,
+          wallbangKills: 0,
+          wallbangDeaths: 0,
+          killPenetrations: 0,
+          deathPenetrations: 0,
+          smokeKills: 0,
+          smokeDeaths: 0,
+          speedOnKillTotal: 0,
+          speedOnKillSamples: 0,
+          maxSpeedOnKill: 0,
+          killerSpeedTotal: 0,
+          killerSpeedSamples: 0,
+          maxKillerSpeed: 0,
           rounds: 0,
           openingKills: 0,
           openingDeaths: 0,
@@ -210,6 +227,7 @@ async function parseDemo(fileName, buffer) {
     round = freshRound();
     teamScores.clear();
     tradeAudit.length = 0;
+    blindUntilTick.clear();
     for (const row of stats.values()) {
       row.kills = 0;
       row.deaths = 0;
@@ -238,6 +256,22 @@ async function parseDemo(fileName, buffer) {
       row.flashAssists = 0;
       row.heDamage = 0;
       row.fireDamage = 0;
+      row.blindedEnemyKills = 0;
+      row.deathsWhileBlind = 0;
+      row.killsWhileBlind = 0;
+      row.deathsToBlindKiller = 0;
+      row.wallbangKills = 0;
+      row.wallbangDeaths = 0;
+      row.killPenetrations = 0;
+      row.deathPenetrations = 0;
+      row.smokeKills = 0;
+      row.smokeDeaths = 0;
+      row.speedOnKillTotal = 0;
+      row.speedOnKillSamples = 0;
+      row.maxSpeedOnKill = 0;
+      row.killerSpeedTotal = 0;
+      row.killerSpeedSamples = 0;
+      row.maxKillerSpeed = 0;
       row.rounds = 0;
       row.openingKills = 0;
       row.openingDeaths = 0;
@@ -365,6 +399,23 @@ async function parseDemo(fileName, buffer) {
     return positions;
   }
 
+  function currentPlayerSpeed(userId) {
+    let demo;
+    try {
+      demo = parser.getDemo();
+    } catch {
+      return null;
+    }
+    const row = stats.get(userId);
+    if (!row) return null;
+    for (const pawn of demo.getEntitiesByClassNameIterator("CCSPlayerPawn")) {
+      const controller = demo.getEntityByHandle(pawn.getField("m_hController"));
+      if (!controller || normalizeName(controller.getField("m_iszPlayerName")) !== normalizeName(row.name)) continue;
+      return pawnHorizontalSpeed(pawn);
+    }
+    return null;
+  }
+
   function tradeIsOpen(prior, traderId, tick) {
     const tradeWindow = Math.max(1, Math.round(TRADE_WINDOW_SECONDS / tickInterval));
     if (tick - prior.tick <= tradeWindow) return true;
@@ -475,6 +526,37 @@ async function parseDemo(fileName, buffer) {
       attacker.observedOpponents.add(victim);
       victim.observedOpponents.add(attacker);
       attacker.kills += 1;
+      const victimWasBlind = (blindUntilTick.get(victim.userId) ?? -1) >= tick;
+      const attackerWasBlind = Boolean(event.attackerblind);
+      const penetrations = Math.max(0, integer(event.penetrated) ?? 0);
+      const throughSmoke = Boolean(event.thrusmoke);
+      const attackerSpeed = currentPlayerSpeed(attackerId);
+      if (victimWasBlind) {
+        attacker.blindedEnemyKills += 1;
+        victim.deathsWhileBlind += 1;
+      }
+      if (attackerWasBlind) {
+        attacker.killsWhileBlind += 1;
+        victim.deathsToBlindKiller += 1;
+      }
+      if (penetrations > 0) {
+        attacker.wallbangKills += 1;
+        victim.wallbangDeaths += 1;
+        attacker.killPenetrations += penetrations;
+        victim.deathPenetrations += penetrations;
+      }
+      if (throughSmoke) {
+        attacker.smokeKills += 1;
+        victim.smokeDeaths += 1;
+      }
+      if (attackerSpeed !== null) {
+        attacker.speedOnKillTotal += attackerSpeed;
+        attacker.speedOnKillSamples += 1;
+        attacker.maxSpeedOnKill = Math.max(attacker.maxSpeedOnKill, attackerSpeed);
+        victim.killerSpeedTotal += attackerSpeed;
+        victim.killerSpeedSamples += 1;
+        victim.maxKillerSpeed = Math.max(victim.maxKillerSpeed, attackerSpeed);
+      }
       round.kills.add(attackerId);
       round.killCounts.set(attackerId, (round.killCounts.get(attackerId) || 0) + 1);
       if (event.headshot) attacker.headshots += 1;
@@ -589,10 +671,16 @@ async function parseDemo(fileName, buffer) {
     }
   }
 
-  function handleBlind(event) {
+  function handleBlind(event, tick) {
     refreshControllerTeams();
     const attackerId = integer(event.attacker);
     const victimId = integer(event.userid);
+    const victim = stats.get(victimId);
+    const duration = Math.max(0, number(event.blind_duration));
+    if (victim && duration > 0) {
+      const expiry = tick + Math.ceil(duration / tickInterval);
+      blindUntilTick.set(victim.userId, Math.max(blindUntilTick.get(victim.userId) ?? -1, expiry));
+    }
     if (attackerId === null || victimId === null || attackerId === victimId) return;
     round.participants.add(attackerId);
     round.participants.add(victimId);
@@ -792,7 +880,7 @@ async function parseDemo(fileName, buffer) {
       case "player_blind":
         if (!round.live) break;
         round.hasActivity = true;
-        handleBlind(gameEvent);
+        handleBlind(gameEvent, demoPacket.tick);
         break;
       case "bullet_impact":
         if (!round.live) break;
@@ -1009,6 +1097,20 @@ function finishPlayer(row) {
       fire: row.fireDamage,
       total: row.heDamage + row.fireDamage
     },
+    kill_context: {
+      blinded_enemy_kills: row.blindedEnemyKills,
+      deaths_while_blind: row.deathsWhileBlind,
+      kills_while_blind: row.killsWhileBlind,
+      deaths_to_blind_killer: row.deathsToBlindKiller,
+      wallbang_kills: row.wallbangKills,
+      wallbang_deaths: row.wallbangDeaths,
+      penetrations_on_kills: row.killPenetrations,
+      penetrations_on_deaths: row.deathPenetrations,
+      smoke_kills: row.smokeKills,
+      smoke_deaths: row.smokeDeaths,
+      speed_on_kill: speedSummary(row.speedOnKillTotal, row.speedOnKillSamples, row.maxSpeedOnKill),
+      killer_speed_on_death: speedSummary(row.killerSpeedTotal, row.killerSpeedSamples, row.maxKillerSpeed)
+    },
     opening_kills: row.openingKills,
     opening_deaths: row.openingDeaths,
     multikill_rounds: row.multikillRounds,
@@ -1016,6 +1118,44 @@ function finishPlayer(row) {
     clutch_wins: row.clutchWins,
     rating: Math.max(0, rating)
   };
+}
+
+function speedSummary(total, samples, maximum) {
+  return {
+    average: samples ? total / samples : null,
+    maximum: samples ? maximum : null,
+    samples
+  };
+}
+
+function pawnHorizontalSpeed(pawn) {
+  for (const field of ["m_vecAbsVelocity", "m_vecVelocity"]) {
+    let vector;
+    try {
+      vector = pawn.getField(field);
+    } catch {
+      vector = null;
+    }
+    const x = numberOrNull(vector?.[0] ?? vector?.x ?? vector?.xValue);
+    const y = numberOrNull(vector?.[1] ?? vector?.y ?? vector?.yValue);
+    if (x !== null && y !== null) return Math.hypot(x, y);
+
+    for (const [xField, yField] of [
+      [`${field}[0]`, `${field}[1]`],
+      [`${field}.x`, `${field}.y`],
+      [`${field}.m_Value[0]`, `${field}.m_Value[1]`]
+    ]) {
+      let componentX, componentY;
+      try {
+        componentX = numberOrNull(pawn.getField(xField));
+        componentY = numberOrNull(pawn.getField(yField));
+      } catch {
+        continue;
+      }
+      if (componentX !== null && componentY !== null) return Math.hypot(componentX, componentY);
+    }
+  }
+  return null;
 }
 
 function pawnPosition(pawn) {
