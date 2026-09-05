@@ -8,6 +8,21 @@ const BULLET_PATH_TOLERANCE_UNITS = 96;
 const HE_MAX_DAMAGE_UNARMORED = 98;
 const HE_MAX_DAMAGE_ARMORED = 57;
 const TRADE_AUDIT_RADII = [150, 200, 250, 300, 400, 500];
+const NON_WEAPON_SPEED_KILLS = new Set([
+  "hegrenade", "inferno", "molotov", "incgrenade", "flashbang",
+  "smokegrenade", "decoy", "tagrenade", "c4", "planted_c4", "world"
+]);
+const WEAPON_MAX_SPEED = Object.freeze({
+  ak47: [215, 215], aug: [220, 150], awp: [200, 100], bizon: [240, 240],
+  cz75a: [240, 240], deagle: [230, 230], elite: [240, 240], famas: [220, 220],
+  fiveseven: [240, 240], g3sg1: [215, 120], galilar: [215, 215], glock: [240, 240],
+  hkp2000: [240, 240], m249: [195, 195], m4a1: [225, 225], m4a1_silencer: [225, 225],
+  mac10: [240, 240], mag7: [225, 225], mp5sd: [235, 235], mp7: [220, 220],
+  mp9: [240, 240], negev: [150, 150], nova: [220, 220], p250: [240, 240],
+  p90: [230, 230], revolver: [220, 220], sawedoff: [210, 210], scar20: [215, 120],
+  sg556: [210, 150], ssg08: [230, 230], taser: [220, 220], tec9: [240, 240],
+  ump45: [230, 230], usp_silencer: [240, 240], xm1014: [215, 215]
+});
 let libraryError = null;
 
 try {
@@ -147,9 +162,15 @@ async function parseDemo(fileName, buffer) {
           speedOnKillTotal: 0,
           speedOnKillSamples: 0,
           maxSpeedOnKill: 0,
+          speedOnKillPercentTotal: 0,
+          speedOnKillPercentSamples: 0,
+          maxSpeedOnKillPercent: 0,
           killerSpeedTotal: 0,
           killerSpeedSamples: 0,
           maxKillerSpeed: 0,
+          killerSpeedPercentTotal: 0,
+          killerSpeedPercentSamples: 0,
+          maxKillerSpeedPercent: 0,
           rounds: 0,
           openingKills: 0,
           openingDeaths: 0,
@@ -277,9 +298,15 @@ async function parseDemo(fileName, buffer) {
       row.speedOnKillTotal = 0;
       row.speedOnKillSamples = 0;
       row.maxSpeedOnKill = 0;
+      row.speedOnKillPercentTotal = 0;
+      row.speedOnKillPercentSamples = 0;
+      row.maxSpeedOnKillPercent = 0;
       row.killerSpeedTotal = 0;
       row.killerSpeedSamples = 0;
       row.maxKillerSpeed = 0;
+      row.killerSpeedPercentTotal = 0;
+      row.killerSpeedPercentSamples = 0;
+      row.maxKillerSpeedPercent = 0;
       row.rounds = 0;
       row.openingKills = 0;
       row.openingDeaths = 0;
@@ -407,7 +434,7 @@ async function parseDemo(fileName, buffer) {
     return positions;
   }
 
-  function currentPlayerSpeed(userId, tick) {
+  function currentPlayerMotion(userId, tick, deathEvent) {
     let demo;
     try {
       demo = parser.getDemo();
@@ -420,12 +447,21 @@ async function parseDemo(fileName, buffer) {
       const controller = demo.getEntityByHandle(pawn.getField("m_hController"));
       if (!controller || normalizeName(controller.getField("m_iszPlayerName")) !== normalizeName(row.name)) continue;
       const entitySpeed = pawnHorizontalSpeed(pawn);
-      if (entitySpeed !== null) return entitySpeed;
-      break;
+      const fallback = derivedSpeeds.get(row.userId);
+      const speed = entitySpeed ?? (
+        fallback && tick - fallback.tick <= Math.ceil(0.25 / tickInterval) ? fallback.speed : null
+      );
+      if (speed === null) return null;
+      const scopedField = safePawnField(pawn, "m_bIsScoped");
+      const scoped = scopedField === null || scopedField === undefined
+        ? inferredScopedKill(deathEvent)
+        : Boolean(scopedField);
+      const maxSpeed = pawnMovementMaxSpeed(pawn) ?? weaponMovementMaxSpeed(deathEvent.weapon, scoped);
+      return { speed, maxSpeed };
     }
     const fallback = derivedSpeeds.get(row.userId);
     if (!fallback || tick - fallback.tick > Math.ceil(0.25 / tickInterval)) return null;
-    return fallback.speed;
+    return { speed: fallback.speed, maxSpeed: weaponMovementMaxSpeed(deathEvent.weapon, inferredScopedKill(deathEvent)) };
   }
 
   function samplePlayerMotion(tick) {
@@ -557,7 +593,8 @@ async function parseDemo(fileName, buffer) {
       const penetrations = Math.max(0, integer(event.penetrated) ?? 0);
       const throughSmoke = Boolean(event.thrusmoke);
       const attackerInAir = Boolean(event.attackerinair);
-      const attackerSpeed = currentPlayerSpeed(attackerId, tick);
+      const speedEligible = !isNonWeaponSpeedKill(event.weapon);
+      const attackerMotion = speedEligible ? currentPlayerMotion(attackerId, tick, event) : null;
       if (victimWasBlind) {
         attacker.blindedEnemyKills += 1;
         victim.deathsWhileBlind += 1;
@@ -580,13 +617,23 @@ async function parseDemo(fileName, buffer) {
         attacker.airborneKills += 1;
         victim.deathsToAirborneKiller += 1;
       }
-      if (attackerSpeed !== null) {
+      if (attackerMotion) {
+        const attackerSpeed = attackerMotion.speed;
         attacker.speedOnKillTotal += attackerSpeed;
         attacker.speedOnKillSamples += 1;
         attacker.maxSpeedOnKill = Math.max(attacker.maxSpeedOnKill, attackerSpeed);
         victim.killerSpeedTotal += attackerSpeed;
         victim.killerSpeedSamples += 1;
         victim.maxKillerSpeed = Math.max(victim.maxKillerSpeed, attackerSpeed);
+        if (attackerMotion.maxSpeed > 0) {
+          const percent = 100 * attackerSpeed / attackerMotion.maxSpeed;
+          attacker.speedOnKillPercentTotal += percent;
+          attacker.speedOnKillPercentSamples += 1;
+          attacker.maxSpeedOnKillPercent = Math.max(attacker.maxSpeedOnKillPercent, percent);
+          victim.killerSpeedPercentTotal += percent;
+          victim.killerSpeedPercentSamples += 1;
+          victim.maxKillerSpeedPercent = Math.max(victim.maxKillerSpeedPercent, percent);
+        }
       }
       round.kills.add(attackerId);
       round.killCounts.set(attackerId, (round.killCounts.get(attackerId) || 0) + 1);
@@ -1018,7 +1065,10 @@ async function parseDemo(fileName, buffer) {
     speed_definition: {
       units: "Source 2 game units per second",
       component: "horizontal",
-      method: "Networked pawn velocity when available; otherwise horizontal position change between adjacent demo packets"
+      display: "Percent of the killer's current weapon maximum movement speed",
+      method: "Networked pawn velocity when available; otherwise horizontal position change between adjacent demo packets",
+      max_speed: "Pawn movement-service maximum when available; otherwise a weapon-data fallback adjusted for scoped state",
+      exclusions: "Grenade, lingering-fire, C4, world, and other non-held-weapon kills are excluded"
     },
     trade_definition: {
       window_seconds: TRADE_WINDOW_SECONDS,
@@ -1149,8 +1199,10 @@ function finishPlayer(row) {
       smoke_deaths: row.smokeDeaths,
       airborne_kills: row.airborneKills,
       deaths_to_airborne_killer: row.deathsToAirborneKiller,
-      speed_on_kill: speedSummary(row.speedOnKillTotal, row.speedOnKillSamples, row.maxSpeedOnKill),
-      killer_speed_on_death: speedSummary(row.killerSpeedTotal, row.killerSpeedSamples, row.maxKillerSpeed)
+      speed_on_kill: speedSummary(row.speedOnKillTotal, row.speedOnKillSamples, row.maxSpeedOnKill,
+        row.speedOnKillPercentTotal, row.speedOnKillPercentSamples, row.maxSpeedOnKillPercent),
+      killer_speed_on_death: speedSummary(row.killerSpeedTotal, row.killerSpeedSamples, row.maxKillerSpeed,
+        row.killerSpeedPercentTotal, row.killerSpeedPercentSamples, row.maxKillerSpeedPercent)
     },
     opening_kills: row.openingKills,
     opening_deaths: row.openingDeaths,
@@ -1161,12 +1213,52 @@ function finishPlayer(row) {
   };
 }
 
-function speedSummary(total, samples, maximum) {
+function speedSummary(total, samples, maximum, percentTotal, percentSamples, percentMaximum) {
   return {
     average: samples ? total / samples : null,
     maximum: samples ? maximum : null,
-    samples
+    samples,
+    average_percent_of_max: percentSamples ? percentTotal / percentSamples : null,
+    maximum_percent_of_max: percentSamples ? percentMaximum : null,
+    percent_samples: percentSamples
   };
+}
+
+function safePawnField(pawn, field) {
+  try {
+    return pawn.getField(field);
+  } catch {
+    return null;
+  }
+}
+
+function pawnMovementMaxSpeed(pawn) {
+  for (const field of ["m_pMovementServices.m_flMaxspeed", "m_pMovementServices.m_flMaxSpeed", "m_flMaxspeed"]) {
+    const value = numberOrNull(safePawnField(pawn, field));
+    if (value !== null && value > 0) return value;
+  }
+  return null;
+}
+
+function normalizedWeapon(weapon) {
+  return String(weapon || "").toLocaleLowerCase().replace(/^weapon_/, "");
+}
+
+function isNonWeaponSpeedKill(weapon) {
+  const name = normalizedWeapon(weapon);
+  return NON_WEAPON_SPEED_KILLS.has(name) || name.includes("grenade") || name.includes("inferno");
+}
+
+function weaponMovementMaxSpeed(weapon, scoped) {
+  const name = normalizedWeapon(weapon);
+  if (name.includes("knife") || name === "bayonet") return 250;
+  const speeds = WEAPON_MAX_SPEED[name];
+  return speeds ? speeds[scoped ? 1 : 0] : null;
+}
+
+function inferredScopedKill(event) {
+  const name = normalizedWeapon(event?.weapon);
+  return ["awp", "g3sg1", "scar20", "ssg08"].includes(name) && event?.noscope === false;
 }
 
 function pawnHorizontalSpeed(pawn) {
