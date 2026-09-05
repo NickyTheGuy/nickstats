@@ -65,6 +65,10 @@
       { label: "K", value: player => player.kill_context?.running_kills ?? 0 },
       { label: "D", value: player => player.kill_context?.deaths_to_running_killer ?? 0, direction: "asc" }
     ] },
+    equipmentContext: { id: "equipmentContext", modes: [
+      { label: "K", value: player => player.kill_context?.equipment_disadvantage_kills ?? 0 },
+      { label: "D", value: player => player.kill_context?.equipment_disadvantage_deaths ?? 0, direction: "asc" }
+    ] },
     speedContext: { id: "speedContext", modes: [
       { label: "K", value: player => player.kill_context?.speed_on_kill?.average_percent_of_max ?? -1 },
       { label: "D", value: player => player.kill_context?.killer_speed_on_death?.average_percent_of_max ?? -1 }
@@ -170,7 +174,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-37");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-38");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -296,6 +300,7 @@
     const wall = `${context.wallbang_kills ?? 0}-${context.wallbang_deaths ?? 0}`;
     const smoke = `${context.smoke_kills ?? 0}-${context.smoke_deaths ?? 0}`;
     const air = `${context.airborne_kills ?? 0}-${context.deaths_to_airborne_killer ?? 0}`;
+    const equipment = `${context.equipment_disadvantage_kills ?? 0}-${context.equipment_disadvantage_deaths ?? 0}`;
     const moving = `${context.moving_kills ?? 0}-${context.deaths_to_moving_killer ?? 0}`;
     const still = `${context.still_kills ?? 0}-${context.deaths_to_still_killer ?? 0}`;
     const running = `${context.running_kills ?? 0}-${context.deaths_to_running_killer ?? 0}`;
@@ -306,6 +311,7 @@
       cell(row, wall, "demo-group-cell killContext-cell");
       cell(row, smoke, "demo-group-cell killContext-cell");
       cell(row, air, "demo-group-cell killContext-cell");
+      cell(row, equipment, "demo-group-cell killContext-cell");
       cell(row, moving, "demo-group-cell killContext-cell");
       cell(row, still, "demo-group-cell killContext-cell");
       cell(row, running, "demo-group-cell killContext-cell");
@@ -405,11 +411,12 @@
       if (detail === "Wall K-D") child.title = "Wallbang kills – wallbang deaths";
       if (detail === "Smoke K-D") child.title = "Kills through smoke – deaths through smoke";
       if (detail === "Air K-D") child.title = "Kills while airborne – deaths to airborne killers";
+      if (detail === "Caught K-D") child.title = "Kills against enemies caught with a grenade or knife out in the prior two seconds – deaths caught the same way";
       if (detail === "Move K-D") child.title = "Kills while moving above 1 unit/second – deaths to a moving killer";
       if (detail === "Still K-D") child.title = "Kills while moving at most 1 unit/second – deaths to a stationary killer";
       if (detail === "Run K-D") child.title = "Kills by a player moving above 34% of the held weapon's maximum speed – deaths to such a killer";
       if (detail === "Spd% K-D") child.title = "Average horizontal killer speed as a percentage of the held weapon maximum: your kills – your deaths";
-      if (detail === "Unfair K-D") child.title = "Unique kills and deaths involving a blinded victim, wall penetration, smoke, an airborne killer, or a running killer; overlaps count once";
+      if (detail === "Unfair K-D") child.title = "Unique kills and deaths involving a blinded victim, wall penetration, smoke, an airborne/running killer, or a victim caught with grenade/knife out; overlaps count once";
       child.className = `demo-group-detail ${group}-cell`;
       if (index === 0) child.classList.add("demo-group-start");
       if (index === details.length - 1) child.classList.add("demo-group-end");
@@ -435,6 +442,7 @@
         "Wall K-D": sortSpecs.wallContext,
         "Smoke K-D": sortSpecs.smokeContext,
         "Air K-D": sortSpecs.airContext,
+        "Caught K-D": sortSpecs.equipmentContext,
         "Move K-D": sortSpecs.movingContext,
         "Still K-D": sortSpecs.stillContext,
         "Run K-D": sortSpecs.runningContext,
@@ -537,7 +545,7 @@
 
   function scoreboardColumnWidths() {
     const widths = [160, 58, 90, 62, 72, 72, 82];
-    widths.push(...(state.expandedGroups.killContext ? [88, 88, 94, 82, 88, 88, 88, 96] : [104]));
+    widths.push(...(state.expandedGroups.killContext ? [88, 88, 94, 82, 96, 88, 88, 88, 96] : [104]));
     widths.push(...(state.expandedGroups.trades ? [58, 54, 96, 58, 54, 96] : [88]));
     widths.push(...(state.expandedGroups.assistedKills ? [68, 68] : [90]));
     widths.push(...(state.expandedGroups.utility ? [58, 58, 82, 82] : [132]));
@@ -582,7 +590,7 @@
     const detailHeader = document.createElement("tr");
     ["Player", "Rnds", "K-D-A", "HS%", "ADR", "KAST", "Opening"]
       .forEach(label => regularHeader(header, label));
-    groupHeader(header, detailHeader, "killContext", "Kill context", ["Blind K-D", "Wall K-D", "Smoke K-D", "Air K-D", "Move K-D", "Still K-D", "Run K-D", "Spd% K-D"], "Unfair K-D");
+    groupHeader(header, detailHeader, "killContext", "Kill context", ["Blind K-D", "Wall K-D", "Smoke K-D", "Air K-D", "Caught K-D", "Move K-D", "Still K-D", "Run K-D", "Spd% K-D"], "Unfair K-D");
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     groupHeader(header, detailHeader, "assistedKills", "Assisted K", ["Dmg", "Flash"]);
     groupHeader(header, detailHeader, "utility", "Utility", ["EF", "FA", "HE Dmg", "Fire Dmg"], "EF/FA · Dmg");
@@ -1049,7 +1057,9 @@
           referenceIndex(matchup.victim, matchup.victim_steam_id, matchup.victim_is_bot),
           number(matchup.blinded), number(matchup.attackerBlind), number(matchup.wallbang),
           number(matchup.penetrations), number(matchup.smoke), number(matchup.airborne),
-          number(matchup.moving), number(matchup.still), number(matchup.running), number(matchup.unfair)
+          number(matchup.moving), number(matchup.still), number(matchup.running),
+          number(matchup.grenadeOut), number(matchup.knifeOut), number(matchup.equipmentDisadvantage),
+          number(matchup.unfair)
         ]).filter(matchup => matchup[0] != null),
         assisted_by: (player.assisted_kill_matchups || []).map(matchup => [
           referenceIndex(matchup.assister, matchup.assister_steam_id, matchup.assister_is_bot),
@@ -1061,8 +1071,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/3",
-      nickstats_build: "2026.09.05.16",
+      schema: "nickstats.match/4",
+      nickstats_build: "2026.09.05.17",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -1075,7 +1085,8 @@
           trade.window_seconds, trade.proximity_units, trade.engagement_lull_seconds,
           trade.bullet_path_tolerance_units, trade.he_damage_caps?.unarmored, trade.he_damage_caps?.armored
         ],
-        movement: [movement.still_speed_tolerance_units_per_second, movement.running_threshold_percent_of_weapon_max]
+        movement: [movement.still_speed_tolerance_units_per_second, movement.running_threshold_percent_of_weapon_max],
+        equipment_disadvantage_seconds: movement.equipment_disadvantage_lookback_seconds
       },
       teams: sourceTeams.map(team => ({
         id: team.id,
