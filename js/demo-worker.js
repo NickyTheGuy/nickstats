@@ -120,6 +120,7 @@ async function parseDemo(fileName, buffer) {
           steamId,
           isBot: Boolean(values.fakeplayer) || !steamId,
           observedOpponents: new Set(),
+          weaponStats: new Map(),
           kills: 0,
           deaths: 0,
           assists: 0,
@@ -257,6 +258,7 @@ async function parseDemo(fileName, buffer) {
     derivedSpeeds.clear();
     for (const row of stats.values()) {
       row.kills = 0;
+      row.weaponStats = new Map();
       row.deaths = 0;
       row.assists = 0;
       row.headshots = 0;
@@ -555,6 +557,17 @@ async function parseDemo(fileName, buffer) {
     return true;
   }
 
+  function weaponStat(row, weapon) {
+    const id = weaponStatId(weapon);
+    if (!row || !id || id === "world") return null;
+    let stat = row.weaponStats.get(id);
+    if (!stat) {
+      stat = { weapon: id, kills: 0, shots: 0, damage: 0, purchases: 0 };
+      row.weaponStats.set(id, stat);
+    }
+    return stat;
+  }
+
   function handleDeath(event, tick) {
     refreshControllerTeams();
     const attackerId = integer(event.attacker);
@@ -588,6 +601,8 @@ async function parseDemo(fileName, buffer) {
       attacker.observedOpponents.add(victim);
       victim.observedOpponents.add(attacker);
       attacker.kills += 1;
+      const killWeapon = weaponStat(attacker, event.weapon);
+      if (killWeapon) killWeapon.kills += 1;
       const victimWasBlind = (blindUntilTick.get(victim.userId) ?? -1) >= tick;
       const attackerWasBlind = Boolean(event.attackerblind);
       const penetrations = Math.max(0, integer(event.penetrated) ?? 0);
@@ -786,6 +801,8 @@ async function parseDemo(fileName, buffer) {
         (victimTeam !== 2 && victimTeam !== 3) || attackerTeam === victimTeam) return;
     const damage = Math.max(0, number(event.dmg_health));
     row.damage += damage;
+    const damageWeapon = weaponStat(row, event.weapon);
+    if (damageWeapon) damageWeapon.damage += damage;
     if (damage > 0 && damageProvesTradeAttempt(event, damage)) {
       for (const prior of round.pendingDeaths) {
         if (prior.killer === victimId && tradeIsOpen(prior, row.userId, tick)) {
@@ -804,6 +821,23 @@ async function parseDemo(fileName, buffer) {
     const weapon = String(event.weapon || "").toLocaleLowerCase();
     if (weapon === "hegrenade") row.heDamage += damage;
     if (weapon === "inferno" || weapon === "molotov" || weapon === "incgrenade") row.fireDamage += damage;
+  }
+
+  function handleWeaponFire(event) {
+    const userId = integer(event.userid);
+    const row = stats.get(userId);
+    if (!row) return;
+    round.participants.add(userId);
+    const stat = weaponStat(row, event.weapon);
+    if (stat) stat.shots += 1;
+  }
+
+  function handlePurchase(event) {
+    const userId = integer(event.userid);
+    const row = stats.get(userId);
+    if (!row || !isPurchasedWeapon(event.weapon)) return;
+    const stat = weaponStat(row, event.weapon);
+    if (stat) stat.purchases += 1;
   }
 
   function handleBulletImpact(event, tick) {
@@ -953,6 +987,11 @@ async function parseDemo(fileName, buffer) {
         round.hasActivity = true;
         handleDeath(gameEvent, demoPacket.tick);
         break;
+      case "weapon_fire":
+        if (!round.live) break;
+        round.hasActivity = true;
+        handleWeaponFire(gameEvent);
+        break;
       case "player_hurt":
         if (!round.live) break;
         round.hasActivity = true;
@@ -962,6 +1001,9 @@ async function parseDemo(fileName, buffer) {
         if (!round.live) break;
         round.hasActivity = true;
         handleBlind(gameEvent, demoPacket.tick);
+        break;
+      case "item_purchase":
+        handlePurchase(gameEvent);
         break;
       case "bullet_impact":
         if (!round.live) break;
@@ -1204,6 +1246,10 @@ function finishPlayer(row) {
       killer_speed_on_death: speedSummary(row.killerSpeedTotal, row.killerSpeedSamples, row.maxKillerSpeed,
         row.killerSpeedPercentTotal, row.killerSpeedPercentSamples, row.maxKillerSpeedPercent)
     },
+    weapon_stats: [...row.weaponStats.values()]
+      .filter(stat => stat.kills || stat.shots || stat.damage || stat.purchases)
+      .sort((a, b) => b.kills - a.kills || b.damage - a.damage || b.shots - a.shots || b.purchases - a.purchases || a.weapon.localeCompare(b.weapon))
+      .map(stat => ({ ...stat })),
     opening_kills: row.openingKills,
     opening_deaths: row.openingDeaths,
     multikill_rounds: row.multikillRounds,
@@ -1242,6 +1288,20 @@ function pawnMovementMaxSpeed(pawn) {
 
 function normalizedWeapon(weapon) {
   return String(weapon || "").toLocaleLowerCase().replace(/^weapon_/, "");
+}
+
+function weaponStatId(weapon) {
+  const name = normalizedWeapon(weapon);
+  if (["inferno", "molotov", "incgrenade"].includes(name)) return "fire";
+  if (name.includes("knife") || name === "bayonet") return "knife";
+  return name;
+}
+
+function isPurchasedWeapon(weapon) {
+  const name = normalizedWeapon(weapon);
+  return Boolean(name) && !new Set([
+    "vest", "vesthelm", "assaultsuit", "kevlar", "defuser", "cutters", "nvgs"
+  ]).has(name) && !name.startsWith("item_");
 }
 
 function isNonWeaponSpeedKill(weapon) {
