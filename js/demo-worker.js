@@ -180,6 +180,8 @@ async function parseDemo(fileName, buffer) {
           weaponStats: new Map(),
           duelStats: new Map(),
           tradeMatchups: new Map(),
+          killContextMatchups: new Map(),
+          assistedKillMatchups: new Map(),
           kills: 0,
           deaths: 0,
           assists: 0,
@@ -336,6 +338,8 @@ async function parseDemo(fileName, buffer) {
       row.weaponStats = new Map();
       row.duelStats = new Map();
       row.tradeMatchups = new Map();
+      row.killContextMatchups = new Map();
+      row.assistedKillMatchups = new Map();
       row.deaths = 0;
       row.assists = 0;
       row.headshots = 0;
@@ -417,6 +421,8 @@ async function parseDemo(fileName, buffer) {
       weaponStats: new Map(),
       duelStats: new Map(),
       tradeMatchups: new Map(),
+      killContextMatchups: new Map(),
+      assistedKillMatchups: new Map(),
       tradedBy: new Map(),
       tradeProximityDistances: [],
       provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0 },
@@ -457,6 +463,8 @@ async function parseDemo(fileName, buffer) {
       weapons: new Map([...row.weaponStats].map(([key, value]) => [key, { ...value }])),
       duels: new Map([...row.duelStats].map(([key, value]) => [key, { ...value }])),
       tradeMatchups: new Map([...row.tradeMatchups].map(([key, value]) => [key, { ...value }])),
+      killContextMatchups: new Map([...row.killContextMatchups].map(([key, value]) => [key, { ...value }])),
+      assistedKillMatchups: new Map([...row.assistedKillMatchups].map(([key, value]) => [key, { ...value }])),
       speedValueLength: row.speedOnKillValues.length,
       killerSpeedValueLength: row.killerSpeedValues.length
     };
@@ -539,6 +547,9 @@ async function parseDemo(fileName, buffer) {
       addMapDeltas(target.weaponStats, after.weapons, before.weapons, ["weapon", "kills", "shots", "damage", "roundsUsed"]);
       addMapDeltas(target.duelStats, after.duels, before.duels, ["kills", "deaths"]);
       addMapDeltas(target.tradeMatchups, after.tradeMatchups, before.tradeMatchups, ["opportunities", "attempts", "successes"]);
+      addMapDeltas(target.killContextMatchups, after.killContextMatchups, before.killContextMatchups,
+        ["blinded", "attackerBlind", "wallbang", "penetrations", "smoke", "airborne", "moving", "still", "running", "unfair"]);
+      addMapDeltas(target.assistedKillMatchups, after.assistedKillMatchups, before.assistedKillMatchups, ["damage", "flash"]);
       for (const value of row.speedOnKillValues.slice(before.speedValueLength)) {
         target.maxSpeedOnKill = Math.max(target.maxSpeedOnKill, value.speed);
         if (value.percent !== null) target.maxSpeedOnKillPercent = Math.max(target.maxSpeedOnKillPercent, value.percent);
@@ -827,6 +838,37 @@ async function parseDemo(fileName, buffer) {
     return stat;
   }
 
+  function killContextMatchupStat(killer, victim) {
+    if (!killer || !victim) return null;
+    let stat = killer.killContextMatchups.get(victim);
+    if (!stat) {
+      stat = {
+        blinded: 0,
+        attackerBlind: 0,
+        wallbang: 0,
+        penetrations: 0,
+        smoke: 0,
+        airborne: 0,
+        moving: 0,
+        still: 0,
+        running: 0,
+        unfair: 0
+      };
+      killer.killContextMatchups.set(victim, stat);
+    }
+    return stat;
+  }
+
+  function assistedKillMatchupStat(killer, assister) {
+    if (!killer || !assister) return null;
+    let stat = killer.assistedKillMatchups.get(assister);
+    if (!stat) {
+      stat = { damage: 0, flash: 0 };
+      killer.assistedKillMatchups.set(assister, stat);
+    }
+    return stat;
+  }
+
   function ensureTradeOpportunity(prior, trader, source = "proven") {
     if (!prior || !trader || prior.capableTraders.has(trader.userId)) return;
     const hadOpportunity = prior.capableTraders.size > 0;
@@ -1047,11 +1089,23 @@ async function parseDemo(fileName, buffer) {
         attacker.runningKills += 1;
         victim.deathsToRunningKiller += 1;
       }
-      if (victimWasBlind || penetrations > 0 || throughSmoke || attackerInAir || runningKill) {
+      const unfairKill = victimWasBlind || penetrations > 0 || throughSmoke || attackerInAir || runningKill;
+      if (unfairKill) {
         // The collapsed total is event-based, so overlapping contexts count once.
         attacker.unfairKills += 1;
         victim.unfairDeaths += 1;
       }
+      const contextMatchup = killContextMatchupStat(attacker, victim);
+      contextMatchup.blinded += Number(victimWasBlind);
+      contextMatchup.attackerBlind += Number(attackerWasBlind);
+      contextMatchup.wallbang += Number(penetrations > 0);
+      contextMatchup.penetrations += penetrations;
+      contextMatchup.smoke += Number(throughSmoke);
+      contextMatchup.airborne += Number(attackerInAir);
+      contextMatchup.moving += Number(movingKill);
+      contextMatchup.still += Number(stillKill);
+      contextMatchup.running += Number(runningKill);
+      contextMatchup.unfair += Number(unfairKill);
       round.kills.add(attackerId);
       round.killCounts.set(attackerId, (round.killCounts.get(attackerId) || 0) + 1);
       if (event.headshot) attacker.headshots += 1;
@@ -1141,8 +1195,10 @@ async function parseDemo(fileName, buffer) {
         if (event.assistedflash) {
           assister.flashAssists += 1;
           attacker.flashAssistedKills += 1;
+          assistedKillMatchupStat(attacker, assister).flash += 1;
         } else {
           attacker.damageAssistedKills += 1;
+          assistedKillMatchupStat(attacker, assister).damage += 1;
         }
       }
     }
@@ -1714,6 +1770,26 @@ function finishPlayer(row) {
       }))
       .filter(stat => stat.opportunities || stat.attempts || stat.successes)
       .sort((a, b) => b.opportunities - a.opportunities || b.attempts - a.attempts || b.successes - a.successes || a.teammate.localeCompare(b.teammate)),
+    kill_context_matchups: [...row.killContextMatchups.entries()]
+      .map(([victim, stat]) => ({
+        victim: victim.name,
+        victim_steam_id: victim.steamId,
+        victim_is_bot: victim.isBot,
+        ...stat
+      }))
+      .filter(stat => stat.blinded || stat.attackerBlind || stat.wallbang || stat.penetrations ||
+        stat.smoke || stat.airborne || stat.moving || stat.still || stat.running || stat.unfair)
+      .sort((a, b) => b.unfair - a.unfair || b.wallbang - a.wallbang || b.blinded - a.blinded || a.victim.localeCompare(b.victim)),
+    assisted_kill_matchups: [...row.assistedKillMatchups.entries()]
+      .map(([assister, stat]) => ({
+        assister: assister.name,
+        assister_steam_id: assister.steamId,
+        assister_is_bot: assister.isBot,
+        damage: stat.damage,
+        flash: stat.flash
+      }))
+      .filter(stat => stat.damage || stat.flash)
+      .sort((a, b) => (b.damage + b.flash) - (a.damage + a.flash) || a.assister.localeCompare(b.assister)),
     trade_opportunity_audit: {
       proximity_counts_by_radius: Object.fromEntries(TRADE_AUDIT_RADII.map(radius => [
         radius,
