@@ -7,6 +7,8 @@ A static, browser-only Counter-Strike stats analyzer. It currently supports two 
 
 The selected HTML and demo files are processed in the browser. NickStats does not upload them or require a server.
 
+The visible date-based build number beside **Local browser prototype** is bumped with parser and interface deployments, making it easy to tell when GitHub Pages has published the newest version.
+
 Demo statistics use the roster present when each round goes live as the denominator, so transient pre-freeze spawns do not count. Bots that enter live play remain separate, visibly labeled rows and are identified in JSON so future aggregate analysis can exclude them by default.
 
 The Demo Parser's **ALL / CT / T** selector applies to the scoreboard, rating, KAST, trades, utility, kill context, clutches, multikills, weapon ledger, duel matrix, player round counts, and side wins. Side attribution uses each player's live team assignment for every completed round rather than splitting the match in half, so regulation and FACEIT overtime side swaps are handled directly. The demo is parsed once; changing the selector only switches among the stored aggregates.
