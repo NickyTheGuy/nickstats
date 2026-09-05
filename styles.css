@@ -798,8 +798,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 
 .demo-weapon-heading h3,
 .demo-weapon-team h4,
-.demo-duel-heading h3,
-.demo-duel-team h4 { margin: 0; }
+.demo-duel-heading h3 { margin: 0; }
 
 .demo-weapon-heading p,
 .demo-duel-heading p {
@@ -808,26 +807,20 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   font-size: 13px;
 }
 
-.demo-weapon-teams,
-.demo-duel-teams {
+.demo-weapon-teams {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
 
-.demo-weapon-team,
-.demo-duel-team { min-width: 0; padding: 15px; }
-.demo-weapon-team + .demo-weapon-team,
-.demo-duel-team + .demo-duel-team { border-top: 1px solid var(--line); }
-.demo-weapon-team h4,
-.demo-duel-team h4 { margin-bottom: 9px; font-size: 15px; }
+.demo-weapon-team { min-width: 0; padding: 15px; }
+.demo-weapon-team + .demo-weapon-team { border-top: 1px solid var(--line); }
+.demo-weapon-team h4 { margin-bottom: 9px; font-size: 15px; }
 
-.demo-weapon-player,
-.demo-duel-player {
+.demo-weapon-player {
   border-top: 1px solid rgba(238, 243, 251, .09);
 }
 
-.demo-weapon-player summary,
-.demo-duel-player summary {
+.demo-weapon-player summary {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -835,20 +828,34 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   cursor: pointer;
 }
 
-.demo-weapon-player summary span,
-.demo-duel-player summary span { color: var(--muted); font-size: 12px; }
-.demo-weapon-player .table-wrap,
-.demo-duel-player .table-wrap { margin-bottom: 10px; }
-.demo-weapon-table,
-.demo-duel-table { width: 100%; min-width: 400px; }
-.demo-weapon-table th, .demo-weapon-table td,
-.demo-duel-table th, .demo-duel-table td { padding: 8px 10px; text-align: center; }
-.demo-weapon-table th:first-child, .demo-weapon-table td:first-child,
-.demo-duel-table th:first-child, .demo-duel-table td:first-child { text-align: left; }
+.demo-weapon-player summary span { color: var(--muted); font-size: 12px; }
+.demo-weapon-player .table-wrap { margin-bottom: 10px; }
+.demo-weapon-table { width: 100%; min-width: 400px; }
+.demo-weapon-table th, .demo-weapon-table td { padding: 8px 10px; text-align: center; }
+.demo-weapon-table th:first-child, .demo-weapon-table td:first-child { text-align: left; }
 
-.duel-positive { color: var(--green); font-weight: 900; }
-.duel-negative { color: var(--red); font-weight: 900; }
-.duel-even { color: var(--amber); font-weight: 900; }
+.demo-duel-matrix-wrap { border: 0; border-radius: 0; }
+.demo-duel-matrix { width: 100%; min-width: 1050px; table-layout: fixed; }
+.demo-duel-matrix th,
+.demo-duel-matrix td { padding: 9px 8px; text-align: center; white-space: nowrap; }
+.demo-duel-matrix thead th { background: #172131; }
+.demo-duel-matrix thead th:first-child,
+.demo-duel-matrix tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 160px;
+  background: #101722;
+  text-align: left;
+}
+.demo-duel-matrix thead th:first-child { z-index: 2; background: #172131; }
+.demo-duel-matrix .duel-team-column-start { border-left: 3px solid rgba(238, 243, 251, .38); }
+.demo-duel-matrix .duel-team-row-start > * { border-top: 3px solid rgba(238, 243, 251, .38); }
+.demo-duel-matrix .duel-unavailable { color: #667285; background: rgba(255, 255, 255, .018); }
+
+.duel-positive { color: var(--green); background: rgba(98, 212, 157, .08); font-weight: 900; }
+.duel-negative { color: var(--red); background: rgba(255, 122, 131, .08); font-weight: 900; }
+.duel-even { color: var(--amber); background: rgba(255, 201, 105, .055); font-weight: 900; }
 
 .demo-team .table-wrap {
   border: 0;
