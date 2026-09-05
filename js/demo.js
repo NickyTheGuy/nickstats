@@ -66,7 +66,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-1");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-2");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -179,16 +179,14 @@
     cell(row, `${player.kast.toFixed(1)}%`);
     cell(row, `${player.opening_kills}-${player.opening_deaths}`);
     if (state.expandedGroups.trades) {
-      cell(row, player.trade_kills ?? 0, "demo-group-cell trades-cell");
-      cell(row, player.traded_deaths ?? 0, "demo-group-cell trades-cell");
       cell(row, player.trade_opportunities ?? 0, "demo-group-cell trades-cell");
       cell(row, player.trade_attempts ?? 0, "demo-group-cell trades-cell");
-      cell(row, player.trade_successes ?? 0, "demo-group-cell trades-cell");
-      cell(row, `${(player.trade_attempt_percent ?? 0).toFixed(0)}%`, "demo-group-cell trades-cell");
+      cell(row, `${player.trade_kills ?? 0} (${(player.trade_success_percent ?? 0).toFixed(0)}%)`, "demo-group-cell trades-cell");
       cell(row, player.tradeable_deaths ?? 0, "demo-group-cell trades-cell");
-      cell(row, `${(player.traded_death_percent ?? 0).toFixed(0)}%`, "demo-group-cell trades-cell");
+      cell(row, player.attempted_tradeable_deaths ?? 0, "demo-group-cell trades-cell");
+      cell(row, `${player.traded_deaths ?? 0} (${(player.traded_death_percent ?? 0).toFixed(0)}%)`, "demo-group-cell trades-cell");
     } else {
-      cell(row, `${player.trade_kills ?? 0}-${player.traded_deaths ?? 0} · ${player.trade_attempts ?? 0}/${player.trade_opportunities ?? 0}`, "demo-group-cell trades-cell");
+      cell(row, `${player.trade_kills ?? 0}-${player.traded_deaths ?? 0}`, "demo-group-cell trades-cell");
     }
     if (state.expandedGroups.assistedKills) {
       cell(row, player.assisted_kills?.damage ?? 0, "demo-group-cell assistedKills-cell");
@@ -223,12 +221,12 @@
     return row;
   }
 
-  function regularHeader(row, label) {
+  function regularHeader(row, label, rowSpan = 3) {
     const th = document.createElement("th");
     th.textContent = label;
     if (label === "EF") th.title = "Enemies flashed";
     if (label === "FA") th.title = "Flash assists";
-    th.rowSpan = 2;
+    th.rowSpan = rowSpan;
     row.appendChild(th);
   }
 
@@ -236,6 +234,7 @@
     const expanded = state.expandedGroups[group];
     const th = document.createElement("th");
     th.colSpan = expanded ? labels.length : 1;
+    th.rowSpan = 2;
     th.className = `demo-toggle-heading ${group}-heading`;
     const button = document.createElement("button");
     button.type = "button";
@@ -255,6 +254,36 @@
     });
   }
 
+  function tradeHeader(topRow, middleRow, detailRow) {
+    const expanded = state.expandedGroups.trades;
+    const th = document.createElement("th");
+    th.colSpan = expanded ? 6 : 1;
+    th.rowSpan = expanded ? 1 : 3;
+    th.className = "demo-toggle-heading trades-heading";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "demo-column-toggle";
+    button.setAttribute("aria-expanded", String(expanded));
+    button.textContent = expanded ? "Trades ▾" : "Trade K-D ▸";
+    button.addEventListener("click", () => toggleColumnGroup("trades"));
+    th.appendChild(button);
+    topRow.appendChild(th);
+    if (!expanded) return;
+    for (const label of ["Trade K", "Trade D"]) {
+      const group = document.createElement("th");
+      group.colSpan = 3;
+      group.className = "demo-trade-subhead trades-cell";
+      group.textContent = label;
+      middleRow.appendChild(group);
+    }
+    for (const label of ["Opp", "Att", "K (Succ%)", "Opp", "Att", "D (Succ%)"]) {
+      const child = document.createElement("th");
+      child.className = "demo-group-detail trades-cell";
+      child.textContent = label;
+      detailRow.appendChild(child);
+    }
+  }
+
   function toggleColumnGroup(group) {
     const scrollPositions = [...document.querySelectorAll(".demo-team .table-wrap")].map(wrap => wrap.scrollLeft);
     state.expandedGroups[group] = !state.expandedGroups[group];
@@ -266,7 +295,7 @@
 
   function scoreboardColumnWidths() {
     const widths = [160, 58, 90, 62, 72, 72, 82];
-    widths.push(...(state.expandedGroups.trades ? [52, 52, 58, 52, 52, 62, 68, 62] : [132]));
+    widths.push(...(state.expandedGroups.trades ? [58, 54, 96, 58, 54, 96] : [88]));
     widths.push(...(state.expandedGroups.assistedKills ? [68, 68] : [90]));
     widths.push(...(state.expandedGroups.utility ? [58, 58, 82, 82] : [132]));
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
@@ -307,16 +336,17 @@
     scoreboardColumns(table);
     const thead = document.createElement("thead");
     const header = document.createElement("tr");
+    const subgroupHeader = document.createElement("tr");
     const detailHeader = document.createElement("tr");
     ["Player", "Rnds", "K-D-A", "HS%", "ADR", "KAST", "Opening"]
       .forEach(label => regularHeader(header, label));
-    groupHeader(header, detailHeader, "trades", "Trades", ["TK", "TD", "Opp", "Att", "Suc", "Att%", "Able D", "TD%"], "TK-TD · Att/Opp");
+    tradeHeader(header, subgroupHeader, detailHeader);
     groupHeader(header, detailHeader, "assistedKills", "Assisted K", ["Dmg", "Flash"]);
     groupHeader(header, detailHeader, "utility", "Utility", ["EF", "FA", "HE Dmg", "Fire Dmg"], "EF/FA · Dmg");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"]);
     groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
     regularHeader(header, "Rating");
-    thead.append(header, detailHeader);
+    thead.append(header, subgroupHeader, detailHeader);
     const body = document.createElement("tbody");
     team.players.forEach(player => body.appendChild(playerRow(player)));
     if (index === 0) table.appendChild(thead);
