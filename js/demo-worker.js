@@ -1121,7 +1121,7 @@ async function parseDemo(fileName, buffer) {
   function handleItemSeen(event) {
     const userId = integer(event.userid);
     const row = stats.get(userId);
-    const weapon = event.item ?? event.weapon;
+    const weapon = itemEventWeapon(event);
     if (row) noteWeaponUse(row, weapon);
   }
 
@@ -1664,6 +1664,17 @@ function weaponStatId(weapon) {
   if (["inferno", "molotov", "incgrenade"].includes(name)) return "fire";
   if (name.includes("knife") || name === "bayonet") return "knife";
   return name;
+}
+
+function itemEventWeapon(event) {
+  const definitionIndex = integer(
+    event?.defindex ?? event?.itemdefindex ?? event?.item_def_index
+  );
+  // CS2 sometimes labels both CT starter pistols as the hkp2000 weapon family
+  // in pickup/equip events. Their item definition indices remain distinct.
+  if (definitionIndex === 61) return "usp_silencer";
+  if (definitionIndex === 32) return "hkp2000";
+  return event?.item ?? event?.weapon;
 }
 
 function isNonWeaponSpeedKill(weapon) {
