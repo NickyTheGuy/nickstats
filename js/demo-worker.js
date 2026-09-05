@@ -2,7 +2,7 @@
 
 const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
 const TRADE_WINDOW_SECONDS = 5;
-const TRADE_PROXIMITY_UNITS = 750;
+const TRADE_PROXIMITY_UNITS = 500;
 let libraryError = null;
 
 try {
@@ -393,17 +393,20 @@ async function parseDemo(fileName, buffer) {
         if (prior.killer === victimId && prior.victimTeam === attackerTeam && tick - prior.tick <= tradeWindow) {
           if (!round.traded.has(prior.victim)) {
             round.traded.add(prior.victim);
+          }
+          if (prior.capableTraders.has(attacker.userId)) {
             isTradeKill = true;
             const tradedVictim = stats.get(prior.victim);
-            if (tradedVictim) {
+            if (tradedVictim && !prior.tradeRecorded) {
+              prior.tradeRecorded = true;
               tradedVictim.tradedDeaths += 1;
               tradedVictim.tradedBy.set(attacker.name, (tradedVictim.tradedBy.get(attacker.name) || 0) + 1);
-              if (prior.capableTraders.has(attacker.userId)) tradedVictim.tradedTradeableDeaths += 1;
+              tradedVictim.tradedTradeableDeaths += 1;
             }
-          }
-          if (prior.capableTraders.has(attacker.userId) && !prior.successfulTraders.has(attacker.userId)) {
-            prior.successfulTraders.add(attacker.userId);
-            attacker.tradeSuccesses += 1;
+            if (!prior.successfulTraders.has(attacker.userId)) {
+              prior.successfulTraders.add(attacker.userId);
+              attacker.tradeSuccesses += 1;
+            }
           }
         }
       }
@@ -416,7 +419,8 @@ async function parseDemo(fileName, buffer) {
         capableTraders: nearbyTraders,
         attemptedTraders: new Set(),
         successfulTraders: new Set(),
-        deathAttempted: false
+        deathAttempted: false,
+        tradeRecorded: false
       });
       for (const traderId of nearbyTraders) {
         const trader = stats.get(traderId);
@@ -794,11 +798,11 @@ function finishPlayer(row) {
     trade_attempts: row.tradeAttempts,
     trade_successes: row.tradeSuccesses,
     trade_attempt_percent: row.tradeOpportunities ? 100 * row.tradeAttempts / row.tradeOpportunities : 0,
-    trade_success_percent: row.tradeAttempts ? 100 * row.tradeSuccesses / row.tradeAttempts : 0,
+    trade_success_percent: row.tradeAttempts ? 100 * row.tradeKills / row.tradeAttempts : 0,
     tradeable_deaths: row.tradeableDeaths,
     attempted_tradeable_deaths: row.attemptedTradeableDeaths,
     traded_tradeable_deaths: row.tradedTradeableDeaths,
-    traded_death_percent: row.attemptedTradeableDeaths ? 100 * row.tradedTradeableDeaths / row.attemptedTradeableDeaths : 0,
+    traded_death_percent: row.attemptedTradeableDeaths ? 100 * row.tradedDeaths / row.attemptedTradeableDeaths : 0,
     traded_by: Object.fromEntries([...row.tradedBy].sort(([a], [b]) => a.localeCompare(b))),
     assisted_kills: {
       damage: row.damageAssistedKills,
