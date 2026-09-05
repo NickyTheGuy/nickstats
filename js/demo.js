@@ -162,7 +162,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-17");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-18");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -649,6 +649,66 @@
     return section;
   }
 
+  function renderDuelPlayer(player) {
+    const details = document.createElement("details");
+    details.className = "demo-duel-player";
+    const summary = document.createElement("summary");
+    const name = document.createElement("strong");
+    name.textContent = player.name || "Unknown player";
+    const totals = document.createElement("span");
+    const duels = Array.isArray(player.duels) ? player.duels : [];
+    totals.textContent = `${player.kills || 0}-${player.deaths || 0} overall · ${duels.length} opponents`;
+    summary.append(name, totals);
+    details.appendChild(summary);
+
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap";
+    const table = document.createElement("table");
+    table.className = "demo-duel-table";
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    ["Opponent", "Kills", "Deaths", "Diff"].forEach(label => {
+      const th = document.createElement("th");
+      th.textContent = label;
+      headRow.appendChild(th);
+    });
+    head.appendChild(headRow);
+    const body = document.createElement("tbody");
+    duels.forEach(duel => {
+      const row = document.createElement("tr");
+      cell(row, duel.opponent || "Unknown player");
+      cell(row, duel.kills || 0);
+      cell(row, duel.deaths || 0);
+      const differential = duel.differential || 0;
+      cell(row, differential > 0 ? `+${differential}` : String(differential),
+        differential > 0 ? "duel-positive" : differential < 0 ? "duel-negative" : "duel-even");
+      body.appendChild(row);
+    });
+    if (!duels.length) {
+      const row = document.createElement("tr");
+      const empty = document.createElement("td");
+      empty.colSpan = 4;
+      empty.className = "empty";
+      empty.textContent = "No enemy duels were recorded.";
+      row.appendChild(empty);
+      body.appendChild(row);
+    }
+    table.append(head, body);
+    wrap.appendChild(table);
+    details.appendChild(wrap);
+    return details;
+  }
+
+  function renderDuelTeam(team) {
+    const section = document.createElement("section");
+    section.className = "demo-duel-team";
+    const heading = document.createElement("h4");
+    heading.textContent = team.name || "Team";
+    section.appendChild(heading);
+    (team.players || []).forEach(player => section.appendChild(renderDuelPlayer(player)));
+    return section;
+  }
+
   function render(result) {
     const teams = Array.isArray(result.teams) ? result.teams : [];
     const score = teams.length >= 2 && teams.every(team => Number.isFinite(team.score)) ? `${teams[0].score}–${teams[1].score}` : "Unknown";
@@ -669,6 +729,7 @@
       return renderTeam(team, index, outcome);
     }));
     $("demoWeapons").replaceChildren(...teams.map(renderWeaponTeam));
+    $("demoDuels").replaceChildren(...teams.map(renderDuelTeam));
     $("demoResults").hidden = false;
   }
 
