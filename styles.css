@@ -782,41 +782,52 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .demo-team-score.score-winner { color: var(--green); }
 .demo-team-score.score-loser { color: var(--red); }
 
-.demo-weapon-section {
+.demo-weapon-section,
+.demo-duel-section {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(8, 12, 19, .42);
 }
 
-.demo-weapon-heading {
+.demo-weapon-heading,
+.demo-duel-heading {
   padding: 15px 17px;
   border-bottom: 1px solid var(--line);
 }
 
 .demo-weapon-heading h3,
-.demo-weapon-team h4 { margin: 0; }
+.demo-weapon-team h4,
+.demo-duel-heading h3,
+.demo-duel-team h4 { margin: 0; }
 
-.demo-weapon-heading p {
+.demo-weapon-heading p,
+.demo-duel-heading p {
   margin: 3px 0 0;
   color: var(--muted);
   font-size: 13px;
 }
 
-.demo-weapon-teams {
+.demo-weapon-teams,
+.demo-duel-teams {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
 
-.demo-weapon-team { min-width: 0; padding: 15px; }
-.demo-weapon-team + .demo-weapon-team { border-top: 1px solid var(--line); }
-.demo-weapon-team h4 { margin-bottom: 9px; font-size: 15px; }
+.demo-weapon-team,
+.demo-duel-team { min-width: 0; padding: 15px; }
+.demo-weapon-team + .demo-weapon-team,
+.demo-duel-team + .demo-duel-team { border-top: 1px solid var(--line); }
+.demo-weapon-team h4,
+.demo-duel-team h4 { margin-bottom: 9px; font-size: 15px; }
 
-.demo-weapon-player {
+.demo-weapon-player,
+.demo-duel-player {
   border-top: 1px solid rgba(238, 243, 251, .09);
 }
 
-.demo-weapon-player summary {
+.demo-weapon-player summary,
+.demo-duel-player summary {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -824,11 +835,20 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   cursor: pointer;
 }
 
-.demo-weapon-player summary span { color: var(--muted); font-size: 12px; }
-.demo-weapon-player .table-wrap { margin-bottom: 10px; }
-.demo-weapon-table { width: 100%; min-width: 400px; }
-.demo-weapon-table th, .demo-weapon-table td { padding: 8px 10px; text-align: center; }
-.demo-weapon-table th:first-child, .demo-weapon-table td:first-child { text-align: left; }
+.demo-weapon-player summary span,
+.demo-duel-player summary span { color: var(--muted); font-size: 12px; }
+.demo-weapon-player .table-wrap,
+.demo-duel-player .table-wrap { margin-bottom: 10px; }
+.demo-weapon-table,
+.demo-duel-table { width: 100%; min-width: 400px; }
+.demo-weapon-table th, .demo-weapon-table td,
+.demo-duel-table th, .demo-duel-table td { padding: 8px 10px; text-align: center; }
+.demo-weapon-table th:first-child, .demo-weapon-table td:first-child,
+.demo-duel-table th:first-child, .demo-duel-table td:first-child { text-align: left; }
+
+.duel-positive { color: var(--green); font-weight: 900; }
+.duel-negative { color: var(--red); font-weight: 900; }
+.duel-even { color: var(--amber); font-weight: 900; }
 
 .demo-team .table-wrap {
   border: 0;
