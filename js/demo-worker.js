@@ -140,6 +140,8 @@ async function parseDemo(fileName, buffer) {
           deathPenetrations: 0,
           smokeKills: 0,
           smokeDeaths: 0,
+          airborneKills: 0,
+          deathsToAirborneKiller: 0,
           speedOnKillTotal: 0,
           speedOnKillSamples: 0,
           maxSpeedOnKill: 0,
@@ -266,6 +268,8 @@ async function parseDemo(fileName, buffer) {
       row.deathPenetrations = 0;
       row.smokeKills = 0;
       row.smokeDeaths = 0;
+      row.airborneKills = 0;
+      row.deathsToAirborneKiller = 0;
       row.speedOnKillTotal = 0;
       row.speedOnKillSamples = 0;
       row.maxSpeedOnKill = 0;
@@ -530,6 +534,7 @@ async function parseDemo(fileName, buffer) {
       const attackerWasBlind = Boolean(event.attackerblind);
       const penetrations = Math.max(0, integer(event.penetrated) ?? 0);
       const throughSmoke = Boolean(event.thrusmoke);
+      const attackerInAir = Boolean(event.attackerinair);
       const attackerSpeed = currentPlayerSpeed(attackerId);
       if (victimWasBlind) {
         attacker.blindedEnemyKills += 1;
@@ -548,6 +553,10 @@ async function parseDemo(fileName, buffer) {
       if (throughSmoke) {
         attacker.smokeKills += 1;
         victim.smokeDeaths += 1;
+      }
+      if (attackerInAir) {
+        attacker.airborneKills += 1;
+        victim.deathsToAirborneKiller += 1;
       }
       if (attackerSpeed !== null) {
         attacker.speedOnKillTotal += attackerSpeed;
@@ -1108,6 +1117,8 @@ function finishPlayer(row) {
       penetrations_on_deaths: row.deathPenetrations,
       smoke_kills: row.smokeKills,
       smoke_deaths: row.smokeDeaths,
+      airborne_kills: row.airborneKills,
+      deaths_to_airborne_killer: row.deathsToAirborneKiller,
       speed_on_kill: speedSummary(row.speedOnKillTotal, row.speedOnKillSamples, row.maxSpeedOnKill),
       killer_speed_on_death: speedSummary(row.killerSpeedTotal, row.killerSpeedSamples, row.maxKillerSpeed)
     },
