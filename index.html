@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CSStats — Lifter / Dragger Matrix</title>
-  <link rel="stylesheet" href="./styles.css?v=20260905-12">
+  <link rel="stylesheet" href="./styles.css?v=20260905-13">
 </head>
 <body>
   <main class="shell">
@@ -44,7 +44,7 @@
         <div>
           <div class="demo-prototype-line">
             <div class="eyebrow">Local browser prototype</div>
-            <span class="demo-build">Build 2026.09.05.3</span>
+            <span class="demo-build">Build 2026.09.05.4</span>
           </div>
           <h2>Parse one CS2 demo</h2>
           <p>Choose a <code>.dem</code> or <code>.dem.gz</code> file. It is processed inside your browser and never uploaded.</p>
@@ -86,6 +86,13 @@
             <p>Enemy kills and damage, firing events, and purchases. Expand a player to inspect their weapons.</p>
           </div>
           <div class="demo-weapon-teams" id="demoWeapons"></div>
+        </section>
+        <section class="demo-trade-section" aria-labelledby="demoTradeTitle">
+          <div class="demo-trade-heading">
+            <h3 id="demoTradeTitle">Trade responses</h3>
+            <p>Rows are potential traders; columns are teammates who died. Cells show opportunities / attempts / successes.</p>
+          </div>
+          <div id="demoTrades"></div>
         </section>
         <section class="demo-duel-section" aria-labelledby="demoDuelTitle">
           <div class="demo-duel-heading">
@@ -263,6 +270,6 @@
   <script defer src="./js/chart.js"></script>
   <script defer src="./js/combinations.js"></script>
   <script defer src="./js/app.js"></script>
-  <script defer src="./js/demo.js?v=20260905-28"></script>
+  <script defer src="./js/demo.js?v=20260905-29"></script>
 </body>
 </html>
