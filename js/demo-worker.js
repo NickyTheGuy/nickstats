@@ -952,7 +952,9 @@ async function parseDemo(fileName, buffer) {
 
     if (victim) {
       captureFinalInventory(victim);
-      if (attacker === victim || attackerId === victimId || attackerId === null || attackerId === 0) {
+      // Zero is a valid demo-local player userid. Treat an attack as world/self
+      // only when no player row resolves, not merely because the numeric ID is 0.
+      if (attacker === victim || attackerId === victimId || !attacker) {
         duelStat(victim, victim).deaths += 1;
       } else if (attacker) {
         duelStat(attacker, victim).kills += 1;
