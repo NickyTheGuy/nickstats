@@ -169,7 +169,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-28");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-29");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -637,7 +637,7 @@
     table.className = "demo-weapon-table";
     const head = document.createElement("thead");
     const headRow = document.createElement("tr");
-    ["Weapon", "Kills", "Shots", "Damage", "Bought"].forEach(label => {
+    ["Weapon", "Kills", "Shots", "Damage", "Rounds used"].forEach(label => {
       const th = document.createElement("th");
       th.textContent = label;
       headRow.appendChild(th);
@@ -650,7 +650,7 @@
       cell(row, stat.kills || 0);
       cell(row, stat.shots || 0);
       cell(row, stat.damage || 0);
-      cell(row, stat.purchases || 0);
+      cell(row, stat.rounds_used || 0);
       body.appendChild(row);
     });
     if (!weapons.length) {
