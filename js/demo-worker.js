@@ -17,6 +17,17 @@ const NON_WEAPON_SPEED_KILLS = new Set([
 const PASSIVE_USAGE_EXCLUDED_WEAPONS = new Set([
   "glock", "hkp2000", "usp_silencer", "knife"
 ]);
+const DEFAULT_PISTOLS = new Set(["glock", "hkp2000", "usp_silencer"]);
+const PISTOL_WEAPONS = new Set([
+  "cz75a", "deagle", "elite", "fiveseven", "glock", "hkp2000", "p250",
+  "revolver", "tec9", "usp_silencer"
+]);
+const PRIMARY_WEAPONS = new Set([
+  "ak47", "aug", "awp", "bizon", "famas", "g3sg1", "galilar", "m249",
+  "m4a1", "m4a1_silencer", "mac10", "mag7", "mp5sd", "mp7", "mp9",
+  "negev", "nova", "p90", "sawedoff", "scar20", "sg556", "ssg08",
+  "ump45", "xm1014"
+]);
 const WEAPON_MAX_SPEED = Object.freeze({
   ak47: [215, 215], aug: [220, 150], awp: [200, 100], bizon: [240, 240],
   cz75a: [240, 240], deagle: [230, 230], elite: [240, 240], famas: [220, 220],
@@ -534,6 +545,15 @@ async function parseDemo(fileName, buffer) {
       const hadAssist = has(round.assists);
       const wasTraded = has(round.traded);
       const survived = !has(round.deaths);
+      const retainedPistol = round.preLivePistol.get(row);
+      const usedWeapons = round.weaponUsage.get(row) || new Set();
+      const hadPrimary = [...usedWeapons].some(weapon => PRIMARY_WEAPONS.has(weapon));
+      const usedOtherPistol = [...usedWeapons].some(weapon =>
+        PISTOL_WEAPONS.has(weapon) && weapon !== retainedPistol
+      );
+      if (DEFAULT_PISTOLS.has(retainedPistol) && !hadPrimary && !usedOtherPistol) {
+        noteWeaponUse(row, retainedPistol);
+      }
       for (const weapon of round.weaponUsage.get(row) || []) {
         const stat = weaponStat(row, weapon);
         if (stat) stat.roundsUsed += 1;
@@ -1145,12 +1165,17 @@ async function parseDemo(fileName, buffer) {
     noteWeaponUse(row, resolvedWeapon);
   }
 
-  function handleItemSeen(event) {
+  function handleItemSeen(event, eventType) {
     const userId = integer(event.userid);
     const row = stats.get(userId);
     if (!row) return;
     const weapon = itemEventWeapon(ctPistolChoice, row, event);
-    if (PASSIVE_USAGE_EXCLUDED_WEAPONS.has(weaponStatId(weapon))) return;
+    const id = weaponStatId(weapon);
+    if (!round.live && PISTOL_WEAPONS.has(id) &&
+        (eventType === "equip" || !round.preLivePistol.has(row))) {
+      round.preLivePistol.set(row, id);
+    }
+    if (PASSIVE_USAGE_EXCLUDED_WEAPONS.has(id)) return;
     noteWeaponUse(row, weapon);
   }
 
@@ -1323,8 +1348,10 @@ async function parseDemo(fileName, buffer) {
         handleBlind(gameEvent, demoPacket.tick);
         break;
       case "item_pickup":
+        handleItemSeen(gameEvent, "pickup");
+        break;
       case "item_equip":
-        handleItemSeen(gameEvent);
+        handleItemSeen(gameEvent, "equip");
         break;
       case "bullet_impact":
         if (!round.live) break;
@@ -1457,7 +1484,7 @@ async function parseDemo(fileName, buffer) {
       method: "Distinct completed rounds in which the player picked up, equipped, fired, damaged with, or killed with the weapon",
       counting: "Each player/weapon combination counts at most once per round",
       scope: "Includes carried weapons and mid-round pickups; excludes world and C4 events",
-      default_equipment: "Glock, USP-S, P2000, and knife ignore passive pickup/equip events and count only rounds with firing, damage, or a kill"
+      default_equipment: "Glock, USP-S, P2000, and knife ignore passive pickup/equip events. Default pistols count without an attack only when retained at live start and no primary or alternate pistol was used; knife remains attack-only"
     },
     speed_definition: {
       units: "Source 2 game units per second",
@@ -1514,6 +1541,7 @@ function freshRound() {
     participants: new Set(),
     healthByUser: new Map(),
     weaponUsage: new Map(),
+    preLivePistol: new Map(),
     statBaselines: new Map(),
     sideAssignments: new Map(),
     sideTrackingStarted: false,
