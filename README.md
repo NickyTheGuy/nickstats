@@ -9,6 +9,8 @@ The selected HTML and demo files are processed in the browser. NickStats does no
 
 Demo statistics use the roster present when each round goes live as the denominator, so transient pre-freeze spawns do not count. Bots that enter live play remain separate, visibly labeled rows and are identified in JSON so future aggregate analysis can exclude them by default.
 
+The Demo Parser's **ALL / CT / T** selector applies to the scoreboard, rating, KAST, trades, utility, kill context, clutches, multikills, weapon ledger, duel matrix, player round counts, and side wins. Side attribution uses each player's live team assignment for every completed round rather than splitting the match in half, so regulation and FACEIT overtime side swaps are handled directly. The demo is parsed once; changing the selector only switches among the stored aggregates.
+
 Parsed results include a FACEIT match ID extracted from an original FACEIT filename when available, plus a SHA-256 fingerprint of the uncompressed demo. `match_uid` prefers the provider ID and falls back to the fingerprint, while `demo_sha256` can always be used for exact duplicate detection.
 
 ## Run it
@@ -21,7 +23,7 @@ The Demo Parser tab uses [`@deademx/cs2` 4.0.0](https://github.com/Igor-Losev/de
 
 Each player also receives a per-weapon ledger containing enemy kills, enemy health damage, `weapon_fire` events, and successful `item_purchase` events. A shotgun firing event counts as one shot rather than one per pellet. Armor, helmets, and defuse kits are excluded from the weapon ledger; dropped and picked-up weapons do not count as purchases.
 
-The duel ledger records every kill/death pairing and its differential. Enemy kills and teamkills are directional player matchups. Explicit suicides and deaths without a player attacker—such as falling or map hazards—are treated as self-kills, matching Counter-Strike's scoreboard convention. The browser renders this as one matrix: rows are players, columns are other players, and each cell is the row player's kills-deaths against that player. A self-kill appears on the diagonal as `0-1`, and team boundaries remain visually separated. Blank cells mean no such event occurred.
+The duel ledger records every kill/death pairing and its differential. Enemy kills and teamkills are directional player matchups. Explicit suicides and deaths without a player attacker—such as falling or map hazards—are treated as self-kills, matching Counter-Strike's scoreboard convention. The browser renders this as one matrix: rows are players, columns are other players, and each cell is the row player's kills-deaths against that player. A self-kill appears on the diagonal as `0-1`, and team boundaries remain visually separated. Blank cells mean no such event occurred. In CT or T view, each row is filtered to the side played by that row's player when the duel event occurred.
 
 Scoreboard headers are sortable within each team. Composite headers cycle through their component statistics and then return to the original neutral order; single-stat headers toggle between that statistic and neutral. Favorable values sort first, so death-based penalty columns use fewer-first ordering.
 
