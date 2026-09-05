@@ -13,6 +13,8 @@ Demo statistics use the roster present when each round goes live as the denomina
 
 The Demo Parser's **ALL / CT / T** selector applies to the scoreboard, rating, KAST, trades, utility, kill context, clutches, multikills, weapon ledger, duel matrix, player round counts, and side wins. Side attribution uses each player's live team assignment for every completed round rather than splitting the match in half, so regulation and FACEIT overtime side swaps are handled directly. The demo is parsed once; changing the selector only switches among the stored aggregates.
 
+The large demo outputs share a local **Scoreboard / Duels / Trades / Weapons** tab bar beneath the side selector. Changing result tabs does not discard the selected side or reparse the demo.
+
 Parsed results include a FACEIT match ID extracted from an original FACEIT filename when available, plus a SHA-256 fingerprint of the uncompressed demo. `match_uid` prefers the provider ID and falls back to the fingerprint, while `demo_sha256` can always be used for exact duplicate detection.
 
 ## Run it
