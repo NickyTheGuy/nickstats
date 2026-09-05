@@ -856,6 +856,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .demo-team-score.score-loser { color: var(--red); }
 
 .demo-weapon-section,
+.demo-trade-section,
 .demo-duel-section {
   overflow: hidden;
   border: 1px solid var(--line);
@@ -864,6 +865,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 
 .demo-weapon-heading,
+.demo-trade-heading,
 .demo-duel-heading {
   padding: 15px 17px;
   border-bottom: 1px solid var(--line);
@@ -871,9 +873,11 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 
 .demo-weapon-heading h3,
 .demo-weapon-team h4,
+.demo-trade-heading h3,
 .demo-duel-heading h3 { margin: 0; }
 
 .demo-weapon-heading p,
+.demo-trade-heading p,
 .demo-duel-heading p {
   margin: 3px 0 0;
   color: var(--muted);
@@ -929,6 +933,21 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .duel-positive { color: var(--green); background: rgba(98, 212, 157, .08); font-weight: 900; }
 .duel-negative { color: var(--red); background: rgba(255, 122, 131, .08); font-weight: 900; }
 .duel-even { color: var(--amber); background: rgba(255, 201, 105, .055); font-weight: 900; }
+
+.demo-trade-matrix .trade-success {
+  color: var(--green);
+  background: rgba(98, 212, 157, .1);
+  font-weight: 900;
+}
+
+.demo-trade-matrix .trade-attempt {
+  color: var(--amber);
+  background: rgba(255, 201, 105, .07);
+  font-weight: 850;
+}
+
+.demo-trade-matrix .trade-opportunity { color: #a9c9ff; }
+.demo-trade-matrix .trade-none { color: var(--muted); }
 
 .demo-team .table-wrap {
   border: 0;
