@@ -9,6 +9,7 @@ const HE_MAX_DAMAGE_UNARMORED = 98;
 const HE_MAX_DAMAGE_ARMORED = 57;
 const RUNNING_ACCURACY_THRESHOLD_PERCENT = 34;
 const STILL_SPEED_TOLERANCE = 1;
+const EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS = 2;
 const TRADE_AUDIT_RADII = [150, 200, 250, 300, 400, 500];
 const NON_WEAPON_SPEED_KILLS = new Set([
   "hegrenade", "inferno", "molotov", "incgrenade", "flashbang",
@@ -70,6 +71,8 @@ const ADDITIVE_STAT_FIELDS = [
   "smokeKills", "smokeDeaths", "airborneKills", "deathsToAirborneKiller",
   "movingKills", "deathsToMovingKiller", "stillKills", "deathsToStillKiller",
   "runningKills", "deathsToRunningKiller", "unfairKills", "unfairDeaths",
+  "equipmentDisadvantageKills", "equipmentDisadvantageDeaths", "grenadeOutKills",
+  "grenadeOutDeaths", "knifeOutKills", "knifeOutDeaths",
   "speedOnKillTotal", "speedOnKillSamples", "speedOnKillPercentTotal",
   "speedOnKillPercentSamples", "killerSpeedTotal", "killerSpeedSamples",
   "killerSpeedPercentTotal", "killerSpeedPercentSamples", "rounds", "openingKills",
@@ -229,6 +232,12 @@ async function parseDemo(fileName, buffer) {
           deathsToRunningKiller: 0,
           unfairKills: 0,
           unfairDeaths: 0,
+          equipmentDisadvantageKills: 0,
+          equipmentDisadvantageDeaths: 0,
+          grenadeOutKills: 0,
+          grenadeOutDeaths: 0,
+          knifeOutKills: 0,
+          knifeOutDeaths: 0,
           speedOnKillTotal: 0,
           speedOnKillSamples: 0,
           maxSpeedOnKill: 0,
@@ -386,6 +395,12 @@ async function parseDemo(fileName, buffer) {
       row.deathsToRunningKiller = 0;
       row.unfairKills = 0;
       row.unfairDeaths = 0;
+      row.equipmentDisadvantageKills = 0;
+      row.equipmentDisadvantageDeaths = 0;
+      row.grenadeOutKills = 0;
+      row.grenadeOutDeaths = 0;
+      row.knifeOutKills = 0;
+      row.knifeOutDeaths = 0;
       row.speedOnKillTotal = 0;
       row.speedOnKillSamples = 0;
       row.maxSpeedOnKill = 0;
@@ -548,7 +563,8 @@ async function parseDemo(fileName, buffer) {
       addMapDeltas(target.duelStats, after.duels, before.duels, ["kills", "deaths"]);
       addMapDeltas(target.tradeMatchups, after.tradeMatchups, before.tradeMatchups, ["opportunities", "attempts", "successes"]);
       addMapDeltas(target.killContextMatchups, after.killContextMatchups, before.killContextMatchups,
-        ["blinded", "attackerBlind", "wallbang", "penetrations", "smoke", "airborne", "moving", "still", "running", "unfair"]);
+        ["blinded", "attackerBlind", "wallbang", "penetrations", "smoke", "airborne", "moving", "still", "running",
+          "grenadeOut", "knifeOut", "equipmentDisadvantage", "unfair"]);
       addMapDeltas(target.assistedKillMatchups, after.assistedKillMatchups, before.assistedKillMatchups, ["damage", "flash"]);
       for (const value of row.speedOnKillValues.slice(before.speedValueLength)) {
         target.maxSpeedOnKill = Math.max(target.maxSpeedOnKill, value.speed);
@@ -735,7 +751,29 @@ async function parseDemo(fileName, buffer) {
     return { speed: fallback.speed, maxSpeed: weaponMovementMaxSpeed(deathEvent.weapon, inferredScopedKill(deathEvent)) };
   }
 
-  function samplePlayerInventories() {
+  function noteDisadvantagedWeapon(row, weapon, tick) {
+    if (!round.live || !row || !Number.isFinite(tick)) return;
+    const kind = equipmentDisadvantageKind(weapon);
+    if (!kind) return;
+    let history = round.disadvantagedWeaponTicks.get(row);
+    if (!history) {
+      history = { grenade: null, knife: null };
+      round.disadvantagedWeaponTicks.set(row, history);
+    }
+    history[kind] = tick;
+  }
+
+  function recentEquipmentDisadvantage(row, tick) {
+    const history = round.disadvantagedWeaponTicks.get(row);
+    const windowTicks = Math.max(1, Math.round(EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS / tickInterval));
+    const recent = value => Number.isFinite(value) && tick - value >= 0 && tick - value <= windowTicks;
+    return {
+      grenade: recent(history?.grenade),
+      knife: recent(history?.knife)
+    };
+  }
+
+  function samplePlayerInventories(tick) {
     let demo;
     try {
       demo = parser.getDemo();
@@ -750,9 +788,10 @@ async function parseDemo(fileName, buffer) {
       if (!controller) continue;
       const row = byName.get(normalizeName(controller.getField("m_iszPlayerName")));
       if (!row) continue;
+      const activeHandles = new Set(entityHandles(safePawnField(pawn, "m_pWeaponServices.m_hActiveWeapon")));
       const handles = new Set([
         ...entityHandles(safePawnField(pawn, "m_pWeaponServices.m_hMyWeapons")),
-        ...entityHandles(safePawnField(pawn, "m_pWeaponServices.m_hActiveWeapon"))
+        ...activeHandles
       ]);
       const inventory = new Map();
       for (const handle of handles) {
@@ -760,6 +799,7 @@ async function parseDemo(fileName, buffer) {
         const weapon = weaponEntityId(entity);
         if (!weapon) continue;
         inventory.set(handle, weapon);
+        if (activeHandles.has(handle)) noteDisadvantagedWeapon(row, weapon, tick);
         resolvedInventoryItems += 1;
       }
       latestInventory.set(row, inventory);
@@ -852,6 +892,9 @@ async function parseDemo(fileName, buffer) {
         moving: 0,
         still: 0,
         running: 0,
+        grenadeOut: 0,
+        knifeOut: 0,
+        equipmentDisadvantage: 0,
         unfair: 0
       };
       killer.killContextMatchups.set(victim, stat);
@@ -1028,6 +1071,8 @@ async function parseDemo(fileName, buffer) {
       const penetrations = Math.max(0, integer(event.penetrated) ?? 0);
       const throughSmoke = Boolean(event.thrusmoke);
       const attackerInAir = Boolean(event.attackerinair);
+      const equipmentDisadvantage = recentEquipmentDisadvantage(victim, tick);
+      const caughtWithEquipmentOut = equipmentDisadvantage.grenade || equipmentDisadvantage.knife;
       const speedEligible = !isNonWeaponSpeedKill(event.weapon);
       const attackerMotion = speedEligible ? currentPlayerMotion(attackerId, tick, event) : null;
       let movingKill = false;
@@ -1089,7 +1134,20 @@ async function parseDemo(fileName, buffer) {
         attacker.runningKills += 1;
         victim.deathsToRunningKiller += 1;
       }
-      const unfairKill = victimWasBlind || penetrations > 0 || throughSmoke || attackerInAir || runningKill;
+      if (equipmentDisadvantage.grenade) {
+        attacker.grenadeOutKills += 1;
+        victim.grenadeOutDeaths += 1;
+      }
+      if (equipmentDisadvantage.knife) {
+        attacker.knifeOutKills += 1;
+        victim.knifeOutDeaths += 1;
+      }
+      if (caughtWithEquipmentOut) {
+        attacker.equipmentDisadvantageKills += 1;
+        victim.equipmentDisadvantageDeaths += 1;
+      }
+      const unfairKill = victimWasBlind || penetrations > 0 || throughSmoke || attackerInAir ||
+        runningKill || caughtWithEquipmentOut;
       if (unfairKill) {
         // The collapsed total is event-based, so overlapping contexts count once.
         attacker.unfairKills += 1;
@@ -1105,6 +1163,9 @@ async function parseDemo(fileName, buffer) {
       contextMatchup.moving += Number(movingKill);
       contextMatchup.still += Number(stillKill);
       contextMatchup.running += Number(runningKill);
+      contextMatchup.grenadeOut += Number(equipmentDisadvantage.grenade);
+      contextMatchup.knifeOut += Number(equipmentDisadvantage.knife);
+      contextMatchup.equipmentDisadvantage += Number(caughtWithEquipmentOut);
       contextMatchup.unfair += Number(unfairKill);
       round.kills.add(attackerId);
       round.killCounts.set(attackerId, (round.killCounts.get(attackerId) || 0) + 1);
@@ -1319,7 +1380,7 @@ async function parseDemo(fileName, buffer) {
     noteWeaponUse(row, resolvedWeapon);
   }
 
-  function handleItemSeen(event, eventType) {
+  function handleItemSeen(event, eventType, tick) {
     const userId = integer(event.userid);
     const row = stats.get(userId);
     if (!row) return;
@@ -1329,6 +1390,7 @@ async function parseDemo(fileName, buffer) {
         (eventType === "equip" || !round.preLivePistol.has(row))) {
       round.preLivePistol.set(row, id);
     }
+    if (eventType === "equip") noteDisadvantagedWeapon(row, weapon, tick);
     // Physical ownership snapshots—not pickup/equip events—decide passive credit.
   }
 
@@ -1382,7 +1444,7 @@ async function parseDemo(fileName, buffer) {
     packetCounts.demo_packets += 1;
     if (!demoPacket.getIsInitial()) {
       refreshUserInfo();
-      samplePlayerInventories();
+      samplePlayerInventories(demoPacket.tick);
       samplePlayerMotion(demoPacket.tick);
     }
   });
@@ -1502,10 +1564,10 @@ async function parseDemo(fileName, buffer) {
         handleBlind(gameEvent, demoPacket.tick);
         break;
       case "item_pickup":
-        handleItemSeen(gameEvent, "pickup");
+        handleItemSeen(gameEvent, "pickup", demoPacket.tick);
         break;
       case "item_equip":
-        handleItemSeen(gameEvent, "equip");
+        handleItemSeen(gameEvent, "equip", demoPacket.tick);
         break;
       case "bullet_impact":
         if (!round.live) break;
@@ -1627,7 +1689,9 @@ async function parseDemo(fileName, buffer) {
       movement: "Eligible firearm kills with a measured horizontal killer speed are classified as still (at most 1 unit/second) or moving (above 1 unit/second)",
       running_threshold_percent_of_weapon_max: RUNNING_ACCURACY_THRESHOLD_PERCENT,
       running: "Killer horizontal speed above 34% of the current weapon's maximum movement speed; non-weapon kills are excluded",
-      unfair: "Unique enemy kills or deaths involving a blinded victim, penetration, smoke, airborne killer, or running killer; overlapping contexts count once"
+      equipment_disadvantage_lookback_seconds: EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS,
+      equipment_disadvantage: "Victim had a grenade or knife active at death or during the preceding two seconds",
+      unfair: "Unique enemy kills or deaths involving a blinded victim, penetration, smoke, airborne killer, running killer, or victim caught with a grenade/knife out; overlapping contexts count once"
     },
     damage_definition: {
       method: "Enemy health removed, reconstructed from each player_hurt event and the victim's tracked before/after health",
@@ -1701,6 +1765,7 @@ function freshRound() {
     preLivePistol: new Map(),
     inventoryObserved: new Set(),
     finalInventory: new Map(),
+    disadvantagedWeaponTicks: new Map(),
     statBaselines: new Map(),
     sideAssignments: new Map(),
     sideTrackingStarted: false,
@@ -1778,7 +1843,8 @@ function finishPlayer(row) {
         ...stat
       }))
       .filter(stat => stat.blinded || stat.attackerBlind || stat.wallbang || stat.penetrations ||
-        stat.smoke || stat.airborne || stat.moving || stat.still || stat.running || stat.unfair)
+        stat.smoke || stat.airborne || stat.moving || stat.still || stat.running ||
+        stat.grenadeOut || stat.knifeOut || stat.equipmentDisadvantage || stat.unfair)
       .sort((a, b) => b.unfair - a.unfair || b.wallbang - a.wallbang || b.blinded - a.blinded || a.victim.localeCompare(b.victim)),
     assisted_kill_matchups: [...row.assistedKillMatchups.entries()]
       .map(([assister, stat]) => ({
@@ -1829,6 +1895,12 @@ function finishPlayer(row) {
       deaths_to_still_killer: row.deathsToStillKiller,
       running_kills: row.runningKills,
       deaths_to_running_killer: row.deathsToRunningKiller,
+      equipment_disadvantage_kills: row.equipmentDisadvantageKills,
+      equipment_disadvantage_deaths: row.equipmentDisadvantageDeaths,
+      grenade_out_kills: row.grenadeOutKills,
+      grenade_out_deaths: row.grenadeOutDeaths,
+      knife_out_kills: row.knifeOutKills,
+      knife_out_deaths: row.knifeOutDeaths,
       unfair_kills: row.unfairKills,
       unfair_deaths: row.unfairDeaths,
       speed_on_kill: speedSummary(row.speedOnKillTotal, row.speedOnKillSamples, row.maxSpeedOnKill,
@@ -1904,6 +1976,15 @@ function weaponStatId(weapon) {
   if (["inferno", "molotov", "incgrenade"].includes(name)) return "fire";
   if (name.includes("knife") || name === "bayonet") return "knife";
   return name;
+}
+
+function equipmentDisadvantageKind(weapon) {
+  const name = weaponStatId(weapon);
+  if (name === "knife") return "knife";
+  if (["hegrenade", "flashbang", "smokegrenade", "decoy", "fire", "tagrenade"].includes(name)) {
+    return "grenade";
+  }
+  return null;
 }
 
 function itemEventWeapon(choices, row, event) {
