@@ -16,7 +16,8 @@
     rejectParse: null,
     expandedGroups: { killContext: false, trades: false, assistedKills: false, utility: false, clutches: false, multikills: false },
     scoreboardSort: null,
-    sideFilter: "ALL"
+    sideFilter: "ALL",
+    resultView: "scoreboard"
   };
 
   const sortSpecs = {
@@ -218,6 +219,7 @@
     state.result = null;
     state.scoreboardSort = null;
     setSideFilter("ALL", false);
+    setResultView("scoreboard");
     state.diagnostics = null;
     $("demoResults").hidden = true;
     $("demoDiagnosticsButton").hidden = true;
@@ -822,6 +824,25 @@
     if (shouldRender && state.result) render(state.result);
   }
 
+  function setResultView(view) {
+    const panels = {
+      scoreboard: "demoScoreboardView",
+      duels: "demoDuelsView",
+      trades: "demoTradesView",
+      weapons: "demoWeaponsView"
+    };
+    if (!panels[view]) return;
+    state.resultView = view;
+    document.querySelectorAll("[data-demo-result-view]").forEach(button => {
+      const active = button.dataset.demoResultView === view;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+    Object.entries(panels).forEach(([name, id]) => {
+      $(id).hidden = name !== view;
+    });
+  }
+
   function render(result) {
     const teams = teamsForSide(result);
     const sideRounds = teams.reduce((maximum, team) => Math.max(
@@ -882,6 +903,7 @@
     state.result = null;
     state.scoreboardSort = null;
     setSideFilter("ALL", false);
+    setResultView("scoreboard");
     state.diagnostics = null;
     $("demoInput").value = "";
     $("demoFileLabel").textContent = "Choose a FACEIT or CS2 demo";
@@ -927,6 +949,9 @@
   $("demoDownloadButton").addEventListener("click", downloadJson);
   document.querySelectorAll("[data-demo-side]").forEach(button => {
     button.addEventListener("click", () => setSideFilter(button.dataset.demoSide));
+  });
+  document.querySelectorAll("[data-demo-result-view]").forEach(button => {
+    button.addEventListener("click", () => setResultView(button.dataset.demoResultView));
   });
 
   const drop = $("demoDropZone");
