@@ -14,9 +14,6 @@ const NON_WEAPON_SPEED_KILLS = new Set([
   "hegrenade", "inferno", "molotov", "incgrenade", "flashbang",
   "smokegrenade", "decoy", "tagrenade", "c4", "planted_c4", "world"
 ]);
-const PASSIVE_USAGE_EXCLUDED_WEAPONS = new Set([
-  "glock", "hkp2000", "usp_silencer", "knife"
-]);
 const DEFAULT_PISTOLS = new Set(["glock", "hkp2000", "usp_silencer"]);
 const PISTOL_WEAPONS = new Set([
   "cz75a", "deagle", "elite", "fiveseven", "glock", "hkp2000", "p250",
@@ -28,6 +25,29 @@ const PRIMARY_WEAPONS = new Set([
   "negev", "nova", "p90", "sawedoff", "scar20", "sg556", "ssg08",
   "ump45", "xm1014"
 ]);
+const WEAPON_ITEM_DEFINITIONS = new Map(Object.entries({
+  1: "deagle", 2: "elite", 3: "fiveseven", 4: "glock", 7: "ak47", 8: "aug",
+  9: "awp", 10: "famas", 11: "g3sg1", 13: "galilar", 14: "m249", 16: "m4a1",
+  17: "mac10", 19: "p90", 23: "mp5sd", 24: "ump45", 25: "xm1014",
+  26: "bizon", 27: "mag7", 28: "negev", 29: "sawedoff", 30: "tec9",
+  31: "taser", 32: "hkp2000", 33: "mp7", 34: "mp9", 35: "nova", 36: "p250",
+  38: "scar20", 39: "sg556", 40: "ssg08", 42: "knife", 43: "flashbang",
+  44: "hegrenade", 45: "smokegrenade", 46: "molotov", 47: "decoy",
+  48: "incgrenade", 59: "knife", 60: "m4a1_silencer", 61: "usp_silencer",
+  63: "cz75a", 64: "revolver"
+}).map(([index, weapon]) => [Number(index), weapon]));
+const WEAPON_ENTITY_BASE_NAMES = [
+  "AK47", "Aug", "AWP", "Bizon", "CZ75a", "DEagle", "Elite", "Famas",
+  "FiveSeven", "G3SG1", "GalilAR", "Glock", "HKP2000", "M249", "M4A1",
+  "M4A1Silencer", "MAC10", "Mag7", "MP5SD", "MP7", "MP9", "Negev", "Nova",
+  "P250", "P90", "Revolver", "Sawedoff", "SCAR20", "SG556", "SSG08", "Taser",
+  "Tec9", "UMP45", "USPSilencer", "USP_Silencer", "XM1014", "Flashbang",
+  "HEGrenade", "SmokeGrenade", "MolotovGrenade", "IncendiaryGrenade",
+  "DecoyGrenade", "Knife", "KnifeGG"
+];
+const WEAPON_ENTITY_CLASSES = [...new Set(WEAPON_ENTITY_BASE_NAMES.flatMap(name => [
+  `C${name}`, `CWeapon${name}`
+]))];
 const WEAPON_MAX_SPEED = Object.freeze({
   ak47: [215, 215], aug: [220, 150], awp: [200, 100], bizon: [240, 240],
   cz75a: [240, 240], deagle: [230, 230], elite: [240, 240], famas: [220, 220],
@@ -98,7 +118,7 @@ async function parseDemo(fileName, buffer) {
   } = self.deademCs2;
 
   const parser = new Parser(new ParserConfiguration({
-    entityClasses: ["CCSTeam", "CCSPlayerController", "CCSPlayerPawn"],
+    entityClasses: ["CCSTeam", "CCSPlayerController", "CCSPlayerPawn", ...WEAPON_ENTITY_CLASSES],
     messagePacketTypes: [
       MessagePacketType.SVC_SERVER_INFO,
       MessagePacketType.SVC_PACKET_ENTITIES,
@@ -121,6 +141,7 @@ async function parseDemo(fileName, buffer) {
   const positionSamples = new Map();
   const derivedSpeeds = new Map();
   const ctPistolChoice = new Map();
+  const latestInventory = new Map();
   const tradeAudit = [];
   const packetCounts = {
     demo_packets: 0,
@@ -136,6 +157,8 @@ async function parseDemo(fileName, buffer) {
   let completedRounds = 0;
   let round = freshRound();
   let resetSeen = false;
+  let inventorySamples = 0;
+  let resolvedInventoryItems = 0;
 
   function ensurePlayer(userId, values = {}) {
     if (!Number.isInteger(userId)) return null;
@@ -304,6 +327,9 @@ async function parseDemo(fileName, buffer) {
     positionSamples.clear();
     derivedSpeeds.clear();
     ctPistolChoice.clear();
+    latestInventory.clear();
+    inventorySamples = 0;
+    resolvedInventoryItems = 0;
     for (const row of stats.values()) {
       row.kills = 0;
       row.sideStats = new Map();
@@ -545,14 +571,23 @@ async function parseDemo(fileName, buffer) {
       const hadAssist = has(round.assists);
       const wasTraded = has(round.traded);
       const survived = !has(round.deaths);
-      const retainedPistol = round.preLivePistol.get(row);
-      const usedWeapons = round.weaponUsage.get(row) || new Set();
-      const hadPrimary = [...usedWeapons].some(weapon => PRIMARY_WEAPONS.has(weapon));
-      const usedOtherPistol = [...usedWeapons].some(weapon =>
-        PISTOL_WEAPONS.has(weapon) && weapon !== retainedPistol
-      );
-      if (DEFAULT_PISTOLS.has(retainedPistol) && !hadPrimary && !usedOtherPistol) {
-        noteWeaponUse(row, retainedPistol);
+      const finalInventory = round.finalInventory.get(row) ||
+        (round.inventoryObserved.has(row)
+          ? new Set((latestInventory.get(row) || new Map()).values())
+          : null);
+      if (finalInventory) {
+        applyRetainedWeapons(row, finalInventory);
+      } else {
+        // Compatibility fallback for demos whose weapon entities are unavailable.
+        const retainedPistol = round.preLivePistol.get(row);
+        const usedWeapons = round.weaponUsage.get(row) || new Set();
+        const hadPrimary = [...usedWeapons].some(weapon => PRIMARY_WEAPONS.has(weapon));
+        const usedOtherPistol = [...usedWeapons].some(weapon =>
+          PISTOL_WEAPONS.has(weapon) && weapon !== retainedPistol
+        );
+        if (DEFAULT_PISTOLS.has(retainedPistol) && !hadPrimary && !usedOtherPistol) {
+          noteWeaponUse(row, retainedPistol);
+        }
       }
       for (const weapon of round.weaponUsage.get(row) || []) {
         const stat = weaponStat(row, weapon);
@@ -687,6 +722,66 @@ async function parseDemo(fileName, buffer) {
     const fallback = derivedSpeeds.get(row.userId);
     if (!fallback || tick - fallback.tick > Math.ceil(0.25 / tickInterval)) return null;
     return { speed: fallback.speed, maxSpeed: weaponMovementMaxSpeed(deathEvent.weapon, inferredScopedKill(deathEvent)) };
+  }
+
+  function samplePlayerInventories() {
+    let demo;
+    try {
+      demo = parser.getDemo();
+    } catch {
+      return;
+    }
+    const byName = new Map();
+    for (const row of new Set(stats.values())) byName.set(normalizeName(row.name), row);
+    for (const pawn of demo.getEntitiesByClassNameIterator("CCSPlayerPawn")) {
+      const controllerHandle = safePawnField(pawn, "m_hController");
+      const controller = Number.isInteger(controllerHandle) ? demo.getEntityByHandle(controllerHandle) : null;
+      if (!controller) continue;
+      const row = byName.get(normalizeName(controller.getField("m_iszPlayerName")));
+      if (!row) continue;
+      const handles = new Set([
+        ...entityHandles(safePawnField(pawn, "m_pWeaponServices.m_hMyWeapons")),
+        ...entityHandles(safePawnField(pawn, "m_pWeaponServices.m_hActiveWeapon"))
+      ]);
+      const inventory = new Map();
+      for (const handle of handles) {
+        const entity = demo.getEntityByHandle(handle);
+        const weapon = weaponEntityId(entity);
+        if (!weapon) continue;
+        inventory.set(handle, weapon);
+        resolvedInventoryItems += 1;
+      }
+      latestInventory.set(row, inventory);
+      if (inventory.size) round.inventoryObserved.add(row);
+    }
+    inventorySamples += 1;
+  }
+
+  function captureFinalInventory(row) {
+    const inventory = latestInventory.get(row);
+    if (inventory) round.finalInventory.set(row, new Set(inventory.values()));
+  }
+
+  function applyRetainedWeapons(row, inventory) {
+    if (!inventory?.size) return;
+    const retained = new Set(inventory);
+    const activelyUsed = round.weaponUsage.get(row) || new Set();
+    for (const weapon of retained) {
+      if (PRIMARY_WEAPONS.has(weapon) ||
+          (PISTOL_WEAPONS.has(weapon) && !DEFAULT_PISTOLS.has(weapon))) {
+        noteWeaponUse(row, weapon);
+      }
+    }
+    const hasPrimary = [...retained].some(weapon => PRIMARY_WEAPONS.has(weapon));
+    const hasAlternatePistol = [...retained].some(weapon =>
+      PISTOL_WEAPONS.has(weapon) && !DEFAULT_PISTOLS.has(weapon)
+    ) || [...activelyUsed].some(weapon =>
+      PISTOL_WEAPONS.has(weapon) && !DEFAULT_PISTOLS.has(weapon)
+    );
+    if (!hasPrimary && !hasAlternatePistol) {
+      const defaultPistol = [...retained].find(weapon => DEFAULT_PISTOLS.has(weapon));
+      if (defaultPistol) noteWeaponUse(row, defaultPistol);
+    }
   }
 
   function samplePlayerMotion(tick) {
@@ -856,6 +951,7 @@ async function parseDemo(fileName, buffer) {
     if (assisterId !== null) round.participants.add(assisterId);
 
     if (victim) {
+      captureFinalInventory(victim);
       if (attacker === victim || attackerId === victimId || attackerId === null || attackerId === 0) {
         duelStat(victim, victim).deaths += 1;
       } else if (attacker) {
@@ -1175,8 +1271,7 @@ async function parseDemo(fileName, buffer) {
         (eventType === "equip" || !round.preLivePistol.has(row))) {
       round.preLivePistol.set(row, id);
     }
-    if (PASSIVE_USAGE_EXCLUDED_WEAPONS.has(id)) return;
-    noteWeaponUse(row, weapon);
+    // Physical ownership snapshots—not pickup/equip events—decide passive credit.
   }
 
   function handleBulletImpact(event, tick) {
@@ -1229,6 +1324,7 @@ async function parseDemo(fileName, buffer) {
     packetCounts.demo_packets += 1;
     if (!demoPacket.getIsInitial()) {
       refreshUserInfo();
+      samplePlayerInventories();
       samplePlayerMotion(demoPacket.tick);
     }
   });
@@ -1481,10 +1577,13 @@ async function parseDemo(fileName, buffer) {
       side_attribution: "Corrected damage is assigned to the attacker's live CT or T side at event time"
     },
     weapon_usage_definition: {
-      method: "Distinct completed rounds in which the player picked up, equipped, fired, damaged with, or killed with the weapon",
+      method: "Distinct completed rounds with active weapon use, plus unused guns retained immediately before death or at round end",
       counting: "Each player/weapon combination counts at most once per round",
-      scope: "Includes carried weapons and mid-round pickups; excludes world and C4 events",
-      default_equipment: "Glock, USP-S, P2000, and knife ignore passive pickup/equip events. Default pistols count without an attack only when retained at live start and no primary or alternate pistol was used; knife remains attack-only"
+      ownership: "Physical weapon handles are resolved through each pawn inventory. Transfers give passive credit to the final holder; refunded and abandoned items receive none",
+      scope: "Grenades and knives require active use. World and C4 events are excluded",
+      default_equipment: "A retained Glock, USP-S, or P2000 counts passively only when the player has no primary or alternate pistol",
+      inventory_samples: inventorySamples,
+      resolved_inventory_observations: resolvedInventoryItems
     },
     speed_definition: {
       units: "Source 2 game units per second",
@@ -1542,6 +1641,8 @@ function freshRound() {
     healthByUser: new Map(),
     weaponUsage: new Map(),
     preLivePistol: new Map(),
+    inventoryObserved: new Set(),
+    finalInventory: new Map(),
     statBaselines: new Map(),
     sideAssignments: new Map(),
     sideTrackingStarted: false,
@@ -1748,6 +1849,64 @@ function itemEventWeapon(choices, row, event) {
   // loadout choice, but never create a P2000 statistic from this label alone.
   if (id === "hkp2000") return choices.get(row) || null;
   return weapon;
+}
+
+function entityHandles(value) {
+  if (Number.isInteger(value)) return [value];
+  if (Array.isArray(value) || ArrayBuffer.isView(value)) {
+    return Array.from(value).filter(Number.isInteger);
+  }
+  if (value instanceof Map || value instanceof Set) {
+    return [...value.values()].filter(Number.isInteger);
+  }
+  if (!value || typeof value !== "object") return [];
+  for (const key of ["values", "data", "elements", "handles"]) {
+    const nested = value[key];
+    if (Array.isArray(nested) || ArrayBuffer.isView(nested)) {
+      return Array.from(nested).filter(Number.isInteger);
+    }
+  }
+  return Object.entries(value)
+    .filter(([key, entry]) => /^\d+$/.test(key) && Number.isInteger(entry))
+    .map(([, entry]) => entry);
+}
+
+function weaponEntityId(entity) {
+  if (!entity) return null;
+  for (const field of [
+    "m_AttributeManager.m_Item.m_iItemDefinitionIndex",
+    "m_AttributeManager.m_Item.m_iItemDefinitionIndex.value",
+    "m_iItemDefinitionIndex"
+  ]) {
+    const definition = integer(safePawnField(entity, field));
+    if (definition === null) continue;
+    const baseDefinition = definition & 0xffff;
+    if (WEAPON_ITEM_DEFINITIONS.has(baseDefinition)) {
+      return WEAPON_ITEM_DEFINITIONS.get(baseDefinition);
+    }
+    if (baseDefinition >= 500 && baseDefinition < 600) return "knife";
+  }
+
+  const className = String(entity.class?.name || "")
+    .replace(/^CWeapon/i, "")
+    .replace(/^C_?/i, "")
+    .replaceAll("_", "")
+    .toLocaleLowerCase();
+  const aliases = {
+    ak47: "ak47", aug: "aug", awp: "awp", bizon: "bizon", cz75a: "cz75a",
+    deagle: "deagle", elite: "elite", famas: "famas", fiveseven: "fiveseven",
+    g3sg1: "g3sg1", galilar: "galilar", glock: "glock", hkp2000: "hkp2000",
+    m249: "m249", m4a1: "m4a1", m4a1silencer: "m4a1_silencer", mac10: "mac10",
+    mag7: "mag7", mp5sd: "mp5sd", mp7: "mp7", mp9: "mp9", negev: "negev",
+    nova: "nova", p250: "p250", p90: "p90", revolver: "revolver",
+    sawedoff: "sawedoff", scar20: "scar20", sg556: "sg556", ssg08: "ssg08",
+    taser: "taser", tec9: "tec9", ump45: "ump45", uspsilencer: "usp_silencer",
+    xm1014: "xm1014", flashbang: "flashbang", hegrenade: "hegrenade",
+    smokegrenade: "smokegrenade", molotovgrenade: "molotov",
+    incendiarygrenade: "incgrenade", decoygrenade: "decoy", knife: "knife",
+    knifegg: "knife"
+  };
+  return aliases[className] || null;
 }
 
 function isNonWeaponSpeedKill(weapon) {
