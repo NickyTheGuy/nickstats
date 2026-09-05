@@ -31,7 +31,7 @@ Side-specific ADR records each enemy-damage event directly into the attacker's l
 
 Each player also receives a per-weapon ledger containing enemy kills, enemy health damage, `weapon_fire` events, and **Rounds Used**. A weapon counts once per player per completed round when it is picked up, equipped, fired, deals damage, or gets a kill. This includes carried weapons and mid-round pickups without allowing repeated equip/pickup events to inflate the total. A shotgun firing event counts as one shot rather than one per pellet.
 
-Default pistols (Glock, USP-S, and P2000) and the knife use a stricter definition: passive pickup/equip events do not count because every player spawns with them. Their Rounds Used increases only when the player fires, deals damage, or gets a kill with that weapon during the round.
+Default pistols (Glock, USP-S, and P2000) and the knife use a stricter definition because every player spawns with them. Passive pickup/equip events do not count; actively attacking with the weapon does. A default pistol also counts without a shot when it is the player's retained sidearm at live start and the player has no primary weapon or different pistol that round—for example, an unarmed pistol-round player who dies before firing. The last pre-live pistol equip determines the retained sidearm, so a different pistol that was refunded or sold does not suppress the re-equipped default pistol. Knife remains activity-only.
 
 Weapon player cards are expandable, retain their open state across ALL/CT/T changes, and have independently sortable Weapon, Kills, Shots, Damage, and Rounds Used columns. Each column toggles between its useful sort direction and the parser's original order.
 
