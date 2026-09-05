@@ -854,12 +854,14 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 
 .trades-cell { background: rgba(85, 214, 210, .045); }
+.killContext-cell { background: rgba(255, 151, 92, .13); }
 .assistedKills-cell { background: rgba(190, 130, 255, .13); }
 .utility-cell { background: rgba(104, 164, 255, .05); }
 .clutches-cell { background: rgba(98, 212, 157, .12); }
 .multikills-cell { background: rgba(255, 201, 105, .05); }
 
 .trades-heading { background: rgba(85, 214, 210, .09); }
+.killContext-heading { background: rgba(255, 151, 92, .18); }
 .assistedKills-heading { background: rgba(190, 130, 255, .18); }
 .utility-heading { background: rgba(104, 164, 255, .10); }
 .clutches-heading { background: rgba(98, 212, 157, .17); }
@@ -872,6 +874,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 
 .demo-toggle-heading.trades-heading { border-top: 3px solid #55d6d2; }
+.demo-toggle-heading.killContext-heading { border-top: 3px solid #ff975c; }
 .demo-toggle-heading.assistedKills-heading { border-top: 3px dashed #be82ff; }
 .demo-toggle-heading.utility-heading { border-top: 3px double var(--blue); }
 .demo-toggle-heading.clutches-heading { border-top: 3px dotted var(--green); }
