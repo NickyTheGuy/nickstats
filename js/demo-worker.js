@@ -598,6 +598,15 @@ async function parseDemo(fileName, buffer) {
     if (victimId !== null) round.participants.add(victimId);
     if (assisterId !== null) round.participants.add(assisterId);
 
+    if (attacker && victim) {
+      if (attacker === victim || attackerId === victimId) {
+        duelStat(victim, victim).deaths += 1;
+      } else {
+        duelStat(attacker, victim).kills += 1;
+        duelStat(victim, attacker).deaths += 1;
+      }
+    }
+
     const teammateDistances = enemyKill ? livingTeammateDistances(victimId, victimTeam) : new Map();
     const nearbyCandidates = new Map(
       [...teammateDistances].filter(([, separation]) => separation <= TRADE_PROXIMITY_UNITS)
@@ -613,8 +622,6 @@ async function parseDemo(fileName, buffer) {
       attacker.observedOpponents.add(victim);
       victim.observedOpponents.add(attacker);
       attacker.kills += 1;
-      duelStat(attacker, victim).kills += 1;
-      duelStat(victim, attacker).deaths += 1;
       const killWeapon = weaponStat(attacker, event.weapon);
       if (killWeapon) killWeapon.kills += 1;
       const victimWasBlind = (blindUntilTick.get(victim.userId) ?? -1) >= tick;
