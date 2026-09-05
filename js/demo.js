@@ -17,7 +17,8 @@
     expandedGroups: { killContext: false, trades: false, assistedKills: false, utility: false, clutches: false, multikills: false },
     scoreboardSort: null,
     sideFilter: "ALL",
-    resultView: "scoreboard"
+    resultView: "scoreboard",
+    expandedWeaponPlayers: new Set()
   };
 
   const sortSpecs = {
@@ -168,7 +169,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260905-27");
+      const worker = new Worker("./js/demo-worker.js?v=20260905-28");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -218,6 +219,7 @@
     state.file = file;
     state.result = null;
     state.scoreboardSort = null;
+    state.expandedWeaponPlayers.clear();
     setSideFilter("ALL", false);
     setResultView("scoreboard");
     state.diagnostics = null;
@@ -614,6 +616,12 @@
   function renderWeaponPlayer(player) {
     const details = document.createElement("details");
     details.className = "demo-weapon-player";
+    const identity = duelIdentity(player.steam_id, player.name);
+    details.open = state.expandedWeaponPlayers.has(identity);
+    details.addEventListener("toggle", () => {
+      if (details.open) state.expandedWeaponPlayers.add(identity);
+      else state.expandedWeaponPlayers.delete(identity);
+    });
     const summary = document.createElement("summary");
     const name = document.createElement("strong");
     name.textContent = player.name || "Unknown player";
@@ -902,6 +910,7 @@
     state.file = null;
     state.result = null;
     state.scoreboardSort = null;
+    state.expandedWeaponPlayers.clear();
     setSideFilter("ALL", false);
     setResultView("scoreboard");
     state.diagnostics = null;
