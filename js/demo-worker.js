@@ -121,6 +121,7 @@ async function parseDemo(fileName, buffer) {
           isBot: Boolean(values.fakeplayer) || !steamId,
           observedOpponents: new Set(),
           weaponStats: new Map(),
+          duelStats: new Map(),
           kills: 0,
           deaths: 0,
           assists: 0,
@@ -259,6 +260,7 @@ async function parseDemo(fileName, buffer) {
     for (const row of stats.values()) {
       row.kills = 0;
       row.weaponStats = new Map();
+      row.duelStats = new Map();
       row.deaths = 0;
       row.assists = 0;
       row.headshots = 0;
@@ -568,6 +570,16 @@ async function parseDemo(fileName, buffer) {
     return stat;
   }
 
+  function duelStat(row, opponent) {
+    if (!row || !opponent) return null;
+    let stat = row.duelStats.get(opponent);
+    if (!stat) {
+      stat = { kills: 0, deaths: 0 };
+      row.duelStats.set(opponent, stat);
+    }
+    return stat;
+  }
+
   function handleDeath(event, tick) {
     refreshControllerTeams();
     const attackerId = integer(event.attacker);
@@ -601,6 +613,8 @@ async function parseDemo(fileName, buffer) {
       attacker.observedOpponents.add(victim);
       victim.observedOpponents.add(attacker);
       attacker.kills += 1;
+      duelStat(attacker, victim).kills += 1;
+      duelStat(victim, attacker).deaths += 1;
       const killWeapon = weaponStat(attacker, event.weapon);
       if (killWeapon) killWeapon.kills += 1;
       const victimWasBlind = (blindUntilTick.get(victim.userId) ?? -1) >= tick;
@@ -1250,6 +1264,16 @@ function finishPlayer(row) {
       .filter(stat => stat.kills || stat.shots || stat.damage || stat.purchases)
       .sort((a, b) => b.kills - a.kills || b.damage - a.damage || b.shots - a.shots || b.purchases - a.purchases || a.weapon.localeCompare(b.weapon))
       .map(stat => ({ ...stat })),
+    duels: [...row.duelStats.entries()]
+      .map(([opponent, stat]) => ({
+        opponent: opponent.name,
+        opponent_steam_id: opponent.steamId,
+        opponent_is_bot: opponent.isBot,
+        kills: stat.kills,
+        deaths: stat.deaths,
+        differential: stat.kills - stat.deaths
+      }))
+      .sort((a, b) => (b.kills + b.deaths) - (a.kills + a.deaths) || b.differential - a.differential || a.opponent.localeCompare(b.opponent)),
     opening_kills: row.openingKills,
     opening_deaths: row.openingDeaths,
     multikill_rounds: row.multikillRounds,
