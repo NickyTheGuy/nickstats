@@ -824,14 +824,6 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   text-align: center;
 }
 
-.demo-trade-subhead {
-  border-bottom-color: rgba(85, 214, 210, .22);
-  color: #a9efec;
-  font-size: 11px;
-  letter-spacing: .05em;
-  text-transform: uppercase;
-}
-
 .trades-heading,
 .trades-cell { background: rgba(85, 214, 210, .065); }
 
