@@ -248,6 +248,27 @@
     return new Response(stream).arrayBuffer();
   }
 
+  async function gzipMatchTime(file) {
+    if (!/\.gz$/i.test(file.name) || file.size < 10) return null;
+    const header = await file.slice(0, 10).arrayBuffer();
+    const bytes = new Uint8Array(header);
+    if (bytes[0] !== 0x1f || bytes[1] !== 0x8b || bytes[2] !== 8) return null;
+    const timestamp = new DataView(header).getUint32(4, true);
+    const earliestReasonable = Date.UTC(2012, 0, 1) / 1000;
+    const latestReasonable = Date.now() / 1000 + 24 * 60 * 60;
+    return timestamp >= earliestReasonable && timestamp <= latestReasonable
+      ? { timestamp, source: "gzip_mtime" }
+      : null;
+  }
+
+  function formatMatchTime(timestamp) {
+    if (!Number.isFinite(timestamp) || timestamp <= 0) return "Unknown";
+    return new Intl.DateTimeFormat(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(new Date(timestamp * 1000));
+  }
+
   function parseWithWorker(name, data) {
     return new Promise((resolve, reject) => {
       state.resolveParse = resolve;
@@ -923,6 +944,7 @@
     $("demoSummary").replaceChildren(
       summaryCard("File", state.file?.name || "Demo"),
       summaryCard("Match ID", result.provider_match_id || `SHA ${String(result.demo_sha256 || "").slice(0, 12)}…`),
+      summaryCard("Played", formatMatchTime(result.played_at)),
       summaryCard("Map", result.map || "Unknown"),
       summaryCard(state.sideFilter === "ALL" ? "Rounds" : `${state.sideFilter} rounds`, String(state.sideFilter === "ALL" ? result.rounds || 0 : sideRounds)),
       summaryCard(state.sideFilter === "ALL" ? "Score" : `${state.sideFilter} wins`, score)
@@ -950,6 +972,7 @@
     setStatus("Loading the browser demo parser…");
     try {
       await ensureWorker();
+      const matchTime = await gzipMatchTime(state.file);
       const data = await readDemo(state.file);
       if (data.byteLength > 450 * 1024 * 1024) {
         throw new Error("The uncompressed demo exceeds the 450 MB browser prototype limit.");
@@ -957,6 +980,8 @@
       setStatus("Fingerprinting and parsing the demo locally…");
       const result = await parseWithWorker(state.file.name.replace(/\.gz$/i, ""), data);
       if (!result || result.error) throw new Error(result?.error || "The parser returned no match data.");
+      result.played_at = matchTime?.timestamp ?? null;
+      result.played_at_source = matchTime?.source ?? null;
       state.result = result;
       render(result);
       setStatus(`Parsed ${result.rounds} rounds and ${result.player_count} players.`);
@@ -1078,14 +1103,16 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/8",
-      nickstats_build: "2026.09.06.21",
+      schema: "nickstats.match/9",
+      nickstats_build: "2026.09.06.22",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
         sha256: result.demo_sha256
       },
       map: result.map,
+      played_at: Number.isFinite(result.played_at) ? Math.trunc(result.played_at) : null,
+      played_at_source: result.played_at_source || null,
       rounds: result.rounds,
       rules: {
         trade: [
