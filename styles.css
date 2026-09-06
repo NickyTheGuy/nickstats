@@ -1224,3 +1224,88 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.app-hero {
+  align-items: end;
+}
+
+.app-hero h1 {
+  margin-top: 8px;
+}
+
+.app-tabs {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.app-tabs .data-tab {
+  font-size: 14px;
+  letter-spacing: .02em;
+}
+
+.app-view[hidden] {
+  display: none;
+}
+
+.product-empty-state {
+  display: grid;
+  justify-items: center;
+  min-height: 390px;
+  padding: 72px clamp(24px, 7vw, 90px);
+  text-align: center;
+}
+
+.product-empty-state h2 {
+  margin: 8px 0 12px;
+  max-width: 680px;
+  font-size: clamp(28px, 5vw, 48px);
+}
+
+.product-empty-state p {
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.product-empty-state > strong {
+  color: var(--blue);
+  font-size: 13px;
+  letter-spacing: .04em;
+}
+
+.empty-kicker {
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.feature-preview {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 9px;
+  margin: 22px 0 28px;
+}
+
+.feature-preview span {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .025);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@media (max-width: 700px) {
+  .app-hero {
+    align-items: start;
+  }
+
+  .app-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
