@@ -10,7 +10,6 @@ const HE_MAX_DAMAGE_ARMORED = 57;
 const RUNNING_ACCURACY_THRESHOLD_PERCENT = 34;
 const STILL_SPEED_TOLERANCE = 1;
 const EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS = 2;
-const FLASH_IN_FLIGHT_MAX_SECONDS = 3;
 const TRADE_AUDIT_RADII = [150, 200, 250, 300, 400, 500];
 const NON_WEAPON_SPEED_KILLS = new Set([
   "hegrenade", "inferno", "molotov", "incgrenade", "flashbang",
@@ -66,7 +65,7 @@ const ADDITIVE_STAT_FIELDS = [
   "assistRounds", "survivalRounds", "tradeRounds", "tradeKills", "tradedDeaths",
   "tradeOpportunities", "tradeAttempts", "tradeSuccesses", "tradeableDeaths",
   "attemptedTradeableDeaths", "tradedTradeableDeaths", "damageAssistedKills",
-  "flashAssistedKills", "selfFlashAssistedKills", "flashInFlightKills",
+  "flashAssistedKills", "ownFlashAssistedKills",
   "enemiesFlashed", "flashAssists", "heDamage", "fireDamage",
   "blindedEnemyKills", "deathsWhileBlind", "killsWhileBlind", "deathsToBlindKiller",
   "wallbangKills", "wallbangDeaths", "killPenetrations", "deathPenetrations",
@@ -211,8 +210,7 @@ async function parseDemo(fileName, buffer) {
           provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0 },
           damageAssistedKills: 0,
           flashAssistedKills: 0,
-          selfFlashAssistedKills: 0,
-          flashInFlightKills: 0,
+          ownFlashAssistedKills: 0,
           enemiesFlashed: 0,
           flashAssists: 0,
           heDamage: 0,
@@ -377,8 +375,7 @@ async function parseDemo(fileName, buffer) {
       row.provenTradeOpportunities = { bullet_path: 0, damage: 0, kill: 0 };
       row.damageAssistedKills = 0;
       row.flashAssistedKills = 0;
-      row.selfFlashAssistedKills = 0;
-      row.flashInFlightKills = 0;
+      row.ownFlashAssistedKills = 0;
       row.enemiesFlashed = 0;
       row.flashAssists = 0;
       row.heDamage = 0;
@@ -574,7 +571,7 @@ async function parseDemo(fileName, buffer) {
         ["blinded", "attackerBlind", "wallbang", "penetrations", "smoke", "airborne", "moving", "still", "running",
           "grenadeOut", "knifeOut", "equipmentDisadvantage", "unfair"]);
       addMapDeltas(target.assistedKillMatchups, after.assistedKillMatchups, before.assistedKillMatchups,
-        ["damage", "flash", "selfFlash", "flashInFlight"]);
+        ["damage", "flash", "ownFlash"]);
       for (const value of row.speedOnKillValues.slice(before.speedValueLength)) {
         target.maxSpeedOnKill = Math.max(target.maxSpeedOnKill, value.speed);
         if (value.percent !== null) target.maxSpeedOnKillPercent = Math.max(target.maxSpeedOnKillPercent, value.percent);
@@ -915,7 +912,7 @@ async function parseDemo(fileName, buffer) {
     if (!killer || !assister) return null;
     let stat = killer.assistedKillMatchups.get(assister);
     if (!stat) {
-      stat = { damage: 0, flash: 0, selfFlash: 0, flashInFlight: 0 };
+      stat = { damage: 0, flash: 0, ownFlash: 0 };
       killer.assistedKillMatchups.set(assister, stat);
     }
     return stat;
@@ -1076,8 +1073,7 @@ async function parseDemo(fileName, buffer) {
       if (killWeapon) killWeapon.kills += 1;
       noteWeaponUse(attacker, resolvedWeapon);
       const victimWasBlind = (blindUntilTick.get(victim.userId) ?? -1) >= tick;
-      const selfFlashBlind = (blindSources.get(victim)?.get(attacker) ?? -1) >= tick;
-      const ownFlashInFlight = hasFlashInFlight(attacker, tick);
+      const ownFlashBlind = (blindSources.get(victim)?.get(attacker) ?? -1) >= tick;
       const attackerWasBlind = Boolean(event.attackerblind);
       const penetrations = Math.max(0, integer(event.penetrated) ?? 0);
       const throughSmoke = Boolean(event.thrusmoke);
@@ -1178,13 +1174,9 @@ async function parseDemo(fileName, buffer) {
       contextMatchup.knifeOut += Number(equipmentDisadvantage.knife);
       contextMatchup.equipmentDisadvantage += Number(caughtWithEquipmentOut);
       contextMatchup.unfair += Number(unfairKill);
-      if (selfFlashBlind) {
-        attacker.selfFlashAssistedKills += 1;
-        assistedKillMatchupStat(attacker, attacker).selfFlash += 1;
-      }
-      if (ownFlashInFlight) {
-        attacker.flashInFlightKills += 1;
-        assistedKillMatchupStat(attacker, attacker).flashInFlight += 1;
+      if (ownFlashBlind) {
+        attacker.ownFlashAssistedKills += 1;
+        assistedKillMatchupStat(attacker, attacker).ownFlash += 1;
       }
       round.kills.add(attackerId);
       round.killCounts.set(attackerId, (round.killCounts.get(attackerId) || 0) + 1);
@@ -1393,35 +1385,12 @@ async function parseDemo(fileName, buffer) {
     if (weapon === "inferno" || weapon === "molotov" || weapon === "incgrenade") row.fireDamage += damage;
   }
 
-  function noteFlashThrown(row, tick) {
-    if (!row || !Number.isFinite(tick)) return;
-    let throws = round.pendingFlashThrows.get(row);
-    if (!throws) round.pendingFlashThrows.set(row, (throws = []));
-    throws.push(tick);
-  }
-
-  function hasFlashInFlight(row, tick) {
-    const throws = round.pendingFlashThrows.get(row) || [];
-    const maximumTicks = Math.max(1, Math.round(FLASH_IN_FLIGHT_MAX_SECONDS / tickInterval));
-    const recent = throws.filter(thrownAt => tick - thrownAt >= 0 && tick - thrownAt <= maximumTicks);
-    if (recent.length !== throws.length) round.pendingFlashThrows.set(row, recent);
-    return recent.length > 0;
-  }
-
-  function handleFlashDetonate(event) {
-    const thrower = stats.get(integer(event.userid));
-    if (!thrower) return;
-    const throws = round.pendingFlashThrows.get(thrower);
-    if (throws?.length) throws.shift();
-  }
-
-  function handleWeaponFire(event, tick) {
+  function handleWeaponFire(event) {
     const userId = integer(event.userid);
     const row = stats.get(userId);
     if (!row) return;
     round.participants.add(userId);
     const resolvedWeapon = combatEventWeapon(row, event.weapon);
-    if (normalizedWeapon(resolvedWeapon) === "flashbang") noteFlashThrown(row, tick);
     if (normalizedWeapon(event.weapon) === "hkp2000" && !ctPistolChoice.has(row)) {
       ctPistolChoice.set(row, "hkp2000");
     }
@@ -1601,11 +1570,7 @@ async function parseDemo(fileName, buffer) {
       case "weapon_fire":
         if (!round.live) break;
         round.hasActivity = true;
-        handleWeaponFire(gameEvent, demoPacket.tick);
-        break;
-      case "flashbang_detonate":
-        if (!round.live) break;
-        handleFlashDetonate(gameEvent);
+        handleWeaponFire(gameEvent);
         break;
       case "player_hurt":
         if (!round.live) break;
@@ -1748,9 +1713,7 @@ async function parseDemo(fileName, buffer) {
       unfair: "Unique enemy kills or deaths involving a blinded victim, penetration, smoke, airborne killer, running killer, or victim caught with a grenade/knife out; overlapping contexts count once"
     },
     flash_definition: {
-      self_flash: "Killer's own flash is an active blind source on the victim at death",
-      in_flight_max_seconds: FLASH_IN_FLIGHT_MAX_SECONDS,
-      in_flight: "Killer has thrown a flash that has not yet produced its detonation event; this is a timing proxy and does not prove the flash caused the kill"
+      own_flash: "Killer's own flash is an active blind source on the victim at death"
     },
     damage_definition: {
       method: "Enemy health removed, reconstructed from each player_hurt event and the victim's tracked before/after health",
@@ -1825,7 +1788,6 @@ function freshRound() {
     inventoryObserved: new Set(),
     finalInventory: new Map(),
     disadvantagedWeaponTicks: new Map(),
-    pendingFlashThrows: new Map(),
     statBaselines: new Map(),
     sideAssignments: new Map(),
     sideTrackingStarted: false,
@@ -1913,12 +1875,11 @@ function finishPlayer(row) {
         assister_is_bot: assister.isBot,
         damage: stat.damage,
         flash: stat.flash,
-        self_flash: stat.selfFlash,
-        flash_in_flight: stat.flashInFlight
+        own_flash: stat.ownFlash
       }))
-      .filter(stat => stat.damage || stat.flash || stat.self_flash || stat.flash_in_flight)
-      .sort((a, b) => (b.damage + b.flash + b.self_flash + b.flash_in_flight) -
-        (a.damage + a.flash + a.self_flash + a.flash_in_flight) || a.assister.localeCompare(b.assister)),
+      .filter(stat => stat.damage || stat.flash || stat.own_flash)
+      .sort((a, b) => (b.damage + b.flash + b.own_flash) -
+        (a.damage + a.flash + a.own_flash) || a.assister.localeCompare(b.assister)),
     trade_opportunity_audit: {
       proximity_counts_by_radius: Object.fromEntries(TRADE_AUDIT_RADII.map(radius => [
         radius,
@@ -1930,9 +1891,8 @@ function finishPlayer(row) {
     assisted_kills: {
       damage: row.damageAssistedKills,
       flash: row.flashAssistedKills,
-      self_flash: row.selfFlashAssistedKills,
-      flash_in_flight: row.flashInFlightKills,
-      total: row.damageAssistedKills + row.flashAssistedKills + row.selfFlashAssistedKills
+      own_flash: row.ownFlashAssistedKills,
+      total: row.damageAssistedKills + row.flashAssistedKills
     },
     enemies_flashed: row.enemiesFlashed,
     flash_assists: row.flashAssists,
