@@ -218,8 +218,8 @@
 
   function chooseFile(file) {
     if (!file) return;
-    if (!/\.dem(?:\.gz)?$/i.test(file.name) && !/\.gz$/i.test(file.name)) {
-      setStatus("Choose a .dem or .dem.gz file.", true);
+    if (!/\.dem(?:\.gz)?$/i.test(file.name) && !/\.(?:gz|zip)$/i.test(file.name)) {
+      setStatus("Choose a .dem, .dem.gz, or .zip file.", true);
       return;
     }
     state.file = file;
@@ -239,13 +239,20 @@
   }
 
   async function readDemo(file) {
-    if (!/\.gz$/i.test(file.name)) return file.arrayBuffer();
+    if (/\.zip$/i.test(file.name)) return readZipDemo(file);
+    if (!/\.gz$/i.test(file.name)) {
+      return { data: await file.arrayBuffer(), name: file.name, matchTime: null };
+    }
     if (!("DecompressionStream" in window)) {
       throw new Error("This browser cannot unpack .gz files. Extract the .dem first and select that file.");
     }
     setStatus("Decompressing demo locally…");
     const stream = file.stream().pipeThrough(new DecompressionStream("gzip"));
-    return new Response(stream).arrayBuffer();
+    return {
+      data: await new Response(stream).arrayBuffer(),
+      name: file.name.replace(/\.gz$/i, ""),
+      matchTime: await gzipMatchTime(file)
+    };
   }
 
   async function gzipMatchTime(file) {
@@ -259,6 +266,116 @@
     return timestamp >= earliestReasonable && timestamp <= latestReasonable
       ? { timestamp, source: "gzip_mtime" }
       : null;
+  }
+
+  function zipExtendedTimestamp(extra) {
+    const view = new DataView(extra.buffer, extra.byteOffset, extra.byteLength);
+    let offset = 0;
+    while (offset + 4 <= extra.byteLength) {
+      const type = view.getUint16(offset, true);
+      const size = view.getUint16(offset + 2, true);
+      if (offset + 4 + size > extra.byteLength) break;
+      if (type === 0x5455 && size >= 5 && (view.getUint8(offset + 4) & 1)) {
+        return view.getUint32(offset + 5, true);
+      }
+      offset += 4 + size;
+    }
+    return null;
+  }
+
+  function zipDosTimestamp(date, time) {
+    const year = 1980 + (date >>> 9);
+    const month = (date >>> 5) & 15;
+    const day = date & 31;
+    const hour = time >>> 11;
+    const minute = (time >>> 5) & 63;
+    const second = (time & 31) * 2;
+    if (!month || !day) return null;
+    return Date.UTC(year, month - 1, day, hour, minute, second) / 1000;
+  }
+
+  async function findZipDemo(file) {
+    const tailLength = Math.min(file.size, 65_557);
+    const tailOffset = file.size - tailLength;
+    const tail = await file.slice(tailOffset).arrayBuffer();
+    const tailView = new DataView(tail);
+    let eocd = -1;
+    for (let offset = tailLength - 22; offset >= 0; offset -= 1) {
+      if (tailView.getUint32(offset, true) === 0x06054b50) {
+        eocd = offset;
+        break;
+      }
+    }
+    if (eocd < 0) throw new Error("This ZIP archive is missing its directory record.");
+    const entryCount = tailView.getUint16(eocd + 10, true);
+    const directorySize = tailView.getUint32(eocd + 12, true);
+    const directoryOffset = tailView.getUint32(eocd + 16, true);
+    if (entryCount === 0xffff || directorySize === 0xffffffff || directoryOffset === 0xffffffff) {
+      throw new Error("ZIP64 archives are not supported by this browser prototype.");
+    }
+    const directory = await file.slice(directoryOffset, directoryOffset + directorySize).arrayBuffer();
+    const view = new DataView(directory);
+    const bytes = new Uint8Array(directory);
+    let offset = 0;
+    const demos = [];
+    for (let index = 0; index < entryCount && offset + 46 <= directory.byteLength; index += 1) {
+      if (view.getUint32(offset, true) !== 0x02014b50) break;
+      const flags = view.getUint16(offset + 8, true);
+      const method = view.getUint16(offset + 10, true);
+      const dosTime = view.getUint16(offset + 12, true);
+      const dosDate = view.getUint16(offset + 14, true);
+      const compressedSize = view.getUint32(offset + 20, true);
+      const uncompressedSize = view.getUint32(offset + 24, true);
+      const nameLength = view.getUint16(offset + 28, true);
+      const extraLength = view.getUint16(offset + 30, true);
+      const commentLength = view.getUint16(offset + 32, true);
+      const localOffset = view.getUint32(offset + 42, true);
+      const nameStart = offset + 46;
+      const name = new TextDecoder((flags & 0x800) ? "utf-8" : "utf-8")
+        .decode(bytes.subarray(nameStart, nameStart + nameLength));
+      const extra = bytes.subarray(nameStart + nameLength, nameStart + nameLength + extraLength);
+      if (/\.dem$/i.test(name)) {
+        const extended = zipExtendedTimestamp(extra);
+        demos.push({
+          name,
+          flags,
+          method,
+          compressedSize,
+          uncompressedSize,
+          localOffset,
+          matchTime: extended
+            ? { timestamp: extended, source: "zip_extended_mtime" }
+            : { timestamp: zipDosTimestamp(dosDate, dosTime), source: "zip_dos_time" }
+        });
+      }
+      offset = nameStart + nameLength + extraLength + commentLength;
+    }
+    if (!demos.length) throw new Error("No .dem file was found inside this ZIP archive.");
+    return demos.sort((a, b) => b.uncompressedSize - a.uncompressedSize)[0];
+  }
+
+  async function readZipDemo(file) {
+    if (!("DecompressionStream" in window)) {
+      throw new Error("This browser cannot unpack ZIP files. Extract the .dem first and select that file.");
+    }
+    setStatus("Opening FACEIT archive locally…");
+    const entry = await findZipDemo(file);
+    if (entry.flags & 1) throw new Error("Password-protected ZIP archives are not supported.");
+    if (![0, 8].includes(entry.method)) throw new Error(`Unsupported ZIP compression method ${entry.method}.`);
+    if (entry.uncompressedSize > 450 * 1024 * 1024) {
+      throw new Error("The uncompressed demo exceeds the 450 MB browser prototype limit.");
+    }
+    const localHeader = await file.slice(entry.localOffset, entry.localOffset + 30).arrayBuffer();
+    const localView = new DataView(localHeader);
+    if (localView.getUint32(0, true) !== 0x04034b50) throw new Error("The ZIP demo entry has an invalid local header.");
+    const nameLength = localView.getUint16(26, true);
+    const extraLength = localView.getUint16(28, true);
+    const dataStart = entry.localOffset + 30 + nameLength + extraLength;
+    const compressed = file.slice(dataStart, dataStart + entry.compressedSize);
+    const data = entry.method === 0
+      ? await compressed.arrayBuffer()
+      : await new Response(compressed.stream().pipeThrough(new DecompressionStream("deflate-raw"))).arrayBuffer();
+    return { data, name: entry.name.split(/[\\/]/).pop(), matchTime: entry.matchTime?.timestamp ? entry.matchTime : null };
   }
 
   function formatMatchTime(timestamp) {
@@ -972,16 +1089,16 @@
     setStatus("Loading the browser demo parser…");
     try {
       await ensureWorker();
-      const matchTime = await gzipMatchTime(state.file);
-      const data = await readDemo(state.file);
+      const demo = await readDemo(state.file);
+      const data = demo.data;
       if (data.byteLength > 450 * 1024 * 1024) {
         throw new Error("The uncompressed demo exceeds the 450 MB browser prototype limit.");
       }
       setStatus("Fingerprinting and parsing the demo locally…");
-      const result = await parseWithWorker(state.file.name.replace(/\.gz$/i, ""), data);
+      const result = await parseWithWorker(demo.name, data);
       if (!result || result.error) throw new Error(result?.error || "The parser returned no match data.");
-      result.played_at = matchTime?.timestamp ?? null;
-      result.played_at_source = matchTime?.source ?? null;
+      result.played_at = demo.matchTime?.timestamp ?? null;
+      result.played_at_source = demo.matchTime?.source ?? null;
       state.result = result;
       render(result);
       setStatus(`Parsed ${result.rounds} rounds and ${result.player_count} players.`);
@@ -1104,7 +1221,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.06.22",
+      nickstats_build: "2026.09.06.23",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
