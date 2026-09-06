@@ -1,6 +1,7 @@
 "use strict";
 
 const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
+const ZSTD_URL = "https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js";
 const TRADE_WINDOW_SECONDS = 5;
 const TRADE_PROXIMITY_UNITS = 250;
 const TRADE_ENGAGEMENT_LULL_SECONDS = 2;
@@ -101,7 +102,21 @@ self.addEventListener("message", async event => {
   }
 
   try {
-    const result = await parseDemo(event.data.name, event.data.data);
+    let buffer = event.data.data;
+    if (event.data.compression === "zstd") {
+      self.postMessage({ type: "status", message: "Decompressing FACEIT Zstandard demo locally…" });
+      if (!self.fzstd) importScripts(ZSTD_URL);
+      if (!self.fzstd?.decompress) throw new Error("The Zstandard decoder did not load correctly.");
+      const output = self.fzstd.decompress(new Uint8Array(buffer));
+      if (output.byteLength > 450 * 1024 * 1024) {
+        throw new Error("The uncompressed demo exceeds the 450 MB browser prototype limit.");
+      }
+      buffer = output.byteOffset === 0 && output.byteLength === output.buffer.byteLength
+        ? output.buffer
+        : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
+      self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
+    }
+    const result = await parseDemo(event.data.name, buffer);
     self.postMessage({ type: "result", result });
   } catch (error) {
     self.postMessage({
