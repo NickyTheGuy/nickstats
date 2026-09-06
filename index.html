@@ -3,281 +3,131 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CSStats — Lifter / Dragger Matrix</title>
-  <link rel="stylesheet" href="./styles.css?v=20260905-15">
+  <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
+  <title>NickStats — CS2 Match Analysis</title>
+  <link rel="stylesheet" href="./styles.css?v=20260906-16">
 </head>
 <body>
   <main class="shell">
-    <header class="hero">
+    <header class="hero app-hero">
       <div>
-        <div class="eyebrow">Flexible teammate analysis</div>
-        <h1>Who lifts the lobby—and who drags it?</h1>
-        <p class="lede">Load saved CSStats profiles from the same date range, then compare the whole group or any include/exclude combination.</p>
+        <div class="demo-prototype-line">
+          <div class="eyebrow">Counter-Strike 2 analysis</div>
+          <span class="demo-build">Build 2026.09.06.25</span>
+        </div>
+        <h1>NickStats</h1>
+        <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
       </div>
-      <div class="privacy"><span class="privacy-dot" aria-hidden="true"></span>Private by design · selected files stay local</div>
+      <div class="privacy"><span class="privacy-dot" aria-hidden="true"></span>Demos are parsed locally</div>
     </header>
 
-        <nav class="data-tabs" role="tablist" aria-label="Data source">
-      <button class="data-tab" id="csstatsDataTab" type="button" role="tab" aria-selected="true" aria-controls="csstatsDataView">CSStats Files</button>
-      <button class="data-tab" id="demoDataTab" type="button" role="tab" aria-selected="false" aria-controls="demoDataView">Demo Parser <span class="tab-beta">Experimental</span></button>
+    <nav class="data-tabs app-tabs" role="tablist" aria-label="NickStats sections">
+      <button class="data-tab" id="matchPageTab" type="button" role="tab" aria-selected="true" aria-controls="matchPage" data-app-page="match">Match</button>
+      <button class="data-tab" id="comparePageTab" type="button" role="tab" aria-selected="false" aria-controls="comparePage" data-app-page="compare">Compare</button>
+      <button class="data-tab" id="playersPageTab" type="button" role="tab" aria-selected="false" aria-controls="playersPage" data-app-page="players">Players</button>
     </nav>
 
-<section class="panel upload-panel data-view" id="csstatsDataView" role="tabpanel" aria-labelledby="csstatsDataTab">
-      <div class="drop-zone" id="dropZone">
-        <div>
-          <h2>Choose all player exports</h2>
-          <p>Select two or more saved HTML/text profile pages at once.</p>
-          <label class="button button-primary choose" for="fileInput">Choose files</label>
-          <input class="file-input" id="fileInput" type="file" multiple accept=".html,.htm,.txt,text/html,text/plain">
+    <section class="app-view" id="matchPage" role="tabpanel" aria-labelledby="matchPageTab" data-app-view="match">
+      <section class="panel demo-panel">
+        <div class="section-head">
+          <div>
+            <div class="eyebrow">Match page</div>
+            <h2>Open a CS2 match</h2>
+            <p>Choose a <code>.dem</code>, compressed FACEIT <code>.zst</code>, <code>.dem.gz</code>, or <code>.zip</code> file. Processing stays inside your browser.</p>
+          </div>
+          <span class="demo-local-badge">Stays on this device</span>
         </div>
-      </div>
-      <div class="file-list" id="fileList"></div>
-      <div class="actions">
-        <button class="button button-primary" id="analyzeButton" type="button" disabled>Build matrix</button>
-        <button class="button button-secondary" id="clearButton" type="button" disabled>Clear</button>
-        <div class="status" id="status" role="status" aria-live="polite">Choose at least two files.</div>
-      </div>
-    </section>
 
-    <section class="panel demo-panel data-view" id="demoDataView" role="tabpanel" aria-labelledby="demoDataTab" hidden>
-      <div class="section-head">
-        <div>
-          <div class="demo-prototype-line">
-            <div class="eyebrow">Local browser prototype</div>
-            <span class="demo-build">Build 2026.09.06.24</span>
+        <div class="demo-drop" id="demoDropZone">
+          <div>
+            <strong id="demoFileLabel">Choose a FACEIT or CS2 demo</strong>
+            <span>The first load downloads the parser; parsing may briefly use substantial memory.</span>
           </div>
-          <h2>Parse one CS2 demo</h2>
-          <p>Choose a <code>.dem</code>, compressed FACEIT <code>.zst</code>, <code>.dem.gz</code>, or <code>.zip</code> file. It is processed inside your browser and never uploaded.</p>
+          <label class="button button-primary" for="demoInput">Choose demo</label>
+          <input class="file-input" id="demoInput" type="file" accept=".dem,.gz,.dem.gz,.zst,.dem.zst,.zip,application/gzip,application/zstd,application/zip">
         </div>
-        <span class="demo-local-badge">Stays on this device</span>
-      </div>
 
-      <div class="demo-drop" id="demoDropZone">
-        <div>
-          <strong id="demoFileLabel">Choose a FACEIT or CS2 demo</strong>
-          <span>The first load downloads the parser; parsing may briefly use substantial memory.</span>
-        </div>
-        <label class="button button-primary" for="demoInput">Choose demo</label>
-        <input class="file-input" id="demoInput" type="file" accept=".dem,.gz,.dem.gz,.zst,.dem.zst,.zip,application/gzip,application/zstd,application/zip">
-      </div>
-
-      <div class="actions">
-        <button class="button button-primary" id="demoParseButton" type="button" disabled>Parse demo</button>
-        <button class="button button-secondary" id="demoClearButton" type="button" disabled>Clear</button>
-        <button class="button button-secondary" id="demoDiagnosticsButton" type="button" hidden>Download diagnostics</button>
-        <div class="status" id="demoStatus" role="status" aria-live="polite">Choose one demo file.</div>
-      </div>
-
-      <div class="demo-results" id="demoResults" hidden>
-        <div class="demo-summary" id="demoSummary"></div>
-        <div class="warning" id="demoWarning">Preview rating uses a published HLTV-style approximation. Demo parsing is experimental; verify the scoreboard before relying on it.</div>
-        <div class="demo-side-filter" role="group" aria-label="Filter demo statistics by player side">
-          <span>Player side</span>
-          <div class="demo-side-buttons">
-            <button class="demo-side-button active" type="button" data-demo-side="ALL" aria-pressed="true">ALL</button>
-            <button class="demo-side-button" type="button" data-demo-side="CT" aria-pressed="false">CT</button>
-            <button class="demo-side-button" type="button" data-demo-side="T" aria-pressed="false">T</button>
-          </div>
-        </div>
-        <nav class="demo-result-tabs" role="tablist" aria-label="Demo result section">
-          <button class="demo-result-tab active" id="demoScoreboardTab" type="button" role="tab" aria-selected="true" aria-controls="demoScoreboardView" data-demo-result-view="scoreboard">Scoreboard</button>
-          <button class="demo-result-tab" id="demoDuelsTab" type="button" role="tab" aria-selected="false" aria-controls="demoDuelsView" data-demo-result-view="duels">Duels</button>
-          <button class="demo-result-tab" id="demoTradesTab" type="button" role="tab" aria-selected="false" aria-controls="demoTradesView" data-demo-result-view="trades">Trades</button>
-          <button class="demo-result-tab" id="demoWeaponsTab" type="button" role="tab" aria-selected="false" aria-controls="demoWeaponsView" data-demo-result-view="weapons">Weapons</button>
-        </nav>
-        <div class="demo-analysis-panel" id="demoScoreboardView" role="tabpanel" aria-labelledby="demoScoreboardTab">
-          <div class="demo-teams" id="demoTeams"></div>
-        </div>
-        <section class="demo-duel-section demo-analysis-panel" id="demoDuelsView" role="tabpanel" aria-labelledby="demoDuelsTab" hidden>
-          <div class="demo-duel-heading">
-            <h3 id="demoDuelTitle">Duels</h3>
-            <p>Rows are players; columns are opponents. Cells show kills-deaths, including teamkills and self-kills.</p>
-          </div>
-          <div id="demoDuels"></div>
-        </section>
-        <section class="demo-trade-section demo-analysis-panel" id="demoTradesView" role="tabpanel" aria-labelledby="demoTradesTab" hidden>
-          <div class="demo-trade-heading">
-            <h3 id="demoTradeTitle">Trade responses</h3>
-            <p>Rows are potential traders; columns are teammates who died. Cells show opportunities / attempts / successes.</p>
-          </div>
-          <div id="demoTrades"></div>
-        </section>
-        <section class="demo-weapon-section demo-analysis-panel" id="demoWeaponsView" role="tabpanel" aria-labelledby="demoWeaponsTab" hidden>
-          <div class="demo-weapon-heading">
-            <h3 id="demoWeaponTitle">Weapon breakdown</h3>
-            <p>Enemy kills and damage, firing events, and distinct rounds used. Expand a player to inspect their weapons.</p>
-          </div>
-          <div class="demo-weapon-teams" id="demoWeapons"></div>
-        </section>
         <div class="actions">
-          <button class="button button-primary" id="demoDownloadButton" type="button">Download compact JSON</button>
+          <button class="button button-primary" id="demoParseButton" type="button" disabled>Parse match</button>
+          <button class="button button-secondary" id="demoClearButton" type="button" disabled>Clear</button>
+          <button class="button button-secondary" id="demoDiagnosticsButton" type="button" hidden>Download diagnostics</button>
+          <div class="status" id="demoStatus" role="status" aria-live="polite">Choose one demo file.</div>
         </div>
-      </div>
+
+        <div class="demo-results" id="demoResults" hidden>
+          <div class="demo-summary" id="demoSummary"></div>
+          <div class="warning" id="demoWarning">Rating uses a published HLTV-style approximation and may differ from other statistics services.</div>
+          <div class="demo-side-filter" role="group" aria-label="Filter match statistics by player side">
+            <span>Player side</span>
+            <div class="demo-side-buttons">
+              <button class="demo-side-button active" type="button" data-demo-side="ALL" aria-pressed="true">ALL</button>
+              <button class="demo-side-button" type="button" data-demo-side="CT" aria-pressed="false">CT</button>
+              <button class="demo-side-button" type="button" data-demo-side="T" aria-pressed="false">T</button>
+            </div>
+          </div>
+          <nav class="demo-result-tabs" role="tablist" aria-label="Match analysis section">
+            <button class="demo-result-tab active" id="demoScoreboardTab" type="button" role="tab" aria-selected="true" aria-controls="demoScoreboardView" data-demo-result-view="scoreboard">Scoreboard</button>
+            <button class="demo-result-tab" id="demoDuelsTab" type="button" role="tab" aria-selected="false" aria-controls="demoDuelsView" data-demo-result-view="duels">Duels</button>
+            <button class="demo-result-tab" id="demoTradesTab" type="button" role="tab" aria-selected="false" aria-controls="demoTradesView" data-demo-result-view="trades">Trades</button>
+            <button class="demo-result-tab" id="demoWeaponsTab" type="button" role="tab" aria-selected="false" aria-controls="demoWeaponsView" data-demo-result-view="weapons">Weapons</button>
+          </nav>
+          <div class="demo-analysis-panel" id="demoScoreboardView" role="tabpanel" aria-labelledby="demoScoreboardTab">
+            <div class="demo-teams" id="demoTeams"></div>
+          </div>
+          <section class="demo-duel-section demo-analysis-panel" id="demoDuelsView" role="tabpanel" aria-labelledby="demoDuelsTab" hidden>
+            <div class="demo-duel-heading">
+              <h3 id="demoDuelTitle">Duels</h3>
+              <p>Rows are players; columns are opponents. Cells show kills-deaths, including teamkills and self-kills.</p>
+            </div>
+            <div id="demoDuels"></div>
+          </section>
+          <section class="demo-trade-section demo-analysis-panel" id="demoTradesView" role="tabpanel" aria-labelledby="demoTradesTab" hidden>
+            <div class="demo-trade-heading">
+              <h3 id="demoTradeTitle">Trade responses</h3>
+              <p>Rows are potential traders; columns are teammates who died. Cells show opportunities / attempts / successes.</p>
+            </div>
+            <div id="demoTrades"></div>
+          </section>
+          <section class="demo-weapon-section demo-analysis-panel" id="demoWeaponsView" role="tabpanel" aria-labelledby="demoWeaponsTab" hidden>
+            <div class="demo-weapon-heading">
+              <h3 id="demoWeaponTitle">Weapon breakdown</h3>
+              <p>Enemy kills and damage, firing events, and distinct rounds used. Expand a player to inspect their weapons.</p>
+            </div>
+            <div class="demo-weapon-teams" id="demoWeapons"></div>
+          </section>
+          <div class="actions">
+            <button class="button button-primary" id="demoDownloadButton" type="button">Download match JSON</button>
+          </div>
+        </div>
+      </section>
     </section>
 
-    <div class="results" id="results" hidden>
-      <nav class="mode-tabs" role="tablist" aria-label="Comparison mode">
-        <button class="tab-button" id="groupTab" type="button" role="tab" aria-selected="true" aria-controls="groupView">Group Matrix</button>
-        <button class="tab-button" id="comboTab" type="button" role="tab" aria-selected="false" aria-controls="comboView">Combinations</button>
-      </nav>
-
-      <div class="mode-view" id="groupView" role="tabpanel" aria-labelledby="groupTab">
-        <div class="warning-list" id="warnings"></div>
-
-      <section class="panel section-panel">
-        <div class="section-head">
-          <div>
-            <h2>Overall classifications</h2>
-            <p>Each player’s weighted effect across everyone else.</p>
-          </div>
-          <div class="legend">
-            <span class="badge lifter">Lifter</span>
-            <span class="badge exister">Exister</span>
-            <span class="badge dragger">Dragger</span>
-          </div>
+    <section class="app-view" id="comparePage" role="tabpanel" aria-labelledby="comparePageTab" data-app-view="compare" hidden>
+      <section class="panel product-empty-state">
+        <div class="empty-kicker">Compare</div>
+        <h2>How does the lineup change the result?</h2>
+        <p>This will use stored, demo-derived matches for group impact matrices, one-on-one comparisons, and Included/Excluded lineup conditions.</p>
+        <div class="feature-preview" aria-label="Planned comparison tools">
+          <span>Group matrix</span><span>Lineup conditions</span><span>Pair details</span><span>Date filters</span>
         </div>
-        <div class="verdict-grid" id="verdictGrid"></div>
+        <strong>Waiting for the NickStats database connection.</strong>
       </section>
+    </section>
 
-      <section class="panel section-panel">
-        <div class="section-head">
-          <div>
-            <h2>Impact versus personal performance</h2>
-            <p>Teammate effect on the X axis; the player’s own average rating on the Y axis.</p>
-          </div>
-          <div class="chart-key" aria-label="Classification colors">
-            <span><i class="key-lifter"></i>Lifter</span>
-            <span><i class="key-exister"></i>Exister</span>
-            <span><i class="key-dragger"></i>Dragger</span>
-          </div>
+    <section class="app-view" id="playersPage" role="tabpanel" aria-labelledby="playersPageTab" data-app-view="players" hidden>
+      <section class="panel product-empty-state">
+        <div class="empty-kicker">Player profiles</div>
+        <h2>Every match, one player at a time.</h2>
+        <p>Profiles will combine personal performance, map and side splits, weapon usage, teammates, duels, trades, utility, and recent match history.</p>
+        <div class="feature-preview" aria-label="Planned profile tools">
+          <span>Career overview</span><span>Recent form</span><span>Map splits</span><span>Teammate impact</span>
         </div>
-        <div class="chart-frame">
-          <svg class="impact-chart" id="impactChart" viewBox="0 0 1080 580" role="img" aria-labelledby="chartTitle chartDescription">
-            <title id="chartTitle">Lifter and dragger impact versus personal performance</title>
-            <desc id="chartDescription">A labeled scatterplot comparing each player’s groupwide teammate impact score with their own average CSStats rating.</desc>
-          </svg>
-        </div>
-        <p class="chart-note">Quadrants split at neutral teammate impact (0.00) and neutral personal rating (1.00). Formal verdicts still use ±0.25 impact thresholds.</p>
+        <strong>Player search will appear when stored matches are available.</strong>
       </section>
-
-      <section class="panel section-panel">
-        <div class="section-head">
-          <div>
-            <h2>Fun facts</h2>
-            <p>Superlatives, strange pairings, and notable outliers from the loaded match histories.</p>
-          </div>
-        </div>
-        <div class="fact-grid" id="funFacts"></div>
-      </section>
-
-      <section class="panel table-panel">
-        <div class="table-heading">
-          <div>
-            <h2>Impact matrix</h2>
-            <p>Rows are whose performance changed; columns are whose presence is being tested.</p>
-          </div>
-          <button class="button button-primary" id="downloadButton" type="button">Download matrix CSV</button>
-        </div>
-        <div class="table-wrap">
-          <table class="matrix-table">
-            <thead id="matrixHead"></thead>
-            <tbody id="matrixBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="panel table-panel">
-        <div class="table-heading">
-          <div>
-            <h2>Pair details</h2>
-            <p>Raw changes in the row player’s performance when the column player is present.</p>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr><th>Measured player</th><th>Player present</th><th>Class</th><th>With</th><th>Without</th><th>Δ Win rate</th><th>Δ Rating</th><th>Confidence</th></tr>
-            </thead>
-            <tbody id="detailsBody"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="panel">
-        <details>
-          <summary>How classifications work</summary>
-          <div class="method">
-            <p>For every row/column pair, the tool compares the row player’s matches with the column player against all of the row player’s other matches. The impact score is <strong>80% win-rate delta and 20% rating delta</strong>. ADR and K/D do not affect classifications. Small comparison groups are automatically shrunk toward Exister.</p>
-            <p><strong>Lifter</strong> means an adjusted score of at least +0.25; <strong>Dragger</strong> means −0.25 or lower; everything between is <strong>Exister</strong>. These are descriptive associations, not proof that one teammate caused the change. Rank differences, maps, opponents, and overlapping parties can all matter.</p>
-          </div>
-        </details>
-      </section>
-      </div>
-
-      <div class="mode-view" id="comboView" role="tabpanel" aria-labelledby="comboTab" hidden>
-        <section class="panel section-panel">
-          <div class="section-head combo-heading">
-            <div>
-              <h2>Build a lineup condition</h2>
-              <p>Choose up to five Included players and any number of Excluded players. Compare all Excluded absent against all Excluded present whenever the full roster can fit on one team.</p>
-            </div>
-            <div class="combo-limit" id="comboSelectionCount">0 / 5 included · 0 excluded</div>
-          </div>
-          <div class="combo-roster" id="comboRoster"></div>
-          <div class="actions combo-actions">
-            <button class="button button-primary" id="comboRun" type="button" disabled>Run combination</button>
-            <button class="button button-secondary" id="comboReset" type="button">Reset</button>
-            <div class="status" id="comboStatus" role="status" aria-live="polite">Include at least one player.</div>
-          </div>
-        </section>
-
-        <div class="warning-list" id="comboWarnings"></div>
-
-        <div class="combo-results" id="comboResults" hidden>
-          <section class="panel section-panel">
-            <h2 id="comboTitle">Combination results</h2>
-            <div class="combo-summary">
-              <div class="combo-stat"><span class="label">Qualifying matches</span><strong class="blue" id="comboMatchTotal">—</strong><small>All conditions satisfied</small></div>
-              <div class="combo-stat"><span class="label">Included</span><strong id="comboIncludedTotal">—</strong><small>Must all be present</small></div>
-              <div class="combo-stat"><span class="label">Excluded</span><strong id="comboExcludedTotal">—</strong><small>All absent in first group</small></div>
-              <div class="combo-stat"><span class="label">Comparison matches</span><strong id="comboRemovedTotal">—</strong><small>All selected together, when possible</small></div>
-            </div>
-          </section>
-
-          <section class="panel table-panel">
-            <div class="table-heading">
-              <div><h2>Performance with and without excluded players</h2><p>Match count, record, and win rate are shared team results. Personal stats are color-coded per player; lower average deaths is better.</p></div>
-              <button class="button button-primary" id="comboDownload" type="button">Download CSV</button>
-            </div>
-            <div class="table-wrap">
-              <table class="combo-stats-table">
-                <thead><tr><th>Player</th><th>Group</th><th>Matches</th><th>Record</th><th>Win rate</th><th>K/D</th><th>Avg K</th><th>Avg D</th><th>Avg A</th><th>HS%</th><th>ADR</th><th>Rating</th></tr></thead>
-                <tbody id="comboStatsBody"></tbody>
-              </table>
-            </div>
-          </section>
-
-          <section class="panel table-panel">
-            <div class="table-heading">
-              <div><h2>Qualifying matches</h2><p id="comboMatchLabel">Result and score use the first included player’s perspective.</p></div>
-            </div>
-            <div class="table-wrap">
-              <table class="combo-match-table">
-                <thead id="comboMatchHead"></thead>
-                <tbody id="comboMatchBody"></tbody>
-              </table>
-              <div class="empty" id="comboEmpty" hidden>No matches satisfy this combination.</div>
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
+    </section>
   </main>
 
-  <script defer src="./js/config.js"></script>
-  <script defer src="./js/chart.js"></script>
-  <script defer src="./js/combinations.js"></script>
-  <script defer src="./js/app.js"></script>
-  <script defer src="./js/demo.js?v=20260906-49"></script>
+  <script defer src="./js/navigation.js?v=20260906-1"></script>
+  <script defer src="./js/demo.js?v=20260906-50"></script>
 </body>
 </html>
