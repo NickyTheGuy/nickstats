@@ -96,8 +96,7 @@
     assistedTotal: oneMode("assistedTotal", "Total", player => player.assisted_kills?.total ?? 0),
     assistedDamage: oneMode("assistedDamage", "Dmg", player => player.assisted_kills?.damage ?? 0),
     assistedFlash: oneMode("assistedFlash", "Flash", player => player.assisted_kills?.flash ?? 0),
-    assistedSelfFlash: oneMode("assistedSelfFlash", "Self", player => player.assisted_kills?.self_flash ?? 0),
-    assistedPrePop: oneMode("assistedPrePop", "Pre-pop", player => player.assisted_kills?.flash_in_flight ?? 0),
+    assistedOwnFlash: oneMode("assistedOwnFlash", "Own-flash K", player => player.assisted_kills?.own_flash ?? 0),
     utilitySummary: { id: "utilitySummary", modes: [
       { label: "EF", value: player => player.enemies_flashed ?? 0 },
       { label: "FA", value: player => player.flash_assists ?? 0 },
@@ -176,7 +175,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260906-39");
+      const worker = new Worker("./js/demo-worker.js?v=20260906-40");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -334,8 +333,7 @@
     if (state.expandedGroups.assistedKills) {
       cell(row, player.assisted_kills?.damage ?? 0, "demo-group-cell assistedKills-cell");
       cell(row, player.assisted_kills?.flash ?? 0, "demo-group-cell assistedKills-cell");
-      cell(row, player.assisted_kills?.self_flash ?? 0, "demo-group-cell assistedKills-cell");
-      cell(row, player.assisted_kills?.flash_in_flight ?? 0, "demo-group-cell assistedKills-cell");
+      cell(row, player.assisted_kills?.own_flash ?? 0, "demo-group-cell assistedKills-cell");
     } else {
       cell(row, player.assisted_kills?.total ?? 0, "demo-group-cell assistedKills-cell");
     }
@@ -411,8 +409,7 @@
       const child = document.createElement("th");
       if (detail === "EF") child.title = "Enemies flashed";
       if (detail === "FA") child.title = "Flash assists";
-      if (detail === "Self") child.title = "Kills on enemies actively blinded by your own flash";
-      if (detail === "Pre-pop") child.title = "Kills while your own thrown flash is still in flight; an experimental timing proxy, not a confirmed assist";
+      if (detail === "Own-flash K") child.title = "Kills on enemies actively blinded by a flash you threw; this does not mean you blinded yourself";
       if (detail === "Blind K-D") child.title = "Kills against blinded enemies – deaths while blinded";
       if (detail === "Wall K-D") child.title = "Wallbang kills – wallbang deaths";
       if (detail === "Smoke K-D") child.title = "Kills through smoke – deaths through smoke";
@@ -458,8 +455,7 @@
         Total: sortSpecs.assistedTotal,
         Dmg: sortSpecs.assistedDamage,
         Flash: sortSpecs.assistedFlash,
-        Self: sortSpecs.assistedSelfFlash,
-        "Pre-pop": sortSpecs.assistedPrePop
+        "Own-flash K": sortSpecs.assistedOwnFlash
       },
       utility: {
         "EF/FA · Dmg": sortSpecs.utilitySummary,
@@ -555,7 +551,7 @@
     const widths = [160, 58, 90, 62, 72, 72, 82];
     widths.push(...(state.expandedGroups.killContext ? [88, 88, 94, 82, 96, 88, 88, 88, 96] : [104]));
     widths.push(...(state.expandedGroups.trades ? [58, 54, 96, 58, 54, 96] : [88]));
-    widths.push(...(state.expandedGroups.assistedKills ? [68, 68, 68, 78] : [90]));
+    widths.push(...(state.expandedGroups.assistedKills ? [68, 68, 96] : [90]));
     widths.push(...(state.expandedGroups.utility ? [58, 58, 82, 82] : [132]));
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
     widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
@@ -600,7 +596,7 @@
       .forEach(label => regularHeader(header, label));
     groupHeader(header, detailHeader, "killContext", "Kill context", ["Blind K-D", "Wall K-D", "Smoke K-D", "Air K-D", "Caught K-D", "Move K-D", "Still K-D", "Run K-D", "Spd% K-D"], "Unfair K-D");
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
-    groupHeader(header, detailHeader, "assistedKills", "Assisted K", ["Dmg", "Flash", "Self", "Pre-pop"]);
+    groupHeader(header, detailHeader, "assistedKills", "Assisted K", ["Dmg", "Flash", "Own-flash K"]);
     groupHeader(header, detailHeader, "utility", "Utility", ["EF", "FA", "HE Dmg", "Fire Dmg"], "EF/FA · Dmg");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"]);
     groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
@@ -1071,7 +1067,7 @@
         ]).filter(matchup => matchup[0] != null),
         assisted_by: (player.assisted_kill_matchups || []).map(matchup => [
           referenceIndex(matchup.assister, matchup.assister_steam_id, matchup.assister_is_bot),
-          number(matchup.damage), number(matchup.flash), number(matchup.self_flash), number(matchup.flash_in_flight)
+          number(matchup.damage), number(matchup.flash), number(matchup.own_flash)
         ]).filter(matchup => matchup[0] != null)
       };
     };
@@ -1079,8 +1075,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/6",
-      nickstats_build: "2026.09.06.19",
+      schema: "nickstats.match/7",
+      nickstats_build: "2026.09.06.20",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -1094,8 +1090,7 @@
           trade.bullet_path_tolerance_units, trade.he_damage_caps?.unarmored, trade.he_damage_caps?.armored
         ],
         movement: [movement.still_speed_tolerance_units_per_second, movement.running_threshold_percent_of_weapon_max],
-        equipment_disadvantage_seconds: movement.equipment_disadvantage_lookback_seconds,
-        flash_in_flight_max_seconds: result.flash_definition?.in_flight_max_seconds
+        equipment_disadvantage_seconds: movement.equipment_disadvantage_lookback_seconds
       },
       teams: sourceTeams.map(team => ({
         id: team.id,
