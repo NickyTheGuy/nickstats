@@ -55,7 +55,9 @@ Trade calibration traces remain available while a demo is being parsed but are d
 
 ## Compact match JSON
 
-**Download compact JSON** writes the versioned `nickstats.match/8` storage schema. It is minified and normalized for a future match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship entries reference the match-level player index.
+**Download compact JSON** writes the versioned `nickstats.match/9` storage schema. It is minified and normalized for a future match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship entries reference the match-level player index.
+
+When the selected file is a `.dem.gz`, NickStats reads the gzip header's original-file modification time and stores it as the Unix-seconds `played_at` value with `played_at_source: "gzip_mtime"`. The interface formats that UTC instant in the viewer's local time zone. CS2's demo payload and FACEIT's UUID do not themselves contain a calendar timestamp, so an already-extracted `.dem` deliberately stores `null` rather than using its unreliable local download/modification time. A future backend can replace or supplement this value with authoritative FACEIT match metadata keyed by the match ID.
 
 Each player has a `sides` array in T, CT order. The full-match view is deliberately not stored: every ALL counter and relationship can be reconstructed by merging those two side records, using the maximum rather than the sum for speed maxima. Fixed arrays use these layouts:
 
