@@ -175,7 +175,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260906-41");
+      const worker = new Worker("./js/demo-worker.js?v=20260906-42");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -193,6 +193,8 @@
           state.resolveParse?.(message.result);
           state.resolveParse = null;
           state.rejectParse = null;
+        } else if (message.type === "status") {
+          setStatus(message.message || "Working locally…");
         } else if (message.type === "error") {
           const error = new Error(message.message || "The demo parser failed.");
           state.diagnostics = message.diagnostics || null;
@@ -218,8 +220,8 @@
 
   function chooseFile(file) {
     if (!file) return;
-    if (!/\.dem(?:\.gz)?$/i.test(file.name) && !/\.(?:gz|zip)$/i.test(file.name)) {
-      setStatus("Choose a .dem, .dem.gz, or .zip file.", true);
+    if (!/\.dem(?:\.(?:gz|zst))?$/i.test(file.name) && !/\.(?:gz|zst|zip)$/i.test(file.name)) {
+      setStatus("Choose a .dem, .dem.gz, .dem.zst, .zst, or .zip file.", true);
       return;
     }
     state.file = file;
@@ -240,6 +242,14 @@
 
   async function readDemo(file) {
     if (/\.zip$/i.test(file.name)) return readZipDemo(file);
+    if (/\.zst$/i.test(file.name)) {
+      return {
+        data: await file.arrayBuffer(),
+        name: file.name.replace(/\.zst$/i, ""),
+        matchTime: null,
+        compression: "zstd"
+      };
+    }
     if (!/\.gz$/i.test(file.name)) {
       return { data: await file.arrayBuffer(), name: file.name, matchTime: null };
     }
@@ -386,11 +396,11 @@
     }).format(new Date(timestamp * 1000));
   }
 
-  function parseWithWorker(name, data) {
+  function parseWithWorker(name, data, compression = null) {
     return new Promise((resolve, reject) => {
       state.resolveParse = resolve;
       state.rejectParse = reject;
-      state.worker.postMessage({ type: "parse", name, data }, [data]);
+      state.worker.postMessage({ type: "parse", name, data, compression }, [data]);
     });
   }
 
@@ -1095,7 +1105,7 @@
         throw new Error("The uncompressed demo exceeds the 450 MB browser prototype limit.");
       }
       setStatus("Fingerprinting and parsing the demo locally…");
-      const result = await parseWithWorker(demo.name, data);
+      const result = await parseWithWorker(demo.name, data, demo.compression);
       if (!result || result.error) throw new Error(result?.error || "The parser returned no match data.");
       result.played_at = demo.matchTime?.timestamp ?? null;
       result.played_at_source = demo.matchTime?.source ?? null;
@@ -1221,7 +1231,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.06.23",
+      nickstats_build: "2026.09.06.24",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
