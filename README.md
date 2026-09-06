@@ -3,7 +3,7 @@
 A static, browser-only Counter-Strike stats analyzer. It currently supports two data sources:
 
 - **CSStats Files** — compare saved CSStats profile exports in a group matrix or include/exclude lineup conditions.
-- **Demo Parser (experimental)** — select one CS2 `.dem` or `.dem.gz` and build a local match scoreboard.
+- **Demo Parser (experimental)** — select one CS2 `.dem`, `.dem.gz`, or FACEIT `.zip` archive and build a local match scoreboard.
 
 The selected HTML and demo files are processed in the browser. NickStats does not upload them or require a server.
 
@@ -57,7 +57,7 @@ Trade calibration traces remain available while a demo is being parsed but are d
 
 **Download compact JSON** writes the versioned `nickstats.match/9` storage schema. It is minified and normalized for a future match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship entries reference the match-level player index.
 
-When the selected file is a `.dem.gz`, NickStats reads the gzip header's original-file modification time and stores it as the Unix-seconds `played_at` value with `played_at_source: "gzip_mtime"`. The interface formats that UTC instant in the viewer's local time zone. CS2's demo payload and FACEIT's UUID do not themselves contain a calendar timestamp, so an already-extracted `.dem` deliberately stores `null` rather than using its unreliable local download/modification time. A future backend can replace or supplement this value with authoritative FACEIT match metadata keyed by the match ID.
+FACEIT ZIP archives are accepted directly: NickStats locates and decompresses the `.dem` entry locally, retains the FACEIT ID from its inner filename, and uses the entry's extended Unix modification time when available (`zip_extended_mtime`). Older DOS-only ZIP timestamps are retained as `zip_dos_time`. For `.dem.gz`, the gzip original-file modification time is stored as `gzip_mtime`. All are saved in Unix seconds as `played_at`, with their provenance in `played_at_source`, and displayed in the viewer's local time zone. CS2's demo payload and FACEIT's UUID do not themselves contain a calendar timestamp, so an already-extracted `.dem` deliberately stores `null` rather than using its unreliable local download/modification time. A future backend can replace or supplement archive time with authoritative FACEIT match metadata keyed by match ID.
 
 Each player has a `sides` array in T, CT order. The full-match view is deliberately not stored: every ALL counter and relationship can be reconstructed by merging those two side records, using the maximum rather than the sum for speed maxima. Fixed arrays use these layouts:
 
