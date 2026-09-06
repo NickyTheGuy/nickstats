@@ -3,8 +3,6 @@
 
   const $ = id => document.getElementById(id);
   const state = {
-    activeSource: "csstats",
-    csstatsResultsVisible: false,
     file: null,
     result: null,
     diagnostics: null,
@@ -140,22 +138,6 @@
       index += 1;
     }
     return `${value.toFixed(index ? 1 : 0)} ${units[index]}`;
-  }
-
-  function switchSource(source) {
-    if (source === state.activeSource) return;
-    const demo = source === "demo";
-    if (demo) {
-      state.csstatsResultsVisible = !$("results").hidden;
-      $("results").hidden = true;
-    } else {
-      $("results").hidden = !state.csstatsResultsVisible;
-    }
-    state.activeSource = source;
-    $("csstatsDataTab").setAttribute("aria-selected", String(!demo));
-    $("demoDataTab").setAttribute("aria-selected", String(demo));
-    $("csstatsDataView").hidden = demo;
-    $("demoDataView").hidden = !demo;
   }
 
   function resetWorker(error) {
@@ -1231,7 +1213,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.06.24",
+      nickstats_build: "2026.09.06.25",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -1271,7 +1253,7 @@
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${(state.file?.name || "demo").replace(/\.dem(?:\.gz)?$/i, "")}-nickstats.json`;
+    anchor.download = `${(state.file?.name || "demo").replace(/\.(?:dem(?:\.(?:gz|zst))?|gz|zst|zip)$/i, "")}-nickstats.json`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -1284,15 +1266,13 @@
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${(state.file?.name || "demo").replace(/\.dem(?:\.gz)?$/i, "")}-diagnostics.json`;
+    anchor.download = `${(state.file?.name || "demo").replace(/\.(?:dem(?:\.(?:gz|zst))?|gz|zst|zip)$/i, "")}-diagnostics.json`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  $("csstatsDataTab").addEventListener("click", () => switchSource("csstats"));
-  $("demoDataTab").addEventListener("click", () => switchSource("demo"));
   $("demoInput").addEventListener("change", event => chooseFile(event.target.files[0]));
   $("demoParseButton").addEventListener("click", parseDemo);
   $("demoClearButton").addEventListener("click", clear);
