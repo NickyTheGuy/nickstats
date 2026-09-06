@@ -187,6 +187,7 @@ async function parseDemo(fileName, buffer) {
           tradeMatchups: new Map(),
           killContextMatchups: new Map(),
           assistedKillMatchups: new Map(),
+          flashMatchups: new Map(),
           kills: 0,
           deaths: 0,
           assists: 0,
@@ -353,6 +354,7 @@ async function parseDemo(fileName, buffer) {
       row.tradeMatchups = new Map();
       row.killContextMatchups = new Map();
       row.assistedKillMatchups = new Map();
+      row.flashMatchups = new Map();
       row.deaths = 0;
       row.assists = 0;
       row.headshots = 0;
@@ -443,6 +445,7 @@ async function parseDemo(fileName, buffer) {
       tradeMatchups: new Map(),
       killContextMatchups: new Map(),
       assistedKillMatchups: new Map(),
+      flashMatchups: new Map(),
       tradedBy: new Map(),
       tradeProximityDistances: [],
       provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0 },
@@ -485,6 +488,7 @@ async function parseDemo(fileName, buffer) {
       tradeMatchups: new Map([...row.tradeMatchups].map(([key, value]) => [key, { ...value }])),
       killContextMatchups: new Map([...row.killContextMatchups].map(([key, value]) => [key, { ...value }])),
       assistedKillMatchups: new Map([...row.assistedKillMatchups].map(([key, value]) => [key, { ...value }])),
+      flashMatchups: new Map([...row.flashMatchups].map(([key, value]) => [key, { ...value }])),
       speedValueLength: row.speedOnKillValues.length,
       killerSpeedValueLength: row.killerSpeedValues.length
     };
@@ -572,6 +576,7 @@ async function parseDemo(fileName, buffer) {
           "grenadeOut", "knifeOut", "equipmentDisadvantage", "unfair"]);
       addMapDeltas(target.assistedKillMatchups, after.assistedKillMatchups, before.assistedKillMatchups,
         ["damage", "flash", "ownFlash"]);
+      addMapDeltas(target.flashMatchups, after.flashMatchups, before.flashMatchups, ["flashes", "blindDuration"]);
       for (const value of row.speedOnKillValues.slice(before.speedValueLength)) {
         target.maxSpeedOnKill = Math.max(target.maxSpeedOnKill, value.speed);
         if (value.percent !== null) target.maxSpeedOnKillPercent = Math.max(target.maxSpeedOnKillPercent, value.percent);
@@ -914,6 +919,16 @@ async function parseDemo(fileName, buffer) {
     if (!stat) {
       stat = { damage: 0, flash: 0, ownFlash: 0 };
       killer.assistedKillMatchups.set(assister, stat);
+    }
+    return stat;
+  }
+
+  function flashMatchupStat(thrower, victim) {
+    if (!thrower || !victim) return null;
+    let stat = thrower.flashMatchups.get(victim);
+    if (!stat) {
+      stat = { flashes: 0, blindDuration: 0 };
+      thrower.flashMatchups.set(victim, stat);
     }
     return stat;
   }
@@ -1310,6 +1325,12 @@ async function parseDemo(fileName, buffer) {
       blindUntilTick.set(victim.userId, Math.max(blindUntilTick.get(victim.userId) ?? -1, expiry));
       const attackerTeam = teamNow.get(attackerId);
       const victimTeam = teamNow.get(victimId);
+      if (attacker && (attackerTeam === 2 || attackerTeam === 3) &&
+          (victimTeam === 2 || victimTeam === 3)) {
+        const matchup = flashMatchupStat(attacker, victim);
+        matchup.flashes += 1;
+        matchup.blindDuration += duration;
+      }
       if (attacker && attacker !== victim && (attackerTeam === 2 || attackerTeam === 3) &&
           (victimTeam === 2 || victimTeam === 3) && attackerTeam !== victimTeam) {
         let sources = blindSources.get(victim);
@@ -1880,6 +1901,16 @@ function finishPlayer(row) {
       .filter(stat => stat.damage || stat.flash || stat.own_flash)
       .sort((a, b) => (b.damage + b.flash + b.own_flash) -
         (a.damage + a.flash + a.own_flash) || a.assister.localeCompare(b.assister)),
+    flash_matchups: [...row.flashMatchups.entries()]
+      .map(([victim, stat]) => ({
+        victim: victim.name,
+        victim_steam_id: victim.steamId,
+        victim_is_bot: victim.isBot,
+        flashes: stat.flashes,
+        blind_duration: stat.blindDuration
+      }))
+      .filter(stat => stat.flashes || stat.blind_duration)
+      .sort((a, b) => b.blind_duration - a.blind_duration || b.flashes - a.flashes || a.victim.localeCompare(b.victim)),
     trade_opportunity_audit: {
       proximity_counts_by_radius: Object.fromEntries(TRADE_AUDIT_RADII.map(radius => [
         radius,
