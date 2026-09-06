@@ -175,7 +175,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260906-40");
+      const worker = new Worker("./js/demo-worker.js?v=20260906-41");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -1040,8 +1040,7 @@
         trade_kills: number(player.trade_kills),
         trade_d: [number(player.tradeable_deaths), number(player.attempted_tradeable_deaths), number(player.traded_deaths ?? player.traded_tradeable_deaths)],
         utility: [
-          number(player.enemies_flashed), number(player.grenade_damage?.high_explosive),
-          number(player.grenade_damage?.fire)
+          number(player.grenade_damage?.high_explosive), number(player.grenade_damage?.fire)
         ],
         speed: [...speedArray(context.speed_on_kill), ...speedArray(context.killer_speed_on_death)],
         clutches: countArray(player.clutch_wins),
@@ -1068,6 +1067,10 @@
         assisted_by: (player.assisted_kill_matchups || []).map(matchup => [
           referenceIndex(matchup.assister, matchup.assister_steam_id, matchup.assister_is_bot),
           number(matchup.damage), number(matchup.flash), number(matchup.own_flash)
+        ]).filter(matchup => matchup[0] != null),
+        flashes: (player.flash_matchups || []).map(matchup => [
+          referenceIndex(matchup.victim, matchup.victim_steam_id, matchup.victim_is_bot),
+          number(matchup.flashes), Math.round(number(matchup.blind_duration) * 1000)
         ]).filter(matchup => matchup[0] != null)
       };
     };
@@ -1075,8 +1078,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/7",
-      nickstats_build: "2026.09.06.20",
+      schema: "nickstats.match/8",
+      nickstats_build: "2026.09.06.21",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
