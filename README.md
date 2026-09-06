@@ -1,13 +1,14 @@
 # NickStats
 
-A static, browser-only Counter-Strike stats analyzer. It currently supports two data sources:
+A local-first Counter-Strike 2 analysis application organized around three product views:
 
-- **CSStats Files** — compare saved CSStats profile exports in a group matrix or include/exclude lineup conditions.
-- **Demo Parser (experimental)** — select one CS2 `.dem`, FACEIT `.zst`, `.dem.gz`, or `.zip` archive and build a local match scoreboard.
+- **Match** — parse a CS2 `.dem`, FACEIT `.zst`, `.dem.gz`, or `.zip` and inspect the scoreboard, duels, trades, and weapons.
+- **Compare** — database-backed teammate matrices, pairwise comparisons, and Included/Excluded lineup conditions.
+- **Players** — personal summaries, splits, relationships, and match history.
 
-The selected HTML and demo files are processed in the browser. NickStats does not upload them or require a server.
+Demo files are processed in the browser and are never uploaded. Compare and Players are currently database-ready empty states while the NickStats API is built.
 
-The visible date-based build number beside **Local browser prototype** is bumped with parser and interface deployments, making it easy to tell when GitHub Pages has published the newest version.
+The visible date-based build number in the NickStats header is bumped with parser and interface deployments, making it easy to tell when a published host has received the newest version.
 
 Demo statistics use the roster present when each round goes live as the denominator, so transient pre-freeze spawns do not count. Bots that enter live play remain separate, visibly labeled rows and are identified in JSON so future aggregate analysis can exclude them by default.
 
@@ -19,9 +20,9 @@ Parsed results include a FACEIT match ID extracted from an original FACEIT filen
 
 ## Run it
 
-Open the published GitHub Pages site, or clone/download the repository and serve the folder with any static web server. The CSStats file analyzer also works when `index.html` is opened directly. The demo parser is intended for the HTTPS GitHub Pages version because its parser library is loaded from a pinned CDN URL.
+Open the published site, or clone/download the repository and serve the folder with any static web server. The demo parser is intended for an HTTPS-hosted version because its parser libraries are loaded from pinned CDN URLs.
 
-## Demo prototype
+## Match parsing
 
 The Demo Parser tab uses [`@deademx/cs2` 4.0.0](https://github.com/Igor-Losev/deadem/tree/v4.0.0/packages/cs2) in a Web Worker. It reads kills, deaths, assists, headshots, damage, trade kills and deaths, trade opportunities and attempts, damage- and flash-assisted kills, confirmed own-flash kills, enemies flashed, flash assists, flash effects and applied blind duration by thrower and victim, HE and fire grenade damage, openings, exact 1K–5K rounds, 1v1–1v5 clutch wins, team assignments, the map, and round winners from the demo event stream. An own-flash kill means the enemy was actively blinded by a flash thrown by the killer; it does not mean the killer blinded themselves. This value is displayed separately and is not included in the collapsed Assisted K total. Flash relationships include enemies, teammates, and the thrower's own diagonal. Each `player_blind` effect contributes one flash and its reported blind duration, allowing total and average duration per affected player to be calculated later. It also tracks mirrored kill context: kills against blinded enemies and deaths while blind, wallbang and through-smoke kills/deaths, airborne kills and deaths to airborne killers, running kills/deaths, enemies caught with a grenade or knife active, and average horizontal killer speed. Equipment disadvantage uses a two-second lookback ending at death, so a victim who begins switching back to a gun just before dying remains classified as caught. Speed uses the pawn's networked velocity when present and otherwise derives it from horizontal position changes between demo packets. The scoreboard displays speed as a percentage of the held weapon's maximum movement speed, including scoped limits; values may exceed 100% after boosts or air movement. Grenade, lingering-fire, C4, and world kills are excluded because the killing weapon need not still be held. Raw units-per-second values remain in the JSON export. The JSON also records kills made while the attacker was blind and deaths to a blind attacker.
 
@@ -90,33 +91,15 @@ Rating = 0.0073 × KAST + 0.3591 × KPR − 0.5329 × DPR
        + 0.2372 × Impact + 0.0032 × ADR + 0.1587
 ```
 
-It is not CSStats’ proprietary rating and should be treated as an experimental comparison metric. Parsing support can lag behind Counter-Strike demo format changes.
+It is an approximation rather than a rating supplied by Valve or FACEIT. Parsing support can lag behind Counter-Strike demo format changes.
 
 If a demo contains no recognizable completed rounds, the app offers a small diagnostics JSON download. It contains parser, packet, and event counts—not demo contents or player names.
-
-## CSStats workflow
-
-1. Save every relevant CSStats profile page using the same filters and date range.
-2. Choose all saved files in **CSStats Files**.
-3. Use **Group Matrix** for all-to-all teammate impact or **Combinations** for lineup conditions.
-4. Export the matrix or qualifying matches as CSV.
-
-Classifications use:
-
-```
-Impact score = 0.80 × win-rate delta + 0.20 × rating delta
-```
-
-ADR and K/D are displayed but do not affect the Lifter/Dragger classification.
 
 ## Files
 
 - `index.html` — interface markup
 - `styles.css` — presentation
-- `js/config.js` — comparison weights and thresholds
-- `js/chart.js` — group scatterplot
-- `js/combinations.js` — include/exclude analysis
-- `js/app.js` — CSStats parsing, matrix analysis, and interface behavior
+- `js/navigation.js` — Match, Compare, and Players navigation
 - `js/demo.js` — demo upload, worker control, and scoreboard rendering
 - `js/demo-worker.js` — local CS2 demo parsing and aggregation
 - `THIRD_PARTY_NOTICES.md` — parser dependency attribution
