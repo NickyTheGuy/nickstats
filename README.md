@@ -6,7 +6,7 @@ A local-first Counter-Strike 2 analysis application organized around three produ
 - **Compare** — database-backed teammate matrices, pairwise comparisons, and Included/Excluded lineup conditions.
 - **Players** — personal summaries, splits, relationships, and match history.
 
-Demo files are processed in the browser and are never uploaded. Compare and Players are currently database-ready empty states while the NickStats API is built.
+Demo files are processed in the browser and are never uploaded. Compare and Players are currently database-ready empty states. The backend now imports the compact browser result into MySQL and exposes the first match and player read APIs; the frontend is not connected to those endpoints yet.
 
 The visible date-based build number in the NickStats header is bumped with parser and interface deployments, making it easy to tell when a published host has received the newest version.
 
@@ -104,4 +104,5 @@ If a demo contains no recognizable completed rounds, the app offers a small diag
 - `js/demo-worker.js` — local CS2 demo parsing and aggregation
 - `database/schema.sql` — normalized MySQL 8 schema
 - `database/README.md` — storage model and compact JSON import mapping
+- `backend/` — Flask/MySQL compact importer, public read API, container files, and deployment notes
 - `THIRD_PARTY_NOTICES.md` — parser dependency attribution
