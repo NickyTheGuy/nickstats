@@ -743,28 +743,22 @@ async function parseDemo(fileName, buffer) {
     if (round.winnerSide === 2 || round.winnerSide === 3) {
       return { winner_side: round.winnerSide, source: "objective_event", alive, stored_winner_side: round.winnerSide };
     }
+    // Entity properties can still describe the previous round when the legacy
+    // officially-ended event is dispatched. Preserve them as diagnostic
+    // evidence, but do not let a stale value override current-round facts.
     const gameRules = gameRulesWinner();
-    if (gameRules.winner_side === 2 || gameRules.winner_side === 3) {
-      return {
-        winner_side: gameRules.winner_side,
-        source: "game_rules_win_reason",
-        alive,
-        stored_winner_side: null,
-        game_rules: gameRules
-      };
-    }
     const scoreEvidence = teamScoreWinner();
-    if (scoreEvidence.winner_side === 2 || scoreEvidence.winner_side === 3) {
+    if (round.bombPlanted && (alive[2] > 0 || alive[3] === 0)) {
       return {
-        winner_side: scoreEvidence.winner_side,
-        source: "team_score_delta",
+        winner_side: 2,
+        source: "planted_bomb_without_defuse",
         alive,
         stored_winner_side: null,
         game_rules: gameRules,
         score_evidence: scoreEvidence
       };
     }
-    if (alive[2] === 0 && alive[3] > 0) {
+    if (!round.bombPlanted && alive[2] === 0 && alive[3] > 0) {
       return { winner_side: 3, source: "terrorists_eliminated", alive, stored_winner_side: null, game_rules: gameRules, score_evidence: scoreEvidence };
     }
     if (alive[3] === 0 && alive[2] > 0) {
@@ -773,7 +767,7 @@ async function parseDemo(fileName, buffer) {
     if (!round.bombPlanted) {
       return { winner_side: 3, source: "clock_without_bomb_plant", alive, stored_winner_side: null, game_rules: gameRules, score_evidence: scoreEvidence };
     }
-    return { winner_side: 2, source: "planted_bomb_without_defuse", alive, stored_winner_side: null, game_rules: gameRules, score_evidence: scoreEvidence };
+    return { winner_side: null, source: "ambiguous_post_plant_end", alive, stored_winner_side: null, game_rules: gameRules, score_evidence: scoreEvidence };
   }
 
   function gameRulesWinner() {
@@ -1957,7 +1951,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.10.4",
+    nickstats_build: "2026.09.10.5",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
