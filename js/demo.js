@@ -2,10 +2,14 @@
   "use strict";
 
   const $ = id => document.getElementById(id);
+  const MATCH_UPLOAD_ENDPOINT = "/nickstats/api/matches";
   const state = {
     file: null,
     result: null,
     diagnostics: null,
+    uploadToken: "",
+    uploadPending: false,
+    uploading: false,
     worker: null,
     workerReady: null,
     resolveReady: null,
@@ -129,6 +133,79 @@
     $("demoStatus").classList.toggle("error", error);
   }
 
+  function parsedMatchDescription(result) {
+    return `Parsed ${result.rounds} rounds and ${result.player_count} players.`;
+  }
+
+  function updateUploadAuthenticationDisplay() {
+    const authenticated = Boolean(state.uploadToken);
+    const button = $("demoAuthButton");
+    button.textContent = authenticated ? "Change upload token" : "Enter upload token";
+    button.classList.toggle("authenticated", authenticated);
+  }
+
+  function openUploadAuthentication(message = "") {
+    const dialog = $("demoAuthDialog");
+    const error = $("demoAuthError");
+    error.textContent = message;
+    error.hidden = !message;
+    $("demoAuthToken").value = "";
+    if (!dialog.open) dialog.showModal();
+    $("demoAuthToken").focus();
+  }
+
+  async function uploadParsedMatch(result = state.result) {
+    if (!result || state.uploading) return;
+    if (!state.uploadToken) {
+      state.uploadPending = true;
+      $("demoRetryUploadButton").hidden = false;
+      openUploadAuthentication("Enter the upload token before this match can be saved.");
+      return;
+    }
+
+    state.uploading = true;
+    state.uploadPending = false;
+    const retryButton = $("demoRetryUploadButton");
+    retryButton.hidden = true;
+    retryButton.disabled = true;
+    setStatus(`${parsedMatchDescription(result)} Uploading compact statistics…`);
+
+    try {
+      const response = await fetch(MATCH_UPLOAD_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${state.uploadToken}`,
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(compactMatchResult(result))
+      });
+      const responseBody = await response.json().catch(() => null);
+      if (!response.ok) {
+        const error = new Error(responseBody?.reason || `The API returned HTTP ${response.status}.`);
+        error.status = response.status;
+        throw error;
+      }
+
+      const matchID = responseBody?.id == null ? "" : ` as match #${responseBody.id}`;
+      const outcome = responseBody?.created === false ? "It was already stored" : "Saved to the database";
+      setStatus(`${parsedMatchDescription(result)} ${outcome}${matchID}.`);
+    } catch (error) {
+      state.uploadPending = true;
+      retryButton.hidden = false;
+      const reason = error.message || "The API could not be reached.";
+      setStatus(`${parsedMatchDescription(result)} Database upload failed: ${reason}`, true);
+      if (error.status === 401) {
+        state.uploadToken = "";
+        updateUploadAuthenticationDisplay();
+        openUploadAuthentication("That upload token was rejected. Enter the current server token.");
+      }
+    } finally {
+      state.uploading = false;
+      retryButton.disabled = false;
+    }
+  }
+
   function formatBytes(bytes) {
     if (!Number.isFinite(bytes)) return "";
     const units = ["B", "KB", "MB", "GB"];
@@ -208,6 +285,7 @@
     }
     state.file = file;
     state.result = null;
+    state.uploadPending = false;
     state.scoreboardSort = null;
     state.expandedWeaponPlayers.clear();
     state.weaponSorts.clear();
@@ -215,6 +293,7 @@
     setResultView("scoreboard");
     state.diagnostics = null;
     $("demoResults").hidden = true;
+    $("demoRetryUploadButton").hidden = true;
     $("demoDiagnosticsButton").hidden = true;
     $("demoFileLabel").textContent = `${file.name} · ${formatBytes(file.size)}`;
     $("demoParseButton").disabled = false;
@@ -1093,7 +1172,7 @@
       result.played_at_source = demo.matchTime?.source ?? null;
       state.result = result;
       render(result);
-      setStatus(`Parsed ${result.rounds} rounds and ${result.player_count} players.`);
+      await uploadParsedMatch(result);
     } catch (error) {
       const nextStep = state.diagnostics ? " Download diagnostics and send me the JSON." : "";
       setStatus((error.message || "The demo could not be parsed.") + nextStep, true);
@@ -1105,6 +1184,7 @@
   function clear() {
     state.file = null;
     state.result = null;
+    state.uploadPending = false;
     state.scoreboardSort = null;
     state.expandedWeaponPlayers.clear();
     state.weaponSorts.clear();
@@ -1117,6 +1197,7 @@
     $("demoClearButton").disabled = true;
     $("demoDiagnosticsButton").hidden = true;
     $("demoResults").hidden = true;
+    $("demoRetryUploadButton").hidden = true;
     setStatus("Choose one demo file.");
   }
 
@@ -1213,7 +1294,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.06.25",
+      nickstats_build: "2026.09.10.1",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -1278,6 +1359,25 @@
   $("demoClearButton").addEventListener("click", clear);
   $("demoDiagnosticsButton").addEventListener("click", downloadDiagnostics);
   $("demoDownloadButton").addEventListener("click", downloadJson);
+  $("demoRetryUploadButton").addEventListener("click", () => uploadParsedMatch());
+  $("demoAuthButton").addEventListener("click", () => openUploadAuthentication());
+  $("demoAuthForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const token = $("demoAuthToken").value.trim();
+    if (!token) {
+      openUploadAuthentication("Enter the upload token.");
+      return;
+    }
+    state.uploadToken = token;
+    updateUploadAuthenticationDisplay();
+    $("demoAuthDialog").close();
+    if (state.uploadPending && state.result) {
+      uploadParsedMatch();
+    } else {
+      setStatus("Automatic database uploads are enabled. Choose one demo file.");
+    }
+  });
+  $("demoAuthDialog").addEventListener("cancel", event => event.preventDefault());
   document.querySelectorAll("[data-demo-side]").forEach(button => {
     button.addEventListener("click", () => setSideFilter(button.dataset.demoSide));
   });
@@ -1295,4 +1395,6 @@
     drop.classList.remove("dragging");
   }));
   drop.addEventListener("drop", event => chooseFile(event.dataTransfer.files[0]));
+  updateUploadAuthenticationDisplay();
+  openUploadAuthentication();
 })();

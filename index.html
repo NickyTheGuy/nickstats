@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260906-16">
+  <link rel="stylesheet" href="./styles.css?v=20260910-1">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.06.25</span>
+          <span class="demo-build">Build 2026.09.10.1</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -35,7 +35,10 @@
             <h2>Open a CS2 match</h2>
             <p>Choose a <code>.dem</code>, compressed FACEIT <code>.zst</code>, <code>.dem.gz</code>, or <code>.zip</code> file. Processing stays inside your browser.</p>
           </div>
-          <span class="demo-local-badge">Stays on this device</span>
+          <div class="demo-session-controls">
+            <span class="demo-local-badge">Demo stays on this device</span>
+            <button class="button button-secondary demo-auth-button" id="demoAuthButton" type="button">Enter upload token</button>
+          </div>
         </div>
 
         <div class="demo-drop" id="demoDropZone">
@@ -96,6 +99,7 @@
             <div class="demo-weapon-teams" id="demoWeapons"></div>
           </section>
           <div class="actions">
+            <button class="button button-primary" id="demoRetryUploadButton" type="button" hidden>Retry database upload</button>
             <button class="button button-primary" id="demoDownloadButton" type="button">Download match JSON</button>
           </div>
         </div>
@@ -127,7 +131,19 @@
     </section>
   </main>
 
+  <dialog class="demo-auth-dialog" id="demoAuthDialog" aria-labelledby="demoAuthTitle" aria-describedby="demoAuthDescription">
+    <form class="demo-auth-form" id="demoAuthForm">
+      <div class="eyebrow">Database access</div>
+      <h2 id="demoAuthTitle">Authenticate automatic uploads</h2>
+      <p id="demoAuthDescription">Enter the private upload token configured on the NickStats server. It stays only in this page's memory and is sent only to the NickStats API.</p>
+      <label for="demoAuthToken">Upload token</label>
+      <input id="demoAuthToken" name="upload-token" type="password" autocomplete="off" spellcheck="false" required autofocus>
+      <p class="demo-auth-error" id="demoAuthError" role="alert" hidden></p>
+      <button class="button button-primary" type="submit">Enable automatic uploads</button>
+    </form>
+  </dialog>
+
   <script defer src="./js/navigation.js?v=20260906-1"></script>
-  <script defer src="./js/demo.js?v=20260906-50"></script>
+  <script defer src="./js/demo.js?v=20260910-1"></script>
 </body>
 </html>
