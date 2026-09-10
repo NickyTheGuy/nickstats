@@ -20,11 +20,11 @@ Match-list query parameters are `steam_id`, `map`, `from`, `to`, `limit`, and `o
 
 1. Apply `database/schema.sql` to MySQL 8.
 2. Copy `.env.example` to `.env` and replace every placeholder.
-3. Create a restricted MySQL application user after confirming the Docker network/subnet and MySQL bind address.
+3. Create `nickstats_app` restricted to the `172.20.%` MySQL network with `SELECT`, `INSERT`, and `UPDATE` on `nickstats.*`.
 4. Run `docker compose -f compose.example.yml up -d --build`.
-5. Connect the existing Nginx container to the `nickstats` network and proxy `/nickstats/api/` to `http://nickstats-api:8000/`.
+5. Proxy `/nickstats/api/` from the existing Nginx service to `http://nickstats-api:8000/`.
 
-The example uses `host.docker.internal:host-gateway` because MySQL currently runs on the Ubuntu host. It does not publish the API container directly to the internet; Nginx is the intended entry point. Do not publish MySQL port 3306.
+The API joins the server's existing external `web_default` and `mysql_default` Docker networks. It reaches MySQL through the private `mysql` network alias and Nginx reaches the API through `nickstats-api`. The API container is not published directly to the internet; Nginx is the only intended entry point. Do not publish MySQL port 3306.
 
 Generate the upload token on the server, for example:
 
@@ -50,4 +50,3 @@ From `backend/`:
 ```bash
 PYTHONPATH=. python3 -m unittest discover -s tests
 ```
-

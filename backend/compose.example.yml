@@ -1,16 +1,19 @@
 services:
   nickstats-api:
     build: .
+    container_name: nickstats-api
     restart: unless-stopped
     env_file: .env
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     expose:
       - "8000"
     networks:
-      - nickstats
+      - web
+      - mysql
 
 networks:
-  nickstats:
-    name: nickstats
-
+  web:
+    name: web_default
+    external: true
+  mysql:
+    name: mysql_default
+    external: true
