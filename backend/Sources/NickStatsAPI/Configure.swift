@@ -1,5 +1,6 @@
 import Fluent
 import FluentMySQLDriver
+import NIOSSL
 import Vapor
 
 private func requiredEnvironment(_ name: String) throws -> String {
@@ -16,13 +17,18 @@ func configure(_ app: Application) async throws {
     let database = Environment.get("MYSQL_DATABASE") ?? "nickstats"
     let port = Environment.get("MYSQL_PORT").flatMap(Int.init) ?? 3306
 
+    var tlsConfiguration = TLSConfiguration.makeClientConfiguration()
+    // The MySQL server is reached only through the private Docker network and
+    // commonly presents a self-signed certificate.
+    tlsConfiguration.certificateVerification = .none
+
     app.databases.use(DatabaseConfigurationFactory.mysql(
         hostname: host,
         port: port,
         username: username,
         password: password,
         database: database,
-        tlsConfiguration: nil
+        tlsConfiguration: tlsConfiguration
     ), as: .mysql)
     app.routes.defaultMaxBodySize = "2mb"
     try routes(app)
