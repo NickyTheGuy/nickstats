@@ -2,6 +2,8 @@
 
 The API imports compact `nickstats.match/9` files into the normalized MySQL schema and exposes read-only match/player endpoints. The browser still parses demos locally; only the much smaller compact result is uploaded.
 
+The compact format intentionally uses fixed-position arrays to keep uploads small. Inside the Swift service, those arrays decode into named domain types such as `TradeStats`, `KillContextStats`, `RoundRecord`, and `SpeedSummary`; database and validation code never rely on unexplained numeric indexes. Encoding those types reconstructs the same `nickstats.match/9` wire format.
+
 ## Routes
 
 | Method | Route | Authentication | Purpose |

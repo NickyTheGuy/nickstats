@@ -61,6 +61,14 @@ private func optionalDouble(_ row: any SQLRow, _ column: String) throws -> Doubl
     return try double(row, column)
 }
 
+private func playerSide(_ row: any SQLRow, _ column: String) throws -> PlayerSide {
+    let value = try row.decode(column: column, as: String.self)
+    guard let side = PlayerSide(rawValue: value) else {
+        throw Abort(.internalServerError, reason: "Invalid player side in the database: \(value)")
+    }
+    return side
+}
+
 private func unix(_ date: Date?) -> Int64? {
     date.map { Int64($0.timeIntervalSince1970) }
 }
@@ -203,7 +211,7 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
         players.append(PlayerPayload(
             name: try row.decode(column: "display_name", as: String.self),
             steamID: try optionalString(row, "steam_id"), bot: isBot ? true : nil,
-            sides: [emptySide(), emptySide()]
+            sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide())
         ))
     }
 
@@ -215,9 +223,7 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
     for row in statRows {
         let actorID = try int64(row, "match_player_id")
         let slot = internalToSlot[actorID]!
-        let side = try row.decode(column: "side", as: String.self)
-        let sideIndex = sideNames.firstIndex(of: side)!
-        players[slot].sides[sideIndex] = try decodeSide(row)
+        players[slot].sides[try playerSide(row, "side")] = try decodeSide(row)
     }
 
     try await attachWeapons(sql, matchID: matchID, players: &players, slots: internalToSlot)
@@ -231,7 +237,10 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
             id: try row.decode(column: "source_team_id", as: String.self),
             name: try row.decode(column: "display_name", as: String.self),
             score: try optionalInteger(row, "score"),
-            sideScores: [try integer(row, "t_round_wins"), try integer(row, "ct_round_wins")],
+            sideScores: SideScores(
+                terrorist: try integer(row, "t_round_wins"),
+                counterTerrorist: try integer(row, "ct_round_wins")
+            ),
             players: teamMembers[internalID] ?? []
         )
     }
@@ -240,8 +249,10 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
     return MatchPayload(
         schema: try match.decode(column: "payload_schema", as: String.self),
         nickstatsBuild: try match.decode(column: "nickstats_build", as: String.self),
-        parser: [try match.decode(column: "parser_name", as: String.self),
-                 try match.decode(column: "parser_version", as: String.self)],
+        parser: ParserMetadata(
+            name: try match.decode(column: "parser_name", as: String.self),
+            version: try match.decode(column: "parser_version", as: String.self)
+        ),
         id: MatchIdentity(
             faceit: storedProvider == "faceit" ? storedProviderID : nil,
             sha256: try match.decode(column: "sha256", as: String.self)
@@ -255,33 +266,81 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
 
 private func emptySide() -> SideStatsPayload {
     SideStatsPayload(
-        rounds: [0, 0], kda: [0, 0, 0, 0, 0], kastRounds: 0, opening: [0, 0],
-        tradeKills: 0, tradeD: [0, 0, 0], utility: [0, 0],
-        speed: [0, 0, nil, 0, 0, nil, 0, 0, nil, 0, 0, nil],
-        clutches: [0, 0, 0, 0, 0], killRounds: [0, 0, 0, 0, 0], weapons: [],
+        rounds: RoundRecord(played: 0, won: 0),
+        combat: CombatStats(kills: 0, deaths: 0, assists: 0, headshots: 0, damage: 0),
+        kastRounds: 0, opening: OpeningStats(kills: 0, deaths: 0), tradeKills: 0,
+        tradeDeaths: TradeDeathStats(tradeable: 0, attempted: 0, traded: 0),
+        utility: UtilityDamage(highExplosive: 0, fire: 0),
+        speed: SpeedStats(kills: emptySpeedSummary(), deaths: emptySpeedSummary()),
+        clutches: ClutchWins(oneVersusOne: 0, oneVersusTwo: 0, oneVersusThree: 0, oneVersusFour: 0, oneVersusFive: 0),
+        killRounds: KillRoundCounts(oneKill: 0, twoKills: 0, threeKills: 0, fourKills: 0, fiveKills: 0),
+        weapons: [],
         duels: [], trades: [], contexts: [], assistedBy: [], flashes: []
+    )
+}
+
+private func emptySpeedSummary() -> SpeedSummary {
+    SpeedSummary(
+        total: 0, samples: 0, maximum: nil,
+        percentOfMaximumTotal: 0, percentOfMaximumSamples: 0, percentOfMaximumPeak: nil
     )
 }
 
 private func decodeSide(_ row: any SQLRow) throws -> SideStatsPayload {
     SideStatsPayload(
-        rounds: [try integer(row, "rounds_played"), try integer(row, "rounds_won")],
-        kda: [try integer(row, "kills"), try integer(row, "deaths"), try integer(row, "assists"),
-              try integer(row, "headshots"), try integer(row, "damage")],
+        rounds: RoundRecord(
+            played: try integer(row, "rounds_played"), won: try integer(row, "rounds_won")
+        ),
+        combat: CombatStats(
+            kills: try integer(row, "kills"), deaths: try integer(row, "deaths"),
+            assists: try integer(row, "assists"), headshots: try integer(row, "headshots"),
+            damage: try integer(row, "damage")
+        ),
         kastRounds: try integer(row, "kast_rounds"),
-        opening: [try integer(row, "opening_kills"), try integer(row, "opening_deaths")],
+        opening: OpeningStats(
+            kills: try integer(row, "opening_kills"), deaths: try integer(row, "opening_deaths")
+        ),
         tradeKills: try integer(row, "trade_kills"),
-        tradeD: [try integer(row, "tradeable_deaths"), try integer(row, "attempted_tradeable_deaths"),
-                 try integer(row, "traded_deaths")],
-        utility: [try integer(row, "he_damage"), try integer(row, "fire_damage")],
-        speed: [
-            try double(row, "kill_speed_total"), Double(try integer(row, "kill_speed_samples")), try optionalDouble(row, "kill_speed_max"),
-            try double(row, "kill_speed_percent_total"), Double(try integer(row, "kill_speed_percent_samples")), try optionalDouble(row, "kill_speed_percent_max"),
-            try double(row, "death_speed_total"), Double(try integer(row, "death_speed_samples")), try optionalDouble(row, "death_speed_max"),
-            try double(row, "death_speed_percent_total"), Double(try integer(row, "death_speed_percent_samples")), try optionalDouble(row, "death_speed_percent_max")
-        ],
-        clutches: try (1...5).map { try integer(row, "clutch_1v\($0)") },
-        killRounds: try (1...5).map { try integer(row, "kill_rounds_\($0)k") },
+        tradeDeaths: TradeDeathStats(
+            tradeable: try integer(row, "tradeable_deaths"),
+            attempted: try integer(row, "attempted_tradeable_deaths"),
+            traded: try integer(row, "traded_deaths")
+        ),
+        utility: UtilityDamage(
+            highExplosive: try integer(row, "he_damage"), fire: try integer(row, "fire_damage")
+        ),
+        speed: SpeedStats(
+            kills: SpeedSummary(
+                total: try double(row, "kill_speed_total"),
+                samples: try integer(row, "kill_speed_samples"),
+                maximum: try optionalDouble(row, "kill_speed_max"),
+                percentOfMaximumTotal: try double(row, "kill_speed_percent_total"),
+                percentOfMaximumSamples: try integer(row, "kill_speed_percent_samples"),
+                percentOfMaximumPeak: try optionalDouble(row, "kill_speed_percent_max")
+            ),
+            deaths: SpeedSummary(
+                total: try double(row, "death_speed_total"),
+                samples: try integer(row, "death_speed_samples"),
+                maximum: try optionalDouble(row, "death_speed_max"),
+                percentOfMaximumTotal: try double(row, "death_speed_percent_total"),
+                percentOfMaximumSamples: try integer(row, "death_speed_percent_samples"),
+                percentOfMaximumPeak: try optionalDouble(row, "death_speed_percent_max")
+            )
+        ),
+        clutches: ClutchWins(
+            oneVersusOne: try integer(row, "clutch_1v1"),
+            oneVersusTwo: try integer(row, "clutch_1v2"),
+            oneVersusThree: try integer(row, "clutch_1v3"),
+            oneVersusFour: try integer(row, "clutch_1v4"),
+            oneVersusFive: try integer(row, "clutch_1v5")
+        ),
+        killRounds: KillRoundCounts(
+            oneKill: try integer(row, "kill_rounds_1k"),
+            twoKills: try integer(row, "kill_rounds_2k"),
+            threeKills: try integer(row, "kill_rounds_3k"),
+            fourKills: try integer(row, "kill_rounds_4k"),
+            fiveKills: try integer(row, "kill_rounds_5k")
+        ),
         weapons: [], duels: [], trades: [], contexts: [], assistedBy: [], flashes: []
     )
 }
@@ -295,9 +354,8 @@ private func attachWeapons(
         """).all()
     for row in rows {
         let slot = slots[try int64(row, "match_player_id")]!
-        let side = try row.decode(column: "side", as: String.self)
-        let sideIndex = sideNames.firstIndex(of: side)!
-        players[slot].sides[sideIndex].weapons.append(WeaponPayload(
+        let side = try playerSide(row, "side")
+        players[slot].sides[side].weapons.append(WeaponPayload(
             weapon: try row.decode(column: "weapon", as: String.self),
             kills: try integer(row, "kills"), shots: try integer(row, "shots"),
             damage: try integer(row, "damage"), roundsUsed: try integer(row, "rounds_used")
@@ -312,42 +370,66 @@ private func attachRelations(
     for row in duels {
         let actor = slots[try int64(row, "killer_match_player_id")]!
         let target = slots[try int64(row, "victim_match_player_id")]!
-        let side = sideNames.firstIndex(of: try row.decode(column: "killer_side", as: String.self))!
-        players[actor].sides[side].duels.append([target, try integer(row, "kills")])
+        let side = try playerSide(row, "killer_side")
+        players[actor].sides[side].duels.append(DuelStats(
+            opponentPlayerIndex: target, kills: try integer(row, "kills")
+        ))
     }
     let trades = try await sql.raw("SELECT * FROM trade_side_stats WHERE match_id = \(bind: matchID)").all()
     for row in trades {
         let actor = slots[try int64(row, "trader_match_player_id")]!
         let target = slots[try int64(row, "teammate_match_player_id")]!
-        let side = sideNames.firstIndex(of: try row.decode(column: "trader_side", as: String.self))!
-        players[actor].sides[side].trades.append([target, try integer(row, "opportunities"),
-                                                 try integer(row, "attempts"), try integer(row, "successes")])
+        let side = try playerSide(row, "trader_side")
+        players[actor].sides[side].trades.append(TradeStats(
+            teammatePlayerIndex: target,
+            opportunities: try integer(row, "opportunities"),
+            attempts: try integer(row, "attempts"),
+            successes: try integer(row, "successes")
+        ))
     }
     let contexts = try await sql.raw("SELECT * FROM kill_context_side_stats WHERE match_id = \(bind: matchID)").all()
-    let contextColumns = ["victim_blinded_kills", "attacker_blind_kills", "wallbang_kills", "penetration_total",
-                          "smoke_kills", "airborne_kills", "moving_kills", "still_kills", "running_kills",
-                          "victim_grenade_out_kills", "victim_knife_out_kills", "equipment_disadvantage_kills", "unfair_kills"]
     for row in contexts {
         let actor = slots[try int64(row, "killer_match_player_id")]!
         let target = slots[try int64(row, "victim_match_player_id")]!
-        let side = sideNames.firstIndex(of: try row.decode(column: "killer_side", as: String.self))!
-        players[actor].sides[side].contexts.append([target] + (try contextColumns.map { try integer(row, $0) }))
+        let side = try playerSide(row, "killer_side")
+        players[actor].sides[side].contexts.append(KillContextStats(
+            victimPlayerIndex: target,
+            victimBlindedKills: try integer(row, "victim_blinded_kills"),
+            attackerBlindKills: try integer(row, "attacker_blind_kills"),
+            wallbangKills: try integer(row, "wallbang_kills"),
+            penetrationTotal: try integer(row, "penetration_total"),
+            smokeKills: try integer(row, "smoke_kills"),
+            airborneKills: try integer(row, "airborne_kills"),
+            movingKills: try integer(row, "moving_kills"),
+            stillKills: try integer(row, "still_kills"),
+            runningKills: try integer(row, "running_kills"),
+            victimGrenadeOutKills: try integer(row, "victim_grenade_out_kills"),
+            victimKnifeOutKills: try integer(row, "victim_knife_out_kills"),
+            equipmentDisadvantageKills: try integer(row, "equipment_disadvantage_kills"),
+            unfairKills: try integer(row, "unfair_kills")
+        ))
     }
     let assists = try await sql.raw("SELECT * FROM assisted_kill_side_stats WHERE match_id = \(bind: matchID)").all()
     for row in assists {
         let actor = slots[try int64(row, "beneficiary_match_player_id")]!
         let target = slots[try int64(row, "assister_match_player_id")]!
-        let side = sideNames.firstIndex(of: try row.decode(column: "beneficiary_side", as: String.self))!
-        players[actor].sides[side].assistedBy.append([target, try integer(row, "damage_assisted_kills"),
-                                                     try integer(row, "teammate_flash_assisted_kills"),
-                                                     try integer(row, "own_flash_kills")])
+        let side = try playerSide(row, "beneficiary_side")
+        players[actor].sides[side].assistedBy.append(AssistedKillStats(
+            assisterPlayerIndex: target,
+            damageAssistedKills: try integer(row, "damage_assisted_kills"),
+            teammateFlashAssistedKills: try integer(row, "teammate_flash_assisted_kills"),
+            ownFlashKills: try integer(row, "own_flash_kills")
+        ))
     }
     let flashes = try await sql.raw("SELECT * FROM flash_side_stats WHERE match_id = \(bind: matchID)").all()
     for row in flashes {
         let actor = slots[try int64(row, "thrower_match_player_id")]!
         let target = slots[try int64(row, "victim_match_player_id")]!
-        let side = sideNames.firstIndex(of: try row.decode(column: "thrower_side", as: String.self))!
-        players[actor].sides[side].flashes.append([target, try integer(row, "flash_effects"),
-                                                  try integer(row, "blind_duration_ms")])
+        let side = try playerSide(row, "thrower_side")
+        players[actor].sides[side].flashes.append(FlashStats(
+            victimPlayerIndex: target,
+            effects: try integer(row, "flash_effects"),
+            blindDurationMilliseconds: try integer(row, "blind_duration_ms")
+        ))
     }
 }

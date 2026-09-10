@@ -106,7 +106,7 @@ func importMatch(_ payload: MatchPayload, on database: any Database) async throw
         ) VALUES (
           \(bind: provider), \(bind: payload.id.faceit), UNHEX(\(bind: sha256)),
           \(bind: payload.schema), \(bind: payload.nickstatsBuild),
-          \(bind: payload.parser[0]), \(bind: payload.parser[1]), \(bind: configID),
+          \(bind: payload.parser.name), \(bind: payload.parser.version), \(bind: configID),
           \(bind: payload.map), \(bind: playedAt), \(bind: payload.playedAtSource), \(bind: payload.rounds)
         )
         """).run()
@@ -121,7 +121,7 @@ func importMatch(_ payload: MatchPayload, on database: any Database) async throw
               t_round_wins, ct_round_wins
             ) VALUES (
               \(bind: matchID), \(bind: teamSlot), \(bind: team.id), \(bind: team.name),
-              \(bind: team.score), \(bind: team.sideScores[0]), \(bind: team.sideScores[1])
+              \(bind: team.score), \(bind: team.sideScores.terrorist), \(bind: team.sideScores.counterTerrorist)
             )
             """).run()
         teamIDs.append(try await lastInsertID(sql))
@@ -152,9 +152,9 @@ func importMatch(_ payload: MatchPayload, on database: any Database) async throw
     }
 
     for (playerSlot, player) in payload.players.enumerated() {
-        for (sideIndex, stats) in player.sides.enumerated() {
+        for side in PlayerSide.allCases {
             try await insertSideStats(
-                stats, side: sideNames[sideIndex], actorID: matchPlayerIDs[playerSlot],
+                player.sides[side], side: side, actorID: matchPlayerIDs[playerSlot],
                 matchID: matchID, playerIDs: matchPlayerIDs, sql: sql
             )
         }
@@ -163,10 +163,9 @@ func importMatch(_ payload: MatchPayload, on database: any Database) async throw
 }
 
 private func insertSideStats(
-    _ stats: SideStatsPayload, side: String, actorID: Int64, matchID: Int64,
+    _ stats: SideStatsPayload, side: PlayerSide, actorID: Int64, matchID: Int64,
     playerIDs: [Int64], sql: any SQLDatabase
 ) async throws {
-    let speed = stats.speed
     try await sql.raw("""
         INSERT INTO player_side_stats (
           match_player_id, side, rounds_played, rounds_won,
@@ -181,20 +180,20 @@ private func insertSideStats(
           clutch_1v1, clutch_1v2, clutch_1v3, clutch_1v4, clutch_1v5,
           kill_rounds_1k, kill_rounds_2k, kill_rounds_3k, kill_rounds_4k, kill_rounds_5k
         ) VALUES (
-          \(bind: actorID), \(bind: side), \(bind: stats.rounds[0]), \(bind: stats.rounds[1]),
-          \(bind: stats.kda[0]), \(bind: stats.kda[1]), \(bind: stats.kda[2]),
-          \(bind: stats.kda[3]), \(bind: stats.kda[4]), \(bind: stats.kastRounds),
-          \(bind: stats.opening[0]), \(bind: stats.opening[1]), \(bind: stats.tradeKills),
-          \(bind: stats.tradeD[0]), \(bind: stats.tradeD[1]), \(bind: stats.tradeD[2]),
-          \(bind: stats.utility[0]), \(bind: stats.utility[1]),
-          \(bind: speed[0]!), \(bind: Int(speed[1]!)), \(bind: speed[2]),
-          \(bind: speed[3]!), \(bind: Int(speed[4]!)), \(bind: speed[5]),
-          \(bind: speed[6]!), \(bind: Int(speed[7]!)), \(bind: speed[8]),
-          \(bind: speed[9]!), \(bind: Int(speed[10]!)), \(bind: speed[11]),
-          \(bind: stats.clutches[0]), \(bind: stats.clutches[1]), \(bind: stats.clutches[2]),
-          \(bind: stats.clutches[3]), \(bind: stats.clutches[4]),
-          \(bind: stats.killRounds[0]), \(bind: stats.killRounds[1]), \(bind: stats.killRounds[2]),
-          \(bind: stats.killRounds[3]), \(bind: stats.killRounds[4])
+          \(bind: actorID), \(bind: side.rawValue), \(bind: stats.rounds.played), \(bind: stats.rounds.won),
+          \(bind: stats.combat.kills), \(bind: stats.combat.deaths), \(bind: stats.combat.assists),
+          \(bind: stats.combat.headshots), \(bind: stats.combat.damage), \(bind: stats.kastRounds),
+          \(bind: stats.opening.kills), \(bind: stats.opening.deaths), \(bind: stats.tradeKills),
+          \(bind: stats.tradeDeaths.tradeable), \(bind: stats.tradeDeaths.attempted), \(bind: stats.tradeDeaths.traded),
+          \(bind: stats.utility.highExplosive), \(bind: stats.utility.fire),
+          \(bind: stats.speed.kills.total), \(bind: stats.speed.kills.samples), \(bind: stats.speed.kills.maximum),
+          \(bind: stats.speed.kills.percentOfMaximumTotal), \(bind: stats.speed.kills.percentOfMaximumSamples), \(bind: stats.speed.kills.percentOfMaximumPeak),
+          \(bind: stats.speed.deaths.total), \(bind: stats.speed.deaths.samples), \(bind: stats.speed.deaths.maximum),
+          \(bind: stats.speed.deaths.percentOfMaximumTotal), \(bind: stats.speed.deaths.percentOfMaximumSamples), \(bind: stats.speed.deaths.percentOfMaximumPeak),
+          \(bind: stats.clutches.oneVersusOne), \(bind: stats.clutches.oneVersusTwo), \(bind: stats.clutches.oneVersusThree),
+          \(bind: stats.clutches.oneVersusFour), \(bind: stats.clutches.oneVersusFive),
+          \(bind: stats.killRounds.oneKill), \(bind: stats.killRounds.twoKills), \(bind: stats.killRounds.threeKills),
+          \(bind: stats.killRounds.fourKills), \(bind: stats.killRounds.fiveKills)
         )
         """).run()
 
@@ -203,7 +202,7 @@ private func insertSideStats(
             INSERT INTO weapon_side_stats
               (match_player_id, side, weapon, kills, shots, damage, rounds_used)
             VALUES (
-              \(bind: actorID), \(bind: side), \(bind: weapon.weapon), \(bind: weapon.kills),
+              \(bind: actorID), \(bind: side.rawValue), \(bind: weapon.weapon), \(bind: weapon.kills),
               \(bind: weapon.shots), \(bind: weapon.damage), \(bind: weapon.roundsUsed)
             )
             """).run()
@@ -212,7 +211,10 @@ private func insertSideStats(
         try await sql.raw("""
             INSERT INTO duel_side_stats
               (match_id, killer_match_player_id, victim_match_player_id, killer_side, kills)
-            VALUES (\(bind: matchID), \(bind: actorID), \(bind: playerIDs[row[0]]), \(bind: side), \(bind: row[1]))
+            VALUES (
+              \(bind: matchID), \(bind: actorID), \(bind: playerIDs[row.opponentPlayerIndex]),
+              \(bind: side.rawValue), \(bind: row.kills)
+            )
             """).run()
     }
     for row in stats.trades {
@@ -221,8 +223,8 @@ private func insertSideStats(
               (match_id, trader_match_player_id, teammate_match_player_id, trader_side,
                opportunities, attempts, successes)
             VALUES (
-              \(bind: matchID), \(bind: actorID), \(bind: playerIDs[row[0]]), \(bind: side),
-              \(bind: row[1]), \(bind: row[2]), \(bind: row[3])
+              \(bind: matchID), \(bind: actorID), \(bind: playerIDs[row.teammatePlayerIndex]), \(bind: side.rawValue),
+              \(bind: row.opportunities), \(bind: row.attempts), \(bind: row.successes)
             )
             """).run()
     }
@@ -235,10 +237,12 @@ private func insertSideStats(
               victim_grenade_out_kills, victim_knife_out_kills,
               equipment_disadvantage_kills, unfair_kills
             ) VALUES (
-              \(bind: matchID), \(bind: actorID), \(bind: playerIDs[row[0]]), \(bind: side),
-              \(bind: row[1]), \(bind: row[2]), \(bind: row[3]), \(bind: row[4]),
-              \(bind: row[5]), \(bind: row[6]), \(bind: row[7]), \(bind: row[8]),
-              \(bind: row[9]), \(bind: row[10]), \(bind: row[11]), \(bind: row[12]), \(bind: row[13])
+              \(bind: matchID), \(bind: actorID), \(bind: playerIDs[row.victimPlayerIndex]), \(bind: side.rawValue),
+              \(bind: row.victimBlindedKills), \(bind: row.attackerBlindKills),
+              \(bind: row.wallbangKills), \(bind: row.penetrationTotal),
+              \(bind: row.smokeKills), \(bind: row.airborneKills), \(bind: row.movingKills),
+              \(bind: row.stillKills), \(bind: row.runningKills), \(bind: row.victimGrenadeOutKills),
+              \(bind: row.victimKnifeOutKills), \(bind: row.equipmentDisadvantageKills), \(bind: row.unfairKills)
             )
             """).run()
     }
@@ -248,8 +252,8 @@ private func insertSideStats(
               match_id, beneficiary_match_player_id, assister_match_player_id, beneficiary_side,
               damage_assisted_kills, teammate_flash_assisted_kills, own_flash_kills
             ) VALUES (
-              \(bind: matchID), \(bind: actorID), \(bind: playerIDs[row[0]]), \(bind: side),
-              \(bind: row[1]), \(bind: row[2]), \(bind: row[3])
+              \(bind: matchID), \(bind: actorID), \(bind: playerIDs[row.assisterPlayerIndex]), \(bind: side.rawValue),
+              \(bind: row.damageAssistedKills), \(bind: row.teammateFlashAssistedKills), \(bind: row.ownFlashKills)
             )
             """).run()
     }
@@ -259,8 +263,8 @@ private func insertSideStats(
               match_id, thrower_match_player_id, victim_match_player_id, thrower_side,
               flash_effects, blind_duration_ms
             ) VALUES (
-              \(bind: matchID), \(bind: actorID), \(bind: playerIDs[row[0]]), \(bind: side),
-              \(bind: row[1]), \(bind: row[2])
+              \(bind: matchID), \(bind: actorID), \(bind: playerIDs[row.victimPlayerIndex]), \(bind: side.rawValue),
+              \(bind: row.effects), \(bind: row.blindDurationMilliseconds)
             )
             """).run()
     }
