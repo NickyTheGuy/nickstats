@@ -6,7 +6,7 @@ A local-first Counter-Strike 2 analysis application organized around three produ
 - **Compare** — database-backed teammate matrices, pairwise comparisons, and Included/Excluded lineup conditions.
 - **Players** — personal summaries, splits, relationships, and match history.
 
-Demo files are processed in the browser and are never uploaded. At page load, the Match view requests the private upload token and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/9` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually. Compare and Players are currently database-ready empty states.
+Demo files are processed in the browser and are never uploaded. Match, Compare, and Players remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/9` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually. Compare and Players are currently database-ready empty states.
 
 The visible date-based build number in the NickStats header is bumped with parser and interface deployments, making it easy to tell when a published host has received the newest version.
 

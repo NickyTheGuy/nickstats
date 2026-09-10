@@ -139,7 +139,10 @@
       <label for="demoAuthToken">Upload token</label>
       <input id="demoAuthToken" name="upload-token" type="password" autocomplete="off" spellcheck="false" required autofocus>
       <p class="demo-auth-error" id="demoAuthError" role="alert" hidden></p>
-      <button class="button button-primary" type="submit">Enable automatic uploads</button>
+      <div class="demo-auth-actions">
+        <button class="button button-primary" type="submit">Enable automatic uploads</button>
+        <button class="button button-secondary" id="demoAuthCancelButton" type="button">Not now</button>
+      </div>
     </form>
   </dialog>
 

@@ -10,6 +10,7 @@
     uploadToken: "",
     uploadPending: false,
     uploading: false,
+    parsePending: false,
     worker: null,
     workerReady: null,
     resolveReady: null,
@@ -1154,6 +1155,11 @@
 
   async function parseDemo() {
     if (!state.file) return;
+    if (!state.uploadToken) {
+      state.parsePending = true;
+      openUploadAuthentication("Enter the upload token to parse and automatically save this match.");
+      return;
+    }
     state.diagnostics = null;
     $("demoDiagnosticsButton").hidden = true;
     $("demoParseButton").disabled = true;
@@ -1185,6 +1191,7 @@
     state.file = null;
     state.result = null;
     state.uploadPending = false;
+    state.parsePending = false;
     state.scoreboardSort = null;
     state.expandedWeaponPlayers.clear();
     state.weaponSorts.clear();
@@ -1373,11 +1380,23 @@
     $("demoAuthDialog").close();
     if (state.uploadPending && state.result) {
       uploadParsedMatch();
+    } else if (state.parsePending) {
+      state.parsePending = false;
+      parseDemo();
     } else {
       setStatus("Automatic database uploads are enabled. Choose one demo file.");
     }
   });
-  $("demoAuthDialog").addEventListener("cancel", event => event.preventDefault());
+  $("demoAuthCancelButton").addEventListener("click", () => {
+    state.parsePending = false;
+    $("demoAuthDialog").close();
+    if (state.file && !state.result) {
+      setStatus("Ready to parse. Automatic upload requires the private token.");
+    }
+  });
+  $("demoAuthDialog").addEventListener("cancel", () => {
+    state.parsePending = false;
+  });
   document.querySelectorAll("[data-demo-side]").forEach(button => {
     button.addEventListener("click", () => setSideFilter(button.dataset.demoSide));
   });
@@ -1396,5 +1415,4 @@
   }));
   drop.addEventListener("drop", event => chooseFile(event.dataTransfer.files[0]));
   updateUploadAuthenticationDisplay();
-  openUploadAuthentication();
 })();

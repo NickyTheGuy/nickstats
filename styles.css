@@ -775,6 +775,12 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   font-size: 13px;
 }
 
+.demo-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .demo-drop {
   display: flex;
   align-items: center;
