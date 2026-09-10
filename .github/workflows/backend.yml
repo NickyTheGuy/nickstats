@@ -1,0 +1,24 @@
+name: Backend
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container: swift:6.3-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve packages
+        working-directory: backend
+        run: swift package resolve
+      - name: Build and test
+        working-directory: backend
+        run: swift test

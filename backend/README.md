@@ -18,7 +18,7 @@ Match-list query parameters are `steam_id`, `map`, `from`, `to`, `limit`, and `o
 
 ## Local/container setup
 
-1. Apply `database/schema.sql` to MySQL 8.
+1. Apply `database/schema.sql` to MySQL 8 or 9.
 2. Copy `.env.example` to `.env` and replace every placeholder.
 3. Create `nickstats_app` restricted to the `172.20.%` MySQL network with `SELECT`, `INSERT`, and `UPDATE` on `nickstats.*`.
 4. Run `docker compose -f compose.example.yml up -d --build`.
@@ -48,5 +48,7 @@ The token protects writes, not reads. Do not embed it in the public frontend. In
 From `backend/`:
 
 ```bash
-PYTHONPATH=. python3 -m unittest discover -s tests
+swift test
 ```
+
+The service is written in Swift 6.3 with Vapor 4. The Docker build compiles it in a Swift build image and copies only the release executable and runtime libraries into the final container, so Swift does not need to be installed on the Ubuntu host.

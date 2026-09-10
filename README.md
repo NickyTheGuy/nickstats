@@ -102,7 +102,7 @@ If a demo contains no recognizable completed rounds, the app offers a small diag
 - `js/navigation.js` — Match, Compare, and Players navigation
 - `js/demo.js` — demo upload, worker control, and scoreboard rendering
 - `js/demo-worker.js` — local CS2 demo parsing and aggregation
-- `database/schema.sql` — normalized MySQL 8 schema
+- `database/schema.sql` — normalized MySQL schema
 - `database/README.md` — storage model and compact JSON import mapping
-- `backend/` — Flask/MySQL compact importer, public read API, container files, and deployment notes
+- `backend/` — Swift/Vapor compact importer, public MySQL read API, container files, and deployment notes
 - `THIRD_PARTY_NOTICES.md` — parser dependency attribution

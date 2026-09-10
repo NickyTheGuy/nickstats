@@ -1,0 +1,4 @@
+backend/.env
+backend/.build/
+backend/.swiftpm/
+.DS_Store
