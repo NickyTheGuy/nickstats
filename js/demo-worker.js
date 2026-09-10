@@ -116,8 +116,8 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    const result = await parseDemo(event.data.name, buffer);
-    self.postMessage({ type: "result", result });
+    const parsed = await parseDemo(event.data.name, buffer);
+    self.postMessage({ type: "result", result: parsed.result, diagnostics: parsed.diagnostics });
   } catch (error) {
     self.postMessage({
       type: "error",
@@ -163,6 +163,8 @@ async function parseDemo(fileName, buffer) {
   const ctPistolChoice = new Map();
   const latestInventory = new Map();
   const tradeAudit = [];
+  const roundSideAudit = [];
+  const ignoredRoundEndEvents = [];
   const packetCounts = {
     demo_packets: 0,
     server_info: 0,
@@ -353,6 +355,8 @@ async function parseDemo(fileName, buffer) {
     round = freshRound();
     teamScores.clear();
     tradeAudit.length = 0;
+    roundSideAudit.length = 0;
+    ignoredRoundEndEvents.length = 0;
     blindUntilTick.clear();
     blindSources.clear();
     positionSamples.clear();
@@ -562,9 +566,20 @@ async function parseDemo(fileName, buffer) {
     // Keep the assignment captured when the round went live. A delayed
     // official-end event can arrive after the next regulation/OT side swap.
     refreshRoundSideAssignments(false);
+    const allocations = [];
     for (const row of new Set(stats.values())) {
       const side = round.sideAssignments.get(row);
       const before = round.statBaselines.get(row);
+      const participated = participants.has(row);
+      allocations.push({
+        player: row.name,
+        steam_id: row.steamId || null,
+        original_team: originalTeam.get(row.userId) || null,
+        side: side || null,
+        participated,
+        baseline_captured: Boolean(before),
+        awarded_win: Boolean(before && participated && side === winningSide)
+      });
       if (!before || (side !== 2 && side !== 3)) continue;
       const target = ensureSideRow(row, side);
       const after = playerStatsSnapshot(row);
@@ -602,13 +617,27 @@ async function parseDemo(fileName, buffer) {
       }
       if (participants.has(row) && side === winningSide) target.roundWins += 1;
     }
+    return allocations;
   }
 
-  function finishRound(winningSide, requireActivity = false) {
+  function finishRound(winningSide, requireActivity = false, trigger = "unknown", tick = null, eventFields = {}) {
     // round_prestart for the next round can precede the delayed
     // round_officially_ended event for the previous one.
-    if (round.finished || (requireActivity && !round.hasActivity)) return false;
-    if (winningSide !== 2 && winningSide !== 3) winningSide = inferWinnerSide();
+    if (round.finished || (requireActivity && !round.hasActivity)) {
+      ignoredRoundEndEvents.push({
+        trigger,
+        tick,
+        event_fields: eventFields,
+        input_winner_side: winningSide ?? null,
+        reason: round.finished ? "round_already_finished" : "round_has_no_activity",
+        completed_rounds_at_event: completedRounds,
+        boundary_events: [...round.boundaryEvents]
+      });
+      return false;
+    }
+    const inputWinnerSide = winningSide;
+    const inference = inferWinnerSideDetails();
+    if (winningSide !== 2 && winningSide !== 3) winningSide = inference.winner_side;
     refreshControllerTeams();
     const participants = new Set(
       [...round.participants].map(userId => stats.get(userId)).filter(Boolean)
@@ -665,12 +694,32 @@ async function parseDemo(fileName, buffer) {
       }
     }
 
-    allocateRoundToSides(participants, winningSide);
+    const allocations = allocateRoundToSides(participants, winningSide);
 
     const stableWinner = dominantOriginalTeam(winningSide);
     if (stableWinner !== null) {
       teamScores.set(stableWinner, (teamScores.get(stableWinner) || 0) + 1);
     }
+    roundSideAudit.push({
+      round: completedRounds + 1,
+      trigger,
+      tick,
+      event_fields: eventFields,
+      input_winner_side: inputWinnerSide ?? null,
+      resolved_winner_side: winningSide ?? null,
+      winner_source: inputWinnerSide === 2 || inputWinnerSide === 3 ? "event" : inference.source,
+      inference,
+      freeze_seen: round.freezeSeen,
+      had_activity: round.hasActivity,
+      bomb_planted: round.bombPlanted,
+      boundary_events: [...round.boundaryEvents],
+      objective_events: [...round.objectiveEvents],
+      death_count: round.deaths.size,
+      participant_count: participants.size,
+      stable_winner_team: stableWinner,
+      stable_team_scores_after_round: Object.fromEntries([...teamScores].map(([team, score]) => [team, score])),
+      allocations
+    });
     completedRounds += 1;
     round.finished = true;
     round.live = false;
@@ -678,15 +727,27 @@ async function parseDemo(fileName, buffer) {
   }
 
   function inferWinnerSide() {
-    if (round.winnerSide === 2 || round.winnerSide === 3) return round.winnerSide;
+    return inferWinnerSideDetails().winner_side;
+  }
+
+  function inferWinnerSideDetails() {
     const alive = { 2: 0, 3: 0 };
     for (const [userId, team] of teamNow) {
       if ((team === 2 || team === 3) && !round.deaths.has(userId)) alive[team] += 1;
     }
-    if (alive[2] === 0 && alive[3] > 0) return 3;
-    if (alive[3] === 0 && alive[2] > 0) return 2;
-    if (!round.bombPlanted) return 3;
-    return null;
+    if (round.winnerSide === 2 || round.winnerSide === 3) {
+      return { winner_side: round.winnerSide, source: "objective_event", alive, stored_winner_side: round.winnerSide };
+    }
+    if (alive[2] === 0 && alive[3] > 0) {
+      return { winner_side: 3, source: "terrorists_eliminated", alive, stored_winner_side: null };
+    }
+    if (alive[3] === 0 && alive[2] > 0) {
+      return { winner_side: 2, source: "counter_terrorists_eliminated", alive, stored_winner_side: null };
+    }
+    if (!round.bombPlanted) {
+      return { winner_side: 3, source: "clock_without_bomb_plant", alive, stored_winner_side: null };
+    }
+    return { winner_side: null, source: "unresolved", alive, stored_winner_side: null };
   }
 
   function dominantOriginalTeam(side) {
@@ -1547,12 +1608,14 @@ async function parseDemo(fileName, buffer) {
         // Both events can occur for one round, and a delayed official-end event
         // can arrive between them. Do not throw away a round with real activity.
         if (round.finished) round = freshRound();
+        round.boundaryEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         beginRoundSideTracking();
         break;
       case "round_end":
-        finishRound(integer(gameEvent.winner));
+        finishRound(integer(gameEvent.winner), false, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
         break;
       case "round_freeze_end":
+        round.boundaryEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         round.freezeSeen = true;
         round.live = true;
         // Discard transient pre-freeze spawns (for example a bot created while
@@ -1566,19 +1629,22 @@ async function parseDemo(fileName, buffer) {
         refreshRoundSideAssignments();
         break;
       case "round_officially_ended":
-        finishRound(inferWinnerSide(), true);
+        finishRound(inferWinnerSide(), true, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
         break;
       case "cs_win_panel_match":
-        finishRound(inferWinnerSide(), true);
+        finishRound(inferWinnerSide(), true, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
         break;
       case "bomb_planted":
         round.bombPlanted = true;
+        round.objectiveEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         break;
       case "bomb_defused":
         round.winnerSide = 3;
+        round.objectiveEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         break;
       case "bomb_exploded":
         round.winnerSide = 2;
+        round.objectiveEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         break;
       case "player_team": {
         const userId = integer(gameEvent.userid);
@@ -1669,6 +1735,7 @@ async function parseDemo(fileName, buffer) {
   const finalTeams = applyMatchEndData(matchEnd, stats);
   applyControllerStats(endState, stats, finalTeams);
 
+  const parsedCompletedRounds = completedRounds;
   const officialRounds = endState?.teams.reduce((total, team) => total + (team.score || 0), 0) || 0;
   if (officialRounds > 0) completedRounds = officialRounds;
 
@@ -1724,7 +1791,7 @@ async function parseDemo(fileName, buffer) {
       };
     });
 
-  return {
+  const result = {
     format_version: 1,
     parser: "@deademx/cs2",
     parser_version: "4.0.0",
@@ -1795,6 +1862,43 @@ async function parseDemo(fileName, buffer) {
     player_count: activePlayers.length,
     teams
   };
+  const diagnostics = {
+    format_version: 1,
+    diagnostic: "round_side_allocation",
+    nickstats_build: "2026.09.10.3-diagnostic",
+    parser: result.parser,
+    parser_version: result.parser_version,
+    source_file: fileName,
+    demo_sha256: demoSha256,
+    map: mapName || null,
+    parsed_completed_rounds: parsedCompletedRounds,
+    official_rounds: officialRounds || null,
+    event_counts: Object.fromEntries([...eventCounts]
+      .filter(([name]) => [
+        "begin_new_match", "round_start", "round_prestart", "round_freeze_end", "round_end",
+        "round_officially_ended", "cs_win_panel_match", "bomb_planted", "bomb_defused", "bomb_exploded"
+      ].includes(name))
+      .sort(([a], [b]) => a.localeCompare(b))),
+    official_end_state: endState,
+    ignored_round_end_events: ignoredRoundEndEvents,
+    rounds: roundSideAudit,
+    output_teams: teams.map(team => ({
+      id: team.id,
+      name: team.name,
+      score: team.score,
+      side_scores: team.side_scores,
+      players: team.players.map(player => ({
+        name: player.name,
+        steam_id: player.steam_id,
+        rounds_played: player.rounds_played,
+        t_rounds_played: player.by_side.T.rounds_played,
+        ct_rounds_played: player.by_side.CT.rounds_played,
+        t_round_wins: player.by_side.T.round_wins,
+        ct_round_wins: player.by_side.CT.round_wins
+      }))
+    }))
+  };
+  return { result, diagnostics };
 }
 
 function faceitMatchId(fileName) {
@@ -1828,6 +1932,8 @@ function freshRound() {
     statBaselines: new Map(),
     sideAssignments: new Map(),
     sideTrackingStarted: false,
+    boundaryEvents: [],
+    objectiveEvents: [],
     openingRecorded: false,
     bombPlanted: false,
     winnerSide: null,
@@ -2224,6 +2330,12 @@ function pointToSegmentDistance(point, start, end) {
     y: start.y + t * dy,
     z: start.z + t * dz
   });
+}
+
+function scalarEventFields(event) {
+  return Object.fromEntries(Object.entries(event || {}).filter(([, value]) =>
+    value === null || ["string", "number", "boolean"].includes(typeof value)
+  ));
 }
 
 function readEndState(demo) {

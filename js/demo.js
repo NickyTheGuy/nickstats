@@ -235,7 +235,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260910-2");
+      const worker = new Worker("./js/demo-worker.js?v=20260910-3");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -250,6 +250,8 @@
           state.resolveReady = null;
           state.rejectReady = null;
         } else if (message.type === "result") {
+          state.diagnostics = message.diagnostics || null;
+          $("demoDiagnosticsButton").hidden = !state.diagnostics;
           state.resolveParse?.(message.result);
           state.resolveParse = null;
           state.rejectParse = null;
@@ -1301,7 +1303,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.10.2",
+      nickstats_build: "2026.09.10.3-diagnostic",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
