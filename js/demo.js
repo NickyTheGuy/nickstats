@@ -235,7 +235,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260910-4");
+      const worker = new Worker("./js/demo-worker.js?v=20260910-5");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -1303,7 +1303,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.10.4",
+      nickstats_build: "2026.09.10.5",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
