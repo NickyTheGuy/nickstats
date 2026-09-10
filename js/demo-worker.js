@@ -12,6 +12,12 @@ const RUNNING_ACCURACY_THRESHOLD_PERCENT = 34;
 const STILL_SPEED_TOLERANCE = 1;
 const EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS = 2;
 const TRADE_AUDIT_RADII = [150, 200, 250, 300, 400, 500];
+// CCSGameRules.m_eRoundWinReason values used by CS2. The game-rules entity is
+// authoritative when a demo omits the legacy round_end/bomb terminal events.
+const ROUND_WIN_REASON_TO_SIDE = new Map([
+  [1, 2], [4, 3], [5, 3], [6, 3], [7, 3], [8, 3], [9, 2], [11, 3],
+  [12, 3], [13, 2], [14, 3], [17, 3], [18, 2], [19, 3], [20, 3]
+]);
 const NON_WEAPON_SPEED_KILLS = new Set([
   "hegrenade", "inferno", "molotov", "incgrenade", "flashbang",
   "smokegrenade", "decoy", "tagrenade", "c4", "planted_c4", "world"
@@ -137,7 +143,7 @@ async function parseDemo(fileName, buffer) {
   } = self.deademCs2;
 
   const parser = new Parser(new ParserConfiguration({
-    entityClasses: ["CCSTeam", "CCSPlayerController", "CCSPlayerPawn", ...WEAPON_ENTITY_CLASSES],
+    entityClasses: ["CCSTeam", "CCSGameRulesProxy", "CCSPlayerController", "CCSPlayerPawn", ...WEAPON_ENTITY_CLASSES],
     messagePacketTypes: [
       MessagePacketType.SVC_SERVER_INFO,
       MessagePacketType.SVC_PACKET_ENTITIES,
@@ -155,6 +161,7 @@ async function parseDemo(fileName, buffer) {
   const teamNow = new Map();
   const originalTeam = new Map();
   const teamScores = new Map();
+  const observedTeamScores = new Map();
   const eventCounts = new Map();
   const blindUntilTick = new Map();
   const blindSources = new Map();
@@ -354,6 +361,7 @@ async function parseDemo(fileName, buffer) {
     completedRounds = 0;
     round = freshRound();
     teamScores.clear();
+    observedTeamScores.clear();
     tradeAudit.length = 0;
     roundSideAudit.length = 0;
     ignoredRoundEndEvents.length = 0;
@@ -700,6 +708,7 @@ async function parseDemo(fileName, buffer) {
     if (stableWinner !== null) {
       teamScores.set(stableWinner, (teamScores.get(stableWinner) || 0) + 1);
     }
+    rememberObservedTeamScores(inference.score_evidence?.current_scores);
     roundSideAudit.push({
       round: completedRounds + 1,
       trigger,
@@ -726,10 +735,6 @@ async function parseDemo(fileName, buffer) {
     return true;
   }
 
-  function inferWinnerSide() {
-    return inferWinnerSideDetails().winner_side;
-  }
-
   function inferWinnerSideDetails() {
     const alive = { 2: 0, 3: 0 };
     for (const [userId, team] of teamNow) {
@@ -738,16 +743,103 @@ async function parseDemo(fileName, buffer) {
     if (round.winnerSide === 2 || round.winnerSide === 3) {
       return { winner_side: round.winnerSide, source: "objective_event", alive, stored_winner_side: round.winnerSide };
     }
+    const gameRules = gameRulesWinner();
+    if (gameRules.winner_side === 2 || gameRules.winner_side === 3) {
+      return {
+        winner_side: gameRules.winner_side,
+        source: "game_rules_win_reason",
+        alive,
+        stored_winner_side: null,
+        game_rules: gameRules
+      };
+    }
+    const scoreEvidence = teamScoreWinner();
+    if (scoreEvidence.winner_side === 2 || scoreEvidence.winner_side === 3) {
+      return {
+        winner_side: scoreEvidence.winner_side,
+        source: "team_score_delta",
+        alive,
+        stored_winner_side: null,
+        game_rules: gameRules,
+        score_evidence: scoreEvidence
+      };
+    }
     if (alive[2] === 0 && alive[3] > 0) {
-      return { winner_side: 3, source: "terrorists_eliminated", alive, stored_winner_side: null };
+      return { winner_side: 3, source: "terrorists_eliminated", alive, stored_winner_side: null, game_rules: gameRules, score_evidence: scoreEvidence };
     }
     if (alive[3] === 0 && alive[2] > 0) {
-      return { winner_side: 2, source: "counter_terrorists_eliminated", alive, stored_winner_side: null };
+      return { winner_side: 2, source: "counter_terrorists_eliminated", alive, stored_winner_side: null, game_rules: gameRules, score_evidence: scoreEvidence };
     }
     if (!round.bombPlanted) {
-      return { winner_side: 3, source: "clock_without_bomb_plant", alive, stored_winner_side: null };
+      return { winner_side: 3, source: "clock_without_bomb_plant", alive, stored_winner_side: null, game_rules: gameRules, score_evidence: scoreEvidence };
     }
-    return { winner_side: null, source: "unresolved", alive, stored_winner_side: null };
+    return { winner_side: 2, source: "planted_bomb_without_defuse", alive, stored_winner_side: null, game_rules: gameRules, score_evidence: scoreEvidence };
+  }
+
+  function gameRulesWinner() {
+    let demo;
+    try {
+      demo = parser.getDemo();
+    } catch {
+      return { winner_side: null, reason: null, field: null };
+    }
+    const fields = [
+      "m_pGameRules.m_eRoundWinReason",
+      "m_eRoundWinReason",
+      "CCSGameRules.m_eRoundWinReason"
+    ];
+    for (const entity of demo.getEntitiesByClassNameIterator("CCSGameRulesProxy")) {
+      for (const field of fields) {
+        let reason = null;
+        try {
+          reason = integer(entity.getField(field));
+        } catch {
+          // Field paths vary across CS2 send-table revisions.
+        }
+        const winnerSide = ROUND_WIN_REASON_TO_SIDE.get(reason) || null;
+        if (winnerSide) return { winner_side: winnerSide, reason, field };
+      }
+    }
+    return { winner_side: null, reason: null, field: null };
+  }
+
+  function currentStableTeamScores() {
+    refreshControllerTeams();
+    let demo;
+    try {
+      demo = parser.getDemo();
+    } catch {
+      return [];
+    }
+    const scores = [];
+    for (const entity of demo.getEntitiesByClassNameIterator("CCSTeam")) {
+      const side = integer(entity.getField("m_iTeamNum"));
+      const score = numberOrNull(entity.getField("m_iScore"));
+      const stableTeam = dominantOriginalTeam(side);
+      if ((side === 2 || side === 3) && (stableTeam === 2 || stableTeam === 3) && score !== null) {
+        scores.push({ side, stable_team: stableTeam, score });
+      }
+    }
+    return scores;
+  }
+
+  function teamScoreWinner() {
+    const currentScores = currentStableTeamScores();
+    const increases = currentScores
+      .map(entry => ({ ...entry, previous_score: observedTeamScores.get(entry.stable_team) || 0 }))
+      .map(entry => ({ ...entry, increase: entry.score - entry.previous_score }))
+      .filter(entry => entry.increase > 0);
+    return {
+      winner_side: increases.length === 1 ? increases[0].side : null,
+      current_scores: currentScores,
+      increases
+    };
+  }
+
+  function rememberObservedTeamScores(scores) {
+    for (const entry of scores || currentStableTeamScores()) {
+      observedTeamScores.set(entry.stable_team, entry.score);
+    }
   }
 
   function dominantOriginalTeam(side) {
@@ -1629,10 +1721,10 @@ async function parseDemo(fileName, buffer) {
         refreshRoundSideAssignments();
         break;
       case "round_officially_ended":
-        finishRound(inferWinnerSide(), true, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
+        finishRound(null, true, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
         break;
       case "cs_win_panel_match":
-        finishRound(inferWinnerSide(), true, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
+        finishRound(null, true, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
         break;
       case "bomb_planted":
         round.bombPlanted = true;
@@ -1865,7 +1957,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.10.3-diagnostic",
+    nickstats_build: "2026.09.10.4",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
