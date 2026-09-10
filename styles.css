@@ -652,6 +652,21 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   align-items: flex-start;
 }
 
+.demo-panel {
+  padding: 24px;
+}
+
+.demo-panel > .section-head {
+  padding: 2px 2px 0;
+}
+
+.demo-panel > .actions {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(8, 13, 22, .46);
+}
+
 .demo-panel .section-head h2,
 .demo-panel .section-head p {
   margin: 0;
@@ -1123,6 +1138,18 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   border-radius: 0;
 }
 
+/* The lower team owns the one visible scrollbar; trackpad/keyboard scrolling
+   on either table remains synchronized in demo.js. */
+.demo-team:not(:last-child) .table-wrap {
+  scrollbar-width: none;
+}
+
+.demo-team:not(:last-child) .table-wrap::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 .demo-team table {
   width: 100%;
   min-width: 1020px;
@@ -1288,6 +1315,19 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   .demo-drop {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .demo-panel {
+    padding: 16px;
+  }
+
+  .demo-panel > .actions {
+    align-items: stretch;
+  }
+
+  .demo-panel > .actions .status {
+    width: 100%;
+    margin-left: 0;
   }
 
   .demo-session-controls {

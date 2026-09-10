@@ -235,7 +235,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260910-5");
+      const worker = new Worker("./js/demo-worker.js?v=20260910-6");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -746,11 +746,26 @@
   }
 
   function rerenderScoreboard() {
-    const scrollPositions = [...document.querySelectorAll(".demo-team .table-wrap")].map(wrap => wrap.scrollLeft);
+    const scrollLeft = document.querySelector(".demo-team .table-wrap")?.scrollLeft || 0;
     render(state.result);
-    document.querySelectorAll(".demo-team .table-wrap").forEach((wrap, index) => {
-      wrap.scrollLeft = scrollPositions[index] || 0;
+    document.querySelectorAll(".demo-team .table-wrap").forEach(wrap => {
+      wrap.scrollLeft = scrollLeft;
     });
+  }
+
+  function synchronizeScoreboardScrolling() {
+    const wraps = [...document.querySelectorAll(".demo-team .table-wrap")];
+    let synchronizing = false;
+    for (const source of wraps) {
+      source.addEventListener("scroll", () => {
+        if (synchronizing) return;
+        synchronizing = true;
+        for (const target of wraps) {
+          if (target !== source) target.scrollLeft = source.scrollLeft;
+        }
+        requestAnimationFrame(() => { synchronizing = false; });
+      }, { passive: true });
+    }
   }
 
   function toggleColumnGroup(group) {
@@ -1149,6 +1164,7 @@
         : team.score === highScore ? "winner" : "loser";
       return renderTeam(team, index, outcome);
     }));
+    synchronizeScoreboardScrolling();
     $("demoWeapons").replaceChildren(...teams.map(renderWeaponTeam));
     $("demoTrades").replaceChildren(renderTradeMatrix(teams));
     $("demoDuels").replaceChildren(renderDuelMatrix(teams));
@@ -1303,7 +1319,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.10.5",
+      nickstats_build: "2026.09.10.6",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
