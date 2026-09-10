@@ -12,7 +12,8 @@ let package = Package(
         .package(url: "https://github.com/vapor/fluent.git", from: "4.13.0"),
         .package(url: "https://github.com/vapor/fluent-mysql-driver.git", from: "4.8.0"),
         .package(url: "https://github.com/vapor/sql-kit.git", from: "3.36.0"),
-        .package(url: "https://github.com/apple/swift-crypto.git", from: "4.5.2")
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "4.5.2"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.30.0")
     ],
     targets: [
         .executableTarget(
@@ -22,7 +23,8 @@ let package = Package(
                 .product(name: "Fluent", package: "fluent"),
                 .product(name: "FluentMySQLDriver", package: "fluent-mysql-driver"),
                 .product(name: "SQLKit", package: "sql-kit"),
-                .product(name: "Crypto", package: "swift-crypto")
+                .product(name: "Crypto", package: "swift-crypto"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl")
             ]
         ),
         .testTarget(
@@ -34,4 +36,3 @@ let package = Package(
         )
     ]
 )
-
