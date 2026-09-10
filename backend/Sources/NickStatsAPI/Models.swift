@@ -1,12 +1,16 @@
 import Vapor
 
 let compactSchema = "nickstats.match/9"
-let sideNames = ["T", "CT"]
+
+enum PlayerSide: String, CaseIterable, Sendable {
+    case terrorist = "T"
+    case counterTerrorist = "CT"
+}
 
 struct MatchPayload: Content, Sendable {
     var schema: String
     var nickstatsBuild: String
-    var parser: [String]
+    var parser: ParserMetadata
     var id: MatchIdentity
     var map: String
     var playedAt: Int64?
@@ -24,14 +28,37 @@ struct MatchPayload: Content, Sendable {
     }
 }
 
+struct ParserMetadata: Codable, Sendable {
+    var name: String
+    var version: String
+
+    init(name: String, version: String) {
+        self.name = name
+        self.version = version
+    }
+
+    init(from decoder: any Decoder) throws {
+        var values = try decoder.unkeyedContainer()
+        name = try values.decode(String.self)
+        version = try values.decode(String.self)
+        try rejectExtraValues(in: values, description: "Parser metadata")
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.unkeyedContainer()
+        try values.encode(name)
+        try values.encode(version)
+    }
+}
+
 struct MatchIdentity: Content, Sendable {
     var faceit: String?
     var sha256: String
 }
 
 struct ParserRules: Content, Sendable {
-    var trade: [Double]
-    var movement: [Double]
+    var trade: TradeRules
+    var movement: MovementRules
     var equipmentDisadvantageSeconds: Double
 
     enum CodingKeys: String, CodingKey {
@@ -44,7 +71,7 @@ struct TeamPayload: Content, Sendable {
     var id: String
     var name: String
     var score: Int?
-    var sideScores: [Int]
+    var sideScores: SideScores
     var players: [Int]
 
     enum CodingKeys: String, CodingKey {
@@ -57,7 +84,7 @@ struct PlayerPayload: Content, Sendable {
     var name: String
     var steamID: String?
     var bot: Bool?
-    var sides: [SideStatsPayload]
+    var sides: PlayerSideStats
 
     enum CodingKeys: String, CodingKey {
         case name, bot, sides
@@ -66,28 +93,29 @@ struct PlayerPayload: Content, Sendable {
 }
 
 struct SideStatsPayload: Content, Sendable {
-    var rounds: [Int]
-    var kda: [Int]
+    var rounds: RoundRecord
+    var combat: CombatStats
     var kastRounds: Int
-    var opening: [Int]
+    var opening: OpeningStats
     var tradeKills: Int
-    var tradeD: [Int]
-    var utility: [Int]
-    var speed: [Double?]
-    var clutches: [Int]
-    var killRounds: [Int]
+    var tradeDeaths: TradeDeathStats
+    var utility: UtilityDamage
+    var speed: SpeedStats
+    var clutches: ClutchWins
+    var killRounds: KillRoundCounts
     var weapons: [WeaponPayload]
-    var duels: [[Int]]
-    var trades: [[Int]]
-    var contexts: [[Int]]
-    var assistedBy: [[Int]]
-    var flashes: [[Int]]
+    var duels: [DuelStats]
+    var trades: [TradeStats]
+    var contexts: [KillContextStats]
+    var assistedBy: [AssistedKillStats]
+    var flashes: [FlashStats]
 
     enum CodingKeys: String, CodingKey {
-        case rounds, kda, opening, utility, speed, clutches, weapons, duels, trades, contexts, flashes
+        case rounds, opening, utility, speed, clutches, weapons, duels, trades, contexts, flashes
+        case combat = "kda"
         case kastRounds = "kast_rounds"
         case tradeKills = "trade_kills"
-        case tradeD = "trade_d"
+        case tradeDeaths = "trade_d"
         case killRounds = "kill_rounds"
         case assistedBy = "assisted_by"
     }
@@ -191,4 +219,3 @@ struct PlayerListResponse: Content {
     var limit: Int
     var offset: Int
 }
-

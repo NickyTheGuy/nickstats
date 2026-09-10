@@ -32,33 +32,39 @@ private func validateText(_ value: String, path: String, maximum: Int) throws {
     guard value.count <= maximum else { try invalid(path, "Must be at most \(maximum) characters.") }
 }
 
-private func validateRelations(
-    _ rows: [[Int]], length: Int, actor: Int, playerCount: Int, path: String,
-    memberships: [Int: Int], kind: String
-) throws {
-    var targets = Set<Int>()
-    for (rowIndex, row) in rows.enumerated() {
-        let rowPath = "\(path)[\(rowIndex)]"
-        guard row.count == length else { try invalid(rowPath, "Expected exactly \(length) values.") }
-        let target = row[0]
-        guard target >= 0, target < playerCount else { try invalid("\(rowPath)[0]", "Invalid player index.") }
-        guard targets.insert(target).inserted else { try invalid(rowPath, "Duplicate target player index.") }
-        for index in 1..<row.count {
-            let maximum = kind == "flash" && index == 2 ? Int(UInt32.max) : Int(UInt16.max)
-            try validateCount(row[index], path: "\(rowPath)[\(index)]", maximum: maximum)
-        }
+private func validateNumber(_ value: Double, path: String) throws {
+    guard value.isFinite, value >= 0 else {
+        try invalid(path, "Expected a finite non-negative number.")
+    }
+}
 
-        if kind == "duel", row[1] == 0 { try invalid(rowPath, "A duel row must contain a kill.") }
-        if kind == "trade" {
-            guard target != actor else { try invalid(rowPath, "A player cannot trade for themselves.") }
-            guard memberships[target] == memberships[actor] else { try invalid(rowPath, "A trade target must be a teammate.") }
-            guard row[3] <= row[2], row[2] <= row[1] else {
-                try invalid(rowPath, "Expected successes <= attempts <= opportunities.")
-            }
-        }
-        if kind == "flash", row[1] == 0, row[2] == 0 {
-            try invalid(rowPath, "A flash row must contain an effect or duration.")
-        }
+private func validateRelationTarget(
+    _ target: Int,
+    rowIndex: Int,
+    playerCount: Int,
+    path: String,
+    seenTargets: inout Set<Int>
+) throws -> String {
+    let rowPath = "\(path)[\(rowIndex)]"
+    guard target >= 0, target < playerCount else {
+        try invalid("\(rowPath)[0]", "Invalid player index.")
+    }
+    guard seenTargets.insert(target).inserted else {
+        try invalid(rowPath, "Duplicate target player index.")
+    }
+    return rowPath
+}
+
+private func validateSpeedSummary(_ summary: SpeedSummary, startingAt index: Int, path: String) throws {
+    try validateNumber(summary.total, path: "\(path)[\(index)]")
+    try validateCount(summary.samples, path: "\(path)[\(index + 1)]")
+    if let maximum = summary.maximum {
+        try validateNumber(maximum, path: "\(path)[\(index + 2)]")
+    }
+    try validateNumber(summary.percentOfMaximumTotal, path: "\(path)[\(index + 3)]")
+    try validateCount(summary.percentOfMaximumSamples, path: "\(path)[\(index + 4)]")
+    if let maximum = summary.percentOfMaximumPeak {
+        try validateNumber(maximum, path: "\(path)[\(index + 5)]")
     }
 }
 
@@ -66,9 +72,8 @@ extension MatchPayload {
     func validate() throws {
         guard schema == compactSchema else { try invalid("$.schema", "Only \(compactSchema) is supported.") }
         try validateText(nickstatsBuild, path: "$.nickstats_build", maximum: 32)
-        guard parser.count == 2 else { try invalid("$.parser", "Expected exactly two values.") }
-        try validateText(parser[0], path: "$.parser[0]", maximum: 64)
-        try validateText(parser[1], path: "$.parser[1]", maximum: 32)
+        try validateText(parser.name, path: "$.parser[0]", maximum: 64)
+        try validateText(parser.version, path: "$.parser[1]", maximum: 32)
         if let faceit = id.faceit { try validateText(faceit, path: "$.id.faceit", maximum: 128) }
         guard id.sha256.count == 64, id.sha256.allSatisfy({ $0.isHexDigit }) else {
             try invalid("$.id.sha256", "Expected a 64-character hexadecimal SHA-256.")
@@ -80,17 +85,15 @@ extension MatchPayload {
         if let playedAtSource { try validateText(playedAtSource, path: "$.played_at_source", maximum: 32) }
         guard rounds > 0, rounds <= 255 else { try invalid("$.rounds", "Expected 1 through 255 rounds.") }
 
-        guard rules.trade.count == 6 else { try invalid("$.rules.trade", "Expected exactly six values.") }
-        guard rules.movement.count == 2 else { try invalid("$.rules.movement", "Expected exactly two values.") }
-        for (index, value) in rules.trade.enumerated() where !value.isFinite || value < 0 {
-            try invalid("$.rules.trade[\(index)]", "Expected a finite non-negative number.")
-        }
-        for (index, value) in rules.movement.enumerated() where !value.isFinite || value < 0 {
-            try invalid("$.rules.movement[\(index)]", "Expected a finite non-negative number.")
-        }
-        guard rules.equipmentDisadvantageSeconds.isFinite, rules.equipmentDisadvantageSeconds >= 0 else {
-            try invalid("$.rules.equipment_disadvantage_seconds", "Expected a finite non-negative number.")
-        }
+        try validateNumber(rules.trade.windowSeconds, path: "$.rules.trade[0]")
+        try validateNumber(rules.trade.proximityUnits, path: "$.rules.trade[1]")
+        try validateNumber(rules.trade.engagementLullSeconds, path: "$.rules.trade[2]")
+        try validateNumber(rules.trade.bulletPathToleranceUnits, path: "$.rules.trade[3]")
+        try validateNumber(rules.trade.unarmoredHEDamageCap, path: "$.rules.trade[4]")
+        try validateNumber(rules.trade.armoredHEDamageCap, path: "$.rules.trade[5]")
+        try validateNumber(rules.movement.stillSpeedToleranceUnitsPerSecond, path: "$.rules.movement[0]")
+        try validateNumber(rules.movement.runningThresholdPercentOfWeaponMax, path: "$.rules.movement[1]")
+        try validateNumber(rules.equipmentDisadvantageSeconds, path: "$.rules.equipment_disadvantage_seconds")
 
         guard players.count >= 2, players.count <= 32 else { try invalid("$.players", "Expected 2 through 32 players.") }
         guard teams.count == 2 else { try invalid("$.teams", "Expected exactly two teams.") }
@@ -102,8 +105,9 @@ extension MatchPayload {
             guard sourceTeamIDs.insert(team.id).inserted else { try invalid("\(path).id", "Team IDs must be unique.") }
             try validateText(team.name, path: "\(path).name", maximum: 128)
             if let score = team.score { try validateCount(score, path: "\(path).score", maximum: 255) }
-            try validateCounts(team.sideScores, count: 2, path: "\(path).side_scores", maximum: 255)
-            if let score = team.score, team.sideScores.reduce(0, +) != score {
+            try validateCount(team.sideScores.terrorist, path: "\(path).side_scores[0]", maximum: 255)
+            try validateCount(team.sideScores.counterTerrorist, path: "\(path).side_scores[1]", maximum: 255)
+            if let score = team.score, team.sideScores.total != score {
                 try invalid("\(path).side_scores", "T and CT wins must add up to the team score.")
             }
             guard !team.players.isEmpty else { try invalid("\(path).players", "A team must contain a player.") }
@@ -135,41 +139,42 @@ extension MatchPayload {
                 }
                 guard steamIDs.insert(steamID).inserted else { try invalid("\(path).steam_id", "Steam IDs must be unique within a match.") }
             }
-            guard player.sides.count == 2 else { try invalid("\(path).sides", "Expected T and CT side records.") }
-            guard player.sides.allSatisfy({ $0.rounds.count == 2 }) else {
-                try invalid("\(path).sides", "Every side record requires rounds played and rounds won.")
-            }
-            guard player.sides.reduce(0, { $0 + $1.rounds[0] }) <= rounds else {
+            guard player.sides.terrorist.rounds.played + player.sides.counterTerrorist.rounds.played <= rounds else {
                 try invalid("\(path).sides", "A player cannot play more rounds than the match contains.")
             }
-            for (sideIndex, stats) in player.sides.enumerated() {
+            let sideRecords = [player.sides.terrorist, player.sides.counterTerrorist]
+            for (sideIndex, stats) in sideRecords.enumerated() {
                 let sidePath = "\(path).sides[\(sideIndex)]"
-                try validateCounts(stats.rounds, count: 2, path: "\(sidePath).rounds")
-                guard stats.rounds[1] <= stats.rounds[0] else { try invalid("\(sidePath).rounds", "Round wins cannot exceed rounds played.") }
-                guard stats.kda.count == 5 else { try invalid("\(sidePath).kda", "Expected exactly five values.") }
-                try validateCounts(Array(stats.kda.prefix(4)), count: 4, path: "\(sidePath).kda", maximum: Int(UInt16.max))
-                try validateCount(stats.kda[4], path: "\(sidePath).kda[4]", maximum: Int(UInt32.max))
+                try validateCount(stats.rounds.played, path: "\(sidePath).rounds[0]")
+                try validateCount(stats.rounds.won, path: "\(sidePath).rounds[1]")
+                guard stats.rounds.won <= stats.rounds.played else {
+                    try invalid("\(sidePath).rounds", "Round wins cannot exceed rounds played.")
+                }
+                try validateCount(stats.combat.kills, path: "\(sidePath).kda[0]")
+                try validateCount(stats.combat.deaths, path: "\(sidePath).kda[1]")
+                try validateCount(stats.combat.assists, path: "\(sidePath).kda[2]")
+                try validateCount(stats.combat.headshots, path: "\(sidePath).kda[3]")
+                try validateCount(stats.combat.damage, path: "\(sidePath).kda[4]", maximum: Int(UInt32.max))
                 try validateCount(stats.kastRounds, path: "\(sidePath).kast_rounds")
-                guard stats.kastRounds <= stats.rounds[0] else { try invalid("\(sidePath).kast_rounds", "KAST rounds cannot exceed rounds played.") }
-                try validateCounts(stats.opening, count: 2, path: "\(sidePath).opening")
+                guard stats.kastRounds <= stats.rounds.played else {
+                    try invalid("\(sidePath).kast_rounds", "KAST rounds cannot exceed rounds played.")
+                }
+                try validateCount(stats.opening.kills, path: "\(sidePath).opening[0]")
+                try validateCount(stats.opening.deaths, path: "\(sidePath).opening[1]")
                 try validateCount(stats.tradeKills, path: "\(sidePath).trade_kills")
-                try validateCounts(stats.tradeD, count: 3, path: "\(sidePath).trade_d")
-                guard stats.tradeD[2] <= stats.tradeD[1], stats.tradeD[1] <= stats.tradeD[0] else {
+                try validateCount(stats.tradeDeaths.tradeable, path: "\(sidePath).trade_d[0]")
+                try validateCount(stats.tradeDeaths.attempted, path: "\(sidePath).trade_d[1]")
+                try validateCount(stats.tradeDeaths.traded, path: "\(sidePath).trade_d[2]")
+                guard stats.tradeDeaths.traded <= stats.tradeDeaths.attempted,
+                      stats.tradeDeaths.attempted <= stats.tradeDeaths.tradeable else {
                     try invalid("\(sidePath).trade_d", "Expected traded <= attempted <= tradeable deaths.")
                 }
-                try validateCounts(stats.utility, count: 2, path: "\(sidePath).utility", maximum: 4_294_967_295)
-                guard stats.speed.count == 12 else { try invalid("\(sidePath).speed", "Expected exactly twelve values.") }
-                for (index, value) in stats.speed.enumerated() {
-                    if let value, (!value.isFinite || value < 0) { try invalid("\(sidePath).speed[\(index)]", "Expected a finite non-negative number or null.") }
-                    if ![2, 5, 8, 11].contains(index), value == nil { try invalid("\(sidePath).speed[\(index)]", "Only maximum values may be null.") }
-                }
-                for index in [1, 4, 7, 10] {
-                    guard let value = stats.speed[index], value.rounded() == value, value <= Double(UInt16.max) else {
-                        try invalid("\(sidePath).speed[\(index)]", "Expected an integer sample count from 0 through \(UInt16.max).")
-                    }
-                }
-                try validateCounts(stats.clutches, count: 5, path: "\(sidePath).clutches")
-                try validateCounts(stats.killRounds, count: 5, path: "\(sidePath).kill_rounds")
+                try validateCount(stats.utility.highExplosive, path: "\(sidePath).utility[0]", maximum: Int(UInt32.max))
+                try validateCount(stats.utility.fire, path: "\(sidePath).utility[1]", maximum: Int(UInt32.max))
+                try validateSpeedSummary(stats.speed.kills, startingAt: 0, path: "\(sidePath).speed")
+                try validateSpeedSummary(stats.speed.deaths, startingAt: 6, path: "\(sidePath).speed")
+                try validateCounts(stats.clutches.values, count: 5, path: "\(sidePath).clutches")
+                try validateCounts(stats.killRounds.values, count: 5, path: "\(sidePath).kill_rounds")
                 var weaponNames = Set<String>()
                 for (weaponIndex, weapon) in stats.weapons.enumerated() {
                     let weaponPath = "\(sidePath).weapons[\(weaponIndex)]"
@@ -180,11 +185,77 @@ extension MatchPayload {
                     try validateCount(weapon.damage, path: "\(weaponPath)[3]", maximum: 4_294_967_295)
                     try validateCount(weapon.roundsUsed, path: "\(weaponPath)[4]")
                 }
-                try validateRelations(stats.duels, length: 2, actor: playerIndex, playerCount: players.count, path: "\(sidePath).duels", memberships: memberships, kind: "duel")
-                try validateRelations(stats.trades, length: 4, actor: playerIndex, playerCount: players.count, path: "\(sidePath).trades", memberships: memberships, kind: "trade")
-                try validateRelations(stats.contexts, length: 14, actor: playerIndex, playerCount: players.count, path: "\(sidePath).contexts", memberships: memberships, kind: "context")
-                try validateRelations(stats.assistedBy, length: 4, actor: playerIndex, playerCount: players.count, path: "\(sidePath).assisted_by", memberships: memberships, kind: "assist")
-                try validateRelations(stats.flashes, length: 3, actor: playerIndex, playerCount: players.count, path: "\(sidePath).flashes", memberships: memberships, kind: "flash")
+                var duelTargets = Set<Int>()
+                for (rowIndex, duel) in stats.duels.enumerated() {
+                    let rowPath = try validateRelationTarget(
+                        duel.opponentPlayerIndex, rowIndex: rowIndex, playerCount: players.count,
+                        path: "\(sidePath).duels", seenTargets: &duelTargets
+                    )
+                    try validateCount(duel.kills, path: "\(rowPath)[1]")
+                    guard duel.kills > 0 else { try invalid(rowPath, "A duel row must contain a kill.") }
+                }
+
+                var tradeTargets = Set<Int>()
+                for (rowIndex, trade) in stats.trades.enumerated() {
+                    let rowPath = try validateRelationTarget(
+                        trade.teammatePlayerIndex, rowIndex: rowIndex, playerCount: players.count,
+                        path: "\(sidePath).trades", seenTargets: &tradeTargets
+                    )
+                    guard trade.teammatePlayerIndex != playerIndex else {
+                        try invalid(rowPath, "A player cannot trade for themselves.")
+                    }
+                    guard memberships[trade.teammatePlayerIndex] == memberships[playerIndex] else {
+                        try invalid(rowPath, "A trade target must be a teammate.")
+                    }
+                    try validateCount(trade.opportunities, path: "\(rowPath)[1]")
+                    try validateCount(trade.attempts, path: "\(rowPath)[2]")
+                    try validateCount(trade.successes, path: "\(rowPath)[3]")
+                    guard trade.successes <= trade.attempts, trade.attempts <= trade.opportunities else {
+                        try invalid(rowPath, "Expected successes <= attempts <= opportunities.")
+                    }
+                }
+
+                var contextTargets = Set<Int>()
+                for (rowIndex, context) in stats.contexts.enumerated() {
+                    let rowPath = try validateRelationTarget(
+                        context.victimPlayerIndex, rowIndex: rowIndex, playerCount: players.count,
+                        path: "\(sidePath).contexts", seenTargets: &contextTargets
+                    )
+                    let counts = [
+                        context.victimBlindedKills, context.attackerBlindKills, context.wallbangKills,
+                        context.penetrationTotal, context.smokeKills, context.airborneKills,
+                        context.movingKills, context.stillKills, context.runningKills,
+                        context.victimGrenadeOutKills, context.victimKnifeOutKills,
+                        context.equipmentDisadvantageKills, context.unfairKills
+                    ]
+                    for (valueIndex, count) in counts.enumerated() {
+                        try validateCount(count, path: "\(rowPath)[\(valueIndex + 1)]")
+                    }
+                }
+
+                var assistTargets = Set<Int>()
+                for (rowIndex, assist) in stats.assistedBy.enumerated() {
+                    let rowPath = try validateRelationTarget(
+                        assist.assisterPlayerIndex, rowIndex: rowIndex, playerCount: players.count,
+                        path: "\(sidePath).assisted_by", seenTargets: &assistTargets
+                    )
+                    try validateCount(assist.damageAssistedKills, path: "\(rowPath)[1]")
+                    try validateCount(assist.teammateFlashAssistedKills, path: "\(rowPath)[2]")
+                    try validateCount(assist.ownFlashKills, path: "\(rowPath)[3]")
+                }
+
+                var flashTargets = Set<Int>()
+                for (rowIndex, flash) in stats.flashes.enumerated() {
+                    let rowPath = try validateRelationTarget(
+                        flash.victimPlayerIndex, rowIndex: rowIndex, playerCount: players.count,
+                        path: "\(sidePath).flashes", seenTargets: &flashTargets
+                    )
+                    try validateCount(flash.effects, path: "\(rowPath)[1]")
+                    try validateCount(flash.blindDurationMilliseconds, path: "\(rowPath)[2]", maximum: Int(UInt32.max))
+                    guard flash.effects > 0 || flash.blindDurationMilliseconds > 0 else {
+                        try invalid(rowPath, "A flash row must contain an effect or duration.")
+                    }
+                }
             }
         }
     }
