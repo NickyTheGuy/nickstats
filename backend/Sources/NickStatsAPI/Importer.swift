@@ -64,23 +64,24 @@ private func globalPlayerID(
 ) async throws -> Int64 {
     try await sql.raw("""
         INSERT INTO players (steam_id, current_name, first_seen_at, last_seen_at)
-        VALUES (\(bind: steamID), \(bind: name), \(bind: playedAt), \(bind: playedAt)) AS new
+        VALUES (\(bind: steamID), \(bind: name), \(bind: playedAt), \(bind: playedAt))
+          AS new(new_steam_id, new_current_name, new_first_seen_at, new_last_seen_at)
         ON DUPLICATE KEY UPDATE
           id = LAST_INSERT_ID(id),
           current_name = CASE
-            WHEN new.last_seen_at IS NULL OR last_seen_at IS NULL OR new.last_seen_at >= last_seen_at
-              THEN new.current_name
+            WHEN new.new_last_seen_at IS NULL OR last_seen_at IS NULL OR new.new_last_seen_at >= last_seen_at
+              THEN new.new_current_name
             ELSE current_name
           END,
           first_seen_at = CASE
-            WHEN new.first_seen_at IS NULL THEN first_seen_at
-            WHEN first_seen_at IS NULL THEN new.first_seen_at
-            ELSE LEAST(first_seen_at, new.first_seen_at)
+            WHEN new.new_first_seen_at IS NULL THEN first_seen_at
+            WHEN first_seen_at IS NULL THEN new.new_first_seen_at
+            ELSE LEAST(first_seen_at, new.new_first_seen_at)
           END,
           last_seen_at = CASE
-            WHEN new.last_seen_at IS NULL THEN last_seen_at
-            WHEN last_seen_at IS NULL THEN new.last_seen_at
-            ELSE GREATEST(last_seen_at, new.last_seen_at)
+            WHEN new.new_last_seen_at IS NULL THEN last_seen_at
+            WHEN last_seen_at IS NULL THEN new.new_last_seen_at
+            ELSE GREATEST(last_seen_at, new.new_last_seen_at)
           END
         """).run()
     return try await lastInsertID(sql)
