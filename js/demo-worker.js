@@ -608,6 +608,7 @@ async function parseDemo(fileName, buffer) {
     // round_prestart for the next round can precede the delayed
     // round_officially_ended event for the previous one.
     if (round.finished || (requireActivity && !round.hasActivity)) return false;
+    if (winningSide !== 2 && winningSide !== 3) winningSide = inferWinnerSide();
     refreshControllerTeams();
     const participants = new Set(
       [...round.participants].map(userId => stats.get(userId)).filter(Boolean)
