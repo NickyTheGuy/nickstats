@@ -344,6 +344,10 @@ struct ClutchWins: Codable, Sendable {
 
     var values: [Int] { [oneVersusOne, oneVersusTwo, oneVersusThree, oneVersusFour, oneVersusFive] }
 
+    static var zero: ClutchWins {
+        ClutchWins(oneVersusOne: 0, oneVersusTwo: 0, oneVersusThree: 0, oneVersusFour: 0, oneVersusFive: 0)
+    }
+
     init(from decoder: any Decoder) throws {
         var values = try decoder.unkeyedContainer()
         oneVersusOne = try values.decode(Int.self)

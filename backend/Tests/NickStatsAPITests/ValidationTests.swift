@@ -83,6 +83,13 @@ private func validPayload() -> MatchPayload {
     try validPayload().validate()
 }
 
+@Test func acceptsLegacyPayloadWithoutClutchAttempts() throws {
+    let data = try JSONEncoder().encode(validPayload())
+    let decoded = try JSONDecoder().decode(MatchPayload.self, from: data)
+    #expect(decoded.players[0].sides.terrorist.clutchAttempts == nil)
+    try decoded.validate()
+}
+
 @Test func rejectsDuplicateTeamMembership() {
     var payload = validPayload()
     payload.teams[1].players = [1, 2, 3]
@@ -103,6 +110,16 @@ private func validPayload() -> MatchPayload {
     #expect(throws: MatchValidationError.self) { try payload.validate() }
 }
 
+@Test func rejectsClutchWinsWithoutEnoughAttempts() {
+    var payload = validPayload()
+    payload.players[0].sides.terrorist.clutches = ClutchWins(
+        oneVersusOne: 1, oneVersusTwo: 0, oneVersusThree: 0,
+        oneVersusFour: 0, oneVersusFive: 0
+    )
+    payload.players[0].sides.terrorist.clutchAttempts = ClutchWins.zero
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+}
+
 @Test func allowsBotAndSelfDuel() throws {
     var payload = validPayload()
     payload.players[3].sides.terrorist.duels = [DuelStats(opponentPlayerIndex: 3, kills: 1)]
@@ -115,6 +132,14 @@ private func validPayload() -> MatchPayload {
     payload.players[0].sides.terrorist.trades = [
         TradeStats(teammatePlayerIndex: 1, opportunities: 4, attempts: 3, successes: 2)
     ]
+    payload.players[0].sides.terrorist.clutches = ClutchWins(
+        oneVersusOne: 1, oneVersusTwo: 0, oneVersusThree: 0,
+        oneVersusFour: 0, oneVersusFive: 0
+    )
+    payload.players[0].sides.terrorist.clutchAttempts = ClutchWins(
+        oneVersusOne: 2, oneVersusTwo: 1, oneVersusThree: 0,
+        oneVersusFour: 0, oneVersusFive: 0
+    )
 
     let data = try JSONEncoder().encode(payload)
     let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
@@ -124,8 +149,10 @@ private func validPayload() -> MatchPayload {
     let sides = try #require(players[0]["sides"] as? [[String: Any]])
     #expect(sides[0]["duels"] as? [[Int]] == [[2, 3]])
     #expect(sides[0]["trades"] as? [[Int]] == [[1, 4, 3, 2]])
+    #expect(sides[0]["clutch_attempts"] as? [Int] == [2, 1, 0, 0, 0])
 
     let decoded = try JSONDecoder().decode(MatchPayload.self, from: data)
     #expect(decoded.players[0].sides.terrorist.duels[0].opponentPlayerIndex == 2)
     #expect(decoded.players[0].sides.terrorist.trades[0].successes == 2)
+    #expect(decoded.players[0].sides.terrorist.clutchAttempts?.oneVersusTwo == 1)
 }

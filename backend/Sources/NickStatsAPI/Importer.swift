@@ -194,6 +194,9 @@ private func insertSideStats(
     _ stats: SideStatsPayload, side: PlayerSide, actorID: Int64, matchID: Int64,
     playerIDs: [Int64], sql: any SQLDatabase
 ) async throws {
+    // Older compact clients only send wins. Every win necessarily represents
+    // at least one attempt, so preserve that minimum instead of writing 0/W.
+    let clutchAttempts = stats.clutchAttempts ?? stats.clutches
     try await sql.raw("""
         INSERT INTO player_side_stats (
           match_player_id, side, rounds_played, rounds_won,
@@ -206,6 +209,7 @@ private func insertSideStats(
           death_speed_total, death_speed_samples, death_speed_max,
           death_speed_percent_total, death_speed_percent_samples, death_speed_percent_max,
           clutch_1v1, clutch_1v2, clutch_1v3, clutch_1v4, clutch_1v5,
+          clutch_attempt_1v1, clutch_attempt_1v2, clutch_attempt_1v3, clutch_attempt_1v4, clutch_attempt_1v5,
           kill_rounds_1k, kill_rounds_2k, kill_rounds_3k, kill_rounds_4k, kill_rounds_5k
         ) VALUES (
           \(bind: actorID), \(bind: side.rawValue), \(bind: stats.rounds.played), \(bind: stats.rounds.won),
@@ -220,6 +224,8 @@ private func insertSideStats(
           \(bind: stats.speed.deaths.percentOfMaximumTotal), \(bind: stats.speed.deaths.percentOfMaximumSamples), \(bind: stats.speed.deaths.percentOfMaximumPeak),
           \(bind: stats.clutches.oneVersusOne), \(bind: stats.clutches.oneVersusTwo), \(bind: stats.clutches.oneVersusThree),
           \(bind: stats.clutches.oneVersusFour), \(bind: stats.clutches.oneVersusFive),
+          \(bind: clutchAttempts.oneVersusOne), \(bind: clutchAttempts.oneVersusTwo), \(bind: clutchAttempts.oneVersusThree),
+          \(bind: clutchAttempts.oneVersusFour), \(bind: clutchAttempts.oneVersusFive),
           \(bind: stats.killRounds.oneKill), \(bind: stats.killRounds.twoKills), \(bind: stats.killRounds.threeKills),
           \(bind: stats.killRounds.fourKills), \(bind: stats.killRounds.fiveKills)
         )

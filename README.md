@@ -28,6 +28,8 @@ The Demo Parser tab uses [`@deademx/cs2` 4.0.0](https://github.com/Igor-Losev/de
 
 A running kill means the killer's horizontal speed exceeded **34% of the held weapon's maximum movement speed**, the point at which movement inaccuracy begins in the convention documented by [Leetify](https://leetify.com/blog/leetify-stats-glossary/). Separately, every speed-measured firearm kill is classified as **Moving** (above 1 Source 2 unit per second) or **Still** (at most 1 unit per second); the tolerance prevents tiny coordinate noise from labeling a stationary player as moving. The collapsed Kill Context column shows **Bullshit K-D**: unique kills/deaths where the killer was blind, airborne, or running, the kill was a wallbang or smoke kill, or the victim was caught for a Paul. A Paul is a kill/death where the victim had a grenade or knife out at death or within the preceding two seconds. A single event matching several conditions counts only once. Airborne and running appear in both Context, where they explain the composite, and Movement, where they sit alongside the detailed speed and movement-state statistics.
 
+A clutch attempt is recorded once when a player first becomes their team's last survivor against one to five living opponents. Its size is fixed at that moment: a failed 1v5 that reaches a 1v1 remains one 1v5 attempt and does not also become a 1v4, 1v3, 1v2, or 1v1 attempt. The opposing last survivor may independently enter their own clutch situation later in the same round.
+
 Side-specific ADR records each enemy-damage event directly into the attacker's live CT or T bucket. Its numerator and rounds-played denominator therefore cover the same side rather than reconstructing side damage from a later full-match total. Damage is reconstructed from the victim's tracked health before and after each `player_hurt` event, capping lethal overkill at the health actually removed. The corrected amount is also used for weapon and grenade damage. A round stops accepting live combat events immediately at `round_end`, preventing post-round damage from entering CT/T totals after that round's denominator has already been finalized. Raw corrected damage is included in each JSON player aggregate for validation.
 
 Each player also receives a per-weapon ledger containing enemy kills, enemy health damage, `weapon_fire` events, and **Rounds Used**. Active attacks count immediately. An unused gun counts for the player holding its physical weapon entity immediately before death or at round end. Tracking the weapon handle rather than pickup events means a transfer gives passive credit to the recipient, regardless of when it was dropped, while refunded and abandoned items receive none. Each player/weapon combination counts at most once per completed round. A shotgun firing event counts as one shot rather than one per pellet.
@@ -71,6 +73,7 @@ Each player has a `sides` array in T, CT order. The full-match view is deliberat
 - `trade_d`: tradeable deaths, attempted tradeable deaths, traded deaths
 - `utility`: HE damage, fire damage
 - `clutches`: 1v1 through 1v5 wins
+- `clutch_attempts`: 1v1 through 1v5 attempts, classified once at the initial disadvantage
 - `kill_rounds`: 1K through 5K rounds
 - `weapons`: weapon, kills, shots, damage, rounds used
 - `duels`: opponent player index, kills

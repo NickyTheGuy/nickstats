@@ -174,6 +174,17 @@ extension MatchPayload {
                 try validateSpeedSummary(stats.speed.kills, startingAt: 0, path: "\(sidePath).speed")
                 try validateSpeedSummary(stats.speed.deaths, startingAt: 6, path: "\(sidePath).speed")
                 try validateCounts(stats.clutches.values, count: 5, path: "\(sidePath).clutches")
+                if let attempts = stats.clutchAttempts {
+                    try validateCounts(attempts.values, count: 5, path: "\(sidePath).clutch_attempts")
+                    guard attempts.values.reduce(0, +) <= stats.rounds.played else {
+                        try invalid("\(sidePath).clutch_attempts", "A player can begin at most one clutch attempt per round.")
+                    }
+                    for (index, pair) in zip(stats.clutches.values, attempts.values).enumerated() {
+                        guard pair.0 <= pair.1 else {
+                            try invalid("\(sidePath).clutches[\(index)]", "Clutch wins cannot exceed attempts.")
+                        }
+                    }
+                }
                 try validateCounts(stats.killRounds.values, count: 5, path: "\(sidePath).kill_rounds")
                 var weaponNames = Set<String>()
                 for (weaponIndex, weapon) in stats.weapons.enumerated() {

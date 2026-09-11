@@ -102,6 +102,7 @@ struct SideStatsPayload: Content, Sendable {
     var utility: UtilityDamage
     var speed: SpeedStats
     var clutches: ClutchWins
+    var clutchAttempts: ClutchWins? = nil
     var killRounds: KillRoundCounts
     var weapons: [WeaponPayload]
     var duels: [DuelStats]
@@ -116,6 +117,7 @@ struct SideStatsPayload: Content, Sendable {
         case kastRounds = "kast_rounds"
         case tradeKills = "trade_kills"
         case tradeDeaths = "trade_d"
+        case clutchAttempts = "clutch_attempts"
         case killRounds = "kill_rounds"
         case assistedBy = "assisted_by"
     }

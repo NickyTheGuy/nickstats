@@ -42,7 +42,7 @@ Each compact player has a match-level array index. Importers first create all `m
 | `teams[]` | `match_teams` and its player-index membership |
 | `players[]` | `players` plus `match_players` |
 | `sides[0]`, `sides[1]` | T and CT rows respectively |
-| `rounds`, `kda`, `kast_rounds`, `opening`, `trade_kills`, `trade_d`, `utility`, `speed`, `clutches`, `kill_rounds` | Columns in `player_side_stats` |
+| `rounds`, `kda`, `kast_rounds`, `opening`, `trade_kills`, `trade_d`, `utility`, `speed`, `clutches`, `clutch_attempts`, `kill_rounds` | Columns in `player_side_stats` |
 | `weapons` | `weapon_side_stats` |
 | `duels` | `duel_side_stats` |
 | `trades` | `trade_side_stats` |
@@ -73,3 +73,11 @@ sudo mysql < database/schema.sql
 The file creates only the `nickstats` database and its tables. It does not create a MySQL user, change global server settings, or touch any other database. The Docker network must be inspected before creating the application user so its allowed MySQL host can be restricted correctly instead of using `%`.
 
 Before any later migration, back up the database. New changes will be added as numbered migration files rather than editing an already-applied production migration in place.
+
+Apply numbered migrations once, in order. For example:
+
+```bash
+sudo mysql < database/migrations/002_clutch_attempts.sql
+```
+
+Migration 002 initializes attempt counts to the existing win counts because a win proves an attempt, but historical failed attempts cannot be reconstructed from the database. Reparse those matches to populate their real attempt totals.

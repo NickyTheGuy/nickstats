@@ -229,6 +229,9 @@ private func comparisonSideData(
             ("death_speed_samples", "death_speed_samples"), ("death_speed_percent_samples", "death_speed_percent_samples"),
             ("clutch_1v1", "clutch_1v1"), ("clutch_1v2", "clutch_1v2"),
             ("clutch_1v3", "clutch_1v3"), ("clutch_1v4", "clutch_1v4"), ("clutch_1v5", "clutch_1v5"),
+            ("clutch_attempt_1v1", "clutch_attempt_1v1"), ("clutch_attempt_1v2", "clutch_attempt_1v2"),
+            ("clutch_attempt_1v3", "clutch_attempt_1v3"), ("clutch_attempt_1v4", "clutch_attempt_1v4"),
+            ("clutch_attempt_1v5", "clutch_attempt_1v5"),
             ("kill_rounds_1k", "kill_rounds_1k"), ("kill_rounds_2k", "kill_rounds_2k"),
             ("kill_rounds_3k", "kill_rounds_3k"), ("kill_rounds_4k", "kill_rounds_4k"),
             ("kill_rounds_5k", "kill_rounds_5k")
@@ -775,7 +778,8 @@ private func emptySide() -> SideStatsPayload {
         tradeDeaths: TradeDeathStats(tradeable: 0, attempted: 0, traded: 0),
         utility: UtilityDamage(highExplosive: 0, fire: 0),
         speed: SpeedStats(kills: emptySpeedSummary(), deaths: emptySpeedSummary()),
-        clutches: ClutchWins(oneVersusOne: 0, oneVersusTwo: 0, oneVersusThree: 0, oneVersusFour: 0, oneVersusFive: 0),
+        clutches: ClutchWins.zero,
+        clutchAttempts: ClutchWins.zero,
         killRounds: KillRoundCounts(oneKill: 0, twoKills: 0, threeKills: 0, fourKills: 0, fiveKills: 0),
         weapons: [],
         duels: [], trades: [], contexts: [], assistedBy: [], flashes: []
@@ -836,6 +840,13 @@ private func decodeSide(_ row: any SQLRow) throws -> SideStatsPayload {
             oneVersusThree: try integer(row, "clutch_1v3"),
             oneVersusFour: try integer(row, "clutch_1v4"),
             oneVersusFive: try integer(row, "clutch_1v5")
+        ),
+        clutchAttempts: ClutchWins(
+            oneVersusOne: try integer(row, "clutch_attempt_1v1"),
+            oneVersusTwo: try integer(row, "clutch_attempt_1v2"),
+            oneVersusThree: try integer(row, "clutch_attempt_1v3"),
+            oneVersusFour: try integer(row, "clutch_attempt_1v4"),
+            oneVersusFive: try integer(row, "clutch_attempt_1v5")
         ),
         killRounds: KillRoundCounts(
             oneKill: try integer(row, "kill_rounds_1k"),

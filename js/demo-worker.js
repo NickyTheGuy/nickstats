@@ -286,7 +286,8 @@ async function parseDemo(fileName, buffer) {
           openingDeaths: 0,
           multikillRounds: 0,
           killRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-          clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+          clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+          clutchAttempts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
         };
       }
       row.userIds.add(userId);
@@ -456,6 +457,7 @@ async function parseDemo(fileName, buffer) {
       row.multikillRounds = 0;
       row.killRoundsByCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       row.clutchWins = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      row.clutchAttempts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     }
   }
 
@@ -478,6 +480,7 @@ async function parseDemo(fileName, buffer) {
       provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0 },
       killRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      clutchAttempts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       maxSpeedOnKill: 0,
       maxSpeedOnKillPercent: 0,
       maxKillerSpeed: 0,
@@ -510,6 +513,7 @@ async function parseDemo(fileName, buffer) {
       proven: { ...row.provenTradeOpportunities },
       killRounds: { ...row.killRoundsByCount },
       clutches: { ...row.clutchWins },
+      clutchAttempts: { ...row.clutchAttempts },
       weapons: new Map([...row.weaponStats].map(([key, value]) => [key, { ...value }])),
       duels: new Map([...row.duelStats].map(([key, value]) => [key, { ...value }])),
       tradeMatchups: new Map([...row.tradeMatchups].map(([key, value]) => [key, { ...value }])),
@@ -605,6 +609,7 @@ async function parseDemo(fileName, buffer) {
       for (const key of [1, 2, 3, 4, 5]) {
         target.killRoundsByCount[key] += (after.killRounds[key] || 0) - (before.killRounds[key] || 0);
         target.clutchWins[key] += (after.clutches[key] || 0) - (before.clutches[key] || 0);
+        target.clutchAttempts[key] += (after.clutchAttempts[key] || 0) - (before.clutchAttempts[key] || 0);
       }
       addMapDeltas(target.weaponStats, after.weapons, before.weapons, ["weapon", "kills", "shots", "damage", "roundsUsed"]);
       addMapDeltas(target.duelStats, after.duels, before.duels, ["kills", "deaths"]);
@@ -1532,8 +1537,9 @@ async function parseDemo(fileName, buffer) {
     for (const side of [2, 3]) {
       const alive = aliveBySide.get(side);
       const opponents = aliveBySide.get(side === 2 ? 3 : 2).length;
-      if (alive.length !== 1 || opponents < 1 || round.clutchSides.has(side)) continue;
+      if (alive.length !== 1 || opponents < 1 || opponents > 5 || round.clutchSides.has(side)) continue;
       round.clutchSides.add(side);
+      alive[0].clutchAttempts[opponents] += 1;
       round.clutchCandidates.push({ row: alive[0], side, opponents });
     }
   }
@@ -1776,6 +1782,7 @@ async function parseDemo(fileName, buffer) {
           for (const userId of row.userIds) round.healthByUser.set(userId, 100);
         }
         refreshRoundSideAssignments();
+        detectClutchCandidates();
         break;
       case "round_officially_ended":
         finishRound(null, true, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
@@ -2014,7 +2021,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.11.4",
+    nickstats_build: "2026.09.11.5",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2261,6 +2268,7 @@ function finishPlayer(row) {
     multikill_rounds: row.multikillRounds,
     kill_rounds: row.killRoundsByCount,
     clutch_wins: row.clutchWins,
+    clutch_attempts: row.clutchAttempts,
     rating: Math.max(0, rating)
   };
 }

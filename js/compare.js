@@ -26,7 +26,7 @@
     utility: [["Utility dmg", "utilityDamage", "damageRate"], ["UD/R", "udr", "decimal"], ["HE dmg", "he_damage", "damageRate"], ["Fire dmg", "fire_damage", "damageRate"], ["Flashed", "enemies_flashed", "countRate"], ["Blind sec", "blindSeconds", "secondsRate"], ["Flash assists", "flash_assists", "countRate"], ["Damage assists", "damage_assisted_kills", "countRate"], ["Teammate-flash K", "teammate_flash_assisted_kills", "countRate"], ["Own-flash K", "own_flash_kills", "countRate"]],
     context: [["Enemy blind", "blinded_kills", "countRate"], ["Player blind", "blind_kills", "countRate"], ["Wallbang kills", "wallbang_kills", "countRate"], ["Smoke kills", "smoke_kills", "countRate"], ["Airborne kills", "airborne_kills", "countRate"], ["Running kills", "running_kills", "countRate"], ["Enemy grenade out", "grenade_out_kills", "countRate"], ["Enemy knife out", "knife_out_kills", "countRate"], ["Paul kills", "equipment_disadvantage_kills", "countRate"], ["Bullshit kills", "unfair_kills", "countRate"]],
     contextDeaths: [["Player blind", "deaths_while_blind", "countRate", false], ["Enemy blind", "deaths_to_blind_killer", "countRate", false], ["Wallbang deaths", "wallbang_deaths", "countRate", false], ["Smoke deaths", "smoke_deaths", "countRate", false], ["Airborne enemy", "airborne_deaths", "countRate", false], ["Running enemy", "running_killer_deaths", "countRate", false], ["Player grenade out", "grenade_out_deaths", "countRate", false], ["Player knife out", "knife_out_deaths", "countRate", false], ["Paul deaths", "equipment_disadvantage_deaths", "countRate", false], ["Bullshit deaths", "unfair_deaths", "countRate", false]],
-    rounds: [["Round wins", "round_wins", "countRate"], ["1v1", "clutch_1v1", "countRate"], ["1v2", "clutch_1v2", "countRate"], ["1v3", "clutch_1v3", "countRate"], ["1v4", "clutch_1v4", "countRate"], ["1v5", "clutch_1v5", "countRate"], ["1K rounds", "kill_rounds_1k", "countRate"], ["2K rounds", "kill_rounds_2k", "countRate"], ["3K rounds", "kill_rounds_3k", "countRate"], ["4K rounds", "kill_rounds_4k", "countRate"], ["5K rounds", "kill_rounds_5k", "countRate"]],
+    rounds: [["Round wins", "round_wins", "countRate"], ["1v1 W/A", "clutch_1v1", "clutch1"], ["1v2 W/A", "clutch_1v2", "clutch2"], ["1v3 W/A", "clutch_1v3", "clutch3"], ["1v4 W/A", "clutch_1v4", "clutch4"], ["1v5 W/A", "clutch_1v5", "clutch5"], ["1K rounds", "kill_rounds_1k", "countRate"], ["2K rounds", "kill_rounds_2k", "countRate"], ["3K rounds", "kill_rounds_3k", "countRate"], ["4K rounds", "kill_rounds_4k", "countRate"], ["5K rounds", "kill_rounds_5k", "countRate"]],
     movement: [["Kill speed", "killSpeed", "decimal"], ["Kill speed %", "killSpeedPercent", "percent"], ["Peak kill speed", "kill_speed_max", "decimal"], ["Death speed", "deathSpeed", "decimal", false], ["Death speed %", "deathSpeedPercent", "percent", false], ["Peak death speed", "death_speed_max", "decimal", false], ["Moving K", "moving_kills", "countRate"], ["Still K", "still_kills", "countRate"], ["Running K", "running_kills", "countRate"]],
     weapons: [["Kills", "weaponKills", "countRate"], ["Damage", "weaponDamage", "damageRate"], ["Shots", "weaponShots", "countRate"], ["Rounds used", "weaponRounds", "countRate"]]
   };
@@ -159,6 +159,11 @@
       return `${total} · ${type === "signedRate" && rate > 0 ? "+" : ""}${rate.toFixed(digits)}/R`;
     };
     if (type === "countRate" || type === "signedRate") return perRound(2);
+    if (type.startsWith("clutch")) {
+      const opponents = type.slice("clutch".length);
+      const attempts = num(stats[`clutch_attempt_1v${opponents}`]);
+      return `${Math.round(num(value))}/${Math.round(attempts)} · ${(100 * num(value) / Math.max(1, attempts)).toFixed(1)}%`;
+    }
     if (type === "damageRate") return `${Math.round(num(value)).toLocaleString()} · ${(num(value) / Math.max(1, num(stats.rounds))).toFixed(1)}/R`;
     if (type === "secondsRate") return `${num(value).toFixed(1)}s · ${(num(value) / Math.max(1, num(stats.rounds))).toFixed(2)}s/R`;
     if (type === "percent") return `${num(value).toFixed(1)}%`;

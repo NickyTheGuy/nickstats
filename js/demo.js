@@ -273,7 +273,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260911-6");
+      const worker = new Worker("./js/demo-worker.js?v=20260911-7");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -548,6 +548,7 @@
       utility: sumArray(left.utility, right.utility, 2),
       speed: mergeSpeed(left.speed, right.speed),
       clutches: sumArray(left.clutches, right.clutches, 5),
+      clutch_attempts: sumArray(left.clutch_attempts, right.clutch_attempts, 5),
       kill_rounds: sumArray(left.kill_rounds, right.kill_rounds, 5),
       weapons: mergeCompactRows(left.weapons, right.weapons),
       duels: mergeCompactRows(left.duels, right.duels),
@@ -752,6 +753,7 @@
           flashes: numberValue(row[1]), blind_duration: numberValue(row[2]) / 1000
         })),
         clutch_wins: Object.fromEntries((stats.clutches || []).map((value, index) => [index + 1, numberValue(value)])),
+        clutch_attempts: Object.fromEntries((stats.clutch_attempts || []).map((value, index) => [index + 1, numberValue(value)])),
         kill_rounds: Object.fromEntries((stats.kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
         rating: Math.max(0, rating)
       };
@@ -1092,10 +1094,12 @@
     }
     if (state.expandedGroups.clutches) {
       for (let opponents = 5; opponents >= 1; opponents -= 1) {
-        cell(row, player.clutch_wins?.[opponents] ?? 0, "demo-group-cell clutches-cell");
+        cell(row, `${player.clutch_wins?.[opponents] ?? 0}/${player.clutch_attempts?.[opponents] ?? 0}`, "demo-group-cell clutches-cell");
       }
     } else {
-      cell(row, [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_wins?.[opponents] ?? 0), 0), "demo-group-cell clutches-cell");
+      const wins = [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_wins?.[opponents] ?? 0), 0);
+      const attempts = [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_attempts?.[opponents] ?? 0), 0);
+      cell(row, `${wins}/${attempts}`, "demo-group-cell clutches-cell");
     }
     if (state.expandedGroups.multikills) {
       for (let kills = 5; kills >= 1; kills -= 1) {
@@ -1360,7 +1364,7 @@
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     groupHeader(header, detailHeader, "assistedKills", "Assisted K", ["Dmg", "Flash", "Own-flash K"]);
     groupHeader(header, detailHeader, "utility", "Utility", ["EF", "FA", "HE Dmg", "Fire Dmg"], "EF/FA · Dmg");
-    groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"]);
+    groupHeader(header, detailHeader, "clutches", "Clutches W/A", ["1v5", "1v4", "1v3", "1v2", "1v1"]);
     groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
     regularHeader(header, "Rating");
     thead.append(header, detailHeader);
@@ -1810,6 +1814,7 @@
         ],
         speed: [...speedArray(context.speed_on_kill), ...speedArray(context.killer_speed_on_death)],
         clutches: countArray(player.clutch_wins),
+        clutch_attempts: countArray(player.clutch_attempts),
         kill_rounds: countArray(player.kill_rounds),
         weapons: (player.weapon_stats || []).map(stat => [
           stat.weapon, number(stat.kills), number(stat.shots), number(stat.damage), number(stat.rounds_used)
@@ -1845,7 +1850,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.11.4",
+      nickstats_build: "2026.09.11.5",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
