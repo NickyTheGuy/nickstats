@@ -15,7 +15,8 @@
     selected: new Map(), players: [], choices: new Map(), analysis: null,
     searchController: null, compareController: null, searchTimer: null,
     side: "ALL", map: "ALL", metricGroup: "core", weapon: "",
-    comboPlayerId: "", comboCondition: "without"
+    comboPlayerId: "", comboCondition: "without", comboView: "overview",
+    workspace: location.hash === "#matrix" ? "matrix" : "compare"
   };
 
   const metricGroups = {
@@ -141,6 +142,7 @@
     };
     const weapon = weapons.get(state.weapon) || {};
     result.weaponKills = num(weapon.kills); result.weaponDamage = num(weapon.damage); result.weaponShots = num(weapon.shots); result.weaponRounds = num(weapon.rounds_used);
+    result.weapons = [...weapons.entries()].map(([name, values]) => ({ weapon: name, ...values })).sort((a, b) => b.kills - a.kills || b.damage - a.damage);
     return result;
   }
 
@@ -224,9 +226,12 @@
 
   function populateMaps() {
     const names = new Set(); state.players.forEach(player => player.rows.forEach(row => names.add(row.map)));
-    const select = $("compareMap"), all = el("option", "All maps"); all.value = "ALL";
-    select.replaceChildren(all, ...[...names].sort().map(name => { const option = el("option", name.replace(/^de_/, "")); option.value = name; return option; }));
-    state.map = "ALL"; select.value = "ALL";
+    state.map = "ALL";
+    ["compareMap", "matrixMap"].forEach(id => {
+      const select = $(id), all = el("option", "All maps"); all.value = "ALL";
+      select.replaceChildren(all, ...[...names].sort().map(name => { const option = el("option", name.replace(/^de_/, "")); option.value = name; return option; }));
+      select.value = "ALL";
+    });
   }
 
   function refreshAnalysis() {
@@ -343,15 +348,20 @@
       return;
     }
     state.selected.set(String(player.id), player);
+    if (!state.choices.has(String(player.id))) {
+      const included = [...state.choices.values()].filter(choice => choice === "include").length;
+      state.choices.set(String(player.id), included < MAX_INCLUDED ? "include" : "exclude");
+    }
     $("compareSearchInput").value = "";
     $("compareSearchResults").replaceChildren();
-    setSearchStatus("Search for another player, or analyze this group.");
+    setSearchStatus("Search for another player, or build the current selection.");
     invalidateAnalysis();
     renderSelectedRoster();
   }
 
   function removePlayer(id) {
     state.selected.delete(String(id));
+    state.choices.delete(String(id));
     invalidateAnalysis();
     renderSelectedRoster();
   }
@@ -359,8 +369,19 @@
   function invalidateAnalysis() {
     state.players = [];
     state.analysis = null;
-    state.choices.clear();
     $("compareResults").hidden = true;
+  }
+
+  function setRosterChoice(id, choice) {
+    const current = state.choices.get(String(id));
+    const included = [...state.choices.values()].filter(value => value === "include").length;
+    if (choice === "include" && current !== "include" && included >= MAX_INCLUDED) {
+      setStatus(`A team can have at most ${MAX_INCLUDED} profile players.`, true);
+      return;
+    }
+    state.choices.set(String(id), choice);
+    invalidateAnalysis();
+    renderSelectedRoster();
   }
 
   function renderSelectedRoster() {
@@ -374,13 +395,26 @@
       remove.type = "button";
       remove.setAttribute("aria-label", `Remove ${player.name}`);
       remove.addEventListener("click", () => removePlayer(player.id));
-      chip.append(identity, remove);
+      chip.append(identity);
+      if (state.workspace === "compare") {
+        const roles = el("div", null, "compare-roster-role");
+        roles.setAttribute("role", "group"); roles.setAttribute("aria-label", `${player.name} profile condition`);
+        [["include", "Profile"], ["exclude", "Condition"]].forEach(([value, label]) => {
+          const button = el("button", label); button.type = "button";
+          const active = state.choices.get(String(player.id)) === value;
+          button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
+          button.addEventListener("click", () => setRosterChoice(player.id, value)); roles.appendChild(button);
+        });
+        chip.appendChild(roles);
+      }
+      chip.append(remove);
       roster.appendChild(chip);
     }
     const count = state.selected.size;
-    $("compareAnalyzeButton").disabled = count < 2;
+    const included = [...state.choices.entries()].filter(([id, choice]) => state.selected.has(id) && choice === "include").length;
+    $("compareAnalyzeButton").disabled = count < 2 || (state.workspace === "compare" && included === 0);
     $("compareClearButton").disabled = count === 0;
-    setStatus(count < 2 ? "Choose at least two players." : `${count} players selected. Ready to analyze.`);
+    setStatus(count < 2 ? "Choose at least two players." : state.workspace === "compare" && !included ? "Choose at least one player profile." : `${count} players selected. Ready to analyze.`);
   }
 
   async function analyze() {
@@ -396,18 +430,19 @@
       }));
       state.players = (payload.players || []).map(normalizePlayer).sort((a, b) => a.label.localeCompare(b.label));
       populateWeapons(); populateMaps(); state.analysis = buildAnalysis(state.players);
-      state.choices = new Map(state.players.map(player => [player.profileId, "ignore"]));
+      state.players.forEach(player => { if (!state.choices.has(player.profileId)) state.choices.set(player.profileId, "include"); });
       renderVerdicts(state.analysis.overall);
       renderMatrix(state.analysis);
       renderPairDetails(state.analysis.pairs);
       renderComboRoster();
       $("compareResults").hidden = false;
-      setCompareMode("group");
-      setStatus(`Compared ${state.players.length} players across their stored team histories.`);
+      setWorkspace(state.workspace);
+      setStatus(state.workspace === "matrix" ? `Built a matrix for ${state.players.length} players.` : `Built ${selectedPlayers("include").length} conditional player profile${selectedPlayers("include").length === 1 ? "" : "s"}.`);
     } catch (error) {
       if (error.name !== "AbortError") setStatus(`Could not compare players: ${error.message}`, true);
     } finally {
-      $("compareAnalyzeButton").disabled = state.selected.size < 2;
+      const included = [...state.choices.entries()].filter(([id, choice]) => state.selected.has(id) && choice === "include").length;
+      $("compareAnalyzeButton").disabled = state.selected.size < 2 || (state.workspace === "compare" && included === 0);
     }
   }
 
@@ -418,6 +453,21 @@
     document.querySelectorAll("[data-compare-view]").forEach(view => {
       view.hidden = view.dataset.compareView !== mode;
     });
+  }
+
+  function setWorkspace(page) {
+    state.workspace = page === "matrix" ? "matrix" : "compare";
+    const matrix = state.workspace === "matrix";
+    $("compareBuilderEyebrow").textContent = matrix ? "Group analysis" : "Conditional profiles";
+    $("compareBuilderTitle").textContent = matrix ? "Build a matrix group" : "Build a player profile";
+    $("compareBuilderDescription").textContent = matrix
+      ? "Add the players whose teammate impact you want to compare."
+      : "Choose whose profiles to include, then optionally test how they perform with or without other players.";
+    $("compareAnalyzeButton").textContent = matrix ? "Build matrix" : "Build profiles";
+    document.querySelector(".compare-stats-toolbar").hidden = !matrix;
+    setCompareMode(matrix ? "group" : "combination");
+    renderSelectedRoster();
+    if (!matrix && state.players.length) runCombination();
   }
 
   function choiceFor(player) {
@@ -502,9 +552,9 @@
     const warnings = $("comboWarnings");
     warnings.replaceChildren();
     const add = message => warnings.appendChild(el("div", message, "warning"));
-    if (current.fullTeam && current.excluded.length) add("Five Included players already fill the team, so Excluded selections are redundant.");
-    else if (current.excluded.length && !current.comparisonPossible) add(`The ${current.included.length + current.excluded.length}-player “With excluded” roster cannot fit on one team.`);
-    if (current.partialMatches.length) add(`${current.partialMatches.length} match${current.partialMatches.length === 1 ? " contains" : "es contain"} only some Excluded players and ${current.partialMatches.length === 1 ? "is" : "are"} omitted from both groups.`);
+    if (current.fullTeam && current.excluded.length) add("Five Profile players already fill the team, so Condition selections cannot be added.");
+    else if (current.excluded.length && !current.comparisonPossible) add(`The ${current.included.length + current.excluded.length}-player “With” roster cannot fit on one team.`);
+    if (current.partialMatches.length) add(`${current.partialMatches.length} match${current.partialMatches.length === 1 ? " contains" : "es contain"} only some Condition players and ${current.partialMatches.length === 1 ? "is" : "are"} omitted from both groups.`);
   }
 
   function comboMatchesForCondition(current) {
@@ -515,11 +565,57 @@
     return comboMatchesForCondition(current).map(match => match.rows.find(item => item.player.profileId === player.profileId)?.row).filter(Boolean);
   }
 
-  function comboProfileCard(label, value, note = "") {
-    const card = el("div", null, "combo-profile-stat");
+  const integer = value => Math.round(num(value)).toLocaleString();
+  const decimal = (value, places = 1) => num(value).toFixed(places);
+  const percent = value => `${decimal(value, 1)}%`;
+  const ratio = (a, b) => num(b) > 0 ? num(a) / num(b) : num(a);
+  const titleCase = value => String(value || "Unknown").replace(/^weapon_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase());
+  const countPerRound = (value, rounds, places = 2) => `${decimal(ratio(value, rounds), places)} per round`;
+
+  function profileCard(label, value, note = "", className = "") {
+    const card = el("div", null, `player-stat-card ${className}`.trim());
     card.append(el("span", label), el("strong", value));
     if (note) card.appendChild(el("small", note));
     return card;
+  }
+
+  function fillProfileCards(target, cards) {
+    $(target).replaceChildren(...cards.map(card => profileCard(...card)));
+  }
+
+  function fillProfileList(target, metrics) {
+    $(target).replaceChildren(...metrics.map(([label, value, note = ""]) => {
+      const row = el("div", null, "player-metric-row"), copy = el("div");
+      copy.appendChild(el("span", label));
+      if (note) copy.appendChild(el("small", note));
+      row.append(copy, el("strong", value));
+      return row;
+    }));
+  }
+
+  function fillProfileStrip(target, metrics) {
+    $(target).replaceChildren(...metrics.map(([label, value, note = ""]) => {
+      const item = el("div", null, "player-count-item");
+      item.append(el("strong", value), el("span", label));
+      if (note) item.appendChild(el("small", note));
+      return item;
+    }));
+  }
+
+  function renderProfileTable(table, headers, rows) {
+    const head = document.createElement("thead"), header = document.createElement("tr"), body = document.createElement("tbody");
+    headers.forEach(label => { const cell = el("th", label); cell.scope = "col"; header.appendChild(cell); });
+    rows.forEach(values => { const row = document.createElement("tr"); values.forEach((value, index) => { const cell = el(index ? "td" : "th", value); if (!index) cell.scope = "row"; row.appendChild(cell); }); body.appendChild(row); });
+    head.appendChild(header); table.replaceChildren(head, body);
+  }
+
+  function setComboProfileView(view) {
+    state.comboView = view;
+    document.querySelectorAll("[data-combo-profile-view]").forEach(button => {
+      const active = button.dataset.comboProfileView === view;
+      button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
+    });
+    document.querySelectorAll("[data-combo-profile-panel]").forEach(panel => { panel.hidden = panel.dataset.comboProfilePanel !== view; });
   }
 
   function renderComboProfile(current) {
@@ -532,37 +628,48 @@
       button.disabled = button.dataset.comboCondition === "with" && !canCompare;
     });
 
-    const tabs = $("comboProfilePlayers"); tabs.replaceChildren();
-    current.included.forEach(player => {
-      const button = el("button", player.label); button.type = "button";
-      const active = player.profileId === state.comboPlayerId;
-      button.className = active ? "active" : ""; button.setAttribute("aria-pressed", String(active));
-      button.addEventListener("click", () => { state.comboPlayerId = player.profileId; renderComboProfile(current); renderComboMatches(current); });
-      tabs.appendChild(button);
-    });
-
+    const profileSelect = $("comboProfilePlayer"), previous = state.comboPlayerId;
+    profileSelect.replaceChildren(...current.included.map(player => { const option = el("option", player.label); option.value = player.profileId; return option; }));
+    profileSelect.value = previous;
+    profileSelect.hidden = current.included.length === 1;
+    $("comboProfilePlayerLabel").hidden = current.included.length === 1;
     const player = current.included.find(item => item.profileId === state.comboPlayerId);
-    const rows = comboProfileRows(current, player), stats = summarize(rows);
-    const excludedNames = current.excluded.map(item => item.label).join(" + ");
-    const condition = state.comboCondition === "with" ? `with ${excludedNames}` : current.excluded.length ? `without ${excludedNames}` : "with the Included lineup";
-    const teammateNames = current.included.filter(item => item.profileId !== player.profileId).map(item => item.label).join(" + ");
-    const includedCondition = teammateNames ? `playing with ${teammateNames}` : "as the selected Included player";
+    const rows = comboProfileRows(current, player), stats = summarize(rows), s = stats;
+    const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("comboProfileTitle").textContent = player.label;
-    $("comboProfileMeta").textContent = `${rows.length} qualifying match${rows.length === 1 ? "" : "es"} · ${includedCondition} · ${condition} · ${state.side === "ALL" ? "all sides" : state.side}${state.map === "ALL" ? "" : ` · ${state.map.replace(/^de_/, "")}`}`;
+    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(rows.length)} qualifying match${rows.length === 1 ? "" : "es"} · ${sideLabel}${state.map === "ALL" ? "" : ` · ${titleCase(state.map.replace(/^de_/, ""))}`}`;
+    $("comboProfileRecord").textContent = state.side === "ALL" ? `${stats.wins}–${stats.losses}${stats.ties ? `–${stats.ties}` : ""}` : `${integer(s.round_wins)}–${integer(s.rounds - num(s.round_wins))} rounds`;
+    const ratingClass = stats.rating >= 1.1 ? "rating-good" : stats.rating <= .9 ? "rating-bad" : "rating-average";
     $("comboProfileHeadline").replaceChildren(
-      comboProfileCard("Rating", stats.rating.toFixed(2), "Round-weighted"),
-      comboProfileCard("K/D", stats.kd.toFixed(2), `${Math.round(stats.kills)} K · ${Math.round(stats.deaths)} D`),
-      comboProfileCard("ADR", stats.adr.toFixed(1), `${Math.round(stats.damage).toLocaleString()} damage`),
-      comboProfileCard("KAST", `${stats.kast.toFixed(1)}%`, `${Math.round(stats.kast_rounds).toLocaleString()} KAST rounds`),
-      comboProfileCard(state.side === "ALL" ? "Match win rate" : "Round win rate", `${stats.winRate.toFixed(1)}%`, state.side === "ALL" ? `${stats.wins}-${stats.losses}-${stats.ties}` : `${Math.round(stats.round_wins)}/${Math.round(stats.rounds)} rounds`)
+      profileCard("Average rating", decimal(stats.rating, 2), "Round-weighted", ratingClass),
+      profileCard("Average K/D", decimal(stats.kd, 2), `${integer(s.kills)} K · ${integer(s.deaths)} D`),
+      profileCard("Average ADR", decimal(stats.adr, 1), `${integer(s.damage)} total damage`),
+      profileCard("Average KAST", percent(stats.kast), `${integer(s.kast_rounds)} KAST rounds`),
+      profileCard(state.side === "ALL" ? "Match win rate" : "Round win rate", percent(stats.winRate), state.side === "ALL" ? `${stats.wins} wins in ${stats.n} matches` : `${integer(s.round_wins)} of ${integer(s.rounds)} rounds`)
     );
-    const categoryName = $("compareMetricGroup").selectedOptions[0]?.textContent || "Statistics";
-    $("comboMetricTitle").textContent = state.metricGroup === "weapons" && state.weapon
-      ? `${categoryName}: ${state.weapon.replace(/^weapon_/, "").replaceAll("_", " ")}` : categoryName;
-    $("comboProfilePanel").dataset.metricGroup = state.metricGroup;
-    const metrics = $("comboProfileMetrics"); metrics.replaceChildren();
-    metricFields().forEach(([label, key, type]) => metrics.appendChild(comboProfileCard(label, formatMetric(stats[key], type, stats))));
-    if (!rows.length) metrics.replaceChildren(el("div", "No matches satisfy this profile condition.", "empty combo-profile-empty"));
+    fillProfileCards("comboRecordStats", [["Matches", integer(stats.n), `${stats.wins} W · ${stats.losses} L · ${stats.ties} D`], ["Rounds", integer(s.rounds), `${integer(s.round_wins)} won`]]);
+    fillProfileCards("comboCombatStats", [["Kills", integer(s.kills), countPerRound(s.kills, s.rounds)], ["Deaths", integer(s.deaths), countPerRound(s.deaths, s.rounds)], ["Assists", integer(s.assists), countPerRound(s.assists, s.rounds)], ["Headshot rate", percent(100 * ratio(s.headshots, s.kills)), `${integer(s.headshots)} headshots`]]);
+    const utilityDamage = num(s.he_damage) + num(s.fire_damage);
+    fillProfileCards("comboUtilityDamageStats", [["Total damage", integer(utilityDamage), countPerRound(utilityDamage, s.rounds, 1)], ["HE", integer(s.he_damage), countPerRound(s.he_damage, s.rounds, 1)], ["Fire", integer(s.fire_damage), countPerRound(s.fire_damage, s.rounds, 1)]]);
+    fillProfileCards("comboFlashStats", [["Enemies flashed", integer(s.enemies_flashed), countPerRound(s.enemies_flashed, s.rounds)], ["Enemy blind time", `${decimal(num(s.blind_duration_ms) / 1000, 1)}s`, `${decimal(ratio(num(s.blind_duration_ms) / 1000, s.rounds), 2)}s per round`], ["Flash assists", integer(s.flash_assists), countPerRound(s.flash_assists, s.rounds)]]);
+    fillProfileCards("comboAssistStats", [["Damage", integer(s.damage_assisted_kills), countPerRound(s.damage_assisted_kills, s.rounds)], ["Teammate flash", integer(s.teammate_flash_assisted_kills), countPerRound(s.teammate_flash_assisted_kills, s.rounds)], ["Own flash", integer(s.own_flash_kills), countPerRound(s.own_flash_kills, s.rounds)]]);
+    fillProfileCards("comboTradeAttackStats", [["Opportunities", integer(s.trade_opportunities), countPerRound(s.trade_opportunities, s.rounds)], ["Attempts", integer(s.trade_attempts), `${countPerRound(s.trade_attempts, s.rounds)} · ${percent(100 * ratio(s.trade_attempts, s.trade_opportunities))} response`], ["Trade kills", integer(s.trade_kills), countPerRound(s.trade_kills, s.rounds)], ["Successful trades", integer(s.trade_successes), `${countPerRound(s.trade_successes, s.rounds)} · ${percent(100 * ratio(s.trade_successes, s.trade_attempts))} conversion`]]);
+    fillProfileCards("comboTradeDeathStats", [["Tradeable deaths", integer(s.tradeable_deaths), countPerRound(s.tradeable_deaths, s.rounds)], ["Teammates attempted", integer(s.attempted_tradeable_deaths), `${countPerRound(s.attempted_tradeable_deaths, s.rounds)} · ${percent(100 * ratio(s.attempted_tradeable_deaths, s.tradeable_deaths))} response`], ["Deaths traded", integer(s.traded_deaths), `${countPerRound(s.traded_deaths, s.rounds)} · ${percent(100 * ratio(s.traded_deaths, s.attempted_tradeable_deaths))} conversion`]]);
+    const openingTotal = num(s.opening_kills) + num(s.opening_deaths), openingDiff = num(s.opening_kills) - num(s.opening_deaths);
+    fillProfileCards("comboOpeningStats", [["Opening kills", integer(s.opening_kills), countPerRound(s.opening_kills, s.rounds)], ["Opening deaths", integer(s.opening_deaths), countPerRound(s.opening_deaths, s.rounds)], ["Opening differential", `${openingDiff >= 0 ? "+" : ""}${integer(openingDiff)}`, `${openingDiff >= 0 ? "+" : ""}${decimal(ratio(openingDiff, s.rounds), 2)} per round`], ["Opening success", percent(100 * ratio(s.opening_kills, openingTotal)), `${integer(openingTotal)} opening duels`]]);
+    const metricRows = values => values.map(([label, value]) => [label, integer(value), countPerRound(value, s.rounds)]);
+    fillProfileList("comboKillContextStats", metricRows([["Blinded enemies", s.blinded_kills], ["Kills while blind", s.blind_kills], ["Wallbang kills", s.wallbang_kills], ["Penetrations", s.penetration_total], ["Through smoke", s.smoke_kills], ["Airborne", s.airborne_kills], ["Grenade out", s.grenade_out_kills], ["Knife out", s.knife_out_kills], ["Equipment disadvantage", s.equipment_disadvantage_kills], ["Unfair fight", s.unfair_kills]]));
+    fillProfileList("comboDeathContextStats", metricRows([["While blind", s.deaths_while_blind], ["To a blind killer", s.deaths_to_blind_killer], ["Wallbang", s.wallbang_deaths], ["Penetrations", s.death_penetration_total], ["Through smoke", s.smoke_deaths], ["Airborne killer", s.airborne_deaths], ["Moving killer", s.moving_killer_deaths], ["Still killer", s.still_killer_deaths], ["Running killer", s.running_killer_deaths], ["Grenade out", s.grenade_out_deaths], ["Knife out", s.knife_out_deaths], ["Equipment advantage", s.equipment_disadvantage_deaths], ["Unfair fight", s.unfair_deaths]]));
+    fillProfileStrip("comboClutchStats", [["1v1", s.clutch_1v1], ["1v2", s.clutch_1v2], ["1v3", s.clutch_1v3], ["1v4", s.clutch_1v4], ["1v5", s.clutch_1v5]].map(([label, value]) => [label, integer(value), `${decimal(ratio(value, s.rounds), 2)}/R`]));
+    fillProfileStrip("comboMultikillStats", [["1 kill", s.kill_rounds_1k], ["2 kills", s.kill_rounds_2k], ["3 kills", s.kill_rounds_3k], ["4 kills", s.kill_rounds_4k], ["5 kills", s.kill_rounds_5k]].map(([label, value]) => [label, integer(value), `${decimal(ratio(value, s.rounds), 2)}/R`]));
+    fillProfileCards("comboKillSpeedStats", [["Average", decimal(ratio(s.kill_speed_total, s.kill_speed_samples), 1), `${integer(s.kill_speed_samples)} samples`], ["Maximum", decimal(s.kill_speed_max, 1)], ["Average of max", percent(ratio(s.kill_speed_percent_total, s.kill_speed_percent_samples))], ["Peak of max", percent(s.kill_speed_percent_max)]]);
+    fillProfileCards("comboDeathSpeedStats", [["Average", decimal(ratio(s.death_speed_total, s.death_speed_samples), 1), `${integer(s.death_speed_samples)} samples`], ["Maximum", decimal(s.death_speed_max, 1)], ["Average of max", percent(ratio(s.death_speed_percent_total, s.death_speed_percent_samples))], ["Peak of max", percent(s.death_speed_percent_max)]]);
+    fillProfileList("comboMovementStateStats", metricRows([["Moving kills", s.moving_kills], ["Still kills", s.still_kills], ["Running kills", s.running_kills], ["Airborne kills", s.airborne_kills]]));
+    renderProfileTable($("comboWeaponsTable"), ["Weapon", "Kills", "K/R", "Damage", "Dmg/R", "Shots", "Shots/R", "Rounds used", "Usage"], stats.weapons.map(weapon => [titleCase(weapon.weapon), integer(weapon.kills), decimal(ratio(weapon.kills, s.rounds), 3), integer(weapon.damage), decimal(ratio(weapon.damage, s.rounds), 1), integer(weapon.shots), decimal(ratio(weapon.shots, s.rounds), 2), integer(weapon.rounds_used), percent(100 * ratio(weapon.rounds_used, s.rounds))]));
+    const maps = new Map(); rows.forEach(row => { const collection = maps.get(row.map) || []; collection.push(row); maps.set(row.map, collection); });
+    renderProfileTable($("comboMapsTable"), ["Map", "Matches", state.side === "ALL" ? "Record" : "Rounds", state.side === "ALL" ? "Win rate" : "Round win", "Rating", "K/D", "K/R", "A/R", "ADR", "KAST"], [...maps.entries()].map(([name, mapRows]) => ({ name, stats: summarize(mapRows) })).sort((a, b) => b.stats.n - a.stats.n || a.name.localeCompare(b.name)).map(({ name, stats: mapStats }) => [titleCase(name.replace(/^de_/, "")), integer(mapStats.n), state.side === "ALL" ? `${mapStats.wins}–${mapStats.losses}` : `${integer(mapStats.round_wins)}–${integer(mapStats.rounds - num(mapStats.round_wins))}`, percent(mapStats.winRate), decimal(mapStats.rating, 2), decimal(mapStats.kd, 2), decimal(mapStats.kpr, 2), decimal(mapStats.apr, 2), decimal(mapStats.adr, 1), percent(mapStats.kast)]));
+    renderComboMatches(current);
+    setComboProfileView(state.comboView);
   }
 
   function formatDate(timestamp) {
@@ -570,28 +677,21 @@
   }
 
   function renderComboMatches(current) {
-    const header = document.createElement("tr");
-    ["Date", "Map", "Result", "Score", "K–D–A", "ADR", "Rating", "Match"].forEach(label => header.appendChild(el("th", label)));
-    $("comboMatchHead").replaceChildren(header);
-    const body = $("comboMatchBody");
-    body.replaceChildren();
     const player = current.included.find(item => item.profileId === state.comboPlayerId) || current.included[0];
     const matches = comboMatchesForCondition(current);
+    const values = [];
     for (const match of matches) {
       const first = match.rows.find(item => item.player.profileId === player.profileId)?.row;
       if (!first) continue;
       const stats = summarize([first]);
-      const row = document.createElement("tr");
       const result = first.result === "w" ? "Win" : first.result === "l" ? "Loss" : "Tie";
-      row.append(td(formatDate(first.date)), td(first.map.replace(/^de_/, "")), td(result, first.result === "w" ? "result-win" : first.result === "l" ? "result-loss" : "result-tie"),
-        td(first.score.every(value => value != null) ? `${first.score[0]}–${first.score[1]}` : "—"),
-        td(`${Math.round(stats.kills)}–${Math.round(stats.deaths)}–${Math.round(stats.assists)}`, "combo-player-line"), td(stats.adr.toFixed(1)), td(stats.rating.toFixed(2)));
-      row.appendChild(td(`#${match.id}`));
-      body.appendChild(row);
+      values.push([formatDate(first.date), titleCase(first.map.replace(/^de_/, "")), result, first.score.every(value => value != null) ? `${first.score[0]}–${first.score[1]}` : "—", `${integer(stats.kills)}–${integer(stats.deaths)}–${integer(stats.assists)}`, decimal(stats.adr, 1), decimal(stats.rating, 2), `#${match.id}`]);
     }
+    renderProfileTable($("comboMatchesTable"), ["Date", "Map", "Result", "Score", "K–D–A", "ADR", "Rating", "Match"], values);
     $("comboEmpty").hidden = matches.length > 0;
-    const condition = state.comboCondition === "with" ? "with Excluded players present" : current.excluded.length ? "with Excluded players absent" : "for the Included lineup";
-    $("comboMatchLabel").textContent = `${matches.length} match${matches.length === 1 ? "" : "es"} ${condition}; statistics use ${player.label}’s perspective.`;
+    const condition = state.comboCondition === "with" ? "with all Condition players present" : current.excluded.length ? "with all Condition players absent" : "for the selected Profile lineup";
+    const includedTeammates = current.included.filter(item => item.profileId !== player.profileId).map(item => item.label);
+    $("comboMatchLabel").textContent = `${matches.length} match${matches.length === 1 ? "" : "es"} ${condition}${includedTeammates.length ? ` while playing with ${includedTeammates.join(" + ")}` : ""}.`;
   }
 
   function runCombination() {
@@ -604,7 +704,6 @@
     $("comboComparisonTotal").textContent = current.comparisonMatches.length;
     renderComboWarnings(current);
     renderComboProfile(current);
-    renderComboMatches(current);
     $("comboResults").hidden = false;
     $("comboStatus").textContent = `Found ${current.matches.length} without-excluded and ${current.comparisonMatches.length} with-excluded matches.`;
   }
@@ -620,6 +719,7 @@
     state.searchController?.abort();
     state.compareController?.abort();
     state.selected.clear();
+    state.choices.clear();
     invalidateAnalysis();
     $("compareSearchInput").value = "";
     $("compareSearchResults").replaceChildren();
@@ -638,6 +738,8 @@
   $("compareClearButton").addEventListener("click", clear);
   $("comboRun").addEventListener("click", runCombination);
   $("comboReset").addEventListener("click", resetCombination);
+  $("comboProfilePlayer").addEventListener("change", event => { state.comboPlayerId = event.target.value; runCombination(); });
+  document.querySelectorAll("[data-combo-profile-view]").forEach(button => button.addEventListener("click", () => setComboProfileView(button.dataset.comboProfileView)));
   document.querySelectorAll("[data-combo-condition]").forEach(button => button.addEventListener("click", () => {
     if (button.disabled) return;
     state.comboCondition = button.dataset.comboCondition; runCombination();
@@ -648,12 +750,31 @@
     refreshAnalysis();
   });
   $("compareWeapon").addEventListener("change", event => { state.weapon = event.target.value; refreshAnalysis(); });
-  $("compareMap").addEventListener("change", event => { state.map = event.target.value; refreshAnalysis(); });
+  ["compareMap", "matrixMap"].forEach(id => $(id).addEventListener("change", event => {
+    state.map = event.target.value;
+    $(id === "compareMap" ? "matrixMap" : "compareMap").value = state.map;
+    refreshAnalysis();
+  }));
   document.querySelectorAll("[data-compare-side]").forEach(button => button.addEventListener("click", () => {
     state.side = button.dataset.compareSide;
-    document.querySelectorAll("[data-compare-side]").forEach(item => { const active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
+    document.querySelectorAll("[data-matrix-side], [data-compare-side]").forEach(item => {
+      const value = item.dataset.matrixSide || item.dataset.compareSide, active = value === state.side;
+      item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active));
+    });
+    refreshAnalysis();
+  }));
+  document.querySelectorAll("[data-matrix-side]").forEach(button => button.addEventListener("click", () => {
+    state.side = button.dataset.matrixSide;
+    document.querySelectorAll("[data-matrix-side], [data-compare-side]").forEach(item => {
+      const value = item.dataset.matrixSide || item.dataset.compareSide, active = value === state.side;
+      item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active));
+    });
     refreshAnalysis();
   }));
   document.querySelectorAll("[data-compare-mode]").forEach(button => button.addEventListener("click", () => setCompareMode(button.dataset.compareMode)));
+  window.addEventListener("nickstats:page", event => {
+    if (["compare", "matrix"].includes(event.detail?.page)) setWorkspace(event.detail.page);
+  });
+  setWorkspace(state.workspace);
   renderSelectedRoster();
 })();

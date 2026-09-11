@@ -1943,7 +1943,26 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 
 .compare-selected-player > span { display: grid; }
 .compare-selected-player small { color: var(--muted); }
-.compare-selected-player button {
+.compare-roster-role {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #0d131d;
+}
+.compare-roster-role button {
+  min-height: 27px;
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+}
+.compare-roster-role button.active { background: var(--blue); color: white; }
+.compare-selected-player > button {
   padding: 5px 7px;
   border: 0;
   border-radius: 7px;
@@ -1955,6 +1974,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 
 .compare-builder-actions { margin-top: 16px; }
 .compare-mode-tabs { justify-self: start; box-shadow: none; }
+.compare-mode-tabs[hidden] { display: none; }
 
 .player-page-stack {
   display: grid;
@@ -2101,6 +2121,8 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   font-size: 12px;
   font-weight: 800;
 }
+.stats-toolbar[hidden],
+.stats-toolbar [hidden] { display: none; }
 
 .stats-toolbar select {
   min-height: 36px;
@@ -2145,6 +2167,17 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 
 .compare-stats-toolbar .side-toggle { margin-left: auto; }
+
+.combo-player-profile { padding: 22px; }
+.combo-profile-toolbar {
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .018);
+}
+.combo-profile-toolbar .combo-condition-toggle { margin-right: 8px; }
+.combo-profile-footnote { margin: 14px 2px 0; color: var(--muted); font-size: 12px; }
 
 .player-stat-card {
   min-width: 0;
@@ -2219,6 +2252,12 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .player-profile-tab[data-player-view="context"].active { box-shadow: inset 0 -4px 0 #ff975c, inset 0 0 0 1px #344155; }
 .player-profile-tab[data-player-view="rounds"].active { box-shadow: inset 0 -4px 0 var(--green), inset 0 0 0 1px #344155; }
 .player-profile-tab[data-player-view="movement"].active { box-shadow: inset 0 -4px 0 #be82ff, inset 0 0 0 1px #344155; }
+.player-profile-tab[data-combo-profile-view="utility"].active { box-shadow: inset 0 -4px 0 var(--blue), inset 0 0 0 1px #344155; }
+.player-profile-tab[data-combo-profile-view="trades"].active { box-shadow: inset 0 -4px 0 #55d6d2, inset 0 0 0 1px #344155; }
+.player-profile-tab[data-combo-profile-view="openings"].active { box-shadow: inset 0 -4px 0 var(--amber), inset 0 0 0 1px #344155; }
+.player-profile-tab[data-combo-profile-view="context"].active { box-shadow: inset 0 -4px 0 #ff975c, inset 0 0 0 1px #344155; }
+.player-profile-tab[data-combo-profile-view="rounds"].active { box-shadow: inset 0 -4px 0 var(--green), inset 0 0 0 1px #344155; }
+.player-profile-tab[data-combo-profile-view="movement"].active { box-shadow: inset 0 -4px 0 #be82ff, inset 0 0 0 1px #344155; }
 
 .player-profile-view {
   padding-top: 16px;
@@ -2251,36 +2290,42 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   background: linear-gradient(145deg, rgba(var(--profile-accent-rgb), .075), rgba(255, 255, 255, .012) 52%);
 }
 
-[data-player-profile-view="utility"] .player-stat-section {
+[data-player-profile-view="utility"] .player-stat-section,
+[data-combo-profile-panel="utility"] .player-stat-section {
   --profile-accent: var(--blue);
   --profile-accent-rgb: 104, 164, 255;
   border-top-style: double;
 }
 
-[data-player-profile-view="trades"] .player-stat-section {
+[data-player-profile-view="trades"] .player-stat-section,
+[data-combo-profile-panel="trades"] .player-stat-section {
   --profile-accent: #55d6d2;
   --profile-accent-rgb: 85, 214, 210;
 }
 
-[data-player-profile-view="openings"] .player-stat-section {
+[data-player-profile-view="openings"] .player-stat-section,
+[data-combo-profile-panel="openings"] .player-stat-section {
   --profile-accent: var(--amber);
   --profile-accent-rgb: 255, 201, 105;
   border-top-style: dashed;
 }
 
-[data-player-profile-view="context"] .player-stat-section {
+[data-player-profile-view="context"] .player-stat-section,
+[data-combo-profile-panel="context"] .player-stat-section {
   --profile-accent: #ff975c;
   --profile-accent-rgb: 255, 151, 92;
   border-top-style: ridge;
 }
 
-[data-player-profile-view="rounds"] .player-stat-section {
+[data-player-profile-view="rounds"] .player-stat-section,
+[data-combo-profile-panel="rounds"] .player-stat-section {
   --profile-accent: var(--green);
   --profile-accent-rgb: 98, 212, 157;
   border-top-style: dotted;
 }
 
-[data-player-profile-view="movement"] .player-stat-section {
+[data-player-profile-view="movement"] .player-stat-section,
+[data-combo-profile-panel="movement"] .player-stat-section {
   --profile-accent: #be82ff;
   --profile-accent-rgb: 190, 130, 255;
   border-top-style: dashed;
@@ -2449,7 +2494,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 
   .app-tabs {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .match-library-panel {
