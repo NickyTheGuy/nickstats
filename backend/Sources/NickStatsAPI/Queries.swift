@@ -346,14 +346,16 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
         ORDER BY kills DESC, damage DESC, w.weapon
         """).all()
 
-    let maps = mapTotals.map { name, stats in
-        PlayerMapProfileStats(
+    var maps: [PlayerMapProfileStats] = []
+    for (name, stats) in mapTotals {
+        maps.append(PlayerMapProfileStats(
             map: name, matches: stats.matches, wins: stats.wins, losses: stats.losses,
             draws: stats.draws, rounds: stats.rounds, rating: stats.rating,
             killDeathRatio: stats.killDeathRatio, averageDamagePerRound: stats.averageDamagePerRound,
             kastPercent: stats.kastPercent, winRate: stats.winRate
-        )
-    }.sorted { left, right in
+        ))
+    }
+    maps.sort { left, right in
         left.matches == right.matches ? left.map < right.map : left.matches > right.matches
     }
 
