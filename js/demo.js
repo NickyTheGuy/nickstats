@@ -244,7 +244,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260910-6");
+      const worker = new Worker("./js/demo-worker.js?v=20260911-2");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -1678,7 +1678,7 @@
       ];
     };
 
-    const compactStats = player => {
+    const compactStats = (player, ownIndex) => {
       if (!player) return null;
       const context = player.kill_context || {};
       const kills = number(player.kills);
@@ -1708,7 +1708,7 @@
         trades: (player.trade_matchups || []).map(trade => [
           referenceIndex(trade.teammate, trade.teammate_steam_id, trade.teammate_is_bot),
           number(trade.opportunities), number(trade.attempts), number(trade.successes)
-        ]).filter(trade => trade[0] != null),
+        ]).filter(trade => trade[0] != null && trade[0] !== ownIndex),
         contexts: (player.kill_context_matchups || []).map(matchup => [
           referenceIndex(matchup.victim, matchup.victim_steam_id, matchup.victim_is_bot),
           number(matchup.blinded), number(matchup.attackerBlind), number(matchup.wallbang),
@@ -1732,7 +1732,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.11.1",
+      nickstats_build: "2026.09.11.2",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -1761,7 +1761,10 @@
         name: player.name,
         steam_id: player.steam_id,
         ...(player.is_bot ? { bot: true } : {}),
-        sides: [compactStats(player.by_side?.T), compactStats(player.by_side?.CT)]
+        sides: [
+          compactStats(player.by_side?.T, playerIndex.get(player)),
+          compactStats(player.by_side?.CT, playerIndex.get(player))
+        ]
       }))
     };
   }
