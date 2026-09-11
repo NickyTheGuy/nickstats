@@ -14,7 +14,8 @@
   const state = {
     selected: new Map(), players: [], choices: new Map(), analysis: null,
     searchController: null, compareController: null, searchTimer: null,
-    side: "ALL", map: "ALL", metricGroup: "core", weapon: ""
+    side: "ALL", map: "ALL", metricGroup: "core", weapon: "",
+    comboPlayerId: "", comboCondition: "without"
   };
 
   const metricGroups = {
@@ -497,20 +498,6 @@
     return { included, excluded, baseMatches, matches, comparisonMatches, partialMatches, fullTeam, comparisonPossible };
   }
 
-  function comparisonClasses(first, second, key, higherIsBetter = true, type = "") {
-    if (!first.n || !second.n) return ["", ""];
-    const normalize = stats => ["countRate", "signedRate", "damageRate", "secondsRate"].includes(type)
-      ? num(stats[key]) / Math.max(1, num(stats.rounds)) : num(stats[key]);
-    const firstValue = normalize(first), secondValue = normalize(second);
-    if (Math.abs(firstValue - secondValue) < 1e-9) return ["neutral", "neutral"];
-    const firstBetter = higherIsBetter ? firstValue > secondValue : firstValue < secondValue;
-    return firstBetter ? ["positive", "negative"] : ["negative", "positive"];
-  }
-
-  function record(stats) {
-    return `${stats.wins}-${stats.losses}-${stats.ties}`;
-  }
-
   function renderComboWarnings(current) {
     const warnings = $("comboWarnings");
     warnings.replaceChildren();
@@ -520,40 +507,62 @@
     if (current.partialMatches.length) add(`${current.partialMatches.length} match${current.partialMatches.length === 1 ? " contains" : "es contain"} only some Excluded players and ${current.partialMatches.length === 1 ? "is" : "are"} omitted from both groups.`);
   }
 
-  function renderComboStats(current) {
-    const header = document.createElement("tr");
-    ["Player", "Group", "Sample", ...metricFields().map(field => field[0])].forEach(label => header.appendChild(el("th", label)));
-    $("comboStatsHead").replaceChildren(header);
-    const body = $("comboStatsBody");
-    body.replaceChildren();
-    const sharedWithout = summarize(current.matches.map(match => match.rows[0].row));
-    const sharedWith = summarize(current.comparisonMatches.map(match => match.rows[0].row));
-    current.included.forEach((player, playerIndex) => {
-      const withoutStats = summarize(current.matches.map(match => match.rows.find(item => item.player.profileId === player.profileId).row));
-      const withStats = summarize(current.comparisonMatches.map(match => match.rows.find(item => item.player.profileId === player.profileId).row));
-      const statsRows = [withoutStats, withStats];
-      const labels = [current.excluded.length ? "Without excluded" : "Included lineup", current.excluded.length ? "With excluded" : "No comparison"];
-      const classes = new Map(metricFields().map(([, key, type, higher = true]) => [key, comparisonClasses(withoutStats, withStats, key, higher, type)]));
-      for (let index = 0; index < 2; index += 1) {
-        const row = document.createElement("tr");
-        row.className = index ? "condition-without" : "condition-with";
-        if (!index) {
-          const playerCell = td(player.label, "combo-player-name");
-          playerCell.rowSpan = 2;
-          row.appendChild(playerCell);
-        }
-        const stats = statsRows[index]; row.append(td(labels[index]), td(stats.n));
-        metricFields().forEach(([, key, type]) => row.appendChild(td(formatMetric(stats[key], type, stats), classes.get(key)[index])));
-        body.appendChild(row);
-      }
-      if (playerIndex < current.included.length - 1) {
-        const spacer = el("tr", null, "combo-player-spacer");
-        const cell = document.createElement("td");
-        cell.colSpan = 3 + metricFields().length;
-        spacer.appendChild(cell);
-        body.appendChild(spacer);
-      }
+  function comboMatchesForCondition(current) {
+    return state.comboCondition === "with" ? current.comparisonMatches : current.matches;
+  }
+
+  function comboProfileRows(current, player) {
+    return comboMatchesForCondition(current).map(match => match.rows.find(item => item.player.profileId === player.profileId)?.row).filter(Boolean);
+  }
+
+  function comboProfileCard(label, value, note = "") {
+    const card = el("div", null, "combo-profile-stat");
+    card.append(el("span", label), el("strong", value));
+    if (note) card.appendChild(el("small", note));
+    return card;
+  }
+
+  function renderComboProfile(current) {
+    if (!current.included.some(player => player.profileId === state.comboPlayerId)) state.comboPlayerId = current.included[0].profileId;
+    const canCompare = current.excluded.length > 0 && current.comparisonPossible;
+    if (state.comboCondition === "with" && !canCompare) state.comboCondition = "without";
+    document.querySelectorAll("[data-combo-condition]").forEach(button => {
+      const active = button.dataset.comboCondition === state.comboCondition;
+      button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
+      button.disabled = button.dataset.comboCondition === "with" && !canCompare;
     });
+
+    const tabs = $("comboProfilePlayers"); tabs.replaceChildren();
+    current.included.forEach(player => {
+      const button = el("button", player.label); button.type = "button";
+      const active = player.profileId === state.comboPlayerId;
+      button.className = active ? "active" : ""; button.setAttribute("aria-pressed", String(active));
+      button.addEventListener("click", () => { state.comboPlayerId = player.profileId; renderComboProfile(current); renderComboMatches(current); });
+      tabs.appendChild(button);
+    });
+
+    const player = current.included.find(item => item.profileId === state.comboPlayerId);
+    const rows = comboProfileRows(current, player), stats = summarize(rows);
+    const excludedNames = current.excluded.map(item => item.label).join(" + ");
+    const condition = state.comboCondition === "with" ? `with ${excludedNames}` : current.excluded.length ? `without ${excludedNames}` : "with the Included lineup";
+    const teammateNames = current.included.filter(item => item.profileId !== player.profileId).map(item => item.label).join(" + ");
+    const includedCondition = teammateNames ? `playing with ${teammateNames}` : "as the selected Included player";
+    $("comboProfileTitle").textContent = player.label;
+    $("comboProfileMeta").textContent = `${rows.length} qualifying match${rows.length === 1 ? "" : "es"} · ${includedCondition} · ${condition} · ${state.side === "ALL" ? "all sides" : state.side}${state.map === "ALL" ? "" : ` · ${state.map.replace(/^de_/, "")}`}`;
+    $("comboProfileHeadline").replaceChildren(
+      comboProfileCard("Rating", stats.rating.toFixed(2), "Round-weighted"),
+      comboProfileCard("K/D", stats.kd.toFixed(2), `${Math.round(stats.kills)} K · ${Math.round(stats.deaths)} D`),
+      comboProfileCard("ADR", stats.adr.toFixed(1), `${Math.round(stats.damage).toLocaleString()} damage`),
+      comboProfileCard("KAST", `${stats.kast.toFixed(1)}%`, `${Math.round(stats.kast_rounds).toLocaleString()} KAST rounds`),
+      comboProfileCard(state.side === "ALL" ? "Match win rate" : "Round win rate", `${stats.winRate.toFixed(1)}%`, state.side === "ALL" ? `${stats.wins}-${stats.losses}-${stats.ties}` : `${Math.round(stats.round_wins)}/${Math.round(stats.rounds)} rounds`)
+    );
+    const categoryName = $("compareMetricGroup").selectedOptions[0]?.textContent || "Statistics";
+    $("comboMetricTitle").textContent = state.metricGroup === "weapons" && state.weapon
+      ? `${categoryName}: ${state.weapon.replace(/^weapon_/, "").replaceAll("_", " ")}` : categoryName;
+    $("comboProfilePanel").dataset.metricGroup = state.metricGroup;
+    const metrics = $("comboProfileMetrics"); metrics.replaceChildren();
+    metricFields().forEach(([label, key, type]) => metrics.appendChild(comboProfileCard(label, formatMetric(stats[key], type, stats))));
+    if (!rows.length) metrics.replaceChildren(el("div", "No matches satisfy this profile condition.", "empty combo-profile-empty"));
   }
 
   function formatDate(timestamp) {
@@ -562,34 +571,39 @@
 
   function renderComboMatches(current) {
     const header = document.createElement("tr");
-    ["Date", "Map", "Result", "Score", ...current.included.map(player => player.label), "Match"].forEach(label => header.appendChild(el("th", label)));
+    ["Date", "Map", "Result", "Score", "K–D–A", "ADR", "Rating", "Match"].forEach(label => header.appendChild(el("th", label)));
     $("comboMatchHead").replaceChildren(header);
     const body = $("comboMatchBody");
     body.replaceChildren();
-    for (const match of current.matches) {
-      const first = match.rows[0].row;
+    const player = current.included.find(item => item.profileId === state.comboPlayerId) || current.included[0];
+    const matches = comboMatchesForCondition(current);
+    for (const match of matches) {
+      const first = match.rows.find(item => item.player.profileId === player.profileId)?.row;
+      if (!first) continue;
+      const stats = summarize([first]);
       const row = document.createElement("tr");
       const result = first.result === "w" ? "Win" : first.result === "l" ? "Loss" : "Tie";
       row.append(td(formatDate(first.date)), td(first.map.replace(/^de_/, "")), td(result, first.result === "w" ? "result-win" : first.result === "l" ? "result-loss" : "result-tie"),
-        td(first.score.every(value => value != null) ? `${first.score[0]}–${first.score[1]}` : "—"));
-      match.rows.forEach(item => { const stats = summarize([item.row]); row.appendChild(td(`${Math.round(stats.kills)}/${Math.round(stats.deaths)}/${Math.round(stats.assists)} · ${stats.adr.toFixed(0)} ADR · ${stats.rating.toFixed(2)} R`, "combo-player-line")); });
+        td(first.score.every(value => value != null) ? `${first.score[0]}–${first.score[1]}` : "—"),
+        td(`${Math.round(stats.kills)}–${Math.round(stats.deaths)}–${Math.round(stats.assists)}`, "combo-player-line"), td(stats.adr.toFixed(1)), td(stats.rating.toFixed(2)));
       row.appendChild(td(`#${match.id}`));
       body.appendChild(row);
     }
-    $("comboEmpty").hidden = current.matches.length > 0;
-    $("comboMatchLabel").textContent = `${current.matches.length} without-excluded match${current.matches.length === 1 ? "" : "es"}; result and score use ${current.included[0].label}’s perspective.`;
+    $("comboEmpty").hidden = matches.length > 0;
+    const condition = state.comboCondition === "with" ? "with Excluded players present" : current.excluded.length ? "with Excluded players absent" : "for the Included lineup";
+    $("comboMatchLabel").textContent = `${matches.length} match${matches.length === 1 ? "" : "es"} ${condition}; statistics use ${player.label}’s perspective.`;
   }
 
   function runCombination() {
     const current = findCombination();
     if (!current) return;
-    $("comboTitle").textContent = `${current.included.map(player => player.label).join(" + ")}${current.excluded.length ? ` without ${current.excluded.map(player => player.label).join(" + ")}` : ""}`;
+    $("comboTitle").textContent = `${current.included.map(player => player.label).join(" + ")} lineup conditions${current.excluded.length ? ` · testing ${current.excluded.map(player => player.label).join(" + ")}` : ""}`;
     $("comboMatchTotal").textContent = current.matches.length;
     $("comboIncludedTotal").textContent = current.included.length;
     $("comboExcludedTotal").textContent = current.excluded.length;
     $("comboComparisonTotal").textContent = current.comparisonMatches.length;
     renderComboWarnings(current);
-    renderComboStats(current);
+    renderComboProfile(current);
     renderComboMatches(current);
     $("comboResults").hidden = false;
     $("comboStatus").textContent = `Found ${current.matches.length} without-excluded and ${current.comparisonMatches.length} with-excluded matches.`;
@@ -624,6 +638,10 @@
   $("compareClearButton").addEventListener("click", clear);
   $("comboRun").addEventListener("click", runCombination);
   $("comboReset").addEventListener("click", resetCombination);
+  document.querySelectorAll("[data-combo-condition]").forEach(button => button.addEventListener("click", () => {
+    if (button.disabled) return;
+    state.comboCondition = button.dataset.comboCondition; runCombination();
+  }));
   $("compareMetricGroup").addEventListener("change", event => {
     state.metricGroup = event.target.value;
     $("compareWeapon").hidden = state.metricGroup !== "weapons";

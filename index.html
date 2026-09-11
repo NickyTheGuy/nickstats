@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260911-9">
+  <link rel="stylesheet" href="./styles.css?v=20260911-10">
 </head>
 <body>
   <main class="shell">
@@ -244,11 +244,24 @@
                 </div>
               </section>
 
-              <section class="panel table-panel">
-                <div class="table-heading"><div><h2>Performance with and without excluded players</h2><p>Team results are shared; personal statistics are shown for every Included player.</p></div></div>
-                <div class="table-wrap">
-                  <table class="combo-stats-table"><thead id="comboStatsHead"></thead><tbody id="comboStatsBody"></tbody></table>
+              <section class="panel combo-profile-panel" id="comboProfilePanel">
+                <div class="combo-profile-heading">
+                  <div>
+                    <div class="eyebrow">Conditional player profile</div>
+                    <h2 id="comboProfileTitle">Included player</h2>
+                    <p id="comboProfileMeta"></p>
+                  </div>
+                  <div class="combo-profile-controls">
+                    <div><span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition">
+                      <button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button>
+                      <button type="button" aria-pressed="false" data-combo-condition="with">With</button>
+                    </div></div>
+                  </div>
                 </div>
+                <nav class="combo-profile-players" id="comboProfilePlayers" aria-label="Included player profiles"></nav>
+                <div class="combo-profile-headline" id="comboProfileHeadline"></div>
+                <div class="combo-profile-category-heading"><h3 id="comboMetricTitle">Core statistics</h3><p>Uses the Statistics selector above.</p></div>
+                <div class="combo-profile-metrics" id="comboProfileMetrics"></div>
               </section>
 
               <section class="panel table-panel">
@@ -386,6 +399,6 @@
   <script defer src="./js/navigation.js?v=20260906-1"></script>
   <script defer src="./js/demo.js?v=20260911-7"></script>
   <script defer src="./js/players.js?v=20260911-6"></script>
-  <script defer src="./js/compare.js?v=20260911-6"></script>
+  <script defer src="./js/compare.js?v=20260911-7"></script>
 </body>
 </html>
