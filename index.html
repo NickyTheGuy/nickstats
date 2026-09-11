@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.11.14</span>
+          <span class="demo-build">Build 2026.09.11.15</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -23,9 +23,9 @@
 
     <nav class="data-tabs app-tabs" role="tablist" aria-label="NickStats sections">
       <button class="data-tab" id="matchPageTab" type="button" role="tab" aria-selected="true" aria-controls="matchPage" data-app-page="match">Match</button>
-      <button class="data-tab" id="comparePageTab" type="button" role="tab" aria-selected="false" aria-controls="comparePage" data-app-page="compare">Compare</button>
+      <button class="data-tab" id="playersPageTab" type="button" role="tab" aria-selected="false" aria-controls="playersPage" data-app-page="players">Player</button>
       <button class="data-tab" id="matrixPageTab" type="button" role="tab" aria-selected="false" aria-controls="comparePage" data-app-page="matrix">Matrix</button>
-      <button class="data-tab" id="playersPageTab" type="button" role="tab" aria-selected="false" aria-controls="playersPage" data-app-page="players">Players</button>
+      <button class="data-tab" id="comparePageTab" type="button" role="tab" aria-selected="false" aria-controls="comparePage" data-app-page="compare">Compare</button>
     </nav>
 
     <section class="app-view" id="matchPage" role="tabpanel" aria-labelledby="matchPageTab" data-app-view="match">
@@ -232,50 +232,7 @@
                   <span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-compare-side="ALL">All</button><button type="button" aria-pressed="false" data-compare-side="T">T</button><button type="button" aria-pressed="false" data-compare-side="CT">CT</button></div>
                 </div>
                 <div class="player-headline-stats" id="comboProfileHeadline"></div>
-                <nav class="player-profile-tabs" role="tablist" aria-label="Conditional player statistics">
-                  <button class="player-profile-tab active" type="button" role="tab" aria-selected="true" data-combo-profile-view="overview">Overview</button>
-                  <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-combo-profile-view="utility">Utility</button>
-                  <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-combo-profile-view="trades">Trades</button>
-                  <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-combo-profile-view="openings">Openings</button>
-                  <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-combo-profile-view="context">Context</button>
-                  <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-combo-profile-view="rounds">Rounds</button>
-                  <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-combo-profile-view="movement">Movement</button>
-                  <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-combo-profile-view="weapons">Weapons</button>
-                  <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-combo-profile-view="maps">Maps</button>
-                  <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-combo-profile-view="matches">Matches</button>
-                </nav>
-                <div class="player-profile-view" data-combo-profile-panel="overview"><div class="player-section-grid">
-                  <section class="player-stat-section"><header><span>01</span><div><h3>Record</h3><p>Qualifying matches and rounds</p></div></header><div class="player-detail-grid player-detail-grid-compact" id="comboRecordStats"></div></section>
-                  <section class="player-stat-section"><header><span>02</span><div><h3>Combat totals</h3><p>Output under the selected conditions</p></div></header><div class="player-detail-grid" id="comboCombatStats"></div></section>
-                </div></div>
-                <div class="player-profile-view" data-combo-profile-panel="utility" hidden><div class="player-section-grid player-section-grid-thirds">
-                  <section class="player-stat-section"><header><span>01</span><div><h3>Damage</h3><p>HE and incendiary impact</p></div></header><div class="player-detail-grid" id="comboUtilityDamageStats"></div></section>
-                  <section class="player-stat-section"><header><span>02</span><div><h3>Flashes</h3><p>Enemies affected and assists</p></div></header><div class="player-detail-grid" id="comboFlashStats"></div></section>
-                  <section class="player-stat-section"><header><span>03</span><div><h3>Assisted kills</h3><p>How kills were enabled</p></div></header><div class="player-detail-grid" id="comboAssistStats"></div></section>
-                </div></div>
-                <div class="player-profile-view" data-combo-profile-panel="trades" hidden><div class="player-section-grid">
-                  <section class="player-stat-section"><header><span>01</span><div><h3>Trading teammates</h3><p>Opportunities, responses, and conversions</p></div></header><div class="player-detail-grid" id="comboTradeAttackStats"></div></section>
-                  <section class="player-stat-section"><header><span>02</span><div><h3>Being traded</h3><p>How teammates responded after this player died</p></div></header><div class="player-detail-grid" id="comboTradeDeathStats"></div></section>
-                </div></div>
-                <div class="player-profile-view" data-combo-profile-panel="openings" hidden><section class="player-stat-section player-stat-section-single"><header><span>01</span><div><h3>First engagements</h3><p>Opening attempts, differential, and success rate</p></div></header><div class="player-detail-grid" id="comboOpeningStats"></div></section></div>
-                <div class="player-profile-view" data-combo-profile-panel="context" hidden><p class="player-context-note"><strong>Paul Kill/Death:</strong> the victim had a grenade or knife out at death or within the preceding two seconds. <strong>Bullshit Kills/Deaths</strong> combine blind-killer, airborne, running, wallbang, smoke, and Paul events, counting overlaps once. Airborne and running also remain in Movement for detailed analysis.</p><div class="player-section-grid">
-                  <section class="player-stat-section"><header><span>01</span><div><h3>When this player got the kill</h3><p>Conditions recorded on their kills</p></div></header><div class="player-metric-list" id="comboKillContextStats"></div></section>
-                  <section class="player-stat-section"><header><span>02</span><div><h3>When this player died</h3><p>Conditions recorded on their deaths</p></div></header><div class="player-metric-list" id="comboDeathContextStats"></div></section>
-                </div></div>
-                <div class="player-profile-view" data-combo-profile-panel="rounds" hidden><div class="player-round-sections">
-                  <section class="player-stat-section player-count-section"><header><span>01</span><div><h3>Clutches won</h3><p>Rounds won as the final surviving player</p></div></header><div class="player-count-strip" id="comboClutchStats"></div></section>
-                  <section class="player-stat-section player-count-section"><header><span>02</span><div><h3>Multikill rounds</h3><p>Rounds grouped by total kills</p></div></header><div class="player-count-strip" id="comboMultikillStats"></div></section>
-                </div></div>
-                <div class="player-profile-view" data-combo-profile-panel="movement" hidden><p class="player-movement-note">Moving means above 1 unit per second. Running means above 34% of the held weapon’s maximum movement speed and is a subset of moving.</p><div class="player-section-grid">
-                  <section class="player-stat-section"><header><span>01</span><div><h3>Player speed on kills</h3><p>Average and peak movement speed</p></div></header><div class="player-detail-grid" id="comboKillSpeedStats"></div></section>
-                  <section class="player-stat-section"><header><span>02</span><div><h3>Enemy speed on deaths</h3><p>Average and peak killer movement speed</p></div></header><div class="player-detail-grid" id="comboDeathSpeedStats"></div></section>
-                  <section class="player-stat-section"><header><span>03</span><div><h3>Player movement on kills</h3><p>Movement state when this player got the kill</p></div></header><div class="player-metric-list" id="comboMovementStateStats"></div></section>
-                  <section class="player-stat-section"><header><span>04</span><div><h3>Enemy movement on deaths</h3><p>Killer movement state when this player died</p></div></header><div class="player-metric-list" id="comboDeathMovementStateStats"></div></section>
-                </div></div>
-                <div class="player-profile-view" data-combo-profile-panel="weapons" hidden><div class="player-profile-table-wrap"><table class="player-profile-table" id="comboWeaponsTable"></table></div></div>
-                <div class="player-profile-view" data-combo-profile-panel="maps" hidden><div class="player-profile-table-wrap"><table class="player-profile-table" id="comboMapsTable"></table></div></div>
-                <div class="player-profile-view" data-combo-profile-panel="matches" hidden><div class="player-profile-table-wrap"><table class="player-profile-table" id="comboMatchesTable"></table><div class="empty" id="comboEmpty" hidden>No matches satisfy this profile condition.</div></div></div>
-                <p class="combo-profile-footnote" id="comboMatchLabel"></p>
+                <div id="comboProfileBody"></div>
               </section>
             </div>
           </div>
@@ -325,14 +282,15 @@
           </div>
           <div class="player-headline-stats" id="playerHeadlineStats"></div>
 
+          <div id="playerProfileBody">
           <nav class="player-profile-tabs" role="tablist" aria-label="Player statistics">
             <button class="player-profile-tab active" type="button" role="tab" aria-selected="true" data-player-view="overview">Overview</button>
-            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="utility">Utility</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="openings">Opening</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="trades">Trades</button>
-            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="openings">Openings</button>
-            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="context">Context</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="rounds">Rounds</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="context">Context</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="movement">Movement</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="utility">Utility</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="weapons">Weapons</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="maps">Maps</button>
           </nav>
@@ -387,6 +345,7 @@
           <div class="player-profile-view" data-player-profile-view="maps" hidden>
             <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerMapsTable"></table></div>
           </div>
+          </div>
         </section>
       </div>
     </section>
@@ -409,7 +368,8 @@
 
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/demo.js?v=20260911-9"></script>
-  <script defer src="./js/players.js?v=20260911-10"></script>
-  <script defer src="./js/compare.js?v=20260911-14"></script>
+  <script defer src="./js/profile.js?v=20260911-1"></script>
+  <script defer src="./js/players.js?v=20260911-11"></script>
+  <script defer src="./js/compare.js?v=20260911-15"></script>
 </body>
 </html>

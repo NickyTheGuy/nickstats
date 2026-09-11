@@ -546,49 +546,7 @@
     return comboMatchesForCondition(current).map(match => match.rows.find(item => item.player.profileId === player.profileId)?.row).filter(Boolean);
   }
 
-  const integer = value => Math.round(num(value)).toLocaleString();
-  const decimal = (value, places = 1) => num(value).toFixed(places);
-  const percent = value => `${decimal(value, 1)}%`;
-  const ratio = (a, b) => num(b) > 0 ? num(a) / num(b) : num(a);
-  const titleCase = value => String(value || "Unknown").replace(/^weapon_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase());
-  const countPerRound = (value, rounds, places = 2) => `${decimal(ratio(value, rounds), places)} per round`;
-
-  function profileCard(label, value, note = "", className = "") {
-    const card = el("div", null, `player-stat-card ${className}`.trim());
-    card.append(el("span", label), el("strong", value));
-    if (note) card.appendChild(el("small", note));
-    return card;
-  }
-
-  function fillProfileCards(target, cards) {
-    $(target).replaceChildren(...cards.map(card => profileCard(...card)));
-  }
-
-  function fillProfileList(target, metrics) {
-    $(target).replaceChildren(...metrics.map(([label, value, note = ""]) => {
-      const row = el("div", null, "player-metric-row"), copy = el("div");
-      copy.appendChild(el("span", label));
-      if (note) copy.appendChild(el("small", note));
-      row.append(copy, el("strong", value));
-      return row;
-    }));
-  }
-
-  function fillProfileStrip(target, metrics) {
-    $(target).replaceChildren(...metrics.map(([label, value, note = ""]) => {
-      const item = el("div", null, "player-count-item");
-      item.append(el("strong", value), el("span", label));
-      if (note) item.appendChild(el("small", note));
-      return item;
-    }));
-  }
-
-  function renderProfileTable(table, headers, rows) {
-    const head = document.createElement("thead"), header = document.createElement("tr"), body = document.createElement("tbody");
-    headers.forEach(label => { const cell = el("th", label); cell.scope = "col"; header.appendChild(cell); });
-    rows.forEach(values => { const row = document.createElement("tr"); values.forEach((value, index) => { const cell = el(index ? "td" : "th", value); if (!index) cell.scope = "row"; row.appendChild(cell); }); body.appendChild(row); });
-    head.appendChild(header); table.replaceChildren(head, body);
-  }
+  const { integer, decimal, percent, ratio, titleCase } = window.NickStatsProfile;
 
   function setComboProfileView(view) {
     state.comboView = view;
@@ -623,60 +581,11 @@
     $("comboProfileTitle").textContent = player.label;
     $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(rows.length)} qualifying match${rows.length === 1 ? "" : "es"} · ${sideLabel}${state.maps.size ? ` · ${mapSelectionLabel()}` : ""}`;
     $("comboProfileRecord").textContent = state.side === "ALL" ? `${stats.wins}–${stats.losses}${stats.ties ? `–${stats.ties}` : ""}` : `${integer(s.round_wins)}–${integer(s.rounds - num(s.round_wins))} rounds`;
-    const ratingClass = stats.rating >= 1.1 ? "rating-good" : stats.rating <= .9 ? "rating-bad" : "rating-average";
-    $("comboProfileHeadline").replaceChildren(
-      profileCard("Average rating", decimal(stats.rating, 2), "Round-weighted", ratingClass),
-      profileCard("Average K/D", decimal(stats.kd, 2), `${integer(s.kills)} K · ${integer(s.deaths)} D`),
-      profileCard("Average ADR", decimal(stats.adr, 1), `${integer(s.damage)} total damage`),
-      profileCard("Average KAST", percent(stats.kast), `${integer(s.kast_rounds)} KAST rounds`),
-      profileCard(state.side === "ALL" ? "Match win rate" : "Round win rate", percent(stats.winRate), state.side === "ALL" ? `${stats.wins} wins in ${stats.n} matches` : `${integer(s.round_wins)} of ${integer(s.rounds)} rounds`)
-    );
-    fillProfileCards("comboRecordStats", [["Matches", integer(stats.n), `${stats.wins} W · ${stats.losses} L · ${stats.ties} D`], ["Rounds", integer(s.rounds), `${integer(s.round_wins)} won`]]);
-    fillProfileCards("comboCombatStats", [["Kills", integer(s.kills), countPerRound(s.kills, s.rounds)], ["Deaths", integer(s.deaths), countPerRound(s.deaths, s.rounds)], ["Assists", integer(s.assists), countPerRound(s.assists, s.rounds)], ["Headshot rate", percent(100 * ratio(s.headshots, s.kills)), `${integer(s.headshots)} headshots`]]);
-    const utilityDamage = num(s.he_damage) + num(s.fire_damage);
-    fillProfileCards("comboUtilityDamageStats", [["Total damage", integer(utilityDamage), countPerRound(utilityDamage, s.rounds, 1)], ["HE", integer(s.he_damage), countPerRound(s.he_damage, s.rounds, 1)], ["Fire", integer(s.fire_damage), countPerRound(s.fire_damage, s.rounds, 1)]]);
-    fillProfileCards("comboFlashStats", [["Enemies flashed", integer(s.enemies_flashed), countPerRound(s.enemies_flashed, s.rounds)], ["Enemy blind time", `${decimal(num(s.blind_duration_ms) / 1000, 1)}s`, `${decimal(ratio(num(s.blind_duration_ms) / 1000, s.rounds), 2)}s per round`], ["Flash assists", integer(s.flash_assists), countPerRound(s.flash_assists, s.rounds)]]);
-    fillProfileCards("comboAssistStats", [["Damage", integer(s.damage_assisted_kills), countPerRound(s.damage_assisted_kills, s.rounds)], ["Teammate flash", integer(s.teammate_flash_assisted_kills), countPerRound(s.teammate_flash_assisted_kills, s.rounds)], ["Own flash", integer(s.own_flash_kills), countPerRound(s.own_flash_kills, s.rounds)]]);
-    fillProfileCards("comboTradeAttackStats", [["Opportunities", integer(s.trade_opportunities), countPerRound(s.trade_opportunities, s.rounds)], ["Attempts", integer(s.trade_attempts), `${countPerRound(s.trade_attempts, s.rounds)} · ${percent(100 * ratio(s.trade_attempts, s.trade_opportunities))} response`], ["Trade kills", integer(s.trade_kills), `${countPerRound(s.trade_kills, s.rounds)} · ${integer(s.trade_successes)} successful responses · ${percent(100 * ratio(s.trade_successes, s.trade_attempts))} success`]]);
-    fillProfileCards("comboTradeDeathStats", [["Tradeable deaths", integer(s.tradeable_deaths), countPerRound(s.tradeable_deaths, s.rounds)], ["Teammates attempted", integer(s.attempted_tradeable_deaths), `${countPerRound(s.attempted_tradeable_deaths, s.rounds)} · ${percent(100 * ratio(s.attempted_tradeable_deaths, s.tradeable_deaths))} response`], ["Deaths traded", integer(s.traded_deaths), `${countPerRound(s.traded_deaths, s.rounds)} · ${percent(100 * ratio(s.traded_deaths, s.attempted_tradeable_deaths))} conversion`]]);
-    const openingTotal = num(s.opening_kills) + num(s.opening_deaths), openingDiff = num(s.opening_kills) - num(s.opening_deaths);
-    fillProfileCards("comboOpeningStats", [["Opening kills", integer(s.opening_kills), countPerRound(s.opening_kills, s.rounds)], ["Opening deaths", integer(s.opening_deaths), countPerRound(s.opening_deaths, s.rounds)], ["Opening differential", `${openingDiff >= 0 ? "+" : ""}${integer(openingDiff)}`, `${openingDiff >= 0 ? "+" : ""}${decimal(ratio(openingDiff, s.rounds), 2)} per round`], ["Opening success", percent(100 * ratio(s.opening_kills, openingTotal)), `${integer(openingTotal)} opening duels`]]);
-    const metricRows = values => values.map(([label, value]) => [label, integer(value), countPerRound(value, s.rounds)]);
-    fillProfileList("comboKillContextStats", metricRows([["Enemy was blinded", s.blinded_kills], ["Player was blinded", s.blind_kills], ["Wallbang kills", s.wallbang_kills], ["Smoke kills", s.smoke_kills], ["Airborne kills", s.airborne_kills], ["Running kills", s.running_kills], ["Enemy had a grenade out", s.grenade_out_kills], ["Enemy had a knife out", s.knife_out_kills], ["Paul kills", s.equipment_disadvantage_kills], ["Bullshit kills (unique)", s.unfair_kills]]));
-    fillProfileList("comboDeathContextStats", metricRows([["Player was blinded", s.deaths_while_blind], ["Enemy was blinded", s.deaths_to_blind_killer], ["Wallbang deaths", s.wallbang_deaths], ["Smoke deaths", s.smoke_deaths], ["Deaths to airborne enemies", s.airborne_deaths], ["Deaths to running enemies", s.running_killer_deaths], ["Player had a grenade out", s.grenade_out_deaths], ["Player had a knife out", s.knife_out_deaths], ["Paul deaths", s.equipment_disadvantage_deaths], ["Bullshit deaths (unique)", s.unfair_deaths]]));
-    fillProfileStrip("comboClutchStats", [["1v1", s.clutch_1v1], ["1v2", s.clutch_1v2], ["1v3", s.clutch_1v3], ["1v4", s.clutch_1v4], ["1v5", s.clutch_1v5]].map(([label, value]) => [label, integer(value), `${decimal(ratio(value, s.rounds), 2)}/R`]));
-    fillProfileStrip("comboMultikillStats", [["1 kill", s.kill_rounds_1k], ["2 kills", s.kill_rounds_2k], ["3 kills", s.kill_rounds_3k], ["4 kills", s.kill_rounds_4k], ["5 kills", s.kill_rounds_5k]].map(([label, value]) => [label, integer(value), `${decimal(ratio(value, s.rounds), 2)}/R`]));
-    fillProfileCards("comboKillSpeedStats", [["Average", decimal(ratio(s.kill_speed_total, s.kill_speed_samples), 1), `${integer(s.kill_speed_samples)} samples`], ["Maximum", decimal(s.kill_speed_max, 1)], ["Average of max", percent(ratio(s.kill_speed_percent_total, s.kill_speed_percent_samples))], ["Peak of max", percent(s.kill_speed_percent_max)]]);
-    fillProfileCards("comboDeathSpeedStats", [["Average", decimal(ratio(s.death_speed_total, s.death_speed_samples), 1), `${integer(s.death_speed_samples)} samples`], ["Maximum", decimal(s.death_speed_max, 1)], ["Average of max", percent(ratio(s.death_speed_percent_total, s.death_speed_percent_samples))], ["Peak of max", percent(s.death_speed_percent_max)]]);
-    fillProfileList("comboMovementStateStats", metricRows([["Moving kills", s.moving_kills], ["Still kills", s.still_kills], ["Running kills", s.running_kills], ["Airborne kills", s.airborne_kills]]));
-    fillProfileList("comboDeathMovementStateStats", metricRows([["Deaths to moving enemies", s.moving_killer_deaths], ["Deaths to still enemies", s.still_killer_deaths], ["Deaths to running enemies", s.running_killer_deaths], ["Deaths to airborne enemies", s.airborne_deaths]]));
-    renderProfileTable($("comboWeaponsTable"), ["Weapon", "Kills", "K/R", "Damage", "Dmg/R", "Shots", "Shots/R", "Rounds used", "Usage"], stats.weapons.map(weapon => [titleCase(weapon.weapon), integer(weapon.kills), decimal(ratio(weapon.kills, s.rounds), 3), integer(weapon.damage), decimal(ratio(weapon.damage, s.rounds), 1), integer(weapon.shots), decimal(ratio(weapon.shots, s.rounds), 2), integer(weapon.rounds_used), percent(100 * ratio(weapon.rounds_used, s.rounds))]));
     const maps = new Map(); rows.forEach(row => { const collection = maps.get(row.map) || []; collection.push(row); maps.set(row.map, collection); });
-    renderProfileTable($("comboMapsTable"), ["Map", "Matches", state.side === "ALL" ? "Record" : "Rounds", state.side === "ALL" ? "Win rate" : "Round win", "Rating", "K/D", "K/R", "A/R", "ADR", "KAST"], [...maps.entries()].map(([name, mapRows]) => ({ name, stats: summarize(mapRows) })).sort((a, b) => b.stats.n - a.stats.n || a.name.localeCompare(b.name)).map(({ name, stats: mapStats }) => [titleCase(name.replace(/^de_/, "")), integer(mapStats.n), state.side === "ALL" ? `${mapStats.wins}–${mapStats.losses}` : `${integer(mapStats.round_wins)}–${integer(mapStats.rounds - num(mapStats.round_wins))}`, percent(mapStats.winRate), decimal(mapStats.rating, 2), decimal(mapStats.kd, 2), decimal(mapStats.kpr, 2), decimal(mapStats.apr, 2), decimal(mapStats.adr, 1), percent(mapStats.kast)]));
-    renderComboMatches(current);
+    const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate });
+    const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches)) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
+    window.NickStatsProfile.render({ prefix: "combo", headlineId: "comboProfileHeadline", summary: normalize(stats), side: state.side, maps: mapRows });
     setComboProfileView(state.comboView);
-  }
-
-  function formatDate(timestamp) {
-    return timestamp ? new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" }).format(new Date(timestamp * 1000)) : "—";
-  }
-
-  function renderComboMatches(current) {
-    const player = current.included.find(item => item.profileId === state.comboPlayerId) || current.included[0];
-    const matches = comboMatchesForCondition(current);
-    const values = [];
-    for (const match of matches) {
-      const first = match.rows.find(item => item.player.profileId === player.profileId)?.row;
-      if (!first) continue;
-      const stats = summarize([first]);
-      const result = first.result === "w" ? "Win" : first.result === "l" ? "Loss" : "Tie";
-      values.push([formatDate(first.date), titleCase(first.map.replace(/^de_/, "")), result, first.score.every(value => value != null) ? `${first.score[0]}–${first.score[1]}` : "—", `${integer(stats.kills)}–${integer(stats.deaths)}–${integer(stats.assists)}`, decimal(stats.adr, 1), decimal(stats.rating, 2), `#${match.id}`]);
-    }
-    renderProfileTable($("comboMatchesTable"), ["Date", "Map", "Result", "Score", "K–D–A", "ADR", "Rating", "Match"], values);
-    $("comboEmpty").hidden = matches.length > 0;
-    const condition = state.comboCondition === "with" ? "with all Excluded players present" : current.excluded.length ? "with all Excluded players absent" : "for the Included lineup";
-    const includedTeammates = current.included.filter(item => item.profileId !== player.profileId).map(item => item.label);
-    $("comboMatchLabel").textContent = `${matches.length} match${matches.length === 1 ? "" : "es"} ${condition}${includedTeammates.length ? ` while playing with ${includedTeammates.join(" + ")}` : ""}.`;
   }
 
   function runCombination() {
