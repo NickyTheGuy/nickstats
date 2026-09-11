@@ -2,31 +2,9 @@
   "use strict";
   const PLAYER_ENDPOINT = "/nickstats/api/players";
   const $ = id => document.getElementById(id);
-  const state = { payload: null, side: "ALL", maps: new Set(), searchController: null, profileController: null, searchTimer: null };
+  const state = { payload: null, side: "ALL", searchController: null, profileController: null, searchTimer: null };
   const { number, integer, ratio, titleCase } = window.NickStatsProfile;
-  const mapSelected = name => !state.maps.size || state.maps.has(name);
-  const mapSelectionLabel = () => state.maps.size === 0 ? "All maps" : state.maps.size === 1
-    ? titleCase([...state.maps][0].replace(/^de_/, "")) : `${state.maps.size} maps`;
-
-  function renderMapFilter(keepOpen = false) {
-    const target = $("playerMapFilter"); if (!target || !state.payload) return;
-    const names = [...new Set((state.payload.matches || []).map(match => match.map).filter(Boolean))].sort();
-    const details = document.createElement("details"); details.className = "map-filter-menu"; details.open = keepOpen;
-    const summary = document.createElement("summary"); summary.textContent = mapSelectionLabel(); details.appendChild(summary);
-    const options = document.createElement("div"); options.className = "map-filter-options";
-    const addOption = (label, value) => {
-      const row = document.createElement("label"), checkbox = document.createElement("input"), text = document.createElement("span");
-      checkbox.type = "checkbox"; checkbox.value = value; checkbox.checked = value === "ALL" ? !state.maps.size : state.maps.has(value); text.textContent = label;
-      checkbox.addEventListener("change", () => {
-        if (value === "ALL") state.maps.clear();
-        else if (checkbox.checked) state.maps.add(value); else state.maps.delete(value);
-        renderMapFilter(true); renderProfile();
-      });
-      row.append(checkbox, text); options.appendChild(row);
-    };
-    addOption("All maps", "ALL"); names.forEach(name => addOption(titleCase(name.replace(/^de_/, "")), name));
-    details.appendChild(options); target.replaceChildren(details);
-  }
+  const mapFilter = new window.NickStatsFilters.MultiMapFilter("playerMapFilter", { onChange: () => renderProfile(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
 
   async function apiJson(response) {
     const body = await response.json().catch(() => null);
@@ -108,10 +86,10 @@
   function renderProfile() {
     const payload = state.payload; if (!payload) return;
     const player = payload.player || {}, allMatches = Array.isArray(payload.matches) ? payload.matches : [];
-    const matches = allMatches.filter(match => mapSelected(match.map)), summary = aggregate(matches), s = summary.stats;
+    const matches = allMatches.filter(match => mapFilter.matches(match.map)), summary = aggregate(matches), s = summary.stats;
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("playerProfileName").textContent = player.name || "Unknown player";
-    $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel}${state.maps.size ? ` · ${mapSelectionLabel()}` : ""}`;
+    $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}`;
     $("playerProfileRecord").textContent = state.side === "ALL" ? `${summary.wins}–${summary.losses}${summary.draws ? `–${summary.draws}` : ""}` : `${integer(s.round_wins)}–${integer(summary.rounds - number(s.round_wins))} rounds`;
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
     const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: aggregate(map.rows) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
@@ -122,17 +100,13 @@
     state.profileController?.abort(); state.profileController = new AbortController();
     $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "Loading player profile…"; $("playerProfileStatus").classList.remove("error"); $("playerHeadlineStats").replaceChildren();
     try {
-      state.payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(playerID)}`, { headers: { Accept: "application/json" }, signal: state.profileController.signal })); state.side = "ALL"; state.maps.clear();
-      document.querySelectorAll("[data-player-side]").forEach(button => { const active = button.dataset.playerSide === "ALL"; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
-      renderMapFilter(); renderProfile(); setPlayerView("overview"); $("playerProfile").scrollIntoView({ behavior: "smooth", block: "start" });
+      state.payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(playerID)}`, { headers: { Accept: "application/json" }, signal: state.profileController.signal })); state.side = "ALL";
+      mapFilter.setOptions((state.payload.matches || []).map(match => match.map), { reset: true }); playerSideFilter.set("ALL", { notify: false });
+      renderProfile(); setPlayerView("overview"); $("playerProfile").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) { if (error.name !== "AbortError") { $("playerProfileStatus").textContent = `Could not load player: ${error.message}`; $("playerProfileStatus").classList.add("error"); } }
   }
   $("playerSearchForm").addEventListener("submit", event => { event.preventDefault(); clearTimeout(state.searchTimer); searchPlayers(); });
   $("playerSearchInput").addEventListener("input", event => { clearTimeout(state.searchTimer); const query = event.target.value.trim(); if (!query) { state.searchController?.abort(); $("playerSearchResults").replaceChildren(); setSearchStatus("Search for a player to open their profile."); return; } if (query.length >= 2) state.searchTimer = setTimeout(searchPlayers, 250); });
   document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
-  document.addEventListener("click", event => {
-    const menu = $("playerMapFilter")?.querySelector("details[open]");
-    if (menu && !menu.contains(event.target)) menu.open = false;
-  });
-  document.querySelectorAll("[data-player-side]").forEach(button => button.addEventListener("click", () => { state.side = button.dataset.playerSide; document.querySelectorAll("[data-player-side]").forEach(item => { const active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); }); renderProfile(); }));
+  const playerSideFilter = window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { state.side = side; renderProfile(); } });
 })();

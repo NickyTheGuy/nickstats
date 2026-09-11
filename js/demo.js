@@ -13,6 +13,7 @@
     matchListOffset: 0,
     matchListCount: 0,
     matchListLoading: false,
+    matchListController: null,
     matchDetailLoading: false,
     diagnostics: null,
     uploadToken: "",
@@ -32,6 +33,11 @@
     expandedWeaponPlayers: new Set(),
     weaponSorts: new Map()
   };
+  const matchMapFilter = new window.NickStatsFilters.MultiMapFilter("matchMapFilter", {
+    onChange: () => loadMatches(0),
+    formatLabel: value => String(value || "Unknown").replace(/^de_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase())
+  });
+  let demoSideControl;
 
   const sortSpecs = {
     player: { id: "player", modes: [{ label: "A-Z", value: player => player.name || "", direction: "asc" }] },
@@ -903,33 +909,39 @@
   }
 
   async function loadMatches(offset = state.matchListOffset) {
-    if (state.matchListLoading) return;
+    state.matchListController?.abort();
+    const controller = new AbortController(); state.matchListController = controller;
     state.matchListLoading = true;
     $("matchListRefreshButton").disabled = true;
     $("matchListStatus").textContent = "Loading stored matches…";
     $("matchListStatus").classList.remove("error");
     try {
       const query = new URLSearchParams({ limit: String(MATCH_LIST_LIMIT), offset: String(Math.max(0, offset)) });
-      const payload = await apiJson(await fetch(`${MATCH_UPLOAD_ENDPOINT}?${query}`, { headers: { "Accept": "application/json" } }));
+      if (matchMapFilter.size) query.set("maps", matchMapFilter.values().join(","));
+      const payload = await apiJson(await fetch(`${MATCH_UPLOAD_ENDPOINT}?${query}`, { headers: { "Accept": "application/json" }, signal: controller.signal }));
       const matches = Array.isArray(payload.matches) ? payload.matches : [];
+      matchMapFilter.setOptions(Array.isArray(payload.maps) ? payload.maps : matches.map(match => match.map));
       state.matchListOffset = Math.max(0, offset);
       state.matchListCount = matches.length;
       renderMatchList(matches);
       $("matchListStatus").textContent = matches.length
         ? `${matches.length} match${matches.length === 1 ? "" : "es"} shown.`
-        : state.matchListOffset ? "No more matches." : "No matches have been uploaded yet.";
+        : state.matchListOffset ? "No more matches." : matchMapFilter.size ? "No matches use the selected maps." : "No matches have been uploaded yet.";
       $("matchListPagination").hidden = state.matchListOffset === 0 && matches.length < MATCH_LIST_LIMIT;
       $("matchListPreviousButton").disabled = state.matchListOffset === 0;
       $("matchListNextButton").disabled = matches.length < MATCH_LIST_LIMIT;
       $("matchListPageLabel").textContent = `Matches ${state.matchListOffset + 1}–${state.matchListOffset + matches.length}`;
     } catch (error) {
+      if (error.name === "AbortError") return;
       $("matchList").replaceChildren();
       $("matchListStatus").textContent = `Could not load matches: ${error.message}`;
       $("matchListStatus").classList.add("error");
       $("matchListPagination").hidden = true;
     } finally {
-      state.matchListLoading = false;
-      $("matchListRefreshButton").disabled = false;
+      if (state.matchListController === controller) {
+        state.matchListLoading = false;
+        $("matchListRefreshButton").disabled = false;
+      }
     }
   }
 
@@ -1623,11 +1635,7 @@
   function setSideFilter(side, shouldRender = true) {
     if (!["ALL", "CT", "T"].includes(side)) return;
     state.sideFilter = side;
-    document.querySelectorAll("[data-demo-side]").forEach(button => {
-      const active = button.dataset.demoSide === side;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-pressed", String(active));
-    });
+    demoSideControl?.set(side, { notify: false });
     if (shouldRender && state.result) render(state.result);
   }
 
@@ -1925,9 +1933,7 @@
   $("demoAuthDialog").addEventListener("cancel", () => {
     state.parsePending = false;
   });
-  document.querySelectorAll("[data-demo-side]").forEach(button => {
-    button.addEventListener("click", () => setSideFilter(button.dataset.demoSide));
-  });
+  demoSideControl = window.NickStatsFilters.bindSideToggle({ selector: "[data-demo-side]", valueFor: button => button.dataset.demoSide, onChange: side => setSideFilter(side) });
   document.querySelectorAll("[data-demo-result-view]").forEach(button => {
     button.addEventListener("click", () => setResultView(button.dataset.demoResultView));
   });

@@ -18,7 +18,7 @@ The compact format intentionally uses fixed-position arrays to keep uploads smal
 
 `POST /matches` is idempotent by demo SHA-256 and FACEIT match ID. A repeated upload returns the existing ID with `created: false`. Validation occurs before a transaction; all database rows then commit together or roll back together.
 
-Match-list query parameters are `steam_id`, `map`, `from`, `to`, `limit`, and `offset`. Dates are ISO-8601; `to` is exclusive. Player-list parameters are `q`, `limit`, and `offset`.
+Match-list query parameters are `steam_id`, `map`, `maps`, `from`, `to`, `limit`, and `offset`. `maps` accepts comma-separated map names for an OR filter; the singular `map` remains supported. Match-list responses include every available map name for filter controls. Dates are ISO-8601; `to` is exclusive. Player-list parameters are `q`, `limit`, and `offset`.
 
 ## Local/container setup
 

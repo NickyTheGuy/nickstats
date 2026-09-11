@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260911-16">
+  <link rel="stylesheet" href="./styles.css?v=20260911-17">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.11.15</span>
+          <span class="demo-build">Build 2026.09.11.16</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -75,6 +75,9 @@
         </nav>
 
         <div class="match-browser-view" id="matchListView" role="tabpanel" aria-labelledby="matchListTab">
+          <div class="stats-toolbar match-library-filter">
+            <span>Map</span><div class="map-multiselect" id="matchMapFilter"></div>
+          </div>
           <div class="match-list-status" id="matchListStatus" role="status" aria-live="polite">Loading stored matches…</div>
           <div class="match-list" id="matchList"></div>
           <div class="match-list-pagination" id="matchListPagination" hidden>
@@ -367,9 +370,10 @@
   </dialog>
 
   <script defer src="./js/navigation.js?v=20260911-2"></script>
-  <script defer src="./js/demo.js?v=20260911-9"></script>
+  <script defer src="./js/filters.js?v=20260911-1"></script>
+  <script defer src="./js/demo.js?v=20260911-10"></script>
   <script defer src="./js/profile.js?v=20260911-1"></script>
-  <script defer src="./js/players.js?v=20260911-11"></script>
-  <script defer src="./js/compare.js?v=20260911-15"></script>
+  <script defer src="./js/players.js?v=20260911-12"></script>
+  <script defer src="./js/compare.js?v=20260911-16"></script>
 </body>
 </html>

@@ -193,6 +193,7 @@ struct TeamSummary: Content {
 
 struct MatchListResponse: Content {
     var matches: [MatchSummary]
+    var maps: [String]
     var limit: Int
     var offset: Int
 }

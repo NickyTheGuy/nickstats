@@ -6,13 +6,14 @@ import Vapor
 struct MatchQuery: Content {
     var steamID: String?
     var map: String?
+    var maps: String?
     var dateFrom: String?
     var dateTo: String?
     var limit: Int?
     var offset: Int?
 
     enum CodingKeys: String, CodingKey {
-        case map, limit, offset
+        case map, maps, limit, offset
         case steamID = "steam_id"
         case dateFrom = "from"
         case dateTo = "to"
@@ -105,7 +106,10 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
     let filters = try request.query.decode(MatchQuery.self)
     let (limit, offset) = try pagination(limit: filters.limit, offset: filters.offset)
     let steamID = filters.steamID ?? ""
-    let map = filters.map ?? ""
+    let maps = (filters.maps ?? filters.map ?? "").split(separator: ",")
+        .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+    let mapList = maps.joined(separator: ",")
     let from = try parseDate(filters.dateFrom, name: "from")
     let to = try parseDate(filters.dateTo, name: "to")
 
@@ -121,7 +125,7 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
             WHERE mp.match_id = m.id AND CAST(p.steam_id AS CHAR) = \(bind: steamID)
           )
         )
-          AND (\(bind: map.isEmpty) OR m.map_name = \(bind: map))
+          AND (\(bind: mapList.isEmpty) OR FIND_IN_SET(m.map_name, \(bind: mapList)) > 0)
           AND (\(bind: from == nil) OR m.played_at >= \(bind: from ?? Date(timeIntervalSince1970: 0)))
           AND (\(bind: to == nil) OR m.played_at < \(bind: to ?? Date(timeIntervalSince1970: 0)))
         ORDER BY m.played_at IS NULL, m.played_at DESC, m.id DESC
@@ -150,7 +154,9 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
             ) }
         ))
     }
-    return MatchListResponse(matches: matches, limit: limit, offset: offset)
+    let mapRows = try await sql.raw("SELECT DISTINCT map_name FROM matches ORDER BY map_name").all()
+    let availableMaps = try mapRows.map { try $0.decode(column: "map_name", as: String.self) }
+    return MatchListResponse(matches: matches, maps: availableMaps, limit: limit, offset: offset)
 }
 
 func listPlayers(_ request: Request) async throws -> PlayerListResponse {

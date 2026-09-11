@@ -2237,6 +2237,8 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   background: rgba(255, 255, 255, .018);
 }
 
+.match-library-filter { margin: 12px 0; }
+
 .compare-stats-toolbar .side-toggle { margin-left: auto; }
 
 .combo-player-profile { padding: 22px; }
