@@ -1676,18 +1676,13 @@ async function parseDemo(fileName, buffer) {
   }
 
   function handleGrenadeThrown(event) {
+    const field = grenadeThrowStatField(event.weapon);
+    if (!field) return;
     const userId = integer(event.userid);
     const row = stats.get(userId);
     if (!row) return;
     round.participants.add(userId);
-    switch (normalizedWeapon(event.weapon)) {
-      case "hegrenade": row.heGrenadesThrown += 1; break;
-      case "flashbang": row.flashbangsThrown += 1; break;
-      case "smokegrenade": row.smokesThrown += 1; break;
-      case "molotov":
-      case "incgrenade": row.fireGrenadesThrown += 1; break;
-      case "decoy": row.decoysThrown += 1; break;
-    }
+    row[field] += 1;
   }
 
   function recordObjective(event, field) {
@@ -1878,10 +1873,6 @@ async function parseDemo(fileName, buffer) {
         if (!round.live) break;
         round.hasActivity = true;
         handleWeaponFire(gameEvent);
-        break;
-      case "grenade_thrown":
-        if (!round.live) break;
-        round.hasActivity = true;
         handleGrenadeThrown(gameEvent);
         break;
       case "player_hurt":
@@ -2074,7 +2065,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.11.7",
+    nickstats_build: "2026.09.11.8",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2371,6 +2362,18 @@ function pawnMovementMaxSpeed(pawn) {
 
 function normalizedWeapon(weapon) {
   return String(weapon || "").toLocaleLowerCase().replace(/^weapon_/, "");
+}
+
+function grenadeThrowStatField(weapon) {
+  switch (normalizedWeapon(weapon)) {
+    case "hegrenade": return "heGrenadesThrown";
+    case "flashbang": return "flashbangsThrown";
+    case "smokegrenade": return "smokesThrown";
+    case "molotov":
+    case "incgrenade": return "fireGrenadesThrown";
+    case "decoy": return "decoysThrown";
+    default: return null;
+  }
 }
 
 function weaponStatId(weapon) {
