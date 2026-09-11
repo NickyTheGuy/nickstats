@@ -1097,11 +1097,13 @@ async function parseDemo(fileName, buffer) {
   }
 
   function ensureTradeOpportunity(prior, trader, source = "proven") {
-    if (!prior || !trader || prior.capableTraders.has(trader.userId)) return;
+    const victim = prior ? stats.get(prior.victim) : null;
+    // A delayed grenade or fire kill can arrive after its attacker has died.
+    // That kill must not turn the dead player into a trader for their own death.
+    if (!prior || !trader || victim === trader || prior.capableTraders.has(trader.userId)) return;
     const hadOpportunity = prior.capableTraders.size > 0;
     prior.capableTraders.add(trader.userId);
     trader.tradeOpportunities += 1;
-    const victim = stats.get(prior.victim);
     if (victim) tradeMatchupStat(trader, victim).opportunities += 1;
     if (Object.hasOwn(trader.provenTradeOpportunities, source)) {
       trader.provenTradeOpportunities[source] += 1;
@@ -1122,11 +1124,12 @@ async function parseDemo(fileName, buffer) {
   }
 
   function recordTradeAttempt(prior, trader, source) {
+    const victim = prior ? stats.get(prior.victim) : null;
+    if (!prior || !trader || victim === trader) return;
     ensureTradeOpportunity(prior, trader, source);
-    if (!prior || !trader || prior.attemptedTraders.has(trader.userId)) return;
+    if (prior.attemptedTraders.has(trader.userId)) return;
     prior.attemptedTraders.add(trader.userId);
     trader.tradeAttempts += 1;
-    const victim = stats.get(prior.victim);
     if (victim) tradeMatchupStat(trader, victim).attempts += 1;
     const auditCandidate = prior.audit.candidates.find(candidate => candidate.player === trader.name);
     if (auditCandidate) {
@@ -1368,7 +1371,12 @@ async function parseDemo(fileName, buffer) {
 
       let isTradeKill = false;
       for (const prior of round.pendingDeaths) {
-        if (prior.killer === victimId && prior.victimTeam === attackerTeam && tradeIsOpen(prior, attacker.userId, tick)) {
+        const tradedVictim = stats.get(prior.victim);
+        if (prior.killer === victimId &&
+            prior.victimTeam === attackerTeam &&
+            tradedVictim &&
+            tradedVictim !== attacker &&
+            tradeIsOpen(prior, attacker.userId, tick)) {
           // A kill proves the trader could act even when the initial proximity
           // heuristic did not recognize the opportunity.
           recordTradeAttempt(prior, attacker, "kill");
@@ -1377,7 +1385,6 @@ async function parseDemo(fileName, buffer) {
             // KAST uses the same qualified trade success as Trade K-D.
             round.traded.add(prior.victim);
             isTradeKill = true;
-            const tradedVictim = stats.get(prior.victim);
             if (tradedVictim && !prior.tradeRecorded) {
               prior.tradeRecorded = true;
               tradedVictim.tradedDeaths += 1;
@@ -1551,7 +1558,8 @@ async function parseDemo(fileName, buffer) {
     noteWeaponUse(row, resolvedWeapon);
     if (damage > 0 && damageProvesTradeAttempt(event, damage)) {
       for (const prior of round.pendingDeaths) {
-        if (prior.killer === victimId && tradeIsOpen(prior, row.userId, tick)) {
+        const tradedVictim = stats.get(prior.victim);
+        if (prior.killer === victimId && tradedVictim && tradedVictim !== row && tradeIsOpen(prior, row.userId, tick)) {
           // Damage proves a usable sightline/action opportunity, even when the
           // trader was farther than the initial proximity radius.
           recordTradeAttempt(prior, row, "damage");
@@ -1951,7 +1959,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.10.6",
+    nickstats_build: "2026.09.11.2",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
