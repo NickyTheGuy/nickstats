@@ -30,6 +30,7 @@ func routes(_ app: Application) throws {
 
     app.on(.POST, "matches", body: .collect(maxSize: "2mb")) { request async throws -> Response in
         try requireUploadToken(request)
+        let replaceExisting = request.query[Bool.self, at: "replace"] ?? false
         let payload: MatchPayload
         do {
             payload = try request.content.decode(MatchPayload.self)
@@ -38,10 +39,10 @@ func routes(_ app: Application) throws {
         }
         try payload.validate()
         let result = try await request.db.transaction { database in
-            try await importMatch(payload, on: database)
+            try await importMatch(payload, replacingExisting: replaceExisting, on: database)
         }
         let response = Response(status: result.created ? .created : .ok)
-        try response.content.encode(UploadResponse(id: result.id, created: result.created))
+        try response.content.encode(UploadResponse(id: result.id, created: result.created, replaced: result.replaced))
         return response
     }
 

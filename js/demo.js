@@ -19,6 +19,7 @@
     uploadToken: "",
     uploadPending: false,
     uploading: false,
+    duplicateMatchID: null,
     parsePending: false,
     worker: null,
     workerReady: null,
@@ -179,7 +180,7 @@
     $("demoAuthToken").focus();
   }
 
-  async function uploadParsedMatch(result = state.parsedResult) {
+  async function uploadParsedMatch(result = state.parsedResult, { replace = false } = {}) {
     if (!result || state.uploading) return;
     if (!state.uploadToken) {
       state.uploadPending = true;
@@ -191,12 +192,15 @@
     state.uploading = true;
     state.uploadPending = false;
     const retryButton = $("demoRetryUploadButton");
+    const replaceButton = $("demoReplaceUploadButton");
     retryButton.hidden = true;
     retryButton.disabled = true;
-    setStatus(`${parsedMatchDescription(result)} Uploading compact statistics…`);
+    replaceButton.hidden = true;
+    replaceButton.disabled = true;
+    setStatus(`${parsedMatchDescription(result)} ${replace ? "Replacing the stored match" : "Uploading compact statistics"}…`);
 
     try {
-      const response = await fetch(MATCH_UPLOAD_ENDPOINT, {
+      const response = await fetch(replace ? `${MATCH_UPLOAD_ENDPOINT}?replace=true` : MATCH_UPLOAD_ENDPOINT, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${state.uploadToken}`,
@@ -213,13 +217,19 @@
       }
 
       const matchID = responseBody?.id == null ? "" : ` as match #${responseBody.id}`;
-      const outcome = responseBody?.created === false ? "It was already stored" : "Saved to the database";
-      setStatus(`${parsedMatchDescription(result)} ${outcome}${matchID}.`);
+      state.duplicateMatchID = responseBody?.created === false && !responseBody?.replaced ? responseBody.id : null;
+      replaceButton.hidden = state.duplicateMatchID == null;
+      const outcome = responseBody?.replaced
+        ? "Replaced the stored match"
+        : responseBody?.created === false ? "It was already stored" : "Saved to the database";
+      const nextStep = state.duplicateMatchID == null ? "" : " Choose Replace stored match to re-import it with the current parser.";
+      setStatus(`${parsedMatchDescription(result)} ${outcome}${matchID}.${nextStep}`);
       showDiagnosticsDownload(false);
       await loadMatches(0);
     } catch (error) {
       state.uploadPending = true;
-      retryButton.hidden = false;
+      if (replace) replaceButton.hidden = false;
+      else retryButton.hidden = false;
       const reason = error.message || "The API could not be reached.";
       setStatus(`${parsedMatchDescription(result)} Database upload failed: ${reason}`, true);
       showDiagnosticsDownload(true);
@@ -231,6 +241,7 @@
     } finally {
       state.uploading = false;
       retryButton.disabled = false;
+      replaceButton.disabled = false;
     }
   }
 
@@ -314,9 +325,11 @@
     state.file = file;
     state.parsedResult = null;
     state.uploadPending = false;
+    state.duplicateMatchID = null;
     state.diagnostics = null;
     showDiagnosticsDownload(false);
     $("demoRetryUploadButton").hidden = true;
+    $("demoReplaceUploadButton").hidden = true;
     $("demoFileLabel").textContent = `${file.name} · ${formatBytes(file.size)}`;
     $("demoParseButton").disabled = false;
     $("demoClearButton").disabled = false;
@@ -1727,6 +1740,7 @@
     state.parsedResult = null;
     state.uploadPending = false;
     state.parsePending = false;
+    state.duplicateMatchID = null;
     state.diagnostics = null;
     showDiagnosticsDownload(false);
     $("demoInput").value = "";
@@ -1734,6 +1748,7 @@
     $("demoParseButton").disabled = true;
     $("demoClearButton").disabled = true;
     $("demoRetryUploadButton").hidden = true;
+    $("demoReplaceUploadButton").hidden = true;
     setStatus("Choose one demo file.");
   }
 
@@ -1903,6 +1918,11 @@
   $("demoDownloadButton").addEventListener("click", downloadJson);
   $("demoDiagnosticsDownloadButton").addEventListener("click", downloadDiagnostics);
   $("demoRetryUploadButton").addEventListener("click", () => uploadParsedMatch());
+  $("demoReplaceUploadButton").addEventListener("click", () => {
+    if (state.duplicateMatchID == null || !state.parsedResult) return;
+    if (!confirm(`Replace match #${state.duplicateMatchID} with these newly parsed statistics?`)) return;
+    uploadParsedMatch(state.parsedResult, { replace: true });
+  });
   $("demoAuthButton").addEventListener("click", () => openUploadAuthentication());
   $("demoAuthForm").addEventListener("submit", event => {
     event.preventDefault();

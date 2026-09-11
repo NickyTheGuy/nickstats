@@ -54,7 +54,7 @@ Each compact player has a match-level array index. Importers first create all `m
 
 ## Duplicate handling
 
-`matches.demo_sha256` is always unique. `(provider, provider_match_id)` is also unique when a provider ID exists. An upload matching either identifier is the same match and must not create another record. The API should return the existing match rather than partially updating it.
+`matches.demo_sha256` is always unique. `(provider, provider_match_id)` is also unique when a provider ID exists. An upload matching either identifier is the same match and normally returns the existing record. An authenticated `POST /matches?replace=true` atomically replaces that match's imported data while preserving its database ID; a failed replacement rolls the transaction back to the prior version.
 
 ## Lineup-query shape
 

@@ -161,6 +161,7 @@ struct WeaponPayload: Codable, Sendable {
 struct UploadResponse: Content {
     var id: Int64
     var created: Bool
+    var replaced: Bool
 }
 
 struct HealthResponse: Content {

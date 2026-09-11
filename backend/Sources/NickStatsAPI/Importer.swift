@@ -7,6 +7,7 @@ import Vapor
 struct ImportResult: Sendable {
     let id: Int64
     let created: Bool
+    let replaced: Bool
 }
 
 private func integerID(_ row: any SQLRow, column: String = "id") throws -> Int64 {
@@ -87,31 +88,57 @@ private func globalPlayerID(
     return try await lastInsertID(sql)
 }
 
-func importMatch(_ payload: MatchPayload, on database: any Database) async throws -> ImportResult {
+func importMatch(
+    _ payload: MatchPayload, replacingExisting: Bool = false, on database: any Database
+) async throws -> ImportResult {
     guard let sql = database as? any SQLDatabase else {
         throw Abort(.internalServerError, reason: "The configured database does not support SQL.")
     }
     let sha256 = payload.id.sha256.lowercased()
-    if let existing = try await findExisting(sql, sha256: sha256, faceitID: payload.id.faceit) {
-        return ImportResult(id: existing, created: false)
+    let existingMatchID = try await findExisting(sql, sha256: sha256, faceitID: payload.id.faceit)
+    if let existingMatchID, !replacingExisting {
+        return ImportResult(id: existingMatchID, created: false, replaced: false)
     }
 
     let configID = try await parserConfigurationID(sql, rules: payload.rules)
     let playedAt = payload.playedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
     let provider: String? = payload.id.faceit == nil ? nil : "faceit"
-    try await sql.raw("""
-        INSERT INTO matches (
-          provider, provider_match_id, demo_sha256, payload_schema, nickstats_build,
-          parser_name, parser_version, parser_config_id, map_name, played_at,
-          played_at_source, rounds
-        ) VALUES (
-          \(bind: provider), \(bind: payload.id.faceit), UNHEX(\(bind: sha256)),
-          \(bind: payload.schema), \(bind: payload.nickstatsBuild),
-          \(bind: payload.parser.name), \(bind: payload.parser.version), \(bind: configID),
-          \(bind: payload.map), \(bind: playedAt), \(bind: payload.playedAtSource), \(bind: payload.rounds)
-        )
-        """).run()
-    let matchID = try await lastInsertID(sql)
+    let matchID: Int64
+    if let existingMatchID {
+        // Relationship rows must go first because they also reference match_players.
+        try await sql.raw("DELETE FROM duel_side_stats WHERE match_id = \(bind: existingMatchID)").run()
+        try await sql.raw("DELETE FROM trade_side_stats WHERE match_id = \(bind: existingMatchID)").run()
+        try await sql.raw("DELETE FROM kill_context_side_stats WHERE match_id = \(bind: existingMatchID)").run()
+        try await sql.raw("DELETE FROM assisted_kill_side_stats WHERE match_id = \(bind: existingMatchID)").run()
+        try await sql.raw("DELETE FROM flash_side_stats WHERE match_id = \(bind: existingMatchID)").run()
+        try await sql.raw("DELETE FROM match_players WHERE match_id = \(bind: existingMatchID)").run()
+        try await sql.raw("DELETE FROM match_teams WHERE match_id = \(bind: existingMatchID)").run()
+        try await sql.raw("""
+            UPDATE matches SET
+              provider = \(bind: provider), provider_match_id = \(bind: payload.id.faceit),
+              demo_sha256 = UNHEX(\(bind: sha256)), payload_schema = \(bind: payload.schema),
+              nickstats_build = \(bind: payload.nickstatsBuild), parser_name = \(bind: payload.parser.name),
+              parser_version = \(bind: payload.parser.version), parser_config_id = \(bind: configID),
+              map_name = \(bind: payload.map), played_at = \(bind: playedAt),
+              played_at_source = \(bind: payload.playedAtSource), rounds = \(bind: payload.rounds)
+            WHERE id = \(bind: existingMatchID)
+            """).run()
+        matchID = existingMatchID
+    } else {
+        try await sql.raw("""
+            INSERT INTO matches (
+              provider, provider_match_id, demo_sha256, payload_schema, nickstats_build,
+              parser_name, parser_version, parser_config_id, map_name, played_at,
+              played_at_source, rounds
+            ) VALUES (
+              \(bind: provider), \(bind: payload.id.faceit), UNHEX(\(bind: sha256)),
+              \(bind: payload.schema), \(bind: payload.nickstatsBuild),
+              \(bind: payload.parser.name), \(bind: payload.parser.version), \(bind: configID),
+              \(bind: payload.map), \(bind: playedAt), \(bind: payload.playedAtSource), \(bind: payload.rounds)
+            )
+            """).run()
+        matchID = try await lastInsertID(sql)
+    }
 
     var teamIDs: [Int64] = []
     var playerTeam: [Int: Int] = [:]
@@ -160,7 +187,7 @@ func importMatch(_ payload: MatchPayload, on database: any Database) async throw
             )
         }
     }
-    return ImportResult(id: matchID, created: true)
+    return ImportResult(id: matchID, created: existingMatchID == nil, replaced: existingMatchID != nil)
 }
 
 private func insertSideStats(
