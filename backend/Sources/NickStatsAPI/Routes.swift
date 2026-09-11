@@ -66,4 +66,8 @@ func routes(_ app: Application) throws {
         }
         return try await getPlayerProfile(playerID, on: request.db)
     }
+
+    app.get("compare") { request async throws -> ComparisonResponse in
+        try await comparisonData(request)
+    }
 }

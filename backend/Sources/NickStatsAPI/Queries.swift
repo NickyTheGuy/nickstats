@@ -25,6 +25,10 @@ struct PlayerQuery: Content {
     var offset: Int?
 }
 
+struct ComparisonQuery: Content {
+    var players: String
+}
+
 private func int64(_ row: any SQLRow, _ column: String) throws -> Int64 {
     if let value = try? row.decode(column: column, as: Int64.self) { return value }
     return Int64(try row.decode(column: column, as: UInt64.self))
@@ -177,6 +181,85 @@ func listPlayers(_ request: Request) async throws -> PlayerListResponse {
         )
     }
     return PlayerListResponse(players: players, limit: limit, offset: offset)
+}
+
+func comparisonData(_ request: Request) async throws -> ComparisonResponse {
+    guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
+    let query = try request.query.decode(ComparisonQuery.self)
+    let tokens = query.players.split(separator: ",")
+    let requestedIDs = tokens.compactMap {
+        Int64($0.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+    let playerIDs = requestedIDs.reduce(into: [Int64]()) { result, id in
+        if id > 0 && !result.contains(id) { result.append(id) }
+    }
+    guard requestedIDs.count == tokens.count, playerIDs.count == requestedIDs.count,
+          (2...20).contains(playerIDs.count) else {
+        throw Abort(.badRequest, reason: "players must contain 2-20 unique positive player IDs.")
+    }
+
+    var players: [ComparisonPlayer] = []
+    for playerID in playerIDs {
+        guard let identity = try await sql.raw("""
+            SELECT id, CAST(steam_id AS CHAR) AS steam_id, current_name
+            FROM players WHERE id = \(bind: playerID)
+            """).first() else { throw Abort(.notFound, reason: "Player \(playerID) was not found.") }
+        let rows = try await sql.raw("""
+            SELECT m.id, m.played_at, m.map_name,
+                   own_team.score AS score_for, other_team.score AS score_against,
+                   (
+                     SELECT GROUP_CONCAT(CAST(teammate.player_id AS CHAR) ORDER BY teammate.player_id)
+                     FROM match_players teammate
+                     WHERE teammate.match_team_id = mp.match_team_id
+                       AND teammate.player_id IS NOT NULL AND teammate.player_id <> mp.player_id
+                   ) AS teammate_ids,
+                   CAST(SUM(s.rounds_played) AS SIGNED) AS rounds,
+                   CAST(SUM(s.kills) AS SIGNED) AS kills,
+                   CAST(SUM(s.deaths) AS SIGNED) AS deaths,
+                   CAST(SUM(s.assists) AS SIGNED) AS assists,
+                   CAST(SUM(s.headshots) AS SIGNED) AS headshots,
+                   CAST(SUM(s.damage) AS SIGNED) AS damage,
+                   CAST(SUM(s.kast_rounds) AS SIGNED) AS kast_rounds
+            FROM match_players mp
+            JOIN matches m ON m.id = mp.match_id
+            JOIN match_teams own_team ON own_team.id = mp.match_team_id
+            LEFT JOIN match_teams other_team
+              ON other_team.match_id = mp.match_id AND other_team.id <> mp.match_team_id
+            JOIN player_side_stats s ON s.match_player_id = mp.id
+            WHERE mp.player_id = \(bind: playerID)
+            GROUP BY m.id, m.played_at, m.map_name, mp.id, mp.match_team_id,
+                     own_team.score, other_team.score
+            ORDER BY m.played_at IS NULL, m.played_at DESC, m.id DESC
+            """).all()
+        let matches = try rows.map { row in
+            let scoreFor = try optionalInteger(row, "score_for")
+            let scoreAgainst = try optionalInteger(row, "score_against")
+            let result: String
+            if let scoreFor, let scoreAgainst {
+                result = scoreFor > scoreAgainst ? "w" : scoreFor < scoreAgainst ? "l" : "n"
+            } else {
+                result = "n"
+            }
+            let teammateIDs = try optionalString(row, "teammate_ids")?
+                .split(separator: ",").compactMap { Int64($0) } ?? []
+            return ComparisonMatch(
+                id: try int64(row, "id"), playedAt: unix(try optionalDate(row, "played_at")),
+                map: try row.decode(column: "map_name", as: String.self), result: result,
+                scoreFor: scoreFor, scoreAgainst: scoreAgainst, teammateIDs: teammateIDs,
+                rounds: try integer(row, "rounds"), kills: try integer(row, "kills"),
+                deaths: try integer(row, "deaths"), assists: try integer(row, "assists"),
+                headshots: try integer(row, "headshots"), damage: try integer(row, "damage"),
+                kastRounds: try integer(row, "kast_rounds")
+            )
+        }
+        players.append(ComparisonPlayer(
+            id: try int64(identity, "id"),
+            steamID: try identity.decode(column: "steam_id", as: String.self),
+            name: try identity.decode(column: "current_name", as: String.self),
+            matches: matches
+        ))
+    }
+    return ComparisonResponse(players: players)
 }
 
 private struct ProfileAccumulator {

@@ -355,3 +355,45 @@ struct PlayerMapProfileStats: Content {
         case winRate = "win_rate"
     }
 }
+
+struct ComparisonResponse: Content {
+    var players: [ComparisonPlayer]
+}
+
+struct ComparisonPlayer: Content {
+    var id: Int64
+    var steamID: String
+    var name: String
+    var matches: [ComparisonMatch]
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, matches
+        case steamID = "steam_id"
+    }
+}
+
+struct ComparisonMatch: Content {
+    var id: Int64
+    var playedAt: Int64?
+    var map: String
+    var result: String
+    var scoreFor: Int?
+    var scoreAgainst: Int?
+    var teammateIDs: [Int64]
+    var rounds: Int
+    var kills: Int
+    var deaths: Int
+    var assists: Int
+    var headshots: Int
+    var damage: Int
+    var kastRounds: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, map, result, rounds, kills, deaths, assists, headshots, damage
+        case playedAt = "played_at"
+        case scoreFor = "score_for"
+        case scoreAgainst = "score_against"
+        case teammateIDs = "teammate_ids"
+        case kastRounds = "kast_rounds"
+    }
+}

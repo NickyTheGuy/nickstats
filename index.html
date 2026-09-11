@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260911-3">
+  <link rel="stylesheet" href="./styles.css?v=20260911-4">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.11.3</span>
+          <span class="demo-build">Build 2026.09.11.4</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -137,15 +137,106 @@
     </section>
 
     <section class="app-view" id="comparePage" role="tabpanel" aria-labelledby="comparePageTab" data-app-view="compare" hidden>
-      <section class="panel product-empty-state">
-        <div class="empty-kicker">Compare</div>
-        <h2>How does the lineup change the result?</h2>
-        <p>This will use stored, demo-derived matches for group impact matrices, one-on-one comparisons, and Included/Excluded lineup conditions.</p>
-        <div class="feature-preview" aria-label="Planned comparison tools">
-          <span>Group matrix</span><span>Lineup conditions</span><span>Pair details</span><span>Date filters</span>
+      <div class="compare-page-stack">
+        <section class="panel compare-builder-panel">
+          <div class="section-head compare-builder-heading">
+            <div>
+              <div class="eyebrow">Teammate analysis</div>
+              <h2>Build a comparison group</h2>
+              <p>Add the players you want in the matrix and lineup-condition tools.</p>
+            </div>
+            <form class="compare-search-form" id="compareSearchForm" role="search">
+              <label class="visually-hidden" for="compareSearchInput">Player name or Steam ID</label>
+              <input id="compareSearchInput" type="search" placeholder="Name or Steam ID" autocomplete="off" spellcheck="false">
+              <button class="button button-secondary" type="submit">Find player</button>
+            </form>
+          </div>
+          <div class="compare-search-status" id="compareSearchStatus" role="status" aria-live="polite">Search and add at least two players.</div>
+          <div class="compare-search-results" id="compareSearchResults"></div>
+          <div class="compare-selected-roster" id="compareSelectedRoster"></div>
+          <div class="actions compare-builder-actions">
+            <button class="button button-primary" id="compareAnalyzeButton" type="button" disabled>Analyze group</button>
+            <button class="button button-secondary" id="compareClearButton" type="button" disabled>Clear</button>
+            <div class="status" id="compareStatus" role="status" aria-live="polite">Choose at least two players.</div>
+          </div>
+        </section>
+
+        <div class="compare-results" id="compareResults" hidden>
+          <nav class="mode-tabs compare-mode-tabs" role="tablist" aria-label="Comparison mode">
+            <button class="tab-button" type="button" role="tab" aria-selected="true" data-compare-mode="group">Group matrix</button>
+            <button class="tab-button" type="button" role="tab" aria-selected="false" data-compare-mode="combination">Lineup conditions</button>
+          </nav>
+
+          <div class="mode-view" data-compare-view="group">
+            <section class="panel section-panel">
+              <div class="section-head">
+                <div><h2>Group impact</h2><p>How each player's presence changes the other selected players' results.</p></div>
+              </div>
+              <div class="verdict-grid" id="compareVerdicts"></div>
+            </section>
+
+            <section class="panel table-panel">
+              <div class="table-heading"><div><h2>Lifter / Dragger matrix</h2><p>Rows are measured players; columns are the teammate present.</p></div></div>
+              <div class="table-wrap">
+                <table class="matrix-table"><thead id="compareMatrixHead"></thead><tbody id="compareMatrixBody"></tbody></table>
+              </div>
+            </section>
+
+            <section class="panel table-panel">
+              <div class="table-heading"><div><h2>Pair details</h2><p>With-versus-without changes, sample size, and confidence for every direction.</p></div></div>
+              <div class="table-wrap">
+                <table><thead><tr><th>Measured player</th><th>Player present</th><th>Class</th><th>With</th><th>Without</th><th>Win-rate Δ</th><th>Rating Δ</th><th>Confidence</th></tr></thead><tbody id="compareDetailsBody"></tbody></table>
+              </div>
+            </section>
+          </div>
+
+          <div class="mode-view" data-compare-view="combination" hidden>
+            <section class="panel section-panel">
+              <div class="section-head combo-heading">
+                <div>
+                  <h2>Build a lineup condition</h2>
+                  <p>Included players must all be teammates. Compare them with every Excluded player absent against every Excluded player present.</p>
+                </div>
+                <div class="combo-limit" id="comboSelectionCount">0 / 5 included · 0 excluded</div>
+              </div>
+              <div class="combo-roster" id="comboRoster"></div>
+              <div class="actions combo-actions">
+                <button class="button button-primary" id="comboRun" type="button" disabled>Run combination</button>
+                <button class="button button-secondary" id="comboReset" type="button">Reset</button>
+                <div class="status" id="comboStatus" role="status" aria-live="polite">Include at least one player.</div>
+              </div>
+            </section>
+
+            <div class="warning-list" id="comboWarnings"></div>
+            <div class="combo-results" id="comboResults" hidden>
+              <section class="panel section-panel">
+                <h2 id="comboTitle">Combination results</h2>
+                <div class="combo-summary">
+                  <div class="combo-stat"><span class="label">Without excluded</span><strong class="blue" id="comboMatchTotal">—</strong><small>All Included present</small></div>
+                  <div class="combo-stat"><span class="label">Included</span><strong id="comboIncludedTotal">—</strong><small>Must all be teammates</small></div>
+                  <div class="combo-stat"><span class="label">Excluded</span><strong id="comboExcludedTotal">—</strong><small>Must all be absent</small></div>
+                  <div class="combo-stat"><span class="label">With excluded</span><strong id="comboComparisonTotal">—</strong><small>Comparison group</small></div>
+                </div>
+              </section>
+
+              <section class="panel table-panel">
+                <div class="table-heading"><div><h2>Performance with and without excluded players</h2><p>Team results are shared; personal statistics are shown for every Included player.</p></div></div>
+                <div class="table-wrap">
+                  <table class="combo-stats-table"><thead><tr><th>Player</th><th>Group</th><th>Matches</th><th>Record</th><th>Win rate</th><th>K/D</th><th>Avg K</th><th>Avg D</th><th>Avg A</th><th>HS%</th><th>ADR</th><th>Rating</th></tr></thead><tbody id="comboStatsBody"></tbody></table>
+                </div>
+              </section>
+
+              <section class="panel table-panel">
+                <div class="table-heading"><div><h2>Qualifying matches</h2><p id="comboMatchLabel"></p></div></div>
+                <div class="table-wrap">
+                  <table class="combo-match-table"><thead id="comboMatchHead"></thead><tbody id="comboMatchBody"></tbody></table>
+                  <div class="empty" id="comboEmpty" hidden>No matches satisfy this combination.</div>
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
-        <strong>Waiting for the NickStats database connection.</strong>
-      </section>
+      </div>
     </section>
 
     <section class="app-view" id="playersPage" role="tabpanel" aria-labelledby="playersPageTab" data-app-view="players" hidden>
@@ -230,5 +321,6 @@
   <script defer src="./js/navigation.js?v=20260906-1"></script>
   <script defer src="./js/demo.js?v=20260911-2"></script>
   <script defer src="./js/players.js?v=20260911-3"></script>
+  <script defer src="./js/compare.js?v=20260911-4"></script>
 </body>
 </html>
