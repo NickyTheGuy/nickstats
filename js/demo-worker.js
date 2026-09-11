@@ -753,7 +753,7 @@ async function parseDemo(fileName, buffer) {
     // events can expose next-round entity state and still use the safeguards
     // below.
     if (trigger === "cs_win_panel_match") {
-      const finalWinner = scoreEvidence.winner_side || gameRules.winner_side;
+      const finalWinner = scoreEvidence.round_winner_side || scoreEvidence.winner_side || gameRules.winner_side;
       if (finalWinner === 2 || finalWinner === 3) {
         return {
           winner_side: finalWinner,
@@ -764,6 +764,19 @@ async function parseDemo(fileName, buffer) {
           score_evidence: scoreEvidence
         };
       }
+    }
+    // Score entities may be read after a delayed round-end event or after the
+    // halftime side swap. Map the stable team whose score rose back to the
+    // side captured when this round went live before trusting that evidence.
+    if (scoreEvidence.round_winner_side === 2 || scoreEvidence.round_winner_side === 3) {
+      return {
+        winner_side: scoreEvidence.round_winner_side,
+        source: "stable_score_delta",
+        alive,
+        stored_winner_side: null,
+        game_rules: gameRules,
+        score_evidence: scoreEvidence
+      };
     }
     if (round.bombPlanted && (alive[2] > 0 || alive[3] === 0)) {
       return {
@@ -840,8 +853,11 @@ async function parseDemo(fileName, buffer) {
       .map(entry => ({ ...entry, previous_score: observedTeamScores.get(entry.stable_team) || 0 }))
       .map(entry => ({ ...entry, increase: entry.score - entry.previous_score }))
       .filter(entry => entry.increase > 0);
+    const winner = increases.length === 1 ? increases[0] : null;
     return {
-      winner_side: increases.length === 1 ? increases[0].side : null,
+      winner_side: winner?.side || null,
+      winner_stable_team: winner?.stable_team || null,
+      round_winner_side: winner ? roundSideForStableTeam(winner.stable_team) : null,
       current_scores: currentScores,
       increases
     };
@@ -866,6 +882,25 @@ async function parseDemo(fileName, buffer) {
     for (const [stable, count] of counts) {
       if (count > bestCount) {
         best = stable;
+        bestCount = count;
+      }
+    }
+    return best;
+  }
+
+  function roundSideForStableTeam(stableTeam) {
+    if (stableTeam !== 2 && stableTeam !== 3) return null;
+    const counts = new Map();
+    for (const row of new Set(stats.values())) {
+      if (originalTeam.get(row.userId) !== stableTeam) continue;
+      const side = round.sideAssignments.get(row);
+      if (side !== 2 && side !== 3) continue;
+      counts.set(side, (counts.get(side) || 0) + 1);
+    }
+    let best = null, bestCount = 0;
+    for (const [side, count] of counts) {
+      if (count > bestCount) {
+        best = side;
         bestCount = count;
       }
     }
@@ -1979,7 +2014,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.11.3",
+    nickstats_build: "2026.09.11.4",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
