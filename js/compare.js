@@ -19,14 +19,14 @@
 
   const metricGroups = {
     core: [["Win rate", "winRate", "percent"], ["Rating", "rating", "rating"], ["K/D", "kd", "ratio"], ["ADR", "adr", "decimal"], ["KAST", "kast", "percent"], ["K/R", "kpr", "ratio"], ["D/R", "dpr", "ratio", false], ["A/R", "apr", "ratio"], ["HS%", "hs", "percent"]],
-    openings: [["Opening K", "opening_kills", "integer"], ["Opening D", "opening_deaths", "integer", false], ["Opening diff", "openingDiff", "signed"], ["Success", "openingSuccess", "percent"]],
-    trades: [["Trade K", "trade_kills", "integer"], ["Opportunities", "trade_opportunities", "integer"], ["Attempts", "trade_attempts", "integer"], ["Successes", "trade_successes", "integer"], ["Attempt rate", "tradeAttemptRate", "percent"], ["Success rate", "tradeSuccessRate", "percent"], ["Tradeable D", "tradeable_deaths", "integer", false], ["D attempted", "attempted_tradeable_deaths", "integer"], ["D traded", "traded_deaths", "integer"]],
-    utility: [["Utility dmg", "utilityDamage", "integer"], ["UD/R", "udr", "decimal"], ["HE dmg", "he_damage", "integer"], ["Fire dmg", "fire_damage", "integer"], ["Flashed", "enemies_flashed", "integer"], ["Blind sec", "blindSeconds", "decimal"], ["Flash assists", "flash_assists", "integer"], ["Damage assists", "damage_assisted_kills", "integer"], ["Teammate-flash K", "teammate_flash_assisted_kills", "integer"], ["Own-flash K", "own_flash_kills", "integer"]],
-    context: [["Blinded K", "blinded_kills", "integer"], ["Blind K", "blind_kills", "integer"], ["Wallbang K", "wallbang_kills", "integer"], ["Penetrations", "penetration_total", "integer"], ["Smoke K", "smoke_kills", "integer"], ["Airborne K", "airborne_kills", "integer"], ["Grenade-out K", "grenade_out_kills", "integer"], ["Knife-out K", "knife_out_kills", "integer"], ["Equip disadvantage K", "equipment_disadvantage_kills", "integer"], ["Unfair K", "unfair_kills", "integer"], ["Blind D", "deaths_while_blind", "integer", false], ["Wallbang D", "wallbang_deaths", "integer", false], ["Smoke D", "smoke_deaths", "integer", false]],
-    contextDeaths: [["While blind", "deaths_while_blind", "integer", false], ["Blind killer", "deaths_to_blind_killer", "integer", false], ["Wallbang", "wallbang_deaths", "integer", false], ["Penetrations", "death_penetration_total", "integer", false], ["Smoke", "smoke_deaths", "integer", false], ["Airborne killer", "airborne_deaths", "integer", false], ["Moving killer", "moving_killer_deaths", "integer", false], ["Still killer", "still_killer_deaths", "integer", false], ["Running killer", "running_killer_deaths", "integer", false], ["Grenade out", "grenade_out_deaths", "integer", false], ["Knife out", "knife_out_deaths", "integer", false], ["Equip advantage", "equipment_disadvantage_deaths", "integer", false], ["Unfair", "unfair_deaths", "integer", false]],
-    rounds: [["Round wins", "round_wins", "integer"], ["1v1", "clutch_1v1", "integer"], ["1v2", "clutch_1v2", "integer"], ["1v3", "clutch_1v3", "integer"], ["1v4", "clutch_1v4", "integer"], ["1v5", "clutch_1v5", "integer"], ["1K rounds", "kill_rounds_1k", "integer"], ["2K rounds", "kill_rounds_2k", "integer"], ["3K rounds", "kill_rounds_3k", "integer"], ["4K rounds", "kill_rounds_4k", "integer"], ["5K rounds", "kill_rounds_5k", "integer"]],
-    movement: [["Kill speed", "killSpeed", "decimal"], ["Kill speed %", "killSpeedPercent", "percent"], ["Peak kill speed", "kill_speed_max", "decimal"], ["Death speed", "deathSpeed", "decimal", false], ["Death speed %", "deathSpeedPercent", "percent", false], ["Peak death speed", "death_speed_max", "decimal", false], ["Moving K", "moving_kills", "integer"], ["Still K", "still_kills", "integer"], ["Running K", "running_kills", "integer"]],
-    weapons: [["Kills", "weaponKills", "integer"], ["Damage", "weaponDamage", "integer"], ["Shots", "weaponShots", "integer"], ["Rounds used", "weaponRounds", "integer"]]
+    openings: [["Opening K", "opening_kills", "countRate"], ["Opening D", "opening_deaths", "countRate", false], ["Opening diff", "openingDiff", "signedRate"], ["Success", "openingSuccess", "percent"]],
+    trades: [["Trade K", "trade_kills", "countRate"], ["Opportunities", "trade_opportunities", "countRate"], ["Attempts", "trade_attempts", "countRate"], ["Successes", "trade_successes", "countRate"], ["Attempt rate", "tradeAttemptRate", "percent"], ["Success rate", "tradeSuccessRate", "percent"], ["Tradeable D", "tradeable_deaths", "countRate", false], ["D attempted", "attempted_tradeable_deaths", "countRate"], ["D traded", "traded_deaths", "countRate"]],
+    utility: [["Utility dmg", "utilityDamage", "damageRate"], ["UD/R", "udr", "decimal"], ["HE dmg", "he_damage", "damageRate"], ["Fire dmg", "fire_damage", "damageRate"], ["Flashed", "enemies_flashed", "countRate"], ["Blind sec", "blindSeconds", "secondsRate"], ["Flash assists", "flash_assists", "countRate"], ["Damage assists", "damage_assisted_kills", "countRate"], ["Teammate-flash K", "teammate_flash_assisted_kills", "countRate"], ["Own-flash K", "own_flash_kills", "countRate"]],
+    context: [["Blinded K", "blinded_kills", "countRate"], ["Blind K", "blind_kills", "countRate"], ["Wallbang K", "wallbang_kills", "countRate"], ["Penetrations", "penetration_total", "countRate"], ["Smoke K", "smoke_kills", "countRate"], ["Airborne K", "airborne_kills", "countRate"], ["Grenade-out K", "grenade_out_kills", "countRate"], ["Knife-out K", "knife_out_kills", "countRate"], ["Equip disadvantage K", "equipment_disadvantage_kills", "countRate"], ["Unfair K", "unfair_kills", "countRate"]],
+    contextDeaths: [["While blind", "deaths_while_blind", "countRate", false], ["Blind killer", "deaths_to_blind_killer", "countRate", false], ["Wallbang", "wallbang_deaths", "countRate", false], ["Penetrations", "death_penetration_total", "countRate", false], ["Smoke", "smoke_deaths", "countRate", false], ["Airborne killer", "airborne_deaths", "countRate", false], ["Moving killer", "moving_killer_deaths", "countRate", false], ["Still killer", "still_killer_deaths", "countRate", false], ["Running killer", "running_killer_deaths", "countRate", false], ["Grenade out", "grenade_out_deaths", "countRate", false], ["Knife out", "knife_out_deaths", "countRate", false], ["Equip advantage", "equipment_disadvantage_deaths", "countRate", false], ["Unfair", "unfair_deaths", "countRate", false]],
+    rounds: [["Round wins", "round_wins", "countRate"], ["1v1", "clutch_1v1", "countRate"], ["1v2", "clutch_1v2", "countRate"], ["1v3", "clutch_1v3", "countRate"], ["1v4", "clutch_1v4", "countRate"], ["1v5", "clutch_1v5", "countRate"], ["1K rounds", "kill_rounds_1k", "countRate"], ["2K rounds", "kill_rounds_2k", "countRate"], ["3K rounds", "kill_rounds_3k", "countRate"], ["4K rounds", "kill_rounds_4k", "countRate"], ["5K rounds", "kill_rounds_5k", "countRate"]],
+    movement: [["Kill speed", "killSpeed", "decimal"], ["Kill speed %", "killSpeedPercent", "percent"], ["Peak kill speed", "kill_speed_max", "decimal"], ["Death speed", "deathSpeed", "decimal", false], ["Death speed %", "deathSpeedPercent", "percent", false], ["Peak death speed", "death_speed_max", "decimal", false], ["Moving K", "moving_kills", "countRate"], ["Still K", "still_kills", "countRate"], ["Running K", "running_kills", "countRate"]],
+    weapons: [["Kills", "weaponKills", "countRate"], ["Damage", "weaponDamage", "damageRate"], ["Shots", "weaponShots", "countRate"], ["Rounds used", "weaponRounds", "countRate"]]
   };
 
   function num(value) {
@@ -149,7 +149,15 @@
   }
 
   function metricFields() { return metricGroups[state.metricGroup] || metricGroups.core; }
-  function formatMetric(value, type) {
+  function formatMetric(value, type, stats = {}) {
+    const perRound = digits => {
+      const total = type === "signedRate" ? signed(value, 0) : Math.round(num(value)).toLocaleString();
+      const rate = num(value) / Math.max(1, num(stats.rounds));
+      return `${total} · ${type === "signedRate" && rate > 0 ? "+" : ""}${rate.toFixed(digits)}/R`;
+    };
+    if (type === "countRate" || type === "signedRate") return perRound(2);
+    if (type === "damageRate") return `${Math.round(num(value)).toLocaleString()} · ${(num(value) / Math.max(1, num(stats.rounds))).toFixed(1)}/R`;
+    if (type === "secondsRate") return `${num(value).toFixed(1)}s · ${(num(value) / Math.max(1, num(stats.rounds))).toFixed(2)}s/R`;
     if (type === "percent") return `${num(value).toFixed(1)}%`;
     if (type === "rating") return num(value).toFixed(2);
     if (type === "ratio") return num(value).toFixed(2);
@@ -287,7 +295,7 @@
         const row = document.createElement("tr");
         if (!index) { const target = td(pair.target.label); target.rowSpan = 2; row.appendChild(target); const actor = td(pair.actor.label); actor.rowSpan = 2; row.appendChild(actor); }
         row.append(td(label), td(sample));
-        metricFields().forEach(([, key, type]) => row.appendChild(td(formatMetric(stats[key], type))));
+        metricFields().forEach(([, key, type]) => row.appendChild(td(formatMetric(stats[key], type, stats))));
         if (!index) { const confidence = td(pair.confidence); confidence.rowSpan = 2; row.appendChild(confidence); }
         body.appendChild(row);
       });
@@ -489,10 +497,13 @@
     return { included, excluded, baseMatches, matches, comparisonMatches, partialMatches, fullTeam, comparisonPossible };
   }
 
-  function comparisonClasses(first, second, key, higherIsBetter = true) {
+  function comparisonClasses(first, second, key, higherIsBetter = true, type = "") {
     if (!first.n || !second.n) return ["", ""];
-    if (Math.abs(first[key] - second[key]) < 1e-9) return ["neutral", "neutral"];
-    const firstBetter = higherIsBetter ? first[key] > second[key] : first[key] < second[key];
+    const normalize = stats => ["countRate", "signedRate", "damageRate", "secondsRate"].includes(type)
+      ? num(stats[key]) / Math.max(1, num(stats.rounds)) : num(stats[key]);
+    const firstValue = normalize(first), secondValue = normalize(second);
+    if (Math.abs(firstValue - secondValue) < 1e-9) return ["neutral", "neutral"];
+    const firstBetter = higherIsBetter ? firstValue > secondValue : firstValue < secondValue;
     return firstBetter ? ["positive", "negative"] : ["negative", "positive"];
   }
 
@@ -522,7 +533,7 @@
       const withStats = summarize(current.comparisonMatches.map(match => match.rows.find(item => item.player.profileId === player.profileId).row));
       const statsRows = [withoutStats, withStats];
       const labels = [current.excluded.length ? "Without excluded" : "Included lineup", current.excluded.length ? "With excluded" : "No comparison"];
-      const classes = new Map(metricFields().map(([, key, , higher = true]) => [key, comparisonClasses(withoutStats, withStats, key, higher)]));
+      const classes = new Map(metricFields().map(([, key, type, higher = true]) => [key, comparisonClasses(withoutStats, withStats, key, higher, type)]));
       for (let index = 0; index < 2; index += 1) {
         const row = document.createElement("tr");
         row.className = index ? "condition-without" : "condition-with";
@@ -532,7 +543,7 @@
           row.appendChild(playerCell);
         }
         const stats = statsRows[index]; row.append(td(labels[index]), td(stats.n));
-        metricFields().forEach(([, key, type]) => row.appendChild(td(formatMetric(stats[key], type), classes.get(key)[index])));
+        metricFields().forEach(([, key, type]) => row.appendChild(td(formatMetric(stats[key], type, stats), classes.get(key)[index])));
         body.appendChild(row);
       }
       if (playerIndex < current.included.length - 1) {

@@ -2235,6 +2235,10 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   font-size: clamp(19px, 2vw, 25px);
 }
 
+.player-stat-section .player-stat-card > small {
+  white-space: normal;
+}
+
 .player-stat-section-single { max-width: 900px; }
 
 .player-metric-list {
@@ -2283,6 +2287,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .player-count-item:last-child { border-right: 0; }
 .player-count-item strong { color: var(--profile-accent); font-size: clamp(21px, 3vw, 30px); line-height: 1.1; font-variant-numeric: tabular-nums; }
 .player-count-item span { color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.player-count-item small { margin-top: 3px; color: var(--muted); font-size: 9px; white-space: nowrap; }
 
 @media (max-width: 1050px) {
   .player-section-grid-thirds { grid-template-columns: 1fr; }
