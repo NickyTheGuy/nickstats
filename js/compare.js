@@ -391,11 +391,12 @@
       const chip = el("div", null, "compare-selected-player");
       const identity = el("span", null);
       identity.append(el("strong", player.name), el("small", `${player.match_count} matches`));
-      const remove = el("button", "Remove");
+      const remove = el("button", "×", "compare-player-remove");
       remove.type = "button";
       remove.setAttribute("aria-label", `Remove ${player.name}`);
+      remove.title = `Remove ${player.name}`;
       remove.addEventListener("click", () => removePlayer(player.id));
-      chip.append(identity);
+      chip.append(remove, identity);
       if (state.workspace === "compare") {
         const roles = el("div", null, "compare-roster-role");
         roles.setAttribute("role", "group"); roles.setAttribute("aria-label", `${player.name} profile condition`);
@@ -407,7 +408,6 @@
         });
         chip.appendChild(roles);
       }
-      chip.append(remove);
       roster.appendChild(chip);
     }
     const count = state.selected.size;
