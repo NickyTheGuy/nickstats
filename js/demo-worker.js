@@ -1351,8 +1351,9 @@ async function parseDemo(fileName, buffer) {
         attacker.equipmentDisadvantageKills += 1;
         victim.equipmentDisadvantageDeaths += 1;
       }
-      const unfairKill = victimWasBlind || penetrations > 0 || throughSmoke || attackerInAir ||
-        runningKill || caughtWithEquipmentOut;
+      // "Bullshit" kills are improbable or opportunistic kills: the killer was blind,
+      // the shot was a wallbang or smoke kill, or the victim was caught with utility/knife out.
+      const unfairKill = attackerWasBlind || penetrations > 0 || throughSmoke || caughtWithEquipmentOut;
       if (unfairKill) {
         // The collapsed total is event-based, so overlapping contexts count once.
         attacker.unfairKills += 1;
@@ -1925,7 +1926,7 @@ async function parseDemo(fileName, buffer) {
       running: "Killer horizontal speed above 34% of the current weapon's maximum movement speed; non-weapon kills are excluded",
       equipment_disadvantage_lookback_seconds: EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS,
       equipment_disadvantage: "Victim had a grenade or knife active at death or during the preceding two seconds",
-      unfair: "Unique enemy kills or deaths involving a blinded victim, penetration, smoke, airborne killer, running killer, or victim caught with a grenade/knife out; overlapping contexts count once"
+      unfair: "Unique Bullshit Kills/Deaths: killer blind, wallbang, smoke kill, or victim caught with grenade/knife out; overlapping contexts count once"
     },
     flash_definition: {
       own_flash: "Killer's own flash is an active blind source on the victim at death"

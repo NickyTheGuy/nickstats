@@ -52,6 +52,10 @@
       { label: "K", value: player => player.kill_context?.blinded_enemy_kills ?? 0 },
       { label: "D", value: player => player.kill_context?.deaths_while_blind ?? 0, direction: "asc" }
     ] },
+    blindKillerContext: { id: "blindKillerContext", modes: [
+      { label: "K", value: player => player.kill_context?.kills_while_blind ?? 0 },
+      { label: "D", value: player => player.kill_context?.deaths_to_blind_killer ?? 0, direction: "asc" }
+    ] },
     wallContext: { id: "wallContext", modes: [
       { label: "K", value: player => player.kill_context?.wallbang_kills ?? 0 },
       { label: "D", value: player => player.kill_context?.wallbang_deaths ?? 0, direction: "asc" }
@@ -252,7 +256,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260911-3");
+      const worker = new Worker("./js/demo-worker.js?v=20260911-4");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -1012,6 +1016,7 @@
     cell(row, `${player.opening_kills}-${player.opening_deaths}`);
     const context = player.kill_context || {};
     const blind = `${context.blinded_enemy_kills ?? 0}-${context.deaths_while_blind ?? 0}`;
+    const blindKiller = `${context.kills_while_blind ?? 0}-${context.deaths_to_blind_killer ?? 0}`;
     const wall = `${context.wallbang_kills ?? 0}-${context.wallbang_deaths ?? 0}`;
     const smoke = `${context.smoke_kills ?? 0}-${context.smoke_deaths ?? 0}`;
     const air = `${context.airborne_kills ?? 0}-${context.deaths_to_airborne_killer ?? 0}`;
@@ -1023,6 +1028,7 @@
     const speed = `${speedValue(context.speed_on_kill?.average_percent_of_max)}-${speedValue(context.killer_speed_on_death?.average_percent_of_max)}`;
     if (state.expandedGroups.killContext) {
       cell(row, blind, "demo-group-cell killContext-cell");
+      cell(row, blindKiller, "demo-group-cell killContext-cell");
       cell(row, wall, "demo-group-cell killContext-cell");
       cell(row, smoke, "demo-group-cell killContext-cell");
       cell(row, air, "demo-group-cell killContext-cell");
@@ -1124,16 +1130,17 @@
       if (detail === "EF") child.title = "Enemies flashed";
       if (detail === "FA") child.title = "Flash assists";
       if (detail === "Own-flash K") child.title = "Kills on enemies actively blinded by a flash you threw; this does not mean you blinded yourself";
-      if (detail === "Blind K-D") child.title = "Kills against blinded enemies – deaths while blinded";
-      if (detail === "Wall K-D") child.title = "Wallbang kills – wallbang deaths";
-      if (detail === "Smoke K-D") child.title = "Kills through smoke – deaths through smoke";
+      if (detail === "Enemy blind K-D") child.title = "Kills against blinded enemies – deaths while blinded";
+      if (detail === "Killer blind K-D") child.title = "Kills while you were blind – deaths to a blinded enemy";
+      if (detail === "Wallbang K-D") child.title = "Wallbang kills – wallbang deaths";
+      if (detail === "Smoke K-D") child.title = "Smoke kills – smoke deaths";
       if (detail === "Air K-D") child.title = "Kills while airborne – deaths to airborne killers";
-      if (detail === "Caught K-D") child.title = "Kills against enemies caught with a grenade or knife out in the prior two seconds – deaths caught the same way";
+      if (detail === "Paul K-D") child.title = "Kills against enemies caught with a grenade or knife out in the prior two seconds – deaths caught the same way";
       if (detail === "Move K-D") child.title = "Kills while moving above 1 unit/second – deaths to a moving killer";
       if (detail === "Still K-D") child.title = "Kills while moving at most 1 unit/second – deaths to a stationary killer";
       if (detail === "Run K-D") child.title = "Kills by a player moving above 34% of the held weapon's maximum speed – deaths to such a killer";
       if (detail === "Spd% K-D") child.title = "Average horizontal killer speed as a percentage of the held weapon maximum: your kills – your deaths";
-      if (detail === "Unfair K-D") child.title = "Unique kills and deaths involving a blinded victim, wall penetration, smoke, an airborne/running killer, or a victim caught with grenade/knife out; overlaps count once";
+      if (detail === "Bullshit K-D") child.title = "Unique kills and deaths where the killer was blind, the kill was a wallbang or smoke kill, or the victim was caught for a Paul; overlaps count once";
       child.className = `demo-group-detail ${group}-cell`;
       if (index === 0) child.classList.add("demo-group-start");
       if (index === details.length - 1) child.classList.add("demo-group-end");
@@ -1154,12 +1161,13 @@
         "D (Succ%)": sortSpecs.tradeDResult
       },
       killContext: {
-        "Unfair K-D": sortSpecs.killContextSummary,
-        "Blind K-D": sortSpecs.blindContext,
-        "Wall K-D": sortSpecs.wallContext,
+        "Bullshit K-D": sortSpecs.killContextSummary,
+        "Enemy blind K-D": sortSpecs.blindContext,
+        "Killer blind K-D": sortSpecs.blindKillerContext,
+        "Wallbang K-D": sortSpecs.wallContext,
         "Smoke K-D": sortSpecs.smokeContext,
         "Air K-D": sortSpecs.airContext,
-        "Caught K-D": sortSpecs.equipmentContext,
+        "Paul K-D": sortSpecs.equipmentContext,
         "Move K-D": sortSpecs.movingContext,
         "Still K-D": sortSpecs.stillContext,
         "Run K-D": sortSpecs.runningContext,
@@ -1278,7 +1286,7 @@
 
   function scoreboardColumnWidths() {
     const widths = [160, 58, 90, 62, 72, 72, 82];
-    widths.push(...(state.expandedGroups.killContext ? [88, 88, 94, 82, 96, 88, 88, 88, 96] : [104]));
+    widths.push(...(state.expandedGroups.killContext ? [104, 104, 98, 88, 88, 88, 88, 88, 88, 96] : [112]));
     widths.push(...(state.expandedGroups.trades ? [58, 54, 96, 58, 54, 96] : [88]));
     widths.push(...(state.expandedGroups.assistedKills ? [68, 68, 96] : [90]));
     widths.push(...(state.expandedGroups.utility ? [58, 58, 82, 82] : [132]));
@@ -1323,7 +1331,7 @@
     const detailHeader = document.createElement("tr");
     ["Player", "Rnds", "K-D-A", "HS%", "ADR", "KAST", "Opening"]
       .forEach(label => regularHeader(header, label));
-    groupHeader(header, detailHeader, "killContext", "Kill context", ["Blind K-D", "Wall K-D", "Smoke K-D", "Air K-D", "Caught K-D", "Move K-D", "Still K-D", "Run K-D", "Spd% K-D"], "Unfair K-D");
+    groupHeader(header, detailHeader, "killContext", "Kill context", ["Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Paul K-D", "Move K-D", "Still K-D", "Run K-D", "Spd% K-D"], "Bullshit K-D");
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     groupHeader(header, detailHeader, "assistedKills", "Assisted K", ["Dmg", "Flash", "Own-flash K"]);
     groupHeader(header, detailHeader, "utility", "Utility", ["EF", "FA", "HE Dmg", "Fire Dmg"], "EF/FA · Dmg");

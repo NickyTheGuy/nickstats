@@ -2286,6 +2286,17 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   line-height: 1.45;
 }
 
+.player-movement-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid #be82ff;
+  border-radius: 0 9px 9px 0;
+  background: rgba(190, 130, 255, .07);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .player-detail-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
