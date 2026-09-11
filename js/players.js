@@ -90,7 +90,6 @@
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("playerProfileName").textContent = player.name || "Unknown player";
     $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}`;
-    $("playerProfileRecord").textContent = state.side === "ALL" ? `${summary.wins}–${summary.losses}${summary.draws ? `–${summary.draws}` : ""}` : `${integer(s.round_wins)}–${integer(summary.rounds - number(s.round_wins))} rounds`;
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
     const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: aggregate(map.rows) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: state.side, maps: mapRows });

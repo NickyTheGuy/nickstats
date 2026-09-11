@@ -1183,7 +1183,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .demo-weapon-player[open] .demo-weapon-action::after { content: "Hide weapons"; }
 .demo-weapon-totals { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .demo-weapon-player .table-wrap { margin: 0 10px 10px; }
-.demo-weapon-table { width: 100%; min-width: 400px; }
+.demo-weapon-table { width: 100%; min-width: 860px; }
 .demo-weapon-table th, .demo-weapon-table td { padding: 8px 10px; text-align: center; }
 .demo-weapon-table th:first-child, .demo-weapon-table td:first-child { text-align: left; }
 
@@ -1313,19 +1313,25 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   box-shadow: inset 0 -3px currentColor;
 }
 
+.combat-cell { background: rgba(104, 164, 255, .05); }
+.opening-cell { background: rgba(255, 201, 105, .05); }
 .trades-cell { background: rgba(85, 214, 210, .045); }
 .killContext-cell { background: rgba(255, 151, 92, .13); }
-.assistedKills-cell { background: rgba(190, 130, 255, .13); }
+.movement-cell { background: rgba(190, 130, 255, .08); }
 .utility-cell { background: rgba(104, 164, 255, .05); }
 .clutches-cell { background: rgba(98, 212, 157, .12); }
-.multikills-cell { background: rgba(255, 201, 105, .05); }
+.multikills-cell,
+.objectives-cell { background: rgba(98, 212, 157, .07); }
 
+.combat-heading { background: rgba(104, 164, 255, .10); }
+.opening-heading { background: rgba(255, 201, 105, .10); }
 .trades-heading { background: rgba(85, 214, 210, .09); }
 .killContext-heading { background: rgba(255, 151, 92, .18); }
-.assistedKills-heading { background: rgba(190, 130, 255, .18); }
+.movement-heading { background: rgba(190, 130, 255, .13); }
 .utility-heading { background: rgba(104, 164, 255, .10); }
 .clutches-heading { background: rgba(98, 212, 157, .17); }
-.multikills-heading { background: rgba(255, 201, 105, .10); }
+.multikills-heading,
+.objectives-heading { background: rgba(98, 212, 157, .11); }
 
 .demo-toggle-heading {
   border-top-width: 3px;
@@ -1333,12 +1339,15 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   border-left: 2px solid rgba(238, 243, 251, .24);
 }
 
+.demo-toggle-heading.combat-heading { border-top: 3px solid var(--blue); }
+.demo-toggle-heading.opening-heading { border-top: 3px dashed var(--amber); }
 .demo-toggle-heading.trades-heading { border-top: 3px solid #55d6d2; }
-.demo-toggle-heading.killContext-heading { border-top: 3px solid #ff975c; }
-.demo-toggle-heading.assistedKills-heading { border-top: 3px dashed #be82ff; }
+.demo-toggle-heading.killContext-heading { border-top: 3px ridge #ff975c; }
+.demo-toggle-heading.movement-heading { border-top: 3px dashed #be82ff; }
 .demo-toggle-heading.utility-heading { border-top: 3px double var(--blue); }
 .demo-toggle-heading.clutches-heading { border-top: 3px dotted var(--green); }
-.demo-toggle-heading.multikills-heading { border-top: 3px ridge var(--amber); }
+.demo-toggle-heading.multikills-heading,
+.demo-toggle-heading.objectives-heading { border-top: 3px dotted var(--green); }
 
 .demo-score-table :is(th, td).demo-group-start {
   border-left: 2px solid rgba(238, 243, 251, .24);
@@ -2108,13 +2117,6 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   color: var(--muted);
 }
 
-.player-record {
-  color: var(--green);
-  font-size: 26px;
-  font-weight: 900;
-  letter-spacing: -.035em;
-}
-
 .player-headline-stats {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -2570,6 +2572,35 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   font-size: 11px;
   letter-spacing: .06em;
   text-transform: uppercase;
+}
+
+.player-table-sort-button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.player-table-sort-button::after {
+  content: " ↕";
+  color: #68778d;
+}
+
+.player-table-sort-button.active::after { color: var(--blue); }
+.player-table-sort-button[data-direction="asc"]::after { content: " ↑"; }
+.player-table-sort-button[data-direction="desc"]::after { content: " ↓"; }
+
+.player-table-sort-button:hover,
+.player-table-sort-button:focus-visible {
+  color: var(--text);
+  outline: none;
 }
 
 .player-profile-table tbody th {

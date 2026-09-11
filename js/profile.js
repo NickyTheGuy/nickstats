@@ -9,6 +9,7 @@
   const ratio = (a, b) => number(b) > 0 ? number(a) / number(b) : number(a);
   const titleCase = value => String(value || "Unknown").replace(/^weapon_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase());
   const countPerRound = (value, rounds, places = 2) => `${decimal(ratio(value, rounds), places)} per round`;
+  const tableSorts = new Map();
 
   function card(label, value, note = "", className = "") {
     const element = document.createElement("div"); element.className = `player-stat-card ${className}`.trim();
@@ -36,12 +37,36 @@
       return item;
     }));
   }
-  function renderTable(target, headers, rows) {
+  function renderTable(target, headers, rows, sortRows = rows) {
     const table = typeof target === "string" ? $(target) : target;
+    const tableKey = table.id || String(target);
+    const sort = tableSorts.get(tableKey);
+    const indexed = rows.map((values, index) => ({ values, sortValues: sortRows[index] || values, index }));
+    if (sort) indexed.sort((left, right) => {
+      const a = left.sortValues[sort.column], b = right.sortValues[sort.column];
+      const comparison = typeof a === "number" && typeof b === "number"
+        ? a - b
+        : String(a ?? "").localeCompare(String(b ?? ""), undefined, { numeric: true, sensitivity: "base" });
+      return (sort.direction === "asc" ? comparison : -comparison) || left.index - right.index;
+    });
     const head = document.createElement("thead"), headerRow = document.createElement("tr");
-    headers.forEach(label => { const cell = document.createElement("th"); cell.scope = "col"; cell.textContent = label; headerRow.appendChild(cell); }); head.appendChild(headerRow);
+    headers.forEach((label, column) => {
+      const cell = document.createElement("th"); cell.scope = "col";
+      const button = document.createElement("button"); button.type = "button"; button.className = "player-table-sort-button";
+      const active = sort?.column === column;
+      if (active) { button.classList.add("active"); button.dataset.direction = sort.direction; }
+      button.textContent = label;
+      button.title = active ? `Sorted ${sort.direction === "asc" ? "ascending" : "descending"}; click to reverse` : `Sort by ${label}`;
+      cell.setAttribute("aria-sort", active ? (sort.direction === "asc" ? "ascending" : "descending") : "none");
+      button.addEventListener("click", () => {
+        const direction = active ? (sort.direction === "asc" ? "desc" : "asc") : (column === 0 ? "asc" : "desc");
+        tableSorts.set(tableKey, { column, direction });
+        renderTable(table, headers, rows, sortRows);
+      });
+      cell.appendChild(button); headerRow.appendChild(cell);
+    }); head.appendChild(headerRow);
     const body = document.createElement("tbody");
-    rows.forEach(values => { const row = document.createElement("tr"); values.forEach((value, index) => { const cell = document.createElement(index ? "td" : "th"); if (!index) cell.scope = "row"; cell.textContent = value; row.appendChild(cell); }); body.appendChild(row); });
+    indexed.forEach(({ values }) => { const row = document.createElement("tr"); values.forEach((value, index) => { const cell = document.createElement(index ? "td" : "th"); if (!index) cell.scope = "row"; cell.textContent = value; row.appendChild(cell); }); body.appendChild(row); });
     table.replaceChildren(head, body);
   }
 
@@ -79,8 +104,10 @@
     fillCards(`${prefix}DeathSpeedStats`, [["Average", decimal(ratio(s.death_speed_total, s.death_speed_samples), 1), `${integer(s.death_speed_samples)} samples`], ["Maximum", decimal(s.death_speed_max, 1)], ["Average of max", percent(ratio(s.death_speed_percent_total, s.death_speed_percent_samples))], ["Peak of max", percent(s.death_speed_percent_max)]]);
     fillList(`${prefix}MovementStateStats`, [["Moving kills", s.moving_kills], ["Still kills", s.still_kills], ["Running kills", s.running_kills], ["Airborne kills", s.airborne_kills]].map(([label, value]) => metric(label, value)));
     fillList(`${prefix}DeathMovementStateStats`, [["Deaths to moving enemies", s.moving_killer_deaths], ["Deaths to still enemies", s.still_killer_deaths], ["Deaths to running enemies", s.running_killer_deaths], ["Deaths to airborne enemies", s.airborne_deaths]].map(([label, value]) => metric(label, value)));
-    renderTable(`${prefix}WeaponsTable`, ["Weapon", "Kills", "K/R", "Damage", "Dmg/R", "Shots", "Hits", "Hit rate", "Rounds used", "Usage"], (summary.weapons || []).map(weapon => [titleCase(weapon.weapon), integer(weapon.kills), decimal(ratio(weapon.kills, rounds), 3), integer(weapon.damage), decimal(ratio(weapon.damage, rounds), 1), integer(weapon.shots), integer(weapon.hits), percent(100 * ratio(weapon.hits, weapon.shots)), integer(weapon.rounds_used), percent(100 * ratio(weapon.rounds_used, rounds))]));
-    renderTable(`${prefix}MapsTable`, ["Map", "Matches", sideAll ? "Record" : "Rounds", sideAll ? "Win rate" : "Round win", "Rating", "K/D", "K/R", "A/R", "ADR", "KAST"], (maps || []).map(({ name, summary: map }) => [titleCase(String(name).replace(/^de_/, "")), integer(map.matches), sideAll ? `${map.wins}–${map.losses}` : `${integer(map.stats.round_wins)}–${integer(map.rounds - number(map.stats.round_wins))}`, percent(map.winRate), decimal(map.rating, 2), decimal(map.kd, 2), decimal(ratio(map.stats.kills, map.rounds), 2), decimal(ratio(map.stats.assists, map.rounds), 2), decimal(map.adr, 1), percent(map.kast)]));
+    const weapons = summary.weapons || [];
+    renderTable(`${prefix}WeaponsTable`, ["Weapon", "Kills", "K/R", "Damage", "Dmg/R", "Shots", "Hits", "Hit rate", "Rounds used", "Usage"], weapons.map(weapon => [titleCase(weapon.weapon), integer(weapon.kills), decimal(ratio(weapon.kills, rounds), 3), integer(weapon.damage), decimal(ratio(weapon.damage, rounds), 1), integer(weapon.shots), integer(weapon.hits), percent(100 * ratio(weapon.hits, weapon.shots)), integer(weapon.rounds_used), percent(100 * ratio(weapon.rounds_used, rounds))]), weapons.map(weapon => [weapon.weapon, number(weapon.kills), ratio(weapon.kills, rounds), number(weapon.damage), ratio(weapon.damage, rounds), number(weapon.shots), number(weapon.hits), ratio(weapon.hits, weapon.shots), number(weapon.rounds_used), ratio(weapon.rounds_used, rounds)]));
+    const mapRows = maps || [];
+    renderTable(`${prefix}MapsTable`, ["Map", "Matches", sideAll ? "Record" : "Rounds", sideAll ? "Win rate" : "Round win", "Rating", "K/D", "K/R", "A/R", "ADR", "KAST"], mapRows.map(({ name, summary: map }) => [titleCase(String(name).replace(/^de_/, "")), integer(map.matches), sideAll ? `${map.wins}–${map.losses}` : `${integer(map.stats.round_wins)}–${integer(map.rounds - number(map.stats.round_wins))}`, percent(map.winRate), decimal(map.rating, 2), decimal(map.kd, 2), decimal(ratio(map.stats.kills, map.rounds), 2), decimal(ratio(map.stats.assists, map.rounds), 2), decimal(map.adr, 1), percent(map.kast)]), mapRows.map(({ name, summary: map }) => [name, map.matches, sideAll ? map.wins - map.losses : number(map.stats.round_wins) - (map.rounds - number(map.stats.round_wins)), map.winRate, map.rating, map.kd, ratio(map.stats.kills, map.rounds), ratio(map.stats.assists, map.rounds), map.adr, map.kast]));
   }
 
   function mountComparisonProfile() {

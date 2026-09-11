@@ -275,8 +275,11 @@ private func comparisonSideData(
         SELECT f.match_id, f.thrower_side AS side,
                CAST(SUM(f.flash_effects) AS SIGNED) AS effects,
                CAST(SUM(f.blind_duration_ms) AS SIGNED) AS duration
-        FROM flash_side_stats f JOIN match_players mp ON mp.id = f.thrower_match_player_id
-        WHERE mp.player_id = \(bind: playerID) GROUP BY f.match_id, f.thrower_side
+        FROM flash_side_stats f
+        JOIN match_players mp ON mp.id = f.thrower_match_player_id
+        JOIN match_players victim ON victim.id = f.victim_match_player_id
+        WHERE mp.player_id = \(bind: playerID) AND victim.match_team_id <> mp.match_team_id
+        GROUP BY f.match_id, f.thrower_side
         """).all()
     for row in flashes {
         let id = try int64(row, "match_id"), side = try playerSide(row, "side")
@@ -640,7 +643,8 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
                CAST(COALESCE(SUM(f.blind_duration_ms), 0) AS SIGNED) AS blind_duration_ms
         FROM match_players mp
         JOIN flash_side_stats f ON f.thrower_match_player_id = mp.id
-        WHERE mp.player_id = \(bind: playerID)
+        JOIN match_players victim ON victim.id = f.victim_match_player_id
+        WHERE mp.player_id = \(bind: playerID) AND victim.match_team_id <> mp.match_team_id
         """).first()!
     let assistRow = try await sql.raw("""
         SELECT CAST(COALESCE(SUM(a.teammate_flash_assisted_kills), 0) AS SIGNED) AS flash_assists

@@ -27,7 +27,7 @@
     rejectReady: null,
     resolveParse: null,
     rejectParse: null,
-    expandedGroups: { killContext: false, trades: false, assistedKills: false, utility: false, clutches: false, multikills: false },
+    expandedGroups: { combat: false, opening: false, trades: false, clutches: false, multikills: false, objectives: false, killContext: false, movement: false, utility: false },
     scoreboardSort: null,
     sideFilter: "ALL",
     resultView: "scoreboard",
@@ -42,7 +42,10 @@
 
   const sortSpecs = {
     player: { id: "player", modes: [{ label: "A-Z", value: player => player.name || "", direction: "asc" }] },
-    rounds: { id: "rounds", modes: [{ label: "Rnds", value: player => player.rounds_played ?? 0 }] },
+    rounds: { id: "rounds", modes: [
+      { label: "Played", value: player => player.rounds_played ?? 0 },
+      { label: "Won", value: player => player.round_wins ?? 0 }
+    ] },
     kda: { id: "kda", modes: [
       { label: "K", value: player => player.kills ?? 0 },
       { label: "D", value: player => player.deaths ?? 0, direction: "asc" },
@@ -55,6 +58,17 @@
       { label: "K", value: player => player.opening_kills ?? 0 },
       { label: "D", value: player => player.opening_deaths ?? 0, direction: "asc" }
     ] },
+    openingKills: oneMode("openingKills", "K", player => player.opening_kills ?? 0),
+    openingDeaths: oneMode("openingDeaths", "D", player => player.opening_deaths ?? 0, "asc"),
+    openingDiff: oneMode("openingDiff", "Diff", player => (player.opening_kills ?? 0) - (player.opening_deaths ?? 0)),
+    openingSuccess: oneMode("openingSuccess", "Success", player => 100 * (player.opening_kills ?? 0) / Math.max(1, (player.opening_kills ?? 0) + (player.opening_deaths ?? 0))),
+    combatKills: oneMode("combatKills", "K", player => player.kills ?? 0),
+    combatDeaths: oneMode("combatDeaths", "D", player => player.deaths ?? 0, "asc"),
+    combatAssists: oneMode("combatAssists", "A", player => player.assists ?? 0),
+    kd: oneMode("kd", "K/D", player => (player.kills ?? 0) / Math.max(1, player.deaths ?? 0)),
+    damage: oneMode("damage", "Dmg", player => player.damage ?? 0),
+    damageReceived: oneMode("damageReceived", "Received", player => player.damage_received ?? 0, "asc"),
+    damageDiff: oneMode("damageDiff", "Diff", player => (player.damage ?? 0) - (player.damage_received ?? 0)),
     blindContext: { id: "blindContext", modes: [
       { label: "K", value: player => player.kill_context?.blinded_enemy_kills ?? 0 },
       { label: "D", value: player => player.kill_context?.deaths_while_blind ?? 0, direction: "asc" }
@@ -91,9 +105,13 @@
       { label: "K", value: player => player.kill_context?.equipment_disadvantage_kills ?? 0 },
       { label: "D", value: player => player.kill_context?.equipment_disadvantage_deaths ?? 0, direction: "asc" }
     ] },
-    speedContext: { id: "speedContext", modes: [
-      { label: "K", value: player => player.kill_context?.speed_on_kill?.average_percent_of_max ?? -1 },
-      { label: "D", value: player => player.kill_context?.killer_speed_on_death?.average_percent_of_max ?? -1 }
+    grenadeContext: { id: "grenadeContext", modes: [
+      { label: "K", value: player => player.kill_context?.grenade_out_kills ?? 0 },
+      { label: "D", value: player => player.kill_context?.grenade_out_deaths ?? 0, direction: "asc" }
+    ] },
+    knifeContext: { id: "knifeContext", modes: [
+      { label: "K", value: player => player.kill_context?.knife_out_kills ?? 0 },
+      { label: "D", value: player => player.kill_context?.knife_out_deaths ?? 0, direction: "asc" }
     ] },
     killContextSummary: { id: "killContextSummary", modes: [
       { label: "K", value: player => player.kill_context?.unfair_kills ?? 0 },
@@ -115,19 +133,48 @@
       { label: "D", value: player => player.traded_deaths ?? 0 },
       { label: "D%", value: player => player.traded_death_percent ?? 0 }
     ] },
-    assistedTotal: oneMode("assistedTotal", "Total", player => player.assisted_kills?.total ?? 0),
     assistedDamage: oneMode("assistedDamage", "Dmg", player => player.assisted_kills?.damage ?? 0),
     assistedFlash: oneMode("assistedFlash", "Flash", player => player.assisted_kills?.flash ?? 0),
     assistedOwnFlash: oneMode("assistedOwnFlash", "Own-flash K", player => player.assisted_kills?.own_flash ?? 0),
     utilitySummary: { id: "utilitySummary", modes: [
+      { label: "Dmg", value: player => player.grenade_damage?.total ?? 0 },
+      { label: "Thrown", value: player => ["high_explosive", "flashbang", "smoke", "fire", "decoy"].reduce((sum, key) => sum + (player.utility_thrown?.[key] ?? 0), 0) },
       { label: "EF", value: player => player.enemies_flashed ?? 0 },
-      { label: "FA", value: player => player.flash_assists ?? 0 },
-      { label: "Dmg", value: player => player.grenade_damage?.total ?? 0 }
+      { label: "FA", value: player => player.flash_assists ?? 0 }
     ] },
     ef: oneMode("ef", "EF", player => player.enemies_flashed ?? 0),
     fa: oneMode("fa", "FA", player => player.flash_assists ?? 0),
     heDamage: oneMode("heDamage", "HE", player => player.grenade_damage?.high_explosive ?? 0),
     fireDamage: oneMode("fireDamage", "Fire", player => player.grenade_damage?.fire ?? 0),
+    heThrown: oneMode("heThrown", "HE", player => player.utility_thrown?.high_explosive ?? 0),
+    flashThrown: oneMode("flashThrown", "Flash", player => player.utility_thrown?.flashbang ?? 0),
+    smokeThrown: oneMode("smokeThrown", "Smoke", player => player.utility_thrown?.smoke ?? 0),
+    fireThrown: oneMode("fireThrown", "Fire", player => player.utility_thrown?.fire ?? 0),
+    decoyThrown: oneMode("decoyThrown", "Decoy", player => player.utility_thrown?.decoy ?? 0),
+    blindDuration: oneMode("blindDuration", "Blind sec", player => enemyFlashMatchups(player).reduce((sum, row) => sum + (row.blind_duration || 0), 0)),
+    bombPlants: oneMode("bombPlants", "Plants", player => player.objectives?.plants ?? 0),
+    bombDefuses: oneMode("bombDefuses", "Defuses", player => player.objectives?.defuses ?? 0),
+    movementSummary: { id: "movementSummary", modes: [
+      { label: "Move K", value: player => player.kill_context?.moving_kills ?? 0 },
+      { label: "Run K", value: player => player.kill_context?.running_kills ?? 0 },
+      { label: "Air K", value: player => player.kill_context?.airborne_kills ?? 0 }
+    ] },
+    killSpeedUnits: { id: "killSpeedUnits", modes: [
+      { label: "Avg", value: player => player.kill_context?.speed_on_kill?.average ?? -1 },
+      { label: "Max", value: player => player.kill_context?.speed_on_kill?.maximum ?? -1 }
+    ] },
+    killSpeedPercents: { id: "killSpeedPercents", modes: [
+      { label: "Avg", value: player => player.kill_context?.speed_on_kill?.average_percent_of_max ?? -1 },
+      { label: "Peak", value: player => player.kill_context?.speed_on_kill?.maximum_percent_of_max ?? -1 }
+    ] },
+    deathSpeedUnits: { id: "deathSpeedUnits", modes: [
+      { label: "Avg", value: player => player.kill_context?.killer_speed_on_death?.average ?? -1, direction: "asc" },
+      { label: "Max", value: player => player.kill_context?.killer_speed_on_death?.maximum ?? -1, direction: "asc" }
+    ] },
+    deathSpeedPercents: { id: "deathSpeedPercents", modes: [
+      { label: "Avg", value: player => player.kill_context?.killer_speed_on_death?.average_percent_of_max ?? -1, direction: "asc" },
+      { label: "Peak", value: player => player.kill_context?.killer_speed_on_death?.maximum_percent_of_max ?? -1, direction: "asc" }
+    ] },
     clutchTotal: oneMode("clutchTotal", "Total", player => sumCounts(player.clutch_wins)),
     multikillTotal: oneMode("multikillTotal", "Total", player => sumCounts(player.kill_rounds)),
     rating: oneMode("rating", "Rating", player => player.rating ?? 0)
@@ -635,6 +682,7 @@
       const outgoingContext = contextTotals(stats.contexts);
       const incomingContext = contextTotals(incomingRows(playerIndex, side, "contexts"));
       const assistedRows = stats.assisted_by || [];
+      const enemyFlashRows = (stats.flashes || []).filter(row => teamByPlayer.get(numberValue(row[0])) !== teamByPlayer.get(playerIndex));
       const damageAssistedKills = assistedRows.reduce((sum, row) => sum + numberValue(row[1]), 0);
       const flashAssistedKills = assistedRows.reduce((sum, row) => sum + numberValue(row[2]), 0);
       const ownFlashKills = assistedRows.reduce((sum, row) => sum + numberValue(row[3]), 0);
@@ -699,7 +747,7 @@
           own_flash: ownFlashKills,
           total: damageAssistedKills + flashAssistedKills
         },
-        enemies_flashed: (stats.flashes || []).reduce((sum, row) => sum + numberValue(row[1]), 0),
+        enemies_flashed: enemyFlashRows.reduce((sum, row) => sum + numberValue(row[1]), 0),
         flash_assists: flashAssists,
         grenade_damage: {
           high_explosive: numberValue(stats.utility?.[0]),
@@ -1038,6 +1086,18 @@
     return Number.isFinite(value) ? `${value.toFixed(0)}%` : "—";
   }
 
+  function enemyFlashMatchups(player) {
+    const playerKey = duelIdentity(player.steam_id, player.name);
+    const ownTeam = (state.result?.teams || []).find(team =>
+      (team.players || []).some(member => duelIdentity(member.steam_id, member.name) === playerKey)
+    );
+    if (!ownTeam) return player.flash_matchups || [];
+    const teammates = new Set((ownTeam.players || []).map(member => duelIdentity(member.steam_id, member.name)));
+    return (player.flash_matchups || []).filter(matchup =>
+      !teammates.has(duelIdentity(matchup.victim_steam_id, matchup.victim))
+    );
+  }
+
   function playerRow(player) {
     const row = document.createElement("tr");
     const nameCell = document.createElement("td");
@@ -1050,12 +1110,34 @@
       nameCell.appendChild(badge);
     }
     row.appendChild(nameCell);
-    cell(row, player.rounds_played ?? 0);
-    cell(row, `${player.kills}-${player.deaths}-${player.assists}`);
-    cell(row, `${player.headshot_percent.toFixed(0)}%`);
-    cell(row, player.adr.toFixed(1));
+    cell(row, `${player.rounds_played ?? 0}/${player.round_wins ?? 0}`);
+    const damageDiff = (player.damage ?? 0) - (player.damage_received ?? 0);
+    if (state.expandedGroups.combat) {
+      cell(row, player.kills ?? 0, "demo-group-cell combat-cell");
+      cell(row, player.deaths ?? 0, "demo-group-cell combat-cell");
+      cell(row, player.assists ?? 0, "demo-group-cell combat-cell");
+      cell(row, ((player.kills ?? 0) / Math.max(1, player.deaths ?? 0)).toFixed(2), "demo-group-cell combat-cell");
+      cell(row, `${player.headshot_percent.toFixed(0)}%`, "demo-group-cell combat-cell");
+      cell(row, player.damage ?? 0, "demo-group-cell combat-cell");
+      cell(row, player.damage_received ?? 0, "demo-group-cell combat-cell");
+      cell(row, `${damageDiff > 0 ? "+" : ""}${damageDiff}`, "demo-group-cell combat-cell");
+      cell(row, player.adr.toFixed(1), "demo-group-cell combat-cell");
+    } else {
+      cell(row, `${player.kills}-${player.deaths}-${player.assists}`, "demo-group-cell combat-cell");
+    }
     cell(row, `${player.kast.toFixed(1)}%`);
-    cell(row, `${player.opening_kills}-${player.opening_deaths}`);
+    const ratingClass = player.rating >= 1.10 ? "rating-good" : player.rating <= 0.90 ? "rating-bad" : "rating-average";
+    cell(row, player.rating.toFixed(2), `demo-rating ${ratingClass}`);
+    const openingTotal = (player.opening_kills ?? 0) + (player.opening_deaths ?? 0);
+    const openingDiff = (player.opening_kills ?? 0) - (player.opening_deaths ?? 0);
+    if (state.expandedGroups.opening) {
+      cell(row, player.opening_kills ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_deaths ?? 0, "demo-group-cell opening-cell");
+      cell(row, `${openingDiff > 0 ? "+" : ""}${openingDiff}`, "demo-group-cell opening-cell");
+      cell(row, `${(100 * (player.opening_kills ?? 0) / Math.max(1, openingTotal)).toFixed(0)}%`, "demo-group-cell opening-cell");
+    } else {
+      cell(row, `${player.opening_kills ?? 0}-${player.opening_deaths ?? 0}`, "demo-group-cell opening-cell");
+    }
     const context = player.kill_context || {};
     const blind = `${context.blinded_enemy_kills ?? 0}-${context.deaths_while_blind ?? 0}`;
     const blindKiller = `${context.kills_while_blind ?? 0}-${context.deaths_to_blind_killer ?? 0}`;
@@ -1063,25 +1145,12 @@
     const smoke = `${context.smoke_kills ?? 0}-${context.smoke_deaths ?? 0}`;
     const air = `${context.airborne_kills ?? 0}-${context.deaths_to_airborne_killer ?? 0}`;
     const equipment = `${context.equipment_disadvantage_kills ?? 0}-${context.equipment_disadvantage_deaths ?? 0}`;
+    const grenade = `${context.grenade_out_kills ?? 0}-${context.grenade_out_deaths ?? 0}`;
+    const knife = `${context.knife_out_kills ?? 0}-${context.knife_out_deaths ?? 0}`;
     const moving = `${context.moving_kills ?? 0}-${context.deaths_to_moving_killer ?? 0}`;
     const still = `${context.still_kills ?? 0}-${context.deaths_to_still_killer ?? 0}`;
     const running = `${context.running_kills ?? 0}-${context.deaths_to_running_killer ?? 0}`;
     const unfair = `${context.unfair_kills ?? 0}-${context.unfair_deaths ?? 0}`;
-    const speed = `${speedValue(context.speed_on_kill?.average_percent_of_max)}-${speedValue(context.killer_speed_on_death?.average_percent_of_max)}`;
-    if (state.expandedGroups.killContext) {
-      cell(row, blind, "demo-group-cell killContext-cell");
-      cell(row, blindKiller, "demo-group-cell killContext-cell");
-      cell(row, wall, "demo-group-cell killContext-cell");
-      cell(row, smoke, "demo-group-cell killContext-cell");
-      cell(row, air, "demo-group-cell killContext-cell");
-      cell(row, equipment, "demo-group-cell killContext-cell");
-      cell(row, moving, "demo-group-cell killContext-cell");
-      cell(row, still, "demo-group-cell killContext-cell");
-      cell(row, running, "demo-group-cell killContext-cell");
-      cell(row, speed, "demo-group-cell killContext-cell");
-    } else {
-      cell(row, unfair, "demo-group-cell killContext-cell");
-    }
     if (state.expandedGroups.trades) {
       cell(row, player.trade_opportunities ?? 0, "demo-group-cell trades-cell");
       cell(row, player.trade_attempts ?? 0, "demo-group-cell trades-cell");
@@ -1091,21 +1160,6 @@
       cell(row, `${player.traded_deaths ?? 0} (${(player.traded_death_percent ?? 0).toFixed(0)}%)`, "demo-group-cell trades-cell");
     } else {
       cell(row, `${player.trade_kills ?? 0}-${player.traded_deaths ?? 0}`, "demo-group-cell trades-cell");
-    }
-    if (state.expandedGroups.assistedKills) {
-      cell(row, player.assisted_kills?.damage ?? 0, "demo-group-cell assistedKills-cell");
-      cell(row, player.assisted_kills?.flash ?? 0, "demo-group-cell assistedKills-cell");
-      cell(row, player.assisted_kills?.own_flash ?? 0, "demo-group-cell assistedKills-cell");
-    } else {
-      cell(row, player.assisted_kills?.total ?? 0, "demo-group-cell assistedKills-cell");
-    }
-    if (state.expandedGroups.utility) {
-      cell(row, player.enemies_flashed ?? 0, "demo-group-cell utility-cell");
-      cell(row, player.flash_assists ?? 0, "demo-group-cell utility-cell");
-      cell(row, player.grenade_damage?.high_explosive ?? 0, "demo-group-cell utility-cell");
-      cell(row, player.grenade_damage?.fire ?? 0, "demo-group-cell utility-cell");
-    } else {
-      cell(row, `${player.enemies_flashed ?? 0}/${player.flash_assists ?? 0} · ${player.grenade_damage?.total ?? 0}`, "demo-group-cell utility-cell");
     }
     if (state.expandedGroups.clutches) {
       for (let opponents = 5; opponents >= 1; opponents -= 1) {
@@ -1123,14 +1177,45 @@
     } else {
       cell(row, [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0), "demo-group-cell multikills-cell");
     }
-    const ratingClass = player.rating >= 1.10 ? "rating-good" : player.rating <= 0.90 ? "rating-bad" : "rating-average";
-    cell(row, player.rating.toFixed(2), `demo-rating ${ratingClass}`);
+    if (state.expandedGroups.objectives) {
+      cell(row, player.objectives?.plants ?? 0, "demo-group-cell objectives-cell");
+      cell(row, player.objectives?.defuses ?? 0, "demo-group-cell objectives-cell");
+    } else {
+      cell(row, `${player.objectives?.plants ?? 0}/${player.objectives?.defuses ?? 0}`, "demo-group-cell objectives-cell");
+    }
+    if (state.expandedGroups.killContext) {
+      [blind, blindKiller, wall, smoke, air, grenade, knife, equipment, running]
+        .forEach(value => cell(row, value, "demo-group-cell killContext-cell"));
+    } else {
+      cell(row, unfair, "demo-group-cell killContext-cell");
+    }
+    const speedPair = summary => `${Number.isFinite(summary?.average) ? summary.average.toFixed(1) : "—"}/${Number.isFinite(summary?.maximum) ? summary.maximum.toFixed(1) : "—"}`;
+    const speedPercentPair = summary => `${speedValue(summary?.average_percent_of_max)}/${speedValue(summary?.maximum_percent_of_max)}`;
+    if (state.expandedGroups.movement) {
+      [moving, still, running, air, speedPair(context.speed_on_kill), speedPercentPair(context.speed_on_kill), speedPair(context.killer_speed_on_death), speedPercentPair(context.killer_speed_on_death)]
+        .forEach(value => cell(row, value, "demo-group-cell movement-cell"));
+    } else {
+      cell(row, `${context.moving_kills ?? 0}/${context.running_kills ?? 0}/${context.airborne_kills ?? 0}`, "demo-group-cell movement-cell");
+    }
+    const utilityThrown = player.utility_thrown || {};
+    const totalThrown = ["high_explosive", "flashbang", "smoke", "fire", "decoy"].reduce((sum, key) => sum + (utilityThrown[key] ?? 0), 0);
+    const blindSeconds = enemyFlashMatchups(player).reduce((sum, matchup) => sum + (matchup.blind_duration || 0), 0);
+    if (state.expandedGroups.utility) {
+      [player.grenade_damage?.high_explosive ?? 0, player.grenade_damage?.fire ?? 0,
+        utilityThrown.high_explosive ?? 0, utilityThrown.flashbang ?? 0, utilityThrown.smoke ?? 0,
+        utilityThrown.fire ?? 0, utilityThrown.decoy ?? 0, player.enemies_flashed ?? 0,
+        blindSeconds.toFixed(1), player.flash_assists ?? 0, player.assisted_kills?.damage ?? 0,
+        player.assisted_kills?.flash ?? 0, player.assisted_kills?.own_flash ?? 0]
+        .forEach(value => cell(row, value, "demo-group-cell utility-cell"));
+    } else {
+      cell(row, `${player.grenade_damage?.total ?? 0} dmg · ${totalThrown} thrown`, "demo-group-cell utility-cell");
+    }
     markGroupBoundaries(row);
     return row;
   }
 
   function markGroupBoundaries(row) {
-    for (const group of ["killContext", "trades", "assistedKills", "utility", "clutches", "multikills"]) {
+    for (const group of ["combat", "opening", "trades", "clutches", "multikills", "objectives", "killContext", "movement", "utility"]) {
       const cells = [...row.cells].filter(item => item.classList.contains(`${group}-cell`));
       cells[0]?.classList.add("demo-group-start");
       cells.at(-1)?.classList.add("demo-group-end");
@@ -1144,7 +1229,7 @@
     th.rowSpan = 2;
     sortableHeader(th, label, {
       Player: sortSpecs.player,
-      Rnds: sortSpecs.rounds,
+      "Rounds P/W": sortSpecs.rounds,
       "K-D-A": sortSpecs.kda,
       "HS%": sortSpecs.hs,
       ADR: sortSpecs.adr,
@@ -1180,6 +1265,8 @@
       if (detail === "Smoke K-D") child.title = "Smoke kills – smoke deaths";
       if (detail === "Air K-D") child.title = "Kills while airborne – deaths to airborne killers";
       if (detail === "Paul K-D") child.title = "Kills against enemies caught with a grenade or knife out in the prior two seconds – deaths caught the same way";
+      if (detail === "Grenade out K-D") child.title = "Kills against enemies holding a grenade – deaths while holding a grenade";
+      if (detail === "Knife out K-D") child.title = "Kills against enemies holding a knife – deaths while holding a knife";
       if (detail === "Move K-D") child.title = "Kills while moving above 1 unit/second – deaths to a moving killer";
       if (detail === "Still K-D") child.title = "Kills while moving at most 1 unit/second – deaths to a stationary killer";
       if (detail === "Run K-D") child.title = "Kills by a player moving above 34% of the held weapon's maximum speed – deaths to such a killer";
@@ -1195,6 +1282,25 @@
 
   function groupSortSpec(group, detail) {
     const maps = {
+      combat: {
+        "K-D-A": sortSpecs.kda,
+        K: sortSpecs.combatKills,
+        D: sortSpecs.combatDeaths,
+        A: sortSpecs.combatAssists,
+        "K/D": sortSpecs.kd,
+        "HS%": sortSpecs.hs,
+        Damage: sortSpecs.damage,
+        Received: sortSpecs.damageReceived,
+        Diff: sortSpecs.damageDiff,
+        ADR: sortSpecs.adr
+      },
+      opening: {
+        "K-D": sortSpecs.opening,
+        K: sortSpecs.openingKills,
+        D: sortSpecs.openingDeaths,
+        Diff: sortSpecs.openingDiff,
+        Success: sortSpecs.openingSuccess
+      },
       trades: {
         "K-D": sortSpecs.tradeKD,
         "K Opp": sortSpecs.tradeKOpp,
@@ -1211,27 +1317,32 @@
         "Wallbang K-D": sortSpecs.wallContext,
         "Smoke K-D": sortSpecs.smokeContext,
         "Air K-D": sortSpecs.airContext,
+        "Grenade out K-D": sortSpecs.grenadeContext,
+        "Knife out K-D": sortSpecs.knifeContext,
         "Paul K-D": sortSpecs.equipmentContext,
         "Move K-D": sortSpecs.movingContext,
         "Still K-D": sortSpecs.stillContext,
-        "Run K-D": sortSpecs.runningContext,
-        "Spd% K-D": sortSpecs.speedContext
-      },
-      assistedKills: {
-        Total: sortSpecs.assistedTotal,
-        Dmg: sortSpecs.assistedDamage,
-        Flash: sortSpecs.assistedFlash,
-        "Own-flash K": sortSpecs.assistedOwnFlash
+        "Run K-D": sortSpecs.runningContext
       },
       utility: {
-        "EF/FA · Dmg": sortSpecs.utilitySummary,
+        "Damage · thrown": sortSpecs.utilitySummary,
         EF: sortSpecs.ef,
         FA: sortSpecs.fa,
         "HE Dmg": sortSpecs.heDamage,
-        "Fire Dmg": sortSpecs.fireDamage
+        "Fire Dmg": sortSpecs.fireDamage,
+        "HE thrown": sortSpecs.heThrown,
+        "Flash thrown": sortSpecs.flashThrown,
+        "Smoke thrown": sortSpecs.smokeThrown,
+        "Fire thrown": sortSpecs.fireThrown,
+        "Decoy thrown": sortSpecs.decoyThrown,
+        "Blind sec": sortSpecs.blindDuration,
+        "Damage assist": sortSpecs.assistedDamage,
+        "Teammate flash": sortSpecs.assistedFlash,
+        "Own flash": sortSpecs.assistedOwnFlash
       },
       clutches: {
         Total: sortSpecs.clutchTotal,
+        "Total W/A": sortSpecs.clutchTotal,
         "1v5": sortSpecs.clutch5,
         "1v4": sortSpecs.clutch4,
         "1v3": sortSpecs.clutch3,
@@ -1245,6 +1356,22 @@
         "3K": sortSpecs.kills3,
         "2K": sortSpecs.kills2,
         "1K": sortSpecs.kills1
+      },
+      objectives: {
+        "Plants/defuses": sortSpecs.bombPlants,
+        Plants: sortSpecs.bombPlants,
+        Defuses: sortSpecs.bombDefuses
+      },
+      movement: {
+        "Move/run/air": sortSpecs.movementSummary,
+        "Move K-D": sortSpecs.movingContext,
+        "Still K-D": sortSpecs.stillContext,
+        "Run K-D": sortSpecs.runningContext,
+        "Air K-D": sortSpecs.airContext,
+        "Kill speed avg/max": sortSpecs.killSpeedUnits,
+        "Kill speed avg/peak %": sortSpecs.killSpeedPercents,
+        "Enemy speed avg/max": sortSpecs.deathSpeedUnits,
+        "Enemy speed avg/peak %": sortSpecs.deathSpeedPercents
       }
     };
     return maps[group]?.[detail];
@@ -1329,14 +1456,17 @@
   }
 
   function scoreboardColumnWidths() {
-    const widths = [160, 58, 90, 62, 72, 72, 82];
-    widths.push(...(state.expandedGroups.killContext ? [104, 104, 98, 88, 88, 88, 88, 88, 88, 96] : [112]));
+    const widths = [160, 82];
+    widths.push(...(state.expandedGroups.combat ? [54, 54, 54, 62, 62, 82, 88, 76, 72] : [90]));
+    widths.push(72, 72);
+    widths.push(...(state.expandedGroups.opening ? [58, 58, 68, 76] : [82]));
     widths.push(...(state.expandedGroups.trades ? [58, 54, 96, 58, 54, 96] : [88]));
-    widths.push(...(state.expandedGroups.assistedKills ? [68, 68, 96] : [90]));
-    widths.push(...(state.expandedGroups.utility ? [58, 58, 82, 82] : [132]));
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
     widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
-    widths.push(72);
+    widths.push(...(state.expandedGroups.objectives ? [74, 74] : [92]));
+    widths.push(...(state.expandedGroups.killContext ? [104, 104, 98, 88, 88, 112, 104, 88, 88] : [112]));
+    widths.push(...(state.expandedGroups.movement ? [88, 88, 88, 88, 116, 132, 126, 142] : [112]));
+    widths.push(...(state.expandedGroups.utility ? [82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90] : [144]));
     return widths;
   }
 
@@ -1367,21 +1497,23 @@
     const wrap = document.createElement("div");
     wrap.className = "table-wrap";
     const table = document.createElement("table");
-    table.className = `demo-score-table${state.expandedGroups.killContext ? " kill-context-expanded" : ""}${state.expandedGroups.trades ? " trades-expanded" : ""}${state.expandedGroups.assistedKills ? " assisted-kills-expanded" : ""}${state.expandedGroups.utility ? " utility-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.multikills ? " multikills-expanded" : ""}`;
+    table.className = `demo-score-table${Object.entries(state.expandedGroups).filter(([, expanded]) => expanded).map(([group]) => ` ${group}-expanded`).join("")}`;
     table.setAttribute("aria-label", `${team.name || `Team ${index + 1}`} player statistics`);
     scoreboardColumns(table);
     const thead = document.createElement("thead");
     const header = document.createElement("tr");
     const detailHeader = document.createElement("tr");
-    ["Player", "Rnds", "K-D-A", "HS%", "ADR", "KAST", "Opening"]
-      .forEach(label => regularHeader(header, label));
-    groupHeader(header, detailHeader, "killContext", "Kill context", ["Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Paul K-D", "Move K-D", "Still K-D", "Run K-D", "Spd% K-D"], "Bullshit K-D");
+    ["Player", "Rounds P/W"].forEach(label => regularHeader(header, label));
+    groupHeader(header, detailHeader, "combat", "Combat", ["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A");
+    ["KAST", "Rating"].forEach(label => regularHeader(header, label));
+    groupHeader(header, detailHeader, "opening", "Opening", ["K", "D", "Diff", "Success"], "K-D");
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
-    groupHeader(header, detailHeader, "assistedKills", "Assisted K", ["Dmg", "Flash", "Own-flash K"]);
-    groupHeader(header, detailHeader, "utility", "Utility", ["EF", "FA", "HE Dmg", "Fire Dmg"], "EF/FA · Dmg");
-    groupHeader(header, detailHeader, "clutches", "Clutches W/A", ["1v5", "1v4", "1v3", "1v2", "1v1"]);
+    groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A");
     groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
-    regularHeader(header, "Rating");
+    groupHeader(header, detailHeader, "objectives", "Objectives", ["Plants", "Defuses"], "Plants/defuses");
+    groupHeader(header, detailHeader, "killContext", "Context", ["Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D");
+    groupHeader(header, detailHeader, "movement", "Movement", ["Move K-D", "Still K-D", "Run K-D", "Air K-D", "Kill speed avg/max", "Kill speed avg/peak %", "Enemy speed avg/max", "Enemy speed avg/peak %"], "Move/run/air");
+    groupHeader(header, detailHeader, "utility", "Utility", ["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Blind sec", "FA", "Damage assist", "Teammate flash", "Own flash"], "Damage · thrown");
     thead.append(header, detailHeader);
     const body = document.createElement("tbody");
     sortedPlayers(team.players).forEach(player => body.appendChild(playerRow(player)));
@@ -1427,7 +1559,14 @@
     action.setAttribute("aria-hidden", "true");
     const totals = document.createElement("span");
     totals.className = "demo-weapon-totals";
-    const weapons = Array.isArray(player.weapon_stats) ? player.weapon_stats : [];
+    const rounds = player.rounds_played ?? 0;
+    const weapons = (Array.isArray(player.weapon_stats) ? player.weapon_stats : []).map(stat => ({
+      ...stat,
+      kills_per_round: (stat.kills || 0) / Math.max(1, rounds),
+      damage_per_round: (stat.damage || 0) / Math.max(1, rounds),
+      hit_rate: 100 * (stat.hits || 0) / Math.max(1, stat.shots || 0),
+      usage: 100 * (stat.rounds_used || 0) / Math.max(1, rounds)
+    }));
     totals.textContent = `${weapons.reduce((sum, stat) => sum + (stat.kills || 0), 0)} kills · ${weapons.reduce((sum, stat) => sum + (stat.shots || 0), 0)} shots`;
     summaryMain.append(name, action);
     summary.append(summaryMain, totals);
@@ -1442,10 +1581,14 @@
     const columns = [
       ["Weapon", "weapon"],
       ["Kills", "kills"],
+      ["K/R", "kills_per_round"],
+      ["Damage", "damage"],
+      ["Dmg/R", "damage_per_round"],
       ["Shots", "shots"],
       ["Hits", "hits"],
-      ["Damage", "damage"],
-      ["Rounds used", "rounds_used"]
+      ["Hit rate", "hit_rate"],
+      ["Rounds used", "rounds_used"],
+      ["Usage", "usage"]
     ];
     columns.forEach(([label, field]) => {
       const th = document.createElement("th");
@@ -1458,16 +1601,20 @@
       const row = document.createElement("tr");
       cell(row, weaponName(stat.weapon));
       cell(row, stat.kills || 0);
+      cell(row, stat.kills_per_round.toFixed(3));
+      cell(row, stat.damage || 0);
+      cell(row, stat.damage_per_round.toFixed(1));
       cell(row, stat.shots || 0);
       cell(row, stat.hits || 0);
-      cell(row, stat.damage || 0);
+      cell(row, `${stat.hit_rate.toFixed(1)}%`);
       cell(row, stat.rounds_used || 0);
+      cell(row, `${stat.usage.toFixed(1)}%`);
       body.appendChild(row);
     });
     if (!weapons.length) {
       const row = document.createElement("tr");
       const empty = document.createElement("td");
-      empty.colSpan = 6;
+      empty.colSpan = 10;
       empty.className = "empty";
       empty.textContent = "No weapon events were recorded.";
       row.appendChild(empty);

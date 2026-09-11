@@ -36,7 +36,7 @@ Each player also receives a per-weapon ledger containing enemy kills, enemy heal
 
 Default pistols (Glock, USP-S, and P2000) and the knife use a stricter definition because every player spawns with them. Knife and grenades remain activity-only. A retained default pistol receives passive credit only when the player has no primary weapon or alternate pistol—for example, an unarmed pistol-round player who dies before firing.
 
-Weapon player cards are expandable, retain their open state across ALL/CT/T changes, and have independently sortable Weapon, Kills, Shots, Damage, and Rounds Used columns. Each column toggles between its useful sort direction and the parser's original order.
+Weapon player cards are expandable, retain their open state across ALL/CT/T changes, and have independently sortable Weapon, Kills, K/R, Damage, Dmg/R, Shots, Hits, Hit Rate, Rounds Used, and Usage columns. The profile Weapons and Maps tables are sortable as well.
 
 Pickup, equip, and even damage events sometimes use the shared `hkp2000` family label for both CT starting pistols. NickStats learns each player's CT pistol choice from the explicit item definition index—USP-S (61), P2000 (32)—or unambiguous combat events, retains it across rounds, and routes ambiguous inventory/damage events to that choice. An unindexed `hkp2000` inventory event cannot create a P2000 statistic by itself.
 
@@ -44,7 +44,7 @@ The duel ledger records every kill/death pairing and its differential. Enemy kil
 
 The trade-response matrix breaks the aggregate trade model down by teammate. Rows are potential traders, columns are the teammates whose deaths they could respond to, and same-team cells display `opportunities / attempts / successes`. Opposing-team and self cells are blank. Like the scoreboard and duel matrix, the trade matrix follows the ALL / CT / T selector using the potential trader's side when the response occurred.
 
-Scoreboard headers are sortable within each team. Composite headers cycle through their component statistics and then return to the original neutral order; single-stat headers toggle between that statistic and neutral. Favorable values sort first, so death-based penalty columns use fewer-first ordering.
+Scoreboard headers are sortable within each team. Its expandable groups follow the player-profile order and color language: Combat, Opening, Trades, clutch/multikill/objective Rounds, Context, Movement, and Utility. The expanded groups expose the corresponding single-match counters while keeping the default scoreboard compact. Composite headers cycle through their component statistics and then return to the original neutral order; single-stat headers toggle between that statistic and neutral. Favorable values sort first, so death-based penalty columns use fewer-first ordering.
 
 The first trade-opportunity model is intentionally simple and transparent. A living teammate receives an opportunity when they are within 250 Source 2 game units of a teammate at the moment that teammate dies. This radius was calibrated against a known Leetify match result. A teammate outside that radius also receives a retroactive, proven opportunity if they damage or kill the killer within five seconds. Damaging the killer is an attempt; killing that player is a success. Success percentage uses attempts—not opportunities—as its denominator. A death is “tradeable” if at least one teammate met either rule, and it is counted only once regardless of how many teammates qualify. Its death-side attempt and success also count once even if multiple teammates act.
 

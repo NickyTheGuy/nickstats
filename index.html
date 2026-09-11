@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260911-18">
+  <link rel="stylesheet" href="./styles.css?v=20260911-19">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.11.21</span>
+          <span class="demo-build">Build 2026.09.11.22</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -128,7 +128,7 @@
           <section class="demo-weapon-section demo-analysis-panel" id="demoWeaponsView" role="tabpanel" aria-labelledby="demoWeaponsTab" hidden>
             <div class="demo-weapon-heading">
               <h3 id="demoWeaponTitle">Weapon breakdown</h3>
-              <p>Enemy kills and damage, firing events, and distinct rounds used. Expand a player to inspect their weapons.</p>
+              <p>Kills, damage, shots, hits, rates, and distinct rounds used. Expand a player to inspect their weapons.</p>
             </div>
             <div class="demo-weapon-teams" id="demoWeapons"></div>
           </section>
@@ -270,7 +270,6 @@
               <h2 id="playerProfileName">Player</h2>
               <p id="playerProfileMeta"></p>
             </div>
-            <div class="player-record" id="playerProfileRecord"></div>
           </header>
 
           <div class="player-profile-status" id="playerProfileStatus" role="status" aria-live="polite"></div>
@@ -374,9 +373,9 @@
 
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/filters.js?v=20260911-2"></script>
-  <script defer src="./js/demo.js?v=20260911-14"></script>
-  <script defer src="./js/profile.js?v=20260911-3"></script>
-  <script defer src="./js/players.js?v=20260911-13"></script>
+  <script defer src="./js/demo.js?v=20260911-15"></script>
+  <script defer src="./js/profile.js?v=20260911-4"></script>
+  <script defer src="./js/players.js?v=20260911-14"></script>
   <script defer src="./js/compare.js?v=20260911-18"></script>
 </body>
 </html>
