@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 FROM swift:6.3-noble AS build
 
 RUN export DEBIAN_FRONTEND=noninteractive \
@@ -7,10 +9,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /build
 COPY Package.swift ./
-RUN swift package resolve
+RUN --mount=type=cache,id=nickstats-swift-build,target=/build/.build,sharing=locked \
+    swift package resolve
 COPY Sources ./Sources
 COPY Tests ./Tests
-RUN swift build -c release --product NickStatsAPI --static-swift-stdlib -Xlinker -ljemalloc \
+RUN --mount=type=cache,id=nickstats-swift-build,target=/build/.build,sharing=locked \
+    swift build -c release --product NickStatsAPI --static-swift-stdlib -Xlinker -ljemalloc \
     && cp "$(swift build -c release --show-bin-path)/NickStatsAPI" /usr/local/bin/NickStatsAPI
 
 FROM ubuntu:noble
