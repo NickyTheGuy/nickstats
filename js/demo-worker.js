@@ -10,7 +10,7 @@ const HE_MAX_DAMAGE_UNARMORED = 98;
 const HE_MAX_DAMAGE_ARMORED = 57;
 const RUNNING_ACCURACY_THRESHOLD_PERCENT = 34;
 const STILL_SPEED_TOLERANCE = 1;
-const EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS = 2;
+const EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS = 1.4;
 const TRADE_AUDIT_RADII = [150, 200, 250, 300, 400, 500];
 // CCSGameRules.m_eRoundWinReason values used by CS2. The game-rules entity is
 // authoritative when a demo omits the legacy round_end/bomb terminal events.
@@ -2022,7 +2022,7 @@ async function parseDemo(fileName, buffer) {
       running_threshold_percent_of_weapon_max: RUNNING_ACCURACY_THRESHOLD_PERCENT,
       running: "Killer horizontal speed above 34% of the current weapon's maximum movement speed; non-weapon kills are excluded",
       equipment_disadvantage_lookback_seconds: EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS,
-      equipment_disadvantage: "Victim had a grenade or knife active at death or during the preceding two seconds",
+      equipment_disadvantage: "Victim had a grenade or knife active at death or during the preceding 1.4 seconds",
       unfair: "Unique Bullshit Kills/Deaths: killer blind, airborne, or running; wallbang; smoke kill; or victim caught with grenade/knife out; overlapping contexts count once"
     },
     flash_definition: {
@@ -2074,7 +2074,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.11.6",
+    nickstats_build: "2026.09.11.7",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,

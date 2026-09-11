@@ -320,7 +320,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260911-8");
+      const worker = new Worker("./js/demo-worker.js?v=20260911-9");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -1264,7 +1264,7 @@
       if (detail === "Wallbang K-D") child.title = "Wallbang kills – wallbang deaths";
       if (detail === "Smoke K-D") child.title = "Smoke kills – smoke deaths";
       if (detail === "Air K-D") child.title = "Kills while airborne – deaths to airborne killers";
-      if (detail === "Paul K-D") child.title = "Kills against enemies caught with a grenade or knife out in the prior two seconds – deaths caught the same way";
+      if (detail === "Paul K-D") child.title = "Kills against enemies caught with a grenade or knife out in the prior 1.4 seconds – deaths caught the same way";
       if (detail === "Grenade out K-D") child.title = "Kills against enemies holding a grenade – deaths while holding a grenade";
       if (detail === "Knife out K-D") child.title = "Kills against enemies holding a knife – deaths while holding a knife";
       if (detail === "Move K-D") child.title = "Kills while moving above 1 unit/second – deaths to a moving killer";
@@ -2021,7 +2021,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.11.6",
+      nickstats_build: "2026.09.11.7",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
