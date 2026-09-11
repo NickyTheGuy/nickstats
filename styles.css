@@ -1469,11 +1469,13 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 
 .match-list-item {
   display: grid;
-  grid-template-columns: minmax(145px, .7fr) minmax(260px, 1.5fr) minmax(210px, 1fr) auto;
-  gap: 18px;
+  grid-template-columns: 116px minmax(110px, .4fr) minmax(340px, 1.6fr);
+  gap: 16px;
   align-items: center;
   width: 100%;
-  padding: 14px 16px;
+  min-height: 82px;
+  padding: 0 16px 0 0;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: rgba(8, 12, 19, .5);
@@ -1492,23 +1494,55 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 
 .match-list-identity {
   display: flex;
-  gap: 10px;
-  align-items: baseline;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .match-list-identity strong {
   color: var(--blue);
 }
 
-.match-list-identity span,
-.match-list-teams {
+.match-list-identity span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.match-list-teams {
-  font-weight: 800;
+.match-list-map-art {
+  position: relative;
+  align-self: stretch;
+  min-height: 80px;
+  overflow: hidden;
+  background-image: url("./assets/map-thumbnails.webp");
+  background-repeat: no-repeat;
+  background-size: 200% 500%;
+  box-shadow: inset -1px 0 rgba(255, 255, 255, .08);
+}
+
+.match-list-map-art.unknown {
+  background-image:
+    radial-gradient(circle at 28% 32%, rgba(104, 164, 255, .32), transparent 24%),
+    linear-gradient(135deg, #26364c, #101722 70%);
+  background-size: auto;
+}
+
+.match-list-map-art > span {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 20px 9px 7px;
+  overflow: hidden;
+  background: linear-gradient(transparent, rgba(4, 7, 12, .86));
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .02em;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 4px #000;
+  text-transform: capitalize;
+  white-space: nowrap;
 }
 
 .match-list-meta {
@@ -1516,11 +1550,74 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   font-size: 13px;
 }
 
-.match-list-open {
-  color: var(--blue);
-  font-size: 13px;
-  font-weight: 850;
+.match-list-result {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+  color: var(--muted);
+}
+
+.match-list-team {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.match-list-team:last-child {
+  flex-direction: row-reverse;
+}
+
+.match-list-team-name {
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 800;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.match-list-team.winner .match-list-team-name {
+  color: #d9f8e8;
+}
+
+.match-list-team.loser .match-list-team-name {
+  color: #e4c6ca;
+}
+
+.match-list-score {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  min-width: 42px;
+  min-height: 38px;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .04);
+  color: var(--text);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.match-list-team.winner .match-list-score {
+  border-color: rgba(69, 209, 139, .45);
+  background: rgba(69, 209, 139, .12);
+  color: var(--green);
+}
+
+.match-list-team.loser .match-list-score {
+  border-color: rgba(242, 112, 125, .38);
+  background: rgba(242, 112, 125, .1);
+  color: var(--red);
+}
+
+.match-list-score-separator {
+  color: var(--muted);
+  font-size: 18px;
 }
 
 .match-list-pagination {
@@ -1999,25 +2096,43 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   }
 
   .match-list-item {
-    grid-template-columns: 1fr auto;
-    gap: 5px 12px;
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 8px 12px;
+    min-height: 92px;
+    padding-right: 12px;
+  }
+
+  .match-list-map-art {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    min-height: 90px;
   }
 
   .match-list-identity,
-  .match-list-teams,
-  .match-list-meta {
-    grid-column: 1;
-  }
-
-  .match-list-open {
+  .match-list-result {
     grid-column: 2;
-    grid-row: 1 / span 3;
-    align-self: center;
   }
 
-  .match-list-teams,
-  .match-list-meta {
-    white-space: normal;
+  .match-list-result {
+    gap: 6px;
+    justify-content: flex-start;
+  }
+
+  .match-list-team {
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .match-list-team-name {
+    max-width: 90px;
+    font-size: 12px;
+  }
+
+  .match-list-score {
+    min-width: 34px;
+    min-height: 32px;
+    padding: 4px 7px;
+    font-size: 17px;
   }
 
   .player-search-panel,

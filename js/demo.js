@@ -779,6 +779,58 @@
     return Number(match.playedAt ?? match.played_at);
   }
 
+  const mapArtworkPositions = {
+    mirage: "0% 0%",
+    inferno: "100% 0%",
+    nuke: "0% 25%",
+    dust2: "100% 25%",
+    ancient: "0% 50%",
+    anubis: "100% 50%",
+    overpass: "0% 75%",
+    train: "100% 75%",
+    vertigo: "0% 100%",
+    cache: "100% 100%"
+  };
+
+  function mapArtworkKey(name) {
+    const normalized = String(name || "")
+      .toLowerCase()
+      .split(/[\\/]/)
+      .pop()
+      .replace(/\.(?:bsp|vpk)$/, "")
+      .replace(/^de_/, "")
+      .replace(/[^a-z0-9]/g, "");
+    return normalized === "dustii" ? "dust2" : normalized;
+  }
+
+  function matchScore(team) {
+    if (team?.score == null || team.score === "") return null;
+    const score = Number(team.score);
+    return Number.isFinite(score) ? score : null;
+  }
+
+  function matchTeamResult(team, otherTeam) {
+    const score = matchScore(team);
+    const otherScore = matchScore(otherTeam);
+    if (score == null || otherScore == null || score === otherScore) return "";
+    return score > otherScore ? "winner" : "loser";
+  }
+
+  function renderMatchTeam(team, otherTeam) {
+    const item = document.createElement("span");
+    const result = matchTeamResult(team, otherTeam);
+    item.className = `match-list-team${result ? ` ${result}` : ""}`;
+
+    const name = document.createElement("span");
+    name.className = "match-list-team-name";
+    name.textContent = team?.name || "Unknown team";
+    const score = document.createElement("strong");
+    score.className = "match-list-score";
+    score.textContent = matchScore(team) ?? "—";
+    item.append(name, score);
+    return item;
+  }
+
   function renderMatchList(matches) {
     const list = $("matchList");
     list.replaceChildren();
@@ -786,28 +838,46 @@
       const button = document.createElement("button");
       button.type = "button";
       button.className = "match-list-item";
+
+      const mapName = match.map || "Unknown map";
+      const artwork = document.createElement("span");
+      artwork.className = "match-list-map-art";
+      const artworkKey = mapArtworkKey(mapName);
+      if (mapArtworkPositions[artworkKey]) {
+        artwork.style.backgroundPosition = mapArtworkPositions[artworkKey];
+      } else {
+        artwork.classList.add("unknown");
+      }
+      const artworkLabel = document.createElement("span");
+      artworkLabel.textContent = mapName.replace(/^de_/i, "");
+      artwork.append(artworkLabel);
+
       const identity = document.createElement("span");
       identity.className = "match-list-identity";
       const number = document.createElement("strong");
       number.textContent = `#${match.id}`;
-      const map = document.createElement("span");
-      map.textContent = match.map || "Unknown map";
-      identity.append(number, map);
-
-      const teams = document.createElement("span");
-      teams.className = "match-list-teams";
-      const teamRows = Array.isArray(match.teams) ? match.teams : [];
-      teams.textContent = teamRows.length >= 2
-        ? `${teamRows[0].name} ${teamRows[0].score ?? "—"} – ${teamRows[1].score ?? "—"} ${teamRows[1].name}`
-        : "Teams unavailable";
-
       const meta = document.createElement("span");
       meta.className = "match-list-meta";
-      meta.textContent = `${formatMatchTime(matchSummaryTimestamp(match))} · ${numberValue(match.rounds)} rounds`;
-      const open = document.createElement("span");
-      open.className = "match-list-open";
-      open.textContent = "View →";
-      button.append(identity, teams, meta, open);
+      meta.textContent = formatMatchTime(matchSummaryTimestamp(match));
+      identity.append(number, meta);
+
+      const result = document.createElement("span");
+      result.className = "match-list-result";
+      const teamRows = Array.isArray(match.teams) ? match.teams : [];
+      if (teamRows.length >= 2) {
+        const separator = document.createElement("span");
+        separator.className = "match-list-score-separator";
+        separator.textContent = "–";
+        result.append(renderMatchTeam(teamRows[0], teamRows[1]), separator, renderMatchTeam(teamRows[1], teamRows[0]));
+      } else {
+        result.textContent = "Score unavailable";
+      }
+
+      button.append(artwork, identity, result);
+      const scoreDescription = teamRows.length >= 2
+        ? `${teamRows[0].name || "Unknown team"} ${matchScore(teamRows[0]) ?? "unknown"} to ${matchScore(teamRows[1]) ?? "unknown"} ${teamRows[1].name || "Unknown team"}`
+        : "score unavailable";
+      button.setAttribute("aria-label", `Open match ${match.id} on ${mapName}: ${scoreDescription}`);
       button.addEventListener("click", () => loadStoredMatch(match.id));
       list.appendChild(button);
     }
