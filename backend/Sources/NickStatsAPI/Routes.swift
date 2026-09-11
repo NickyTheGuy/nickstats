@@ -59,5 +59,11 @@ func routes(_ app: Application) throws {
     app.get("players") { request async throws -> PlayerListResponse in
         try await listPlayers(request)
     }
-}
 
+    app.get("players", ":id") { request async throws -> PlayerProfileResponse in
+        guard let playerID = request.parameters.get("id", as: Int64.self), playerID > 0 else {
+            throw Abort(.badRequest, reason: "Invalid player ID.")
+        }
+        return try await getPlayerProfile(playerID, on: request.db)
+    }
+}

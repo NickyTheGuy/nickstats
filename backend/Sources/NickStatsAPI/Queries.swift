@@ -179,6 +179,231 @@ func listPlayers(_ request: Request) async throws -> PlayerListResponse {
     return PlayerListResponse(players: players, limit: limit, offset: offset)
 }
 
+private struct ProfileAccumulator {
+    var matches = 0
+    var wins = 0
+    var losses = 0
+    var draws = 0
+    var rounds = 0
+    var roundWins = 0
+    var kills = 0
+    var deaths = 0
+    var assists = 0
+    var headshots = 0
+    var damage = 0
+    var kastRounds = 0
+    var openingKills = 0
+    var openingDeaths = 0
+    var tradeKills = 0
+    var tradeableDeaths = 0
+    var attemptedTradeableDeaths = 0
+    var tradedDeaths = 0
+    var highExplosiveDamage = 0
+    var fireDamage = 0
+
+    mutating func merge(_ other: ProfileAccumulator) {
+        matches += other.matches
+        wins += other.wins
+        losses += other.losses
+        draws += other.draws
+        rounds += other.rounds
+        roundWins += other.roundWins
+        kills += other.kills
+        deaths += other.deaths
+        assists += other.assists
+        headshots += other.headshots
+        damage += other.damage
+        kastRounds += other.kastRounds
+        openingKills += other.openingKills
+        openingDeaths += other.openingDeaths
+        tradeKills += other.tradeKills
+        tradeableDeaths += other.tradeableDeaths
+        attemptedTradeableDeaths += other.attemptedTradeableDeaths
+        tradedDeaths += other.tradedDeaths
+        highExplosiveDamage += other.highExplosiveDamage
+        fireDamage += other.fireDamage
+    }
+
+    var killDeathRatio: Double { deaths > 0 ? Double(kills) / Double(deaths) : Double(kills) }
+    var averageDamagePerRound: Double { rounds > 0 ? Double(damage) / Double(rounds) : 0 }
+    var kastPercent: Double { rounds > 0 ? 100 * Double(kastRounds) / Double(rounds) : 0 }
+    var winRate: Double { matches > 0 ? 100 * Double(wins) / Double(matches) : 0 }
+
+    var rating: Double {
+        guard rounds > 0 else { return 0 }
+        let played = Double(rounds)
+        let killsPerRound = Double(kills) / played
+        let deathsPerRound = Double(deaths) / played
+        let assistsPerRound = Double(assists) / played
+        let impact = 2.13 * killsPerRound + 0.42 * assistsPerRound - 0.41
+        return max(
+            0,
+            0.0073 * kastPercent + 0.3591 * killsPerRound - 0.5329 * deathsPerRound
+                + 0.2372 * impact + 0.0032 * averageDamagePerRound + 0.1587
+        )
+    }
+}
+
+func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws -> PlayerProfileResponse {
+    guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
+    guard let player = try await sql.raw("""
+        SELECT id, CAST(steam_id AS CHAR) AS steam_id, current_name, first_seen_at, last_seen_at
+        FROM players WHERE id = \(bind: playerID)
+        """).first() else { throw Abort(.notFound, reason: "Player not found.") }
+
+    let matchRows = try await sql.raw("""
+        SELECT m.id, m.map_name, own_team.score AS own_score, other_team.score AS other_score,
+               CAST(SUM(s.rounds_played) AS SIGNED) AS rounds_played,
+               CAST(SUM(s.rounds_won) AS SIGNED) AS rounds_won,
+               CAST(SUM(s.kills) AS SIGNED) AS kills,
+               CAST(SUM(s.deaths) AS SIGNED) AS deaths,
+               CAST(SUM(s.assists) AS SIGNED) AS assists,
+               CAST(SUM(s.headshots) AS SIGNED) AS headshots,
+               CAST(SUM(s.damage) AS SIGNED) AS damage,
+               CAST(SUM(s.kast_rounds) AS SIGNED) AS kast_rounds,
+               CAST(SUM(s.opening_kills) AS SIGNED) AS opening_kills,
+               CAST(SUM(s.opening_deaths) AS SIGNED) AS opening_deaths,
+               CAST(SUM(s.trade_kills) AS SIGNED) AS trade_kills,
+               CAST(SUM(s.tradeable_deaths) AS SIGNED) AS tradeable_deaths,
+               CAST(SUM(s.attempted_tradeable_deaths) AS SIGNED) AS attempted_tradeable_deaths,
+               CAST(SUM(s.traded_deaths) AS SIGNED) AS traded_deaths,
+               CAST(SUM(s.he_damage) AS SIGNED) AS he_damage,
+               CAST(SUM(s.fire_damage) AS SIGNED) AS fire_damage
+        FROM match_players mp
+        JOIN matches m ON m.id = mp.match_id
+        JOIN match_teams own_team ON own_team.id = mp.match_team_id
+        LEFT JOIN match_teams other_team
+          ON other_team.match_id = mp.match_id AND other_team.id <> mp.match_team_id
+        JOIN player_side_stats s ON s.match_player_id = mp.id
+        WHERE mp.player_id = \(bind: playerID)
+        GROUP BY m.id, m.map_name, own_team.score, other_team.score
+        ORDER BY m.id DESC
+        """).all()
+
+    var totals = ProfileAccumulator()
+    var mapTotals: [String: ProfileAccumulator] = [:]
+    for row in matchRows {
+        var match = ProfileAccumulator()
+        match.matches = 1
+        if let ownScore = try optionalInteger(row, "own_score"),
+           let otherScore = try optionalInteger(row, "other_score") {
+            if ownScore > otherScore { match.wins = 1 }
+            else if ownScore < otherScore { match.losses = 1 }
+            else { match.draws = 1 }
+        }
+        match.rounds = try integer(row, "rounds_played")
+        match.roundWins = try integer(row, "rounds_won")
+        match.kills = try integer(row, "kills")
+        match.deaths = try integer(row, "deaths")
+        match.assists = try integer(row, "assists")
+        match.headshots = try integer(row, "headshots")
+        match.damage = try integer(row, "damage")
+        match.kastRounds = try integer(row, "kast_rounds")
+        match.openingKills = try integer(row, "opening_kills")
+        match.openingDeaths = try integer(row, "opening_deaths")
+        match.tradeKills = try integer(row, "trade_kills")
+        match.tradeableDeaths = try integer(row, "tradeable_deaths")
+        match.attemptedTradeableDeaths = try integer(row, "attempted_tradeable_deaths")
+        match.tradedDeaths = try integer(row, "traded_deaths")
+        match.highExplosiveDamage = try integer(row, "he_damage")
+        match.fireDamage = try integer(row, "fire_damage")
+        totals.merge(match)
+        let mapName = try row.decode(column: "map_name", as: String.self)
+        mapTotals[mapName, default: ProfileAccumulator()].merge(match)
+    }
+
+    let tradeRow = try await sql.raw("""
+        SELECT CAST(COALESCE(SUM(t.opportunities), 0) AS SIGNED) AS opportunities,
+               CAST(COALESCE(SUM(t.attempts), 0) AS SIGNED) AS attempts,
+               CAST(COALESCE(SUM(t.successes), 0) AS SIGNED) AS successes
+        FROM match_players mp
+        JOIN trade_side_stats t ON t.trader_match_player_id = mp.id
+        WHERE mp.player_id = \(bind: playerID)
+        """).first()!
+    let flashRow = try await sql.raw("""
+        SELECT CAST(COALESCE(SUM(f.flash_effects), 0) AS SIGNED) AS enemies_flashed,
+               CAST(COALESCE(SUM(f.blind_duration_ms), 0) AS SIGNED) AS blind_duration_ms
+        FROM match_players mp
+        JOIN flash_side_stats f ON f.thrower_match_player_id = mp.id
+        WHERE mp.player_id = \(bind: playerID)
+        """).first()!
+    let assistRow = try await sql.raw("""
+        SELECT CAST(COALESCE(SUM(a.teammate_flash_assisted_kills), 0) AS SIGNED) AS flash_assists
+        FROM match_players mp
+        JOIN assisted_kill_side_stats a ON a.assister_match_player_id = mp.id
+        WHERE mp.player_id = \(bind: playerID)
+        """).first()!
+    let weaponRows = try await sql.raw("""
+        SELECT w.weapon,
+               CAST(SUM(w.kills) AS SIGNED) AS kills,
+               CAST(SUM(w.shots) AS SIGNED) AS shots,
+               CAST(SUM(w.damage) AS SIGNED) AS damage,
+               CAST(SUM(w.rounds_used) AS SIGNED) AS rounds_used
+        FROM match_players mp
+        JOIN weapon_side_stats w ON w.match_player_id = mp.id
+        WHERE mp.player_id = \(bind: playerID)
+        GROUP BY w.weapon
+        ORDER BY kills DESC, damage DESC, w.weapon
+        """).all()
+
+    let maps = mapTotals.map { name, stats in
+        PlayerMapProfileStats(
+            map: name, matches: stats.matches, wins: stats.wins, losses: stats.losses,
+            draws: stats.draws, rounds: stats.rounds, rating: stats.rating,
+            killDeathRatio: stats.killDeathRatio, averageDamagePerRound: stats.averageDamagePerRound,
+            kastPercent: stats.kastPercent, winRate: stats.winRate
+        )
+    }.sorted { left, right in
+        left.matches == right.matches ? left.map < right.map : left.matches > right.matches
+    }
+
+    return PlayerProfileResponse(
+        player: PlayerProfileIdentity(
+            id: try int64(player, "id"),
+            steamID: try player.decode(column: "steam_id", as: String.self),
+            name: try player.decode(column: "current_name", as: String.self),
+            firstSeenAt: unix(try optionalDate(player, "first_seen_at")),
+            lastSeenAt: unix(try optionalDate(player, "last_seen_at"))
+        ),
+        headline: PlayerHeadlineStats(
+            rating: totals.rating, killDeathRatio: totals.killDeathRatio,
+            averageDamagePerRound: totals.averageDamagePerRound,
+            kastPercent: totals.kastPercent, winRate: totals.winRate
+        ),
+        totals: PlayerCareerTotals(
+            matches: totals.matches, wins: totals.wins, losses: totals.losses, draws: totals.draws,
+            rounds: totals.rounds, roundWins: totals.roundWins, kills: totals.kills,
+            deaths: totals.deaths, assists: totals.assists, headshots: totals.headshots,
+            damage: totals.damage, kastRounds: totals.kastRounds
+        ),
+        utility: PlayerUtilityStats(
+            highExplosiveDamage: totals.highExplosiveDamage,
+            fireDamage: totals.fireDamage,
+            enemiesFlashed: try integer(flashRow, "enemies_flashed"),
+            blindDurationSeconds: Double(try integer(flashRow, "blind_duration_ms")) / 1000,
+            flashAssists: try integer(assistRow, "flash_assists")
+        ),
+        trades: PlayerTradeProfileStats(
+            kills: totals.tradeKills,
+            opportunities: try integer(tradeRow, "opportunities"),
+            attempts: try integer(tradeRow, "attempts"),
+            successes: try integer(tradeRow, "successes"),
+            tradeableDeaths: totals.tradeableDeaths,
+            attemptedTradeableDeaths: totals.attemptedTradeableDeaths,
+            tradedDeaths: totals.tradedDeaths
+        ),
+        openings: PlayerOpeningProfileStats(kills: totals.openingKills, deaths: totals.openingDeaths),
+        weapons: try weaponRows.map { row in
+            PlayerWeaponProfileStats(
+                weapon: try row.decode(column: "weapon", as: String.self),
+                kills: try integer(row, "kills"), shots: try integer(row, "shots"),
+                damage: try integer(row, "damage"), roundsUsed: try integer(row, "rounds_used")
+            )
+        },
+        maps: maps
+    )
+}
+
 func getMatch(_ matchID: Int64, on database: any Database) async throws -> MatchPayload {
     guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
     guard let match = try await sql.raw("""

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260911-1">
+  <link rel="stylesheet" href="./styles.css?v=20260911-3">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.11.2</span>
+          <span class="demo-build">Build 2026.09.11.3</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -149,15 +149,66 @@
     </section>
 
     <section class="app-view" id="playersPage" role="tabpanel" aria-labelledby="playersPageTab" data-app-view="players" hidden>
-      <section class="panel product-empty-state">
-        <div class="empty-kicker">Player profiles</div>
-        <h2>Every match, one player at a time.</h2>
-        <p>Profiles will combine personal performance, map and side splits, weapon usage, teammates, duels, trades, utility, and recent match history.</p>
-        <div class="feature-preview" aria-label="Planned profile tools">
-          <span>Career overview</span><span>Recent form</span><span>Map splits</span><span>Teammate impact</span>
-        </div>
-        <strong>Player search will appear when stored matches are available.</strong>
-      </section>
+      <div class="player-page-stack">
+        <section class="panel player-search-panel">
+          <div class="section-head player-search-heading">
+            <div>
+              <div class="eyebrow">Player profiles</div>
+              <h2>Find a player</h2>
+              <p>Search everyone found in your uploaded matches.</p>
+            </div>
+            <form class="player-search-form" id="playerSearchForm" role="search">
+              <label class="visually-hidden" for="playerSearchInput">Player name or Steam ID</label>
+              <input id="playerSearchInput" type="search" placeholder="Name or Steam ID" autocomplete="off" spellcheck="false">
+              <button class="button button-primary" type="submit">Search</button>
+            </form>
+          </div>
+          <div class="player-search-status" id="playerSearchStatus" role="status" aria-live="polite">Search for a player to open their profile.</div>
+          <div class="player-search-results" id="playerSearchResults"></div>
+        </section>
+
+        <section class="panel player-profile" id="playerProfile" hidden>
+          <header class="player-profile-header">
+            <div>
+              <div class="eyebrow">Career profile</div>
+              <h2 id="playerProfileName">Player</h2>
+              <p id="playerProfileMeta"></p>
+            </div>
+            <div class="player-record" id="playerProfileRecord"></div>
+          </header>
+
+          <div class="player-profile-status" id="playerProfileStatus" role="status" aria-live="polite"></div>
+          <div class="player-headline-stats" id="playerHeadlineStats"></div>
+
+          <nav class="player-profile-tabs" role="tablist" aria-label="Player statistics">
+            <button class="player-profile-tab active" type="button" role="tab" aria-selected="true" data-player-view="overview">Overview</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="utility">Utility</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="trades">Trades</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="openings">Openings</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="weapons">Weapons</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="maps">Maps</button>
+          </nav>
+
+          <div class="player-profile-view" data-player-profile-view="overview">
+            <div class="player-detail-grid" id="playerOverviewStats"></div>
+          </div>
+          <div class="player-profile-view" data-player-profile-view="utility" hidden>
+            <div class="player-detail-grid" id="playerUtilityStats"></div>
+          </div>
+          <div class="player-profile-view" data-player-profile-view="trades" hidden>
+            <div class="player-detail-grid" id="playerTradeStats"></div>
+          </div>
+          <div class="player-profile-view" data-player-profile-view="openings" hidden>
+            <div class="player-detail-grid" id="playerOpeningStats"></div>
+          </div>
+          <div class="player-profile-view" data-player-profile-view="weapons" hidden>
+            <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerWeaponsTable"></table></div>
+          </div>
+          <div class="player-profile-view" data-player-profile-view="maps" hidden>
+            <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerMapsTable"></table></div>
+          </div>
+        </section>
+      </div>
     </section>
   </main>
 
@@ -178,5 +229,6 @@
 
   <script defer src="./js/navigation.js?v=20260906-1"></script>
   <script defer src="./js/demo.js?v=20260911-2"></script>
+  <script defer src="./js/players.js?v=20260911-3"></script>
 </body>
 </html>

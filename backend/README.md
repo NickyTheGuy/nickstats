@@ -13,6 +13,7 @@ The compact format intentionally uses fixed-position arrays to keep uploads smal
 | `GET` | `/matches` | Public | Match list and filters |
 | `GET` | `/matches/<id>` | Public | Reconstruct compact match JSON from normalized rows |
 | `GET` | `/players` | Public | Player search/list |
+| `GET` | `/players/<id>` | Public | Aggregated player profile, weapons, and map splits |
 
 `POST /matches` is idempotent by demo SHA-256 and FACEIT match ID. A repeated upload returns the existing ID with `created: false`. Validation occurs before a transaction; all database rows then commit together or roll back together.
 

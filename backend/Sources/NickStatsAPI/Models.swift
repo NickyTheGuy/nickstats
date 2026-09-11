@@ -219,3 +219,139 @@ struct PlayerListResponse: Content {
     var limit: Int
     var offset: Int
 }
+
+struct PlayerProfileResponse: Content {
+    var player: PlayerProfileIdentity
+    var headline: PlayerHeadlineStats
+    var totals: PlayerCareerTotals
+    var utility: PlayerUtilityStats
+    var trades: PlayerTradeProfileStats
+    var openings: PlayerOpeningProfileStats
+    var weapons: [PlayerWeaponProfileStats]
+    var maps: [PlayerMapProfileStats]
+}
+
+struct PlayerProfileIdentity: Content {
+    var id: Int64
+    var steamID: String
+    var name: String
+    var firstSeenAt: Int64?
+    var lastSeenAt: Int64?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name
+        case steamID = "steam_id"
+        case firstSeenAt = "first_seen_at"
+        case lastSeenAt = "last_seen_at"
+    }
+}
+
+struct PlayerHeadlineStats: Content {
+    var rating: Double
+    var killDeathRatio: Double
+    var averageDamagePerRound: Double
+    var kastPercent: Double
+    var winRate: Double
+
+    enum CodingKeys: String, CodingKey {
+        case rating
+        case killDeathRatio = "kd"
+        case averageDamagePerRound = "adr"
+        case kastPercent = "kast"
+        case winRate = "win_rate"
+    }
+}
+
+struct PlayerCareerTotals: Content {
+    var matches: Int
+    var wins: Int
+    var losses: Int
+    var draws: Int
+    var rounds: Int
+    var roundWins: Int
+    var kills: Int
+    var deaths: Int
+    var assists: Int
+    var headshots: Int
+    var damage: Int
+    var kastRounds: Int
+
+    enum CodingKeys: String, CodingKey {
+        case matches, wins, losses, draws, rounds, kills, deaths, assists, headshots, damage
+        case roundWins = "round_wins"
+        case kastRounds = "kast_rounds"
+    }
+}
+
+struct PlayerUtilityStats: Content {
+    var highExplosiveDamage: Int
+    var fireDamage: Int
+    var enemiesFlashed: Int
+    var blindDurationSeconds: Double
+    var flashAssists: Int
+
+    enum CodingKeys: String, CodingKey {
+        case highExplosiveDamage = "he_damage"
+        case fireDamage = "fire_damage"
+        case enemiesFlashed = "enemies_flashed"
+        case blindDurationSeconds = "blind_duration_seconds"
+        case flashAssists = "flash_assists"
+    }
+}
+
+struct PlayerTradeProfileStats: Content {
+    var kills: Int
+    var opportunities: Int
+    var attempts: Int
+    var successes: Int
+    var tradeableDeaths: Int
+    var attemptedTradeableDeaths: Int
+    var tradedDeaths: Int
+
+    enum CodingKeys: String, CodingKey {
+        case kills, opportunities, attempts, successes
+        case tradeableDeaths = "tradeable_deaths"
+        case attemptedTradeableDeaths = "attempted_tradeable_deaths"
+        case tradedDeaths = "traded_deaths"
+    }
+}
+
+struct PlayerOpeningProfileStats: Content {
+    var kills: Int
+    var deaths: Int
+}
+
+struct PlayerWeaponProfileStats: Content {
+    var weapon: String
+    var kills: Int
+    var shots: Int
+    var damage: Int
+    var roundsUsed: Int
+
+    enum CodingKeys: String, CodingKey {
+        case weapon, kills, shots, damage
+        case roundsUsed = "rounds_used"
+    }
+}
+
+struct PlayerMapProfileStats: Content {
+    var map: String
+    var matches: Int
+    var wins: Int
+    var losses: Int
+    var draws: Int
+    var rounds: Int
+    var rating: Double
+    var killDeathRatio: Double
+    var averageDamagePerRound: Double
+    var kastPercent: Double
+    var winRate: Double
+
+    enum CodingKeys: String, CodingKey {
+        case map, matches, wins, losses, draws, rounds, rating
+        case killDeathRatio = "kd"
+        case averageDamagePerRound = "adr"
+        case kastPercent = "kast"
+        case winRate = "win_rate"
+    }
+}
