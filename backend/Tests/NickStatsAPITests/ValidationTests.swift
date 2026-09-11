@@ -156,3 +156,45 @@ private func validPayload() -> MatchPayload {
     #expect(decoded.players[0].sides.terrorist.trades[0].successes == 2)
     #expect(decoded.players[0].sides.terrorist.clutchAttempts?.oneVersusTwo == 1)
 }
+
+private func validFaceitDatePayload() -> FaceitDateSyncPayload {
+    FaceitDateSyncPayload(
+        schema: faceitDateSyncSchema,
+        timezone: "America/New_York",
+        matches: [
+            FaceitDateMetadata(
+                faceitMatchID: "1-dbf7b382-0e6f-4298-b397-ebc5343e8ec9",
+                playedAt: 1_789_096_760,
+                displayedAt: "Thu 10 Sep 23:26"
+            )
+        ]
+    )
+}
+
+@Test func acceptsValidFaceitDateSyncPayload() throws {
+    try validFaceitDatePayload().validate(now: Date(timeIntervalSince1970: 1_789_200_000))
+}
+
+@Test func rejectsDuplicateFaceitDateSyncIDs() {
+    var payload = validFaceitDatePayload()
+    payload.matches.append(payload.matches[0])
+    #expect(throws: MatchValidationError.self) {
+        try payload.validate(now: Date(timeIntervalSince1970: 1_789_200_000))
+    }
+}
+
+@Test func rejectsMalformedFaceitDateSyncID() {
+    var payload = validFaceitDatePayload()
+    payload.matches[0].faceitMatchID = "not-a-match"
+    #expect(throws: MatchValidationError.self) {
+        try payload.validate(now: Date(timeIntervalSince1970: 1_789_200_000))
+    }
+}
+
+@Test func rejectsImplausibleFutureFaceitDate() {
+    var payload = validFaceitDatePayload()
+    payload.matches[0].playedAt = 1_789_400_000
+    #expect(throws: MatchValidationError.self) {
+        try payload.validate(now: Date(timeIntervalSince1970: 1_789_200_000))
+    }
+}
