@@ -256,7 +256,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260911-4");
+      const worker = new Worker("./js/demo-worker.js?v=20260911-5");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -1140,7 +1140,7 @@
       if (detail === "Still K-D") child.title = "Kills while moving at most 1 unit/second – deaths to a stationary killer";
       if (detail === "Run K-D") child.title = "Kills by a player moving above 34% of the held weapon's maximum speed – deaths to such a killer";
       if (detail === "Spd% K-D") child.title = "Average horizontal killer speed as a percentage of the held weapon maximum: your kills – your deaths";
-      if (detail === "Bullshit K-D") child.title = "Unique kills and deaths where the killer was blind, the kill was a wallbang or smoke kill, or the victim was caught for a Paul; overlaps count once";
+      if (detail === "Bullshit K-D") child.title = "Unique kills and deaths where the killer was blind, airborne, or running; the kill was a wallbang or smoke kill; or the victim was caught for a Paul; overlaps count once";
       child.className = `demo-group-detail ${group}-cell`;
       if (index === 0) child.classList.add("demo-group-start");
       if (index === details.length - 1) child.classList.add("demo-group-end");
