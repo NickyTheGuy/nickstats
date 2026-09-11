@@ -3,9 +3,17 @@
 
   const $ = id => document.getElementById(id);
   const MATCH_UPLOAD_ENDPOINT = "/nickstats/api/matches";
+  const MATCH_LIST_LIMIT = 25;
   const state = {
     file: null,
+    parsedResult: null,
     result: null,
+    storedPayload: null,
+    selectedMatchID: null,
+    matchListOffset: 0,
+    matchListCount: 0,
+    matchListLoading: false,
+    matchDetailLoading: false,
     diagnostics: null,
     uploadToken: "",
     uploadPending: false,
@@ -155,7 +163,7 @@
     $("demoAuthToken").focus();
   }
 
-  async function uploadParsedMatch(result = state.result) {
+  async function uploadParsedMatch(result = state.parsedResult) {
     if (!result || state.uploading) return;
     if (!state.uploadToken) {
       state.uploadPending = true;
@@ -191,6 +199,7 @@
       const matchID = responseBody?.id == null ? "" : ` as match #${responseBody.id}`;
       const outcome = responseBody?.created === false ? "It was already stored" : "Saved to the database";
       setStatus(`${parsedMatchDescription(result)} ${outcome}${matchID}.`);
+      await loadMatches(0);
     } catch (error) {
       state.uploadPending = true;
       retryButton.hidden = false;
@@ -251,7 +260,6 @@
           state.rejectReady = null;
         } else if (message.type === "result") {
           state.diagnostics = message.diagnostics || null;
-          $("demoDiagnosticsButton").hidden = !state.diagnostics;
           state.resolveParse?.(message.result);
           state.resolveParse = null;
           state.rejectParse = null;
@@ -260,7 +268,6 @@
         } else if (message.type === "error") {
           const error = new Error(message.message || "The demo parser failed.");
           state.diagnostics = message.diagnostics || null;
-          $("demoDiagnosticsButton").hidden = !state.diagnostics;
           if (state.rejectParse) {
             state.rejectParse(error);
             state.resolveParse = null;
@@ -287,17 +294,10 @@
       return;
     }
     state.file = file;
-    state.result = null;
+    state.parsedResult = null;
     state.uploadPending = false;
-    state.scoreboardSort = null;
-    state.expandedWeaponPlayers.clear();
-    state.weaponSorts.clear();
-    setSideFilter("ALL", false);
-    setResultView("scoreboard");
     state.diagnostics = null;
-    $("demoResults").hidden = true;
     $("demoRetryUploadButton").hidden = true;
-    $("demoDiagnosticsButton").hidden = true;
     $("demoFileLabel").textContent = `${file.name} · ${formatBytes(file.size)}`;
     $("demoParseButton").disabled = false;
     $("demoClearButton").disabled = false;
@@ -458,6 +458,429 @@
       dateStyle: "medium",
       timeStyle: "short"
     }).format(new Date(timestamp * 1000));
+  }
+
+  function numberValue(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : 0;
+  }
+
+  function sumArray(left, right, length) {
+    return Array.from({ length }, (_, index) => numberValue(left?.[index]) + numberValue(right?.[index]));
+  }
+
+  function mergeMaximum(left, right) {
+    const values = [left, right].filter(value => Number.isFinite(Number(value))).map(Number);
+    return values.length ? Math.max(...values) : null;
+  }
+
+  function mergeSpeed(left, right) {
+    const output = [];
+    for (const offset of [0, 6]) {
+      output.push(
+        numberValue(left?.[offset]) + numberValue(right?.[offset]),
+        numberValue(left?.[offset + 1]) + numberValue(right?.[offset + 1]),
+        mergeMaximum(left?.[offset + 2], right?.[offset + 2]),
+        numberValue(left?.[offset + 3]) + numberValue(right?.[offset + 3]),
+        numberValue(left?.[offset + 4]) + numberValue(right?.[offset + 4]),
+        mergeMaximum(left?.[offset + 5], right?.[offset + 5])
+      );
+    }
+    return output;
+  }
+
+  function mergeCompactRows(left, right) {
+    const rows = new Map();
+    for (const row of [...(left || []), ...(right || [])]) {
+      if (!Array.isArray(row) || row.length < 2) continue;
+      const key = String(row[0]);
+      if (!rows.has(key)) rows.set(key, [row[0], ...row.slice(1).map(numberValue)]);
+      else {
+        const current = rows.get(key);
+        for (let index = 1; index < row.length; index += 1) {
+          current[index] = numberValue(current[index]) + numberValue(row[index]);
+        }
+      }
+    }
+    return [...rows.values()];
+  }
+
+  function mergeCompactSides(left = {}, right = {}) {
+    return {
+      rounds: sumArray(left.rounds, right.rounds, 2),
+      kda: sumArray(left.kda, right.kda, 5),
+      kast_rounds: numberValue(left.kast_rounds) + numberValue(right.kast_rounds),
+      opening: sumArray(left.opening, right.opening, 2),
+      trade_kills: numberValue(left.trade_kills) + numberValue(right.trade_kills),
+      trade_d: sumArray(left.trade_d, right.trade_d, 3),
+      utility: sumArray(left.utility, right.utility, 2),
+      speed: mergeSpeed(left.speed, right.speed),
+      clutches: sumArray(left.clutches, right.clutches, 5),
+      kill_rounds: sumArray(left.kill_rounds, right.kill_rounds, 5),
+      weapons: mergeCompactRows(left.weapons, right.weapons),
+      duels: mergeCompactRows(left.duels, right.duels),
+      trades: mergeCompactRows(left.trades, right.trades),
+      contexts: mergeCompactRows(left.contexts, right.contexts),
+      assisted_by: mergeCompactRows(left.assisted_by, right.assisted_by),
+      flashes: mergeCompactRows(left.flashes, right.flashes)
+    };
+  }
+
+  function speedSummaryFromCompact(values, offset) {
+    const samples = numberValue(values?.[offset + 1]);
+    const percentSamples = numberValue(values?.[offset + 4]);
+    return {
+      total: numberValue(values?.[offset]),
+      average: samples ? numberValue(values?.[offset]) / samples : null,
+      maximum: values?.[offset + 2] == null ? null : numberValue(values[offset + 2]),
+      samples,
+      percent_total: numberValue(values?.[offset + 3]),
+      average_percent_of_max: percentSamples ? numberValue(values?.[offset + 3]) / percentSamples : null,
+      maximum_percent_of_max: values?.[offset + 5] == null ? null : numberValue(values[offset + 5]),
+      percent_samples: percentSamples
+    };
+  }
+
+  function contextTotals(rows) {
+    const totals = Array(13).fill(0);
+    for (const row of rows || []) {
+      for (let index = 0; index < totals.length; index += 1) totals[index] += numberValue(row[index + 1]);
+    }
+    return totals;
+  }
+
+  function expandStoredMatch(payload, matchID) {
+    if (!payload || !Array.isArray(payload.players) || !Array.isArray(payload.teams)) {
+      throw new Error("The stored match response is incomplete.");
+    }
+    const sourcePlayers = payload.players;
+    const sides = sourcePlayers.map(player => ({
+      T: player.sides?.[0] || {},
+      CT: player.sides?.[1] || {}
+    }));
+    const combined = sides.map(entry => mergeCompactSides(entry.T, entry.CT));
+    const teamByPlayer = new Map();
+    payload.teams.forEach((team, teamIndex) => (team.players || []).forEach(index => teamByPlayer.set(index, teamIndex)));
+    const opposite = side => side === "T" ? "CT" : "T";
+    const statsFor = (index, side) => side === "ALL" ? combined[index] : sides[index]?.[side] || {};
+    const identity = index => ({
+      name: sourcePlayers[index]?.name || "Unknown player",
+      steam_id: sourcePlayers[index]?.steam_id || null,
+      is_bot: Boolean(sourcePlayers[index]?.bot)
+    });
+
+    function incomingRows(playerIndex, side, field) {
+      const output = [];
+      sourcePlayers.forEach((_, actorIndex) => {
+        const sameTeam = teamByPlayer.get(actorIndex) === teamByPlayer.get(playerIndex);
+        const actorSide = side === "ALL" ? "ALL" : sameTeam ? side : opposite(side);
+        for (const row of statsFor(actorIndex, actorSide)?.[field] || []) {
+          if (numberValue(row[0]) === playerIndex) output.push([actorIndex, ...row.slice(1)]);
+        }
+      });
+      return output;
+    }
+
+    function expandPlayerSide(playerIndex, side) {
+      const stats = statsFor(playerIndex, side);
+      const player = identity(playerIndex);
+      const rounds = numberValue(stats.rounds?.[0]);
+      const wins = numberValue(stats.rounds?.[1]);
+      const kills = numberValue(stats.kda?.[0]);
+      const deaths = numberValue(stats.kda?.[1]);
+      const assists = numberValue(stats.kda?.[2]);
+      const headshots = numberValue(stats.kda?.[3]);
+      const damage = numberValue(stats.kda?.[4]);
+      const kastRounds = numberValue(stats.kast_rounds);
+      const attempts = (stats.trades || []).reduce((sum, row) => sum + numberValue(row[2]), 0);
+      const opportunities = (stats.trades || []).reduce((sum, row) => sum + numberValue(row[1]), 0);
+      const successes = (stats.trades || []).reduce((sum, row) => sum + numberValue(row[3]), 0);
+      const tradeKills = numberValue(stats.trade_kills);
+      const outgoingContext = contextTotals(stats.contexts);
+      const incomingContext = contextTotals(incomingRows(playerIndex, side, "contexts"));
+      const assistedRows = stats.assisted_by || [];
+      const damageAssistedKills = assistedRows.reduce((sum, row) => sum + numberValue(row[1]), 0);
+      const flashAssistedKills = assistedRows.reduce((sum, row) => sum + numberValue(row[2]), 0);
+      const ownFlashKills = assistedRows.reduce((sum, row) => sum + numberValue(row[3]), 0);
+      let flashAssists = 0;
+      sourcePlayers.forEach((_, beneficiaryIndex) => {
+        if (teamByPlayer.get(beneficiaryIndex) !== teamByPlayer.get(playerIndex)) return;
+        const beneficiaryStats = statsFor(beneficiaryIndex, side);
+        for (const row of beneficiaryStats.assisted_by || []) {
+          if (numberValue(row[0]) === playerIndex) flashAssists += numberValue(row[2]);
+        }
+      });
+
+      const duelIndexes = new Set((stats.duels || []).map(row => numberValue(row[0])));
+      incomingRows(playerIndex, side, "duels").forEach(row => duelIndexes.add(numberValue(row[0])));
+      const duelKills = new Map((stats.duels || []).map(row => [numberValue(row[0]), numberValue(row[1])]));
+      const duelDeaths = new Map(incomingRows(playerIndex, side, "duels").map(row => [numberValue(row[0]), numberValue(row[1])]));
+      const duels = [...duelIndexes].map(opponentIndex => {
+        const opponent = identity(opponentIndex);
+        const duelKillsValue = duelKills.get(opponentIndex) || 0;
+        const duelDeathsValue = duelDeaths.get(opponentIndex) || 0;
+        return {
+          opponent: opponent.name,
+          opponent_steam_id: opponent.steam_id,
+          opponent_is_bot: opponent.is_bot,
+          kills: duelKillsValue,
+          deaths: duelDeathsValue,
+          differential: duelKillsValue - duelDeathsValue
+        };
+      });
+
+      const kpr = rounds ? kills / rounds : 0;
+      const dpr = rounds ? deaths / rounds : 0;
+      const apr = rounds ? assists / rounds : 0;
+      const adr = rounds ? damage / rounds : 0;
+      const kast = rounds ? 100 * kastRounds / rounds : 0;
+      const impact = 2.13 * kpr + 0.42 * apr - 0.41;
+      const rating = rounds ? 0.0073 * kast + 0.3591 * kpr - 0.5329 * dpr +
+        0.2372 * impact + 0.0032 * adr + 0.1587 : 0;
+
+      return {
+        ...player,
+        kills, deaths, assists, headshots, damage,
+        headshot_percent: kills ? 100 * headshots / kills : 0,
+        adr, kast, kast_rounds: kastRounds, rounds_played: rounds, round_wins: wins,
+        opening_kills: numberValue(stats.opening?.[0]),
+        opening_deaths: numberValue(stats.opening?.[1]),
+        trade_kills: tradeKills,
+        trade_opportunities: opportunities,
+        trade_attempts: attempts,
+        trade_successes: successes,
+        trade_attempt_percent: opportunities ? 100 * attempts / opportunities : 0,
+        trade_success_percent: attempts ? 100 * tradeKills / attempts : 0,
+        tradeable_deaths: numberValue(stats.trade_d?.[0]),
+        attempted_tradeable_deaths: numberValue(stats.trade_d?.[1]),
+        traded_deaths: numberValue(stats.trade_d?.[2]),
+        traded_tradeable_deaths: numberValue(stats.trade_d?.[2]),
+        traded_death_percent: numberValue(stats.trade_d?.[1]) ? 100 * numberValue(stats.trade_d?.[2]) / numberValue(stats.trade_d?.[1]) : 0,
+        assisted_kills: {
+          damage: damageAssistedKills,
+          flash: flashAssistedKills,
+          own_flash: ownFlashKills,
+          total: damageAssistedKills + flashAssistedKills
+        },
+        enemies_flashed: (stats.flashes || []).reduce((sum, row) => sum + numberValue(row[1]), 0),
+        flash_assists: flashAssists,
+        grenade_damage: {
+          high_explosive: numberValue(stats.utility?.[0]),
+          fire: numberValue(stats.utility?.[1]),
+          total: numberValue(stats.utility?.[0]) + numberValue(stats.utility?.[1])
+        },
+        kill_context: {
+          blinded_enemy_kills: outgoingContext[0], deaths_while_blind: incomingContext[0],
+          kills_while_blind: outgoingContext[1], deaths_to_blind_killer: incomingContext[1],
+          wallbang_kills: outgoingContext[2], wallbang_deaths: incomingContext[2],
+          penetrations_on_kills: outgoingContext[3], penetrations_on_deaths: incomingContext[3],
+          smoke_kills: outgoingContext[4], smoke_deaths: incomingContext[4],
+          airborne_kills: outgoingContext[5], deaths_to_airborne_killer: incomingContext[5],
+          moving_kills: outgoingContext[6], deaths_to_moving_killer: incomingContext[6],
+          still_kills: outgoingContext[7], deaths_to_still_killer: incomingContext[7],
+          running_kills: outgoingContext[8], deaths_to_running_killer: incomingContext[8],
+          grenade_out_kills: outgoingContext[9], grenade_out_deaths: incomingContext[9],
+          knife_out_kills: outgoingContext[10], knife_out_deaths: incomingContext[10],
+          equipment_disadvantage_kills: outgoingContext[11], equipment_disadvantage_deaths: incomingContext[11],
+          unfair_kills: outgoingContext[12], unfair_deaths: incomingContext[12],
+          speed_on_kill: speedSummaryFromCompact(stats.speed, 0),
+          killer_speed_on_death: speedSummaryFromCompact(stats.speed, 6)
+        },
+        weapon_stats: (stats.weapons || []).map(row => ({
+          weapon: row[0], kills: numberValue(row[1]), shots: numberValue(row[2]),
+          damage: numberValue(row[3]), rounds_used: numberValue(row[4])
+        })),
+        duels,
+        trade_matchups: (stats.trades || []).map(row => ({
+          teammate: identity(numberValue(row[0])).name,
+          teammate_steam_id: identity(numberValue(row[0])).steam_id,
+          teammate_is_bot: identity(numberValue(row[0])).is_bot,
+          opportunities: numberValue(row[1]), attempts: numberValue(row[2]), successes: numberValue(row[3])
+        })),
+        kill_context_matchups: (stats.contexts || []).map(row => ({
+          victim: identity(numberValue(row[0])).name,
+          victim_steam_id: identity(numberValue(row[0])).steam_id,
+          victim_is_bot: identity(numberValue(row[0])).is_bot,
+          blinded: numberValue(row[1]), attackerBlind: numberValue(row[2]), wallbang: numberValue(row[3]),
+          penetrations: numberValue(row[4]), smoke: numberValue(row[5]), airborne: numberValue(row[6]),
+          moving: numberValue(row[7]), still: numberValue(row[8]), running: numberValue(row[9]),
+          grenadeOut: numberValue(row[10]), knifeOut: numberValue(row[11]),
+          equipmentDisadvantage: numberValue(row[12]), unfair: numberValue(row[13])
+        })),
+        assisted_kill_matchups: assistedRows.map(row => ({
+          assister: identity(numberValue(row[0])).name,
+          assister_steam_id: identity(numberValue(row[0])).steam_id,
+          assister_is_bot: identity(numberValue(row[0])).is_bot,
+          damage: numberValue(row[1]), flash: numberValue(row[2]), own_flash: numberValue(row[3])
+        })),
+        flash_matchups: (stats.flashes || []).map(row => ({
+          victim: identity(numberValue(row[0])).name,
+          victim_steam_id: identity(numberValue(row[0])).steam_id,
+          victim_is_bot: identity(numberValue(row[0])).is_bot,
+          flashes: numberValue(row[1]), blind_duration: numberValue(row[2]) / 1000
+        })),
+        clutch_wins: Object.fromEntries((stats.clutches || []).map((value, index) => [index + 1, numberValue(value)])),
+        kill_rounds: Object.fromEntries((stats.kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
+        rating: Math.max(0, rating)
+      };
+    }
+
+    const expandedPlayers = sourcePlayers.map((_, index) => {
+      const output = expandPlayerSide(index, "ALL");
+      output.by_side = { T: expandPlayerSide(index, "T"), CT: expandPlayerSide(index, "CT") };
+      return output;
+    });
+    const teams = payload.teams.map((team, index) => ({
+      id: team.id || String(index),
+      name: team.name || `Team ${index + 1}`,
+      score: team.score,
+      side_scores: { T: numberValue(team.side_scores?.[0]), CT: numberValue(team.side_scores?.[1]) },
+      players: (team.players || []).map(playerIndex => expandedPlayers[playerIndex]).filter(Boolean)
+    }));
+    const tradeRules = payload.rules?.trade || [];
+    const movementRules = payload.rules?.movement || [];
+    return {
+      format_version: 1,
+      parser: payload.parser?.[0] || "NickStats database",
+      parser_version: payload.parser?.[1] || "",
+      provider_match_id: payload.id?.faceit || null,
+      demo_sha256: payload.id?.sha256 || "",
+      source_file: `Stored match #${matchID}`,
+      map: payload.map,
+      rounds: numberValue(payload.rounds),
+      played_at: payload.played_at,
+      played_at_source: payload.played_at_source,
+      player_count: sourcePlayers.length,
+      trade_definition: {
+        window_seconds: tradeRules[0], proximity_units: tradeRules[1], engagement_lull_seconds: tradeRules[2],
+        bullet_path_tolerance_units: tradeRules[3], he_damage_caps: { unarmored: tradeRules[4], armored: tradeRules[5] }
+      },
+      kill_context_definition: {
+        still_speed_tolerance_units_per_second: movementRules[0],
+        running_threshold_percent_of_weapon_max: movementRules[1],
+        equipment_disadvantage_lookback_seconds: payload.rules?.equipment_disadvantage_seconds
+      },
+      teams
+    };
+  }
+
+  function setMatchBrowserView(view) {
+    if (view === "detail" && !state.selectedMatchID) return;
+    document.querySelectorAll("[data-match-browser-view]").forEach(button => {
+      const active = button.dataset.matchBrowserView === view;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+    });
+    $("matchListView").hidden = view !== "list";
+    $("matchDetailView").hidden = view !== "detail";
+  }
+
+  function matchSummaryTimestamp(match) {
+    return Number(match.playedAt ?? match.played_at);
+  }
+
+  function renderMatchList(matches) {
+    const list = $("matchList");
+    list.replaceChildren();
+    for (const match of matches) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "match-list-item";
+      const identity = document.createElement("span");
+      identity.className = "match-list-identity";
+      const number = document.createElement("strong");
+      number.textContent = `#${match.id}`;
+      const map = document.createElement("span");
+      map.textContent = match.map || "Unknown map";
+      identity.append(number, map);
+
+      const teams = document.createElement("span");
+      teams.className = "match-list-teams";
+      const teamRows = Array.isArray(match.teams) ? match.teams : [];
+      teams.textContent = teamRows.length >= 2
+        ? `${teamRows[0].name} ${teamRows[0].score ?? "—"} – ${teamRows[1].score ?? "—"} ${teamRows[1].name}`
+        : "Teams unavailable";
+
+      const meta = document.createElement("span");
+      meta.className = "match-list-meta";
+      meta.textContent = `${formatMatchTime(matchSummaryTimestamp(match))} · ${numberValue(match.rounds)} rounds`;
+      const open = document.createElement("span");
+      open.className = "match-list-open";
+      open.textContent = "View →";
+      button.append(identity, teams, meta, open);
+      button.addEventListener("click", () => loadStoredMatch(match.id));
+      list.appendChild(button);
+    }
+  }
+
+  async function apiJson(response) {
+    const body = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(body?.reason || `The API returned HTTP ${response.status}.`);
+    return body;
+  }
+
+  async function loadMatches(offset = state.matchListOffset) {
+    if (state.matchListLoading) return;
+    state.matchListLoading = true;
+    $("matchListRefreshButton").disabled = true;
+    $("matchListStatus").textContent = "Loading stored matches…";
+    $("matchListStatus").classList.remove("error");
+    try {
+      const query = new URLSearchParams({ limit: String(MATCH_LIST_LIMIT), offset: String(Math.max(0, offset)) });
+      const payload = await apiJson(await fetch(`${MATCH_UPLOAD_ENDPOINT}?${query}`, { headers: { "Accept": "application/json" } }));
+      const matches = Array.isArray(payload.matches) ? payload.matches : [];
+      state.matchListOffset = Math.max(0, offset);
+      state.matchListCount = matches.length;
+      renderMatchList(matches);
+      $("matchListStatus").textContent = matches.length
+        ? `${matches.length} match${matches.length === 1 ? "" : "es"} shown.`
+        : state.matchListOffset ? "No more matches." : "No matches have been uploaded yet.";
+      $("matchListPagination").hidden = state.matchListOffset === 0 && matches.length < MATCH_LIST_LIMIT;
+      $("matchListPreviousButton").disabled = state.matchListOffset === 0;
+      $("matchListNextButton").disabled = matches.length < MATCH_LIST_LIMIT;
+      $("matchListPageLabel").textContent = `Matches ${state.matchListOffset + 1}–${state.matchListOffset + matches.length}`;
+    } catch (error) {
+      $("matchList").replaceChildren();
+      $("matchListStatus").textContent = `Could not load matches: ${error.message}`;
+      $("matchListStatus").classList.add("error");
+      $("matchListPagination").hidden = true;
+    } finally {
+      state.matchListLoading = false;
+      $("matchListRefreshButton").disabled = false;
+    }
+  }
+
+  async function loadStoredMatch(matchID) {
+    if (state.matchDetailLoading) return;
+    state.matchDetailLoading = true;
+    state.selectedMatchID = matchID;
+    $("matchDetailTab").disabled = false;
+    $("matchDetailTab").textContent = `Match #${matchID}`;
+    setMatchBrowserView("detail");
+    $("demoResults").hidden = true;
+    $("matchDetailStatus").textContent = `Loading match #${matchID}…`;
+    $("matchDetailStatus").classList.remove("error");
+    try {
+      const payload = await apiJson(await fetch(`${MATCH_UPLOAD_ENDPOINT}/${encodeURIComponent(matchID)}`, {
+        headers: { "Accept": "application/json" }
+      }));
+      state.storedPayload = payload;
+      state.result = expandStoredMatch(payload, matchID);
+      state.scoreboardSort = null;
+      state.expandedWeaponPlayers.clear();
+      state.weaponSorts.clear();
+      setSideFilter("ALL", false);
+      setResultView("scoreboard");
+      render(state.result);
+      $("matchDetailStatus").textContent = "";
+    } catch (error) {
+      state.result = null;
+      state.storedPayload = null;
+      $("matchDetailStatus").textContent = `Could not load match #${matchID}: ${error.message}`;
+      $("matchDetailStatus").classList.add("error");
+    } finally {
+      state.matchDetailLoading = false;
+    }
   }
 
   function parseWithWorker(name, data, compression = null) {
@@ -1148,7 +1571,7 @@
     ), 0);
     const score = teams.length >= 2 && teams.every(team => Number.isFinite(team.score)) ? `${teams[0].score}–${teams[1].score}` : "Unknown";
     $("demoSummary").replaceChildren(
-      summaryCard("File", state.file?.name || "Demo"),
+      summaryCard(state.selectedMatchID ? "Stored match" : "File", state.selectedMatchID ? `#${state.selectedMatchID}` : state.file?.name || "Demo"),
       summaryCard("Match ID", result.provider_match_id || `SHA ${String(result.demo_sha256 || "").slice(0, 12)}…`),
       summaryCard("Played", formatMatchTime(result.played_at)),
       summaryCard("Map", result.map || "Unknown"),
@@ -1179,7 +1602,6 @@
       return;
     }
     state.diagnostics = null;
-    $("demoDiagnosticsButton").hidden = true;
     $("demoParseButton").disabled = true;
     setStatus("Loading the browser demo parser…");
     try {
@@ -1194,12 +1616,10 @@
       if (!result || result.error) throw new Error(result?.error || "The parser returned no match data.");
       result.played_at = demo.matchTime?.timestamp ?? null;
       result.played_at_source = demo.matchTime?.source ?? null;
-      state.result = result;
-      render(result);
+      state.parsedResult = result;
       await uploadParsedMatch(result);
     } catch (error) {
-      const nextStep = state.diagnostics ? " Download diagnostics and send me the JSON." : "";
-      setStatus((error.message || "The demo could not be parsed.") + nextStep, true);
+      setStatus(error.message || "The demo could not be parsed.", true);
     } finally {
       $("demoParseButton").disabled = !state.file;
     }
@@ -1207,21 +1627,14 @@
 
   function clear() {
     state.file = null;
-    state.result = null;
+    state.parsedResult = null;
     state.uploadPending = false;
     state.parsePending = false;
-    state.scoreboardSort = null;
-    state.expandedWeaponPlayers.clear();
-    state.weaponSorts.clear();
-    setSideFilter("ALL", false);
-    setResultView("scoreboard");
     state.diagnostics = null;
     $("demoInput").value = "";
-    $("demoFileLabel").textContent = "Choose a FACEIT or CS2 demo";
+    $("demoFileLabel").textContent = "Choose a demo";
     $("demoParseButton").disabled = true;
     $("demoClearButton").disabled = true;
-    $("demoDiagnosticsButton").hidden = true;
-    $("demoResults").hidden = true;
     $("demoRetryUploadButton").hidden = true;
     setStatus("Choose one demo file.");
   }
@@ -1319,7 +1732,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.10.6",
+      nickstats_build: "2026.09.11.1",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -1355,24 +1768,14 @@
 
   function downloadJson() {
     if (!state.result) return;
-    const blob = new Blob([JSON.stringify(compactMatchResult(state.result))], { type: "application/json" });
+    const payload = state.storedPayload || compactMatchResult(state.result);
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `${(state.file?.name || "demo").replace(/\.(?:dem(?:\.(?:gz|zst))?|gz|zst|zip)$/i, "")}-nickstats.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  function downloadDiagnostics() {
-    if (!state.diagnostics) return;
-    const blob = new Blob([JSON.stringify(state.diagnostics, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `${(state.file?.name || "demo").replace(/\.(?:dem(?:\.(?:gz|zst))?|gz|zst|zip)$/i, "")}-diagnostics.json`;
+    anchor.download = state.selectedMatchID
+      ? `nickstats-match-${state.selectedMatchID}.json`
+      : `${(state.file?.name || "demo").replace(/\.(?:dem(?:\.(?:gz|zst))?|gz|zst|zip)$/i, "")}-nickstats.json`;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
@@ -1382,7 +1785,6 @@
   $("demoInput").addEventListener("change", event => chooseFile(event.target.files[0]));
   $("demoParseButton").addEventListener("click", parseDemo);
   $("demoClearButton").addEventListener("click", clear);
-  $("demoDiagnosticsButton").addEventListener("click", downloadDiagnostics);
   $("demoDownloadButton").addEventListener("click", downloadJson);
   $("demoRetryUploadButton").addEventListener("click", () => uploadParsedMatch());
   $("demoAuthButton").addEventListener("click", () => openUploadAuthentication());
@@ -1396,7 +1798,7 @@
     state.uploadToken = token;
     updateUploadAuthenticationDisplay();
     $("demoAuthDialog").close();
-    if (state.uploadPending && state.result) {
+    if (state.uploadPending && state.parsedResult) {
       uploadParsedMatch();
     } else if (state.parsePending) {
       state.parsePending = false;
@@ -1408,7 +1810,7 @@
   $("demoAuthCancelButton").addEventListener("click", () => {
     state.parsePending = false;
     $("demoAuthDialog").close();
-    if (state.file && !state.result) {
+    if (state.file && !state.parsedResult) {
       setStatus("Ready to parse. Automatic upload requires the private token.");
     }
   });
@@ -1421,6 +1823,12 @@
   document.querySelectorAll("[data-demo-result-view]").forEach(button => {
     button.addEventListener("click", () => setResultView(button.dataset.demoResultView));
   });
+  document.querySelectorAll("[data-match-browser-view]").forEach(button => {
+    button.addEventListener("click", () => setMatchBrowserView(button.dataset.matchBrowserView));
+  });
+  $("matchListRefreshButton").addEventListener("click", () => loadMatches());
+  $("matchListPreviousButton").addEventListener("click", () => loadMatches(Math.max(0, state.matchListOffset - MATCH_LIST_LIMIT)));
+  $("matchListNextButton").addEventListener("click", () => loadMatches(state.matchListOffset + MATCH_LIST_LIMIT));
 
   const drop = $("demoDropZone");
   ["dragenter", "dragover"].forEach(type => drop.addEventListener(type, event => {
@@ -1433,4 +1841,5 @@
   }));
   drop.addEventListener("drop", event => chooseFile(event.dataTransfer.files[0]));
   updateUploadAuthenticationDisplay();
+  loadMatches(0);
 })();
