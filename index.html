@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260911-15">
+  <link rel="stylesheet" href="./styles.css?v=20260911-16">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.11.13</span>
+          <span class="demo-build">Build 2026.09.11.14</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -180,7 +180,7 @@
               <option value="movement">Movement</option><option value="weapons">Weapons</option>
             </select>
             <select id="compareWeapon" aria-label="Weapon" hidden></select>
-            <label for="matrixMap">Map</label><select id="matrixMap"><option value="ALL">All maps</option></select>
+            <span>Map</span><div class="map-multiselect" id="matrixMapFilter"></div>
             <span>Side</span>
             <div class="side-toggle" role="group" aria-label="Comparison side">
               <button class="active" type="button" aria-pressed="true" data-matrix-side="ALL">All</button>
@@ -227,7 +227,7 @@
                   <div class="player-record" id="comboProfileRecord"></div>
                 </header>
                 <div class="stats-toolbar combo-profile-toolbar">
-                  <label for="compareMap">Map</label><select id="compareMap"><option value="ALL">All maps</option></select>
+                  <span>Map</span><div class="map-multiselect" id="compareMapFilter"></div>
                   <span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div>
                   <span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-compare-side="ALL">All</button><button type="button" aria-pressed="false" data-compare-side="T">T</button><button type="button" aria-pressed="false" data-compare-side="CT">CT</button></div>
                 </div>
@@ -314,6 +314,8 @@
 
           <div class="player-profile-status" id="playerProfileStatus" role="status" aria-live="polite"></div>
           <div class="stats-toolbar">
+            <span>Map</span>
+            <div class="map-multiselect" id="playerMapFilter"></div>
             <span>Side</span>
             <div class="side-toggle" role="group" aria-label="Player side">
               <button class="active" type="button" aria-pressed="true" data-player-side="ALL">All</button>
@@ -407,7 +409,7 @@
 
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/demo.js?v=20260911-9"></script>
-  <script defer src="./js/players.js?v=20260911-9"></script>
-  <script defer src="./js/compare.js?v=20260911-13"></script>
+  <script defer src="./js/players.js?v=20260911-10"></script>
+  <script defer src="./js/compare.js?v=20260911-14"></script>
 </body>
 </html>

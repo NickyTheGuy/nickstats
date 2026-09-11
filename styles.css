@@ -2144,6 +2144,66 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   color: var(--text);
 }
 
+.map-multiselect {
+  position: relative;
+  min-width: 128px;
+}
+
+.map-filter-menu { position: relative; }
+
+.map-filter-menu > summary {
+  min-height: 36px;
+  padding: 9px 34px 8px 11px;
+  border: 1px solid #344155;
+  border-radius: 9px;
+  background: #0d131d;
+  color: var(--text);
+  cursor: pointer;
+  list-style: none;
+  white-space: nowrap;
+}
+
+.map-filter-menu > summary::-webkit-details-marker { display: none; }
+
+.map-filter-menu > summary::after {
+  content: "▾";
+  position: absolute;
+  top: 9px;
+  right: 11px;
+  color: var(--muted);
+}
+
+.map-filter-menu[open] > summary::after { transform: rotate(180deg); }
+
+.map-filter-options {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 5px);
+  left: 0;
+  min-width: 180px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #344155;
+  border-radius: 10px;
+  background: #0d131d;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .38);
+}
+
+.map-filter-options label {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 7px;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.map-filter-options label:hover { background: rgba(255, 255, 255, .055); }
+.map-filter-options input { accent-color: var(--blue); }
+
 .side-toggle {
   display: inline-flex;
   gap: 3px;

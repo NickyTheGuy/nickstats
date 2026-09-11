@@ -14,7 +14,7 @@
   const state = {
     selected: new Map(), players: [], choices: new Map(), analysis: null,
     searchController: null, compareController: null, searchTimer: null,
-    side: "ALL", map: "ALL", metricGroup: "core", weapon: "",
+    side: "ALL", maps: new Set(), metricGroup: "core", weapon: "",
     comboPlayerId: "", comboCondition: "without", comboView: "overview",
     workspace: location.hash === "#matrix" ? "matrix" : "compare"
   };
@@ -174,7 +174,7 @@
   }
 
   function pairImpact(target, actor) {
-    const eligibleRows = target.rows.filter(row => state.map === "ALL" || row.map === state.map);
+    const eligibleRows = target.rows.filter(row => mapSelected(row.map));
     const withRows = eligibleRows.filter(row => row.teammateIds.includes(actor.profileId));
     const withoutRows = eligibleRows.filter(row => !row.teammateIds.includes(actor.profileId));
     const withStats = summarize(withRows), withoutStats = summarize(withoutRows);
@@ -224,15 +224,36 @@
     state.weapon = names.has(previous) ? previous : ([...names].sort()[0] || ""); select.value = state.weapon;
   }
 
-  function populateMaps() {
-    const names = new Set(); state.players.forEach(player => player.rows.forEach(row => names.add(row.map)));
-    state.map = "ALL";
-    ["compareMap", "matrixMap"].forEach(id => {
-      const select = $(id), all = el("option", "All maps"); all.value = "ALL";
-      select.replaceChildren(all, ...[...names].sort().map(name => { const option = el("option", name.replace(/^de_/, "")); option.value = name; return option; }));
-      select.value = "ALL";
+  function mapSelected(name) { return !state.maps.size || state.maps.has(name); }
+  function mapSelectionLabel() {
+    if (!state.maps.size) return "All maps";
+    if (state.maps.size === 1) return titleCase([...state.maps][0].replace(/^de_/, ""));
+    return `${state.maps.size} maps`;
+  }
+  function renderMapFilters(openFilter = "") {
+    const names = new Set(); state.players.forEach(player => player.rows.forEach(row => { if (row.map) names.add(row.map); }));
+    ["compareMapFilter", "matrixMapFilter"].forEach(id => {
+      const target = $(id); if (!target) return;
+      const details = el("details", null, "map-filter-menu"); details.open = id === openFilter;
+      details.appendChild(el("summary", mapSelectionLabel()));
+      const options = el("div", null, "map-filter-options");
+      const addOption = (label, value) => {
+        const row = el("label"), checkbox = el("input"), text = el("span", label);
+        checkbox.type = "checkbox"; checkbox.value = value;
+        checkbox.checked = value === "ALL" ? !state.maps.size : state.maps.has(value);
+        checkbox.addEventListener("change", () => {
+          if (value === "ALL") state.maps.clear();
+          else if (checkbox.checked) state.maps.add(value); else state.maps.delete(value);
+          renderMapFilters(id); refreshAnalysis();
+        });
+        row.append(checkbox, text); options.appendChild(row);
+      };
+      addOption("All maps", "ALL");
+      [...names].sort().forEach(name => addOption(titleCase(name.replace(/^de_/, "")), name));
+      details.appendChild(options); target.replaceChildren(details);
     });
   }
+  function populateMaps() { state.maps.clear(); renderMapFilters(); }
 
   function refreshAnalysis() {
     if (!state.players.length) return;
@@ -484,7 +505,7 @@
     const excluded = selectedPlayers("exclude");
     if (!included.length) return null;
     const first = included[0];
-    const eligible = player => player.rows.filter(row => state.map === "ALL" || row.map === state.map);
+    const eligible = player => player.rows.filter(row => mapSelected(row.map));
     const rowMaps = new Map(included.map(player => [player.profileId, new Map(eligible(player).map(row => [row.id, row]))]));
     const baseMatches = eligible(first).filter(row => included.every(player =>
       player.profileId === first.profileId || row.teammateIds.includes(player.profileId)
@@ -600,7 +621,7 @@
     const rows = comboProfileRows(current, player), stats = summarize(rows), s = stats;
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("comboProfileTitle").textContent = player.label;
-    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(rows.length)} qualifying match${rows.length === 1 ? "" : "es"} · ${sideLabel}${state.map === "ALL" ? "" : ` · ${titleCase(state.map.replace(/^de_/, ""))}`}`;
+    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(rows.length)} qualifying match${rows.length === 1 ? "" : "es"} · ${sideLabel}${state.maps.size ? ` · ${mapSelectionLabel()}` : ""}`;
     $("comboProfileRecord").textContent = state.side === "ALL" ? `${stats.wins}–${stats.losses}${stats.ties ? `–${stats.ties}` : ""}` : `${integer(s.round_wins)}–${integer(s.rounds - num(s.round_wins))} rounds`;
     const ratingClass = stats.rating >= 1.1 ? "rating-good" : stats.rating <= .9 ? "rating-bad" : "rating-average";
     $("comboProfileHeadline").replaceChildren(
@@ -698,11 +719,11 @@
     refreshAnalysis();
   });
   $("compareWeapon").addEventListener("change", event => { state.weapon = event.target.value; refreshAnalysis(); });
-  ["compareMap", "matrixMap"].forEach(id => $(id).addEventListener("change", event => {
-    state.map = event.target.value;
-    $(id === "compareMap" ? "matrixMap" : "compareMap").value = state.map;
-    refreshAnalysis();
-  }));
+  document.addEventListener("click", event => {
+    document.querySelectorAll("#compareMapFilter details[open], #matrixMapFilter details[open]").forEach(menu => {
+      if (!menu.contains(event.target)) menu.open = false;
+    });
+  });
   document.querySelectorAll("[data-compare-side]").forEach(button => button.addEventListener("click", () => {
     state.side = button.dataset.compareSide;
     document.querySelectorAll("[data-matrix-side], [data-compare-side]").forEach(item => {

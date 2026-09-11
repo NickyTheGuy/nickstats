@@ -2,13 +2,36 @@
   "use strict";
   const PLAYER_ENDPOINT = "/nickstats/api/players";
   const $ = id => document.getElementById(id);
-  const state = { payload: null, side: "ALL", searchController: null, profileController: null, searchTimer: null };
+  const state = { payload: null, side: "ALL", maps: new Set(), searchController: null, profileController: null, searchTimer: null };
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
   const integer = value => Math.round(number(value)).toLocaleString();
   const decimal = (value, places = 1) => number(value).toFixed(places);
   const percent = value => `${decimal(value, 1)}%`;
   const ratio = (a, b) => number(b) > 0 ? number(a) / number(b) : number(a);
   const titleCase = value => String(value || "Unknown").replace(/^weapon_/, "").replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
+  const mapSelected = name => !state.maps.size || state.maps.has(name);
+  const mapSelectionLabel = () => state.maps.size === 0 ? "All maps" : state.maps.size === 1
+    ? titleCase([...state.maps][0].replace(/^de_/, "")) : `${state.maps.size} maps`;
+
+  function renderMapFilter(keepOpen = false) {
+    const target = $("playerMapFilter"); if (!target || !state.payload) return;
+    const names = [...new Set((state.payload.matches || []).map(match => match.map).filter(Boolean))].sort();
+    const details = document.createElement("details"); details.className = "map-filter-menu"; details.open = keepOpen;
+    const summary = document.createElement("summary"); summary.textContent = mapSelectionLabel(); details.appendChild(summary);
+    const options = document.createElement("div"); options.className = "map-filter-options";
+    const addOption = (label, value) => {
+      const row = document.createElement("label"), checkbox = document.createElement("input"), text = document.createElement("span");
+      checkbox.type = "checkbox"; checkbox.value = value; checkbox.checked = value === "ALL" ? !state.maps.size : state.maps.has(value); text.textContent = label;
+      checkbox.addEventListener("change", () => {
+        if (value === "ALL") state.maps.clear();
+        else if (checkbox.checked) state.maps.add(value); else state.maps.delete(value);
+        renderMapFilter(true); renderProfile();
+      });
+      row.append(checkbox, text); options.appendChild(row);
+    };
+    addOption("All maps", "ALL"); names.forEach(name => addOption(titleCase(name.replace(/^de_/, "")), name));
+    details.appendChild(options); target.replaceChildren(details);
+  }
 
   async function apiJson(response) {
     const body = await response.json().catch(() => null);
@@ -125,10 +148,11 @@
 
   function renderProfile() {
     const payload = state.payload; if (!payload) return;
-    const player = payload.player || {}, matches = Array.isArray(payload.matches) ? payload.matches : [], summary = aggregate(matches), s = summary.stats;
+    const player = payload.player || {}, allMatches = Array.isArray(payload.matches) ? payload.matches : [];
+    const matches = allMatches.filter(match => mapSelected(match.map)), summary = aggregate(matches), s = summary.stats;
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("playerProfileName").textContent = player.name || "Unknown player";
-    $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel}`;
+    $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel}${state.maps.size ? ` · ${mapSelectionLabel()}` : ""}`;
     $("playerProfileRecord").textContent = state.side === "ALL" ? `${summary.wins}–${summary.losses}${summary.draws ? `–${summary.draws}` : ""}` : `${integer(s.round_wins)}–${integer(summary.rounds - number(s.round_wins))} rounds`;
     const ratingClass = summary.rating >= 1.1 ? "rating-good" : summary.rating <= .9 ? "rating-bad" : "rating-average";
     fillCards("playerHeadlineStats", [
@@ -167,13 +191,17 @@
     state.profileController?.abort(); state.profileController = new AbortController();
     $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "Loading player profile…"; $("playerProfileStatus").classList.remove("error"); $("playerHeadlineStats").replaceChildren();
     try {
-      state.payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(playerID)}`, { headers: { Accept: "application/json" }, signal: state.profileController.signal })); state.side = "ALL";
+      state.payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(playerID)}`, { headers: { Accept: "application/json" }, signal: state.profileController.signal })); state.side = "ALL"; state.maps.clear();
       document.querySelectorAll("[data-player-side]").forEach(button => { const active = button.dataset.playerSide === "ALL"; button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); });
-      renderProfile(); setPlayerView("overview"); $("playerProfile").scrollIntoView({ behavior: "smooth", block: "start" });
+      renderMapFilter(); renderProfile(); setPlayerView("overview"); $("playerProfile").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) { if (error.name !== "AbortError") { $("playerProfileStatus").textContent = `Could not load player: ${error.message}`; $("playerProfileStatus").classList.add("error"); } }
   }
   $("playerSearchForm").addEventListener("submit", event => { event.preventDefault(); clearTimeout(state.searchTimer); searchPlayers(); });
   $("playerSearchInput").addEventListener("input", event => { clearTimeout(state.searchTimer); const query = event.target.value.trim(); if (!query) { state.searchController?.abort(); $("playerSearchResults").replaceChildren(); setSearchStatus("Search for a player to open their profile."); return; } if (query.length >= 2) state.searchTimer = setTimeout(searchPlayers, 250); });
   document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
+  document.addEventListener("click", event => {
+    const menu = $("playerMapFilter")?.querySelector("details[open]");
+    if (menu && !menu.contains(event.target)) menu.open = false;
+  });
   document.querySelectorAll("[data-player-side]").forEach(button => button.addEventListener("click", () => { state.side = button.dataset.playerSide; document.querySelectorAll("[data-player-side]").forEach(item => { const active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); }); renderProfile(); }));
 })();
