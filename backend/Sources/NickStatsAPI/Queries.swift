@@ -182,7 +182,8 @@ func listPlayers(_ request: Request) async throws -> PlayerListResponse {
 func getMatch(_ matchID: Int64, on database: any Database) async throws -> MatchPayload {
     guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
     guard let match = try await sql.raw("""
-        SELECT m.*, LOWER(HEX(m.demo_sha256)) AS sha256, pc.rules_json
+        SELECT m.*, LOWER(HEX(m.demo_sha256)) AS sha256,
+               CAST(pc.rules_json AS CHAR) AS rules_json
         FROM matches m JOIN parser_configs pc ON pc.id = m.parser_config_id
         WHERE m.id = \(bind: matchID)
         """).first() else { throw Abort(.notFound, reason: "Match not found.") }
