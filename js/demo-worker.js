@@ -73,7 +73,9 @@ const ADDITIVE_STAT_FIELDS = [
   "tradeOpportunities", "tradeAttempts", "tradeSuccesses", "tradeableDeaths",
   "attemptedTradeableDeaths", "tradedTradeableDeaths", "damageAssistedKills",
   "flashAssistedKills", "ownFlashAssistedKills",
-  "enemiesFlashed", "flashAssists", "heDamage", "fireDamage",
+  "enemiesFlashed", "flashAssists", "heDamage", "fireDamage", "damageReceived",
+  "heGrenadesThrown", "flashbangsThrown", "smokesThrown", "fireGrenadesThrown", "decoysThrown",
+  "bombPlants", "bombDefuses",
   "blindedEnemyKills", "deathsWhileBlind", "killsWhileBlind", "deathsToBlindKiller",
   "wallbangKills", "wallbangDeaths", "killPenetrations", "deathPenetrations",
   "smokeKills", "smokeDeaths", "airborneKills", "deathsToAirborneKiller",
@@ -217,6 +219,7 @@ async function parseDemo(fileName, buffer) {
           assists: 0,
           headshots: 0,
           damage: 0,
+          damageReceived: 0,
           kastRounds: 0,
           killRounds: 0,
           assistRounds: 0,
@@ -240,6 +243,13 @@ async function parseDemo(fileName, buffer) {
           flashAssists: 0,
           heDamage: 0,
           fireDamage: 0,
+          heGrenadesThrown: 0,
+          flashbangsThrown: 0,
+          smokesThrown: 0,
+          fireGrenadesThrown: 0,
+          decoysThrown: 0,
+          bombPlants: 0,
+          bombDefuses: 0,
           blindedEnemyKills: 0,
           deathsWhileBlind: 0,
           killsWhileBlind: 0,
@@ -387,6 +397,7 @@ async function parseDemo(fileName, buffer) {
       row.assists = 0;
       row.headshots = 0;
       row.damage = 0;
+      row.damageReceived = 0;
       row.kastRounds = 0;
       row.killRounds = 0;
       row.assistRounds = 0;
@@ -410,6 +421,13 @@ async function parseDemo(fileName, buffer) {
       row.flashAssists = 0;
       row.heDamage = 0;
       row.fireDamage = 0;
+      row.heGrenadesThrown = 0;
+      row.flashbangsThrown = 0;
+      row.smokesThrown = 0;
+      row.fireGrenadesThrown = 0;
+      row.decoysThrown = 0;
+      row.bombPlants = 0;
+      row.bombDefuses = 0;
       row.blindedEnemyKills = 0;
       row.deathsWhileBlind = 0;
       row.killsWhileBlind = 0;
@@ -563,7 +581,7 @@ async function parseDemo(fileName, buffer) {
       let destination = target.get(key);
       if (!destination) {
         destination = fields.includes("weapon")
-          ? { weapon: value.weapon, kills: 0, shots: 0, damage: 0, roundsUsed: 0 }
+          ? { weapon: value.weapon, kills: 0, shots: 0, hits: 0, damage: 0, roundsUsed: 0 }
           : Object.fromEntries(fields.map(field => [field, 0]));
         target.set(key, destination);
       }
@@ -611,7 +629,7 @@ async function parseDemo(fileName, buffer) {
         target.clutchWins[key] += (after.clutches[key] || 0) - (before.clutches[key] || 0);
         target.clutchAttempts[key] += (after.clutchAttempts[key] || 0) - (before.clutchAttempts[key] || 0);
       }
-      addMapDeltas(target.weaponStats, after.weapons, before.weapons, ["weapon", "kills", "shots", "damage", "roundsUsed"]);
+      addMapDeltas(target.weaponStats, after.weapons, before.weapons, ["weapon", "kills", "shots", "hits", "damage", "roundsUsed"]);
       addMapDeltas(target.duelStats, after.duels, before.duels, ["kills", "deaths"]);
       addMapDeltas(target.tradeMatchups, after.tradeMatchups, before.tradeMatchups, ["opportunities", "attempts", "successes"]);
       addMapDeltas(target.killContextMatchups, after.killContextMatchups, before.killContextMatchups,
@@ -1221,7 +1239,7 @@ async function parseDemo(fileName, buffer) {
     if (!row || !id || id === "world") return null;
     let stat = row.weaponStats.get(id);
     if (!stat) {
-      stat = { weapon: id, kills: 0, shots: 0, damage: 0, roundsUsed: 0 };
+      stat = { weapon: id, kills: 0, shots: 0, hits: 0, damage: 0, roundsUsed: 0 };
       row.weaponStats.set(id, stat);
     }
     return stat;
@@ -1609,13 +1627,18 @@ async function parseDemo(fileName, buffer) {
     const victimTeam = teamNow.get(victimId);
     if ((attackerTeam !== 2 && attackerTeam !== 3) ||
         (victimTeam !== 2 && victimTeam !== 3) || attackerTeam === victimTeam) return;
+    const victim = stats.get(victimId);
+    if (victim) victim.damageReceived += damage;
     row.damage += damage;
     // Side ADR uses event-time damage rather than a later cumulative delta.
     // This keeps the numerator and the live-round denominator on the same side.
     ensureSideRow(row, attackerTeam).damage += damage;
     const resolvedWeapon = combatEventWeapon(row, event.weapon);
     const damageWeapon = weaponStat(row, resolvedWeapon);
-    if (damageWeapon) damageWeapon.damage += damage;
+    if (damageWeapon) {
+      damageWeapon.damage += damage;
+      if (damage > 0) damageWeapon.hits += 1;
+    }
     noteWeaponUse(row, resolvedWeapon);
     if (damage > 0 && damageProvesTradeAttempt(event, damage)) {
       for (const prior of round.pendingDeaths) {
@@ -1650,6 +1673,29 @@ async function parseDemo(fileName, buffer) {
     const stat = weaponStat(row, resolvedWeapon);
     if (stat) stat.shots += 1;
     noteWeaponUse(row, resolvedWeapon);
+  }
+
+  function handleGrenadeThrown(event) {
+    const userId = integer(event.userid);
+    const row = stats.get(userId);
+    if (!row) return;
+    round.participants.add(userId);
+    switch (normalizedWeapon(event.weapon)) {
+      case "hegrenade": row.heGrenadesThrown += 1; break;
+      case "flashbang": row.flashbangsThrown += 1; break;
+      case "smokegrenade": row.smokesThrown += 1; break;
+      case "molotov":
+      case "incgrenade": row.fireGrenadesThrown += 1; break;
+      case "decoy": row.decoysThrown += 1; break;
+    }
+  }
+
+  function recordObjective(event, field) {
+    const userId = integer(event.userid);
+    const row = stats.get(userId);
+    if (!row) return;
+    round.participants.add(userId);
+    row[field] += 1;
   }
 
   function handleItemSeen(event, eventType, tick) {
@@ -1792,10 +1838,12 @@ async function parseDemo(fileName, buffer) {
         break;
       case "bomb_planted":
         round.bombPlanted = true;
+        if (round.live) recordObjective(gameEvent, "bombPlants");
         round.objectiveEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         break;
       case "bomb_defused":
         round.winnerSide = 3;
+        if (round.live) recordObjective(gameEvent, "bombDefuses");
         round.objectiveEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         break;
       case "bomb_exploded":
@@ -1830,6 +1878,11 @@ async function parseDemo(fileName, buffer) {
         if (!round.live) break;
         round.hasActivity = true;
         handleWeaponFire(gameEvent);
+        break;
+      case "grenade_thrown":
+        if (!round.live) break;
+        round.hasActivity = true;
+        handleGrenadeThrown(gameEvent);
         break;
       case "player_hurt":
         if (!round.live) break;
@@ -2021,7 +2074,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.11.5",
+    nickstats_build: "2026.09.11.6",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2121,6 +2174,7 @@ function finishPlayer(row) {
     assists: row.assists,
     headshots: row.headshots,
     damage: row.damage,
+    damage_received: row.damageReceived,
     headshot_percent: row.kills ? 100 * row.headshots / row.kills : 0,
     adr,
     kast,
@@ -2210,6 +2264,18 @@ function finishPlayer(row) {
       fire: row.fireDamage,
       total: row.heDamage + row.fireDamage
     },
+    utility_thrown: {
+      high_explosive: row.heGrenadesThrown,
+      flashbang: row.flashbangsThrown,
+      smoke: row.smokesThrown,
+      fire: row.fireGrenadesThrown,
+      decoy: row.decoysThrown,
+      total: row.heGrenadesThrown + row.flashbangsThrown + row.smokesThrown + row.fireGrenadesThrown + row.decoysThrown
+    },
+    objectives: {
+      plants: row.bombPlants,
+      defuses: row.bombDefuses
+    },
     kill_context: {
       blinded_enemy_kills: row.blindedEnemyKills,
       deaths_while_blind: row.deathsWhileBlind,
@@ -2247,10 +2313,11 @@ function finishPlayer(row) {
         weapon: stat.weapon,
         kills: stat.kills,
         shots: stat.shots,
+        hits: stat.hits,
         damage: stat.damage,
         rounds_used: stat.roundsUsed
       }))
-      .filter(stat => stat.kills || stat.shots || stat.damage || stat.rounds_used)
+      .filter(stat => stat.kills || stat.shots || stat.hits || stat.damage || stat.rounds_used)
       .sort((a, b) => b.kills - a.kills || b.damage - a.damage || b.shots - a.shots || b.rounds_used - a.rounds_used || a.weapon.localeCompare(b.weapon))
       .map(stat => ({ ...stat })),
     duels: [...row.duelStats.entries()]

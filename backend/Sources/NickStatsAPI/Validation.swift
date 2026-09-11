@@ -171,6 +171,13 @@ extension MatchPayload {
                 }
                 try validateCount(stats.utility.highExplosive, path: "\(sidePath).utility[0]", maximum: Int(UInt32.max))
                 try validateCount(stats.utility.fire, path: "\(sidePath).utility[1]", maximum: Int(UInt32.max))
+                try validateCount(stats.damageReceived ?? 0, path: "\(sidePath).damage_received", maximum: Int(UInt32.max))
+                if let thrown = stats.utilityThrown {
+                    try validateCounts([thrown.highExplosive, thrown.flashbang, thrown.smoke, thrown.fire, thrown.decoy], count: 5, path: "\(sidePath).utility_thrown")
+                }
+                if let objectives = stats.objectives {
+                    try validateCounts([objectives.plants, objectives.defuses], count: 2, path: "\(sidePath).objectives")
+                }
                 try validateSpeedSummary(stats.speed.kills, startingAt: 0, path: "\(sidePath).speed")
                 try validateSpeedSummary(stats.speed.deaths, startingAt: 6, path: "\(sidePath).speed")
                 try validateCounts(stats.clutches.values, count: 5, path: "\(sidePath).clutches")
@@ -195,6 +202,7 @@ extension MatchPayload {
                     try validateCount(weapon.shots, path: "\(weaponPath)[2]", maximum: 4_294_967_295)
                     try validateCount(weapon.damage, path: "\(weaponPath)[3]", maximum: 4_294_967_295)
                     try validateCount(weapon.roundsUsed, path: "\(weaponPath)[4]")
+                    try validateCount(weapon.hits, path: "\(weaponPath)[5]", maximum: 4_294_967_295)
                 }
                 var duelTargets = Set<Int>()
                 for (rowIndex, duel) in stats.duels.enumerated() {

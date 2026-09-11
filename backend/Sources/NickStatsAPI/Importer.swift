@@ -197,13 +197,17 @@ private func insertSideStats(
     // Older compact clients only send wins. Every win necessarily represents
     // at least one attempt, so preserve that minimum instead of writing 0/W.
     let clutchAttempts = stats.clutchAttempts ?? stats.clutches
+    let utilityThrown = stats.utilityThrown ?? .zero
+    let objectives = stats.objectives ?? .zero
     try await sql.raw("""
         INSERT INTO player_side_stats (
           match_player_id, side, rounds_played, rounds_won,
-          kills, deaths, assists, headshots, damage, kast_rounds,
+          kills, deaths, assists, headshots, damage, damage_received, kast_rounds,
           opening_kills, opening_deaths, trade_kills,
           tradeable_deaths, attempted_tradeable_deaths, traded_deaths,
           he_damage, fire_damage,
+          he_grenades_thrown, flashbangs_thrown, smokes_thrown, fire_grenades_thrown, decoys_thrown,
+          bomb_plants, bomb_defuses,
           kill_speed_total, kill_speed_samples, kill_speed_max,
           kill_speed_percent_total, kill_speed_percent_samples, kill_speed_percent_max,
           death_speed_total, death_speed_samples, death_speed_max,
@@ -214,10 +218,13 @@ private func insertSideStats(
         ) VALUES (
           \(bind: actorID), \(bind: side.rawValue), \(bind: stats.rounds.played), \(bind: stats.rounds.won),
           \(bind: stats.combat.kills), \(bind: stats.combat.deaths), \(bind: stats.combat.assists),
-          \(bind: stats.combat.headshots), \(bind: stats.combat.damage), \(bind: stats.kastRounds),
+          \(bind: stats.combat.headshots), \(bind: stats.combat.damage), \(bind: stats.damageReceived ?? 0), \(bind: stats.kastRounds),
           \(bind: stats.opening.kills), \(bind: stats.opening.deaths), \(bind: stats.tradeKills),
           \(bind: stats.tradeDeaths.tradeable), \(bind: stats.tradeDeaths.attempted), \(bind: stats.tradeDeaths.traded),
           \(bind: stats.utility.highExplosive), \(bind: stats.utility.fire),
+          \(bind: utilityThrown.highExplosive), \(bind: utilityThrown.flashbang), \(bind: utilityThrown.smoke),
+          \(bind: utilityThrown.fire), \(bind: utilityThrown.decoy),
+          \(bind: objectives.plants), \(bind: objectives.defuses),
           \(bind: stats.speed.kills.total), \(bind: stats.speed.kills.samples), \(bind: stats.speed.kills.maximum),
           \(bind: stats.speed.kills.percentOfMaximumTotal), \(bind: stats.speed.kills.percentOfMaximumSamples), \(bind: stats.speed.kills.percentOfMaximumPeak),
           \(bind: stats.speed.deaths.total), \(bind: stats.speed.deaths.samples), \(bind: stats.speed.deaths.maximum),
@@ -234,10 +241,10 @@ private func insertSideStats(
     for weapon in stats.weapons {
         try await sql.raw("""
             INSERT INTO weapon_side_stats
-              (match_player_id, side, weapon, kills, shots, damage, rounds_used)
+              (match_player_id, side, weapon, kills, shots, hits, damage, rounds_used)
             VALUES (
               \(bind: actorID), \(bind: side.rawValue), \(bind: weapon.weapon), \(bind: weapon.kills),
-              \(bind: weapon.shots), \(bind: weapon.damage), \(bind: weapon.roundsUsed)
+              \(bind: weapon.shots), \(bind: weapon.hits), \(bind: weapon.damage), \(bind: weapon.roundsUsed)
             )
             """).run()
     }

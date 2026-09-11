@@ -20,15 +20,15 @@
   };
 
   const metricGroups = {
-    core: [["Win rate", "winRate", "percent"], ["Rating", "rating", "rating"], ["K/D", "kd", "ratio"], ["ADR", "adr", "decimal"], ["KAST", "kast", "percent"], ["K/R", "kpr", "ratio"], ["D/R", "dpr", "ratio", false], ["A/R", "apr", "ratio"], ["HS%", "hs", "percent"]],
+    core: [["Win rate", "winRate", "percent"], ["Rating", "rating", "rating"], ["K/D", "kd", "ratio"], ["ADR", "adr", "decimal"], ["Damage received", "damage_received", "damageRate", false], ["Damage diff", "damageDiff", "signedRate"], ["KAST", "kast", "percent"], ["K/R", "kpr", "ratio"], ["D/R", "dpr", "ratio", false], ["A/R", "apr", "ratio"], ["HS%", "hs", "percent"]],
     openings: [["Opening K", "opening_kills", "countRate"], ["Opening D", "opening_deaths", "countRate", false], ["Opening diff", "openingDiff", "signedRate"], ["Success", "openingSuccess", "percent"]],
     trades: [["Trade K", "trade_kills", "countRate"], ["Opportunities", "trade_opportunities", "countRate"], ["Attempts", "trade_attempts", "countRate"], ["Successes", "trade_successes", "countRate"], ["Attempt rate", "tradeAttemptRate", "percent"], ["Success rate", "tradeSuccessRate", "percent"], ["Tradeable D", "tradeable_deaths", "countRate", false], ["D attempted", "attempted_tradeable_deaths", "countRate"], ["D traded", "traded_deaths", "countRate"]],
-    utility: [["Utility dmg", "utilityDamage", "damageRate"], ["UD/R", "udr", "decimal"], ["HE dmg", "he_damage", "damageRate"], ["Fire dmg", "fire_damage", "damageRate"], ["Flashed", "enemies_flashed", "countRate"], ["Blind sec", "blindSeconds", "secondsRate"], ["Flash assists", "flash_assists", "countRate"], ["Damage assists", "damage_assisted_kills", "countRate"], ["Teammate-flash K", "teammate_flash_assisted_kills", "countRate"], ["Own-flash K", "own_flash_kills", "countRate"]],
+    utility: [["Utility dmg", "utilityDamage", "damageRate"], ["UD/R", "udr", "decimal"], ["HE dmg", "he_damage", "damageRate"], ["Fire dmg", "fire_damage", "damageRate"], ["HE thrown", "he_grenades_thrown", "countRate"], ["Flashes thrown", "flashbangs_thrown", "countRate"], ["Smokes thrown", "smokes_thrown", "countRate"], ["Fire thrown", "fire_grenades_thrown", "countRate"], ["Decoys thrown", "decoys_thrown", "countRate"], ["Flashed", "enemies_flashed", "countRate"], ["Blind sec", "blindSeconds", "secondsRate"], ["Flash assists", "flash_assists", "countRate"], ["Damage assists", "damage_assisted_kills", "countRate"], ["Teammate-flash K", "teammate_flash_assisted_kills", "countRate"], ["Own-flash K", "own_flash_kills", "countRate"]],
     context: [["Enemy blind", "blinded_kills", "countRate"], ["Player blind", "blind_kills", "countRate"], ["Wallbang kills", "wallbang_kills", "countRate"], ["Smoke kills", "smoke_kills", "countRate"], ["Airborne kills", "airborne_kills", "countRate"], ["Running kills", "running_kills", "countRate"], ["Enemy grenade out", "grenade_out_kills", "countRate"], ["Enemy knife out", "knife_out_kills", "countRate"], ["Paul kills", "equipment_disadvantage_kills", "countRate"], ["Bullshit kills", "unfair_kills", "countRate"]],
     contextDeaths: [["Player blind", "deaths_while_blind", "countRate", false], ["Enemy blind", "deaths_to_blind_killer", "countRate", false], ["Wallbang deaths", "wallbang_deaths", "countRate", false], ["Smoke deaths", "smoke_deaths", "countRate", false], ["Airborne enemy", "airborne_deaths", "countRate", false], ["Running enemy", "running_killer_deaths", "countRate", false], ["Player grenade out", "grenade_out_deaths", "countRate", false], ["Player knife out", "knife_out_deaths", "countRate", false], ["Paul deaths", "equipment_disadvantage_deaths", "countRate", false], ["Bullshit deaths", "unfair_deaths", "countRate", false]],
-    rounds: [["Round wins", "round_wins", "countRate"], ["1v1 W/A", "clutch_1v1", "clutch1"], ["1v2 W/A", "clutch_1v2", "clutch2"], ["1v3 W/A", "clutch_1v3", "clutch3"], ["1v4 W/A", "clutch_1v4", "clutch4"], ["1v5 W/A", "clutch_1v5", "clutch5"], ["1K rounds", "kill_rounds_1k", "countRate"], ["2K rounds", "kill_rounds_2k", "countRate"], ["3K rounds", "kill_rounds_3k", "countRate"], ["4K rounds", "kill_rounds_4k", "countRate"], ["5K rounds", "kill_rounds_5k", "countRate"]],
+    rounds: [["Round wins", "round_wins", "countRate"], ["Bomb plants", "bomb_plants", "countRate"], ["Bomb defuses", "bomb_defuses", "countRate"], ["1v1 W/A", "clutch_1v1", "clutch1"], ["1v2 W/A", "clutch_1v2", "clutch2"], ["1v3 W/A", "clutch_1v3", "clutch3"], ["1v4 W/A", "clutch_1v4", "clutch4"], ["1v5 W/A", "clutch_1v5", "clutch5"], ["1K rounds", "kill_rounds_1k", "countRate"], ["2K rounds", "kill_rounds_2k", "countRate"], ["3K rounds", "kill_rounds_3k", "countRate"], ["4K rounds", "kill_rounds_4k", "countRate"], ["5K rounds", "kill_rounds_5k", "countRate"]],
     movement: [["Kill speed", "killSpeed", "decimal"], ["Kill speed %", "killSpeedPercent", "percent"], ["Peak kill speed", "kill_speed_max", "decimal"], ["Death speed", "deathSpeed", "decimal", false], ["Death speed %", "deathSpeedPercent", "percent", false], ["Peak death speed", "death_speed_max", "decimal", false], ["Moving K", "moving_kills", "countRate"], ["Still K", "still_kills", "countRate"], ["Running K", "running_kills", "countRate"]],
-    weapons: [["Kills", "weaponKills", "countRate"], ["Damage", "weaponDamage", "damageRate"], ["Shots", "weaponShots", "countRate"], ["Rounds used", "weaponRounds", "countRate"]]
+    weapons: [["Kills", "weaponKills", "countRate"], ["Damage", "weaponDamage", "damageRate"], ["Shots", "weaponShots", "countRate"], ["Hits", "weaponHits", "countRate"], ["Hit rate", "weaponAccuracy", "percent"], ["Rounds used", "weaponRounds", "countRate"]]
   };
 
   function num(value) {
@@ -86,8 +86,8 @@
     selected.forEach(side => {
       mergeStats(stats, side.stats);
       (side.weapons || []).forEach(weapon => {
-        const current = weapons.get(weapon.weapon) || { kills: 0, damage: 0, shots: 0, rounds_used: 0 };
-        current.kills += num(weapon.kills); current.damage += num(weapon.damage); current.shots += num(weapon.shots); current.rounds_used += num(weapon.rounds_used); weapons.set(weapon.weapon, current);
+        const current = weapons.get(weapon.weapon) || { kills: 0, damage: 0, shots: 0, hits: 0, rounds_used: 0 };
+        current.kills += num(weapon.kills); current.damage += num(weapon.damage); current.shots += num(weapon.shots); current.hits += num(weapon.hits); current.rounds_used += num(weapon.rounds_used); weapons.set(weapon.weapon, current);
       });
     });
     if (!selected.length && state.side === "ALL") mergeStats(stats, row.legacy);
@@ -113,7 +113,7 @@
   function summarize(rows) {
     const n = rows.length;
     const stats = {}, weapons = new Map();
-    rows.forEach(row => { const view = selectedView(row); mergeStats(stats, view.stats); view.weapons.forEach((weapon, name) => { const current = weapons.get(name) || { kills: 0, damage: 0, shots: 0, rounds_used: 0 }; Object.keys(current).forEach(key => current[key] += num(weapon[key])); weapons.set(name, current); }); });
+    rows.forEach(row => { const view = selectedView(row); mergeStats(stats, view.stats); view.weapons.forEach((weapon, name) => { const current = weapons.get(name) || { kills: 0, damage: 0, shots: 0, hits: 0, rounds_used: 0 }; Object.keys(current).forEach(key => current[key] += num(weapon[key])); weapons.set(name, current); }); });
     const kills = num(stats.kills), deaths = num(stats.deaths), assists = num(stats.assists);
     const rounds = num(stats.rounds), damage = num(stats.damage), kastRounds = num(stats.kast_rounds);
     const wins = rows.filter(row => row.result === "w").length;
@@ -130,6 +130,7 @@
       avgA: n ? assists / n : 0,
       avgHs: kills ? 100 * num(stats.headshots) / kills : 0,
       adr: rounds ? damage / rounds : 0,
+      damageDiff: damage - num(stats.damage_received),
       kast: rounds ? 100 * kastRounds / rounds : 0,
       rating: playerRating(aggregate), kpr: rounds ? kills / rounds : 0, dpr: rounds ? deaths / rounds : 0, apr: rounds ? assists / rounds : 0,
       hs: kills ? 100 * num(stats.headshots) / kills : 0,
@@ -141,7 +142,7 @@
       deathSpeedPercent: num(stats.death_speed_percent_total) / Math.max(1, num(stats.death_speed_percent_samples))
     };
     const weapon = weapons.get(state.weapon) || {};
-    result.weaponKills = num(weapon.kills); result.weaponDamage = num(weapon.damage); result.weaponShots = num(weapon.shots); result.weaponRounds = num(weapon.rounds_used);
+    result.weaponKills = num(weapon.kills); result.weaponDamage = num(weapon.damage); result.weaponShots = num(weapon.shots); result.weaponHits = num(weapon.hits); result.weaponAccuracy = 100 * num(weapon.hits) / Math.max(1, num(weapon.shots)); result.weaponRounds = num(weapon.rounds_used);
     result.weapons = [...weapons.entries()].map(([name, values]) => ({ weapon: name, ...values })).sort((a, b) => b.kills - a.kills || b.damage - a.damage);
     return result;
   }

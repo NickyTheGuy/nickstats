@@ -221,10 +221,15 @@ private func comparisonSideData(
             ("rounds_played", "rounds"), ("rounds_won", "round_wins"),
             ("kills", "kills"), ("deaths", "deaths"), ("assists", "assists"),
             ("headshots", "headshots"), ("damage", "damage"), ("kast_rounds", "kast_rounds"),
+            ("damage_received", "damage_received"),
             ("opening_kills", "opening_kills"), ("opening_deaths", "opening_deaths"),
             ("trade_kills", "trade_kills"), ("tradeable_deaths", "tradeable_deaths"),
             ("attempted_tradeable_deaths", "attempted_tradeable_deaths"), ("traded_deaths", "traded_deaths"),
             ("he_damage", "he_damage"), ("fire_damage", "fire_damage"),
+            ("he_grenades_thrown", "he_grenades_thrown"), ("flashbangs_thrown", "flashbangs_thrown"),
+            ("smokes_thrown", "smokes_thrown"), ("fire_grenades_thrown", "fire_grenades_thrown"),
+            ("decoys_thrown", "decoys_thrown"), ("bomb_plants", "bomb_plants"),
+            ("bomb_defuses", "bomb_defuses"),
             ("kill_speed_samples", "kill_speed_samples"), ("kill_speed_percent_samples", "kill_speed_percent_samples"),
             ("death_speed_samples", "death_speed_samples"), ("death_speed_percent_samples", "death_speed_percent_samples"),
             ("clutch_1v1", "clutch_1v1"), ("clutch_1v2", "clutch_1v2"),
@@ -347,7 +352,8 @@ private func comparisonSideData(
     let weapons = try await sql.raw("""
         SELECT mp.match_id, w.side, w.weapon,
                CAST(SUM(w.kills) AS SIGNED) AS kills, CAST(SUM(w.shots) AS SIGNED) AS shots,
-               CAST(SUM(w.damage) AS SIGNED) AS damage, CAST(SUM(w.rounds_used) AS SIGNED) AS rounds_used
+               CAST(SUM(w.hits) AS SIGNED) AS hits, CAST(SUM(w.damage) AS SIGNED) AS damage,
+               CAST(SUM(w.rounds_used) AS SIGNED) AS rounds_used
         FROM weapon_side_stats w JOIN match_players mp ON mp.id = w.match_player_id
         WHERE mp.player_id = \(bind: playerID)
         GROUP BY mp.match_id, w.side, w.weapon
@@ -358,7 +364,7 @@ private func comparisonSideData(
         guard var value = values[key] else { continue }
         value.weapons.append(ComparisonWeaponStats(
             weapon: try row.decode(column: "weapon", as: String.self),
-            kills: try integer(row, "kills"), shots: try integer(row, "shots"),
+            kills: try integer(row, "kills"), shots: try integer(row, "shots"), hits: try integer(row, "hits"),
             damage: try integer(row, "damage"), roundsUsed: try integer(row, "rounds_used")
         ))
         values[key] = value
@@ -467,7 +473,10 @@ private struct ProfileAccumulator {
     var assists = 0
     var headshots = 0
     var damage = 0
+    var damageReceived = 0
     var kastRounds = 0
+    var bombPlants = 0
+    var bombDefuses = 0
     var openingKills = 0
     var openingDeaths = 0
     var tradeKills = 0
@@ -476,6 +485,11 @@ private struct ProfileAccumulator {
     var tradedDeaths = 0
     var highExplosiveDamage = 0
     var fireDamage = 0
+    var highExplosiveThrown = 0
+    var flashbangsThrown = 0
+    var smokesThrown = 0
+    var fireGrenadesThrown = 0
+    var decoysThrown = 0
 
     mutating func merge(_ other: ProfileAccumulator) {
         matches += other.matches
@@ -489,7 +503,10 @@ private struct ProfileAccumulator {
         assists += other.assists
         headshots += other.headshots
         damage += other.damage
+        damageReceived += other.damageReceived
         kastRounds += other.kastRounds
+        bombPlants += other.bombPlants
+        bombDefuses += other.bombDefuses
         openingKills += other.openingKills
         openingDeaths += other.openingDeaths
         tradeKills += other.tradeKills
@@ -498,6 +515,11 @@ private struct ProfileAccumulator {
         tradedDeaths += other.tradedDeaths
         highExplosiveDamage += other.highExplosiveDamage
         fireDamage += other.fireDamage
+        highExplosiveThrown += other.highExplosiveThrown
+        flashbangsThrown += other.flashbangsThrown
+        smokesThrown += other.smokesThrown
+        fireGrenadesThrown += other.fireGrenadesThrown
+        decoysThrown += other.decoysThrown
     }
 
     var killDeathRatio: Double { deaths > 0 ? Double(kills) / Double(deaths) : Double(kills) }
@@ -537,6 +559,7 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
                CAST(SUM(s.assists) AS SIGNED) AS assists,
                CAST(SUM(s.headshots) AS SIGNED) AS headshots,
                CAST(SUM(s.damage) AS SIGNED) AS damage,
+               CAST(SUM(s.damage_received) AS SIGNED) AS damage_received,
                CAST(SUM(s.kast_rounds) AS SIGNED) AS kast_rounds,
                CAST(SUM(s.opening_kills) AS SIGNED) AS opening_kills,
                CAST(SUM(s.opening_deaths) AS SIGNED) AS opening_deaths,
@@ -545,7 +568,14 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
                CAST(SUM(s.attempted_tradeable_deaths) AS SIGNED) AS attempted_tradeable_deaths,
                CAST(SUM(s.traded_deaths) AS SIGNED) AS traded_deaths,
                CAST(SUM(s.he_damage) AS SIGNED) AS he_damage,
-               CAST(SUM(s.fire_damage) AS SIGNED) AS fire_damage
+               CAST(SUM(s.fire_damage) AS SIGNED) AS fire_damage,
+               CAST(SUM(s.he_grenades_thrown) AS SIGNED) AS he_grenades_thrown,
+               CAST(SUM(s.flashbangs_thrown) AS SIGNED) AS flashbangs_thrown,
+               CAST(SUM(s.smokes_thrown) AS SIGNED) AS smokes_thrown,
+               CAST(SUM(s.fire_grenades_thrown) AS SIGNED) AS fire_grenades_thrown,
+               CAST(SUM(s.decoys_thrown) AS SIGNED) AS decoys_thrown,
+               CAST(SUM(s.bomb_plants) AS SIGNED) AS bomb_plants,
+               CAST(SUM(s.bomb_defuses) AS SIGNED) AS bomb_defuses
         FROM match_players mp
         JOIN matches m ON m.id = mp.match_id
         JOIN match_teams own_team ON own_team.id = mp.match_team_id
@@ -575,7 +605,10 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
         match.assists = try integer(row, "assists")
         match.headshots = try integer(row, "headshots")
         match.damage = try integer(row, "damage")
+        match.damageReceived = try integer(row, "damage_received")
         match.kastRounds = try integer(row, "kast_rounds")
+        match.bombPlants = try integer(row, "bomb_plants")
+        match.bombDefuses = try integer(row, "bomb_defuses")
         match.openingKills = try integer(row, "opening_kills")
         match.openingDeaths = try integer(row, "opening_deaths")
         match.tradeKills = try integer(row, "trade_kills")
@@ -584,6 +617,11 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
         match.tradedDeaths = try integer(row, "traded_deaths")
         match.highExplosiveDamage = try integer(row, "he_damage")
         match.fireDamage = try integer(row, "fire_damage")
+        match.highExplosiveThrown = try integer(row, "he_grenades_thrown")
+        match.flashbangsThrown = try integer(row, "flashbangs_thrown")
+        match.smokesThrown = try integer(row, "smokes_thrown")
+        match.fireGrenadesThrown = try integer(row, "fire_grenades_thrown")
+        match.decoysThrown = try integer(row, "decoys_thrown")
         totals.merge(match)
         let mapName = try row.decode(column: "map_name", as: String.self)
         mapTotals[mapName, default: ProfileAccumulator()].merge(match)
@@ -614,6 +652,7 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
         SELECT w.weapon,
                CAST(SUM(w.kills) AS SIGNED) AS kills,
                CAST(SUM(w.shots) AS SIGNED) AS shots,
+               CAST(SUM(w.hits) AS SIGNED) AS hits,
                CAST(SUM(w.damage) AS SIGNED) AS damage,
                CAST(SUM(w.rounds_used) AS SIGNED) AS rounds_used
         FROM match_players mp
@@ -653,14 +692,19 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
             matches: totals.matches, wins: totals.wins, losses: totals.losses, draws: totals.draws,
             rounds: totals.rounds, roundWins: totals.roundWins, kills: totals.kills,
             deaths: totals.deaths, assists: totals.assists, headshots: totals.headshots,
-            damage: totals.damage, kastRounds: totals.kastRounds
+            damage: totals.damage, damageReceived: totals.damageReceived,
+            kastRounds: totals.kastRounds, bombPlants: totals.bombPlants,
+            bombDefuses: totals.bombDefuses
         ),
         utility: PlayerUtilityStats(
             highExplosiveDamage: totals.highExplosiveDamage,
             fireDamage: totals.fireDamage,
             enemiesFlashed: try integer(flashRow, "enemies_flashed"),
             blindDurationSeconds: Double(try integer(flashRow, "blind_duration_ms")) / 1000,
-            flashAssists: try integer(assistRow, "flash_assists")
+            flashAssists: try integer(assistRow, "flash_assists"),
+            highExplosiveThrown: totals.highExplosiveThrown,
+            flashbangsThrown: totals.flashbangsThrown, smokesThrown: totals.smokesThrown,
+            fireGrenadesThrown: totals.fireGrenadesThrown, decoysThrown: totals.decoysThrown
         ),
         trades: PlayerTradeProfileStats(
             kills: totals.tradeKills,
@@ -675,7 +719,7 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
         weapons: try weaponRows.map { row in
             PlayerWeaponProfileStats(
                 weapon: try row.decode(column: "weapon", as: String.self),
-                kills: try integer(row, "kills"), shots: try integer(row, "shots"),
+                kills: try integer(row, "kills"), shots: try integer(row, "shots"), hits: try integer(row, "hits"),
                 damage: try integer(row, "damage"), roundsUsed: try integer(row, "rounds_used")
             )
         },
@@ -777,6 +821,9 @@ private func emptySide() -> SideStatsPayload {
         kastRounds: 0, opening: OpeningStats(kills: 0, deaths: 0), tradeKills: 0,
         tradeDeaths: TradeDeathStats(tradeable: 0, attempted: 0, traded: 0),
         utility: UtilityDamage(highExplosive: 0, fire: 0),
+        damageReceived: 0,
+        utilityThrown: .zero,
+        objectives: .zero,
         speed: SpeedStats(kills: emptySpeedSummary(), deaths: emptySpeedSummary()),
         clutches: ClutchWins.zero,
         clutchAttempts: ClutchWins.zero,
@@ -815,6 +862,17 @@ private func decodeSide(_ row: any SQLRow) throws -> SideStatsPayload {
         ),
         utility: UtilityDamage(
             highExplosive: try integer(row, "he_damage"), fire: try integer(row, "fire_damage")
+        ),
+        damageReceived: try integer(row, "damage_received"),
+        utilityThrown: UtilityThrown(
+            highExplosive: try integer(row, "he_grenades_thrown"),
+            flashbang: try integer(row, "flashbangs_thrown"),
+            smoke: try integer(row, "smokes_thrown"),
+            fire: try integer(row, "fire_grenades_thrown"),
+            decoy: try integer(row, "decoys_thrown")
+        ),
+        objectives: ObjectiveStats(
+            plants: try integer(row, "bomb_plants"), defuses: try integer(row, "bomb_defuses")
         ),
         speed: SpeedStats(
             kills: SpeedSummary(
@@ -871,7 +929,7 @@ private func attachWeapons(
         let side = try playerSide(row, "side")
         players[slot].sides[side].weapons.append(WeaponPayload(
             weapon: try row.decode(column: "weapon", as: String.self),
-            kills: try integer(row, "kills"), shots: try integer(row, "shots"),
+            kills: try integer(row, "kills"), shots: try integer(row, "shots"), hits: try integer(row, "hits"),
             damage: try integer(row, "damage"), roundsUsed: try integer(row, "rounds_used")
         ))
     }

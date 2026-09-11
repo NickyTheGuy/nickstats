@@ -1,6 +1,14 @@
 USE nickstats;
 
 ALTER TABLE player_side_stats
+  ADD COLUMN damage_received INT UNSIGNED NOT NULL DEFAULT 0 AFTER damage,
+  ADD COLUMN he_grenades_thrown SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER fire_damage,
+  ADD COLUMN flashbangs_thrown SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER he_grenades_thrown,
+  ADD COLUMN smokes_thrown SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER flashbangs_thrown,
+  ADD COLUMN fire_grenades_thrown SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER smokes_thrown,
+  ADD COLUMN decoys_thrown SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER fire_grenades_thrown,
+  ADD COLUMN bomb_plants SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER decoys_thrown,
+  ADD COLUMN bomb_defuses SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER bomb_plants,
   ADD COLUMN clutch_attempt_1v1 SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER clutch_1v5,
   ADD COLUMN clutch_attempt_1v2 SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER clutch_attempt_1v1,
   ADD COLUMN clutch_attempt_1v3 SMALLINT UNSIGNED NOT NULL DEFAULT 0 AFTER clutch_attempt_1v2,
@@ -25,5 +33,8 @@ ALTER TABLE player_side_stats
       clutch_attempt_1v4 + clutch_attempt_1v5 <= rounds_played
   );
 
+ALTER TABLE weapon_side_stats
+  ADD COLUMN hits INT UNSIGNED NOT NULL DEFAULT 0 AFTER shots;
+
 INSERT INTO schema_migrations (version, description)
-VALUES (2, 'Add clutch attempt counters');
+VALUES (2, 'Add clutch attempts and extended raw counters');

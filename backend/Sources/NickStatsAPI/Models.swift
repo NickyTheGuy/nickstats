@@ -100,6 +100,9 @@ struct SideStatsPayload: Content, Sendable {
     var tradeKills: Int
     var tradeDeaths: TradeDeathStats
     var utility: UtilityDamage
+    var damageReceived: Int? = nil
+    var utilityThrown: UtilityThrown? = nil
+    var objectives: ObjectiveStats? = nil
     var speed: SpeedStats
     var clutches: ClutchWins
     var clutchAttempts: ClutchWins? = nil
@@ -112,11 +115,13 @@ struct SideStatsPayload: Content, Sendable {
     var flashes: [FlashStats]
 
     enum CodingKeys: String, CodingKey {
-        case rounds, opening, utility, speed, clutches, weapons, duels, trades, contexts, flashes
+        case rounds, opening, utility, objectives, speed, clutches, weapons, duels, trades, contexts, flashes
         case combat = "kda"
         case kastRounds = "kast_rounds"
         case tradeKills = "trade_kills"
         case tradeDeaths = "trade_d"
+        case damageReceived = "damage_received"
+        case utilityThrown = "utility_thrown"
         case clutchAttempts = "clutch_attempts"
         case killRounds = "kill_rounds"
         case assistedBy = "assisted_by"
@@ -127,13 +132,15 @@ struct WeaponPayload: Codable, Sendable {
     var weapon: String
     var kills: Int
     var shots: Int
+    var hits: Int
     var damage: Int
     var roundsUsed: Int
 
-    init(weapon: String, kills: Int, shots: Int, damage: Int, roundsUsed: Int) {
+    init(weapon: String, kills: Int, shots: Int, hits: Int, damage: Int, roundsUsed: Int) {
         self.weapon = weapon
         self.kills = kills
         self.shots = shots
+        self.hits = hits
         self.damage = damage
         self.roundsUsed = roundsUsed
     }
@@ -145,9 +152,8 @@ struct WeaponPayload: Codable, Sendable {
         shots = try values.decode(Int.self)
         damage = try values.decode(Int.self)
         roundsUsed = try values.decode(Int.self)
-        guard values.isAtEnd else {
-            throw DecodingError.dataCorruptedError(in: values, debugDescription: "Weapon rows contain exactly five values.")
-        }
+        hits = values.isAtEnd ? 0 : try values.decode(Int.self)
+        try rejectExtraValues(in: values, description: "Weapon row")
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -157,6 +163,7 @@ struct WeaponPayload: Codable, Sendable {
         try values.encode(shots)
         try values.encode(damage)
         try values.encode(roundsUsed)
+        try values.encode(hits)
     }
 }
 
@@ -279,12 +286,18 @@ struct PlayerCareerTotals: Content {
     var assists: Int
     var headshots: Int
     var damage: Int
+    var damageReceived: Int
     var kastRounds: Int
+    var bombPlants: Int
+    var bombDefuses: Int
 
     enum CodingKeys: String, CodingKey {
         case matches, wins, losses, draws, rounds, kills, deaths, assists, headshots, damage
+        case damageReceived = "damage_received"
         case roundWins = "round_wins"
         case kastRounds = "kast_rounds"
+        case bombPlants = "bomb_plants"
+        case bombDefuses = "bomb_defuses"
     }
 }
 
@@ -294,6 +307,11 @@ struct PlayerUtilityStats: Content {
     var enemiesFlashed: Int
     var blindDurationSeconds: Double
     var flashAssists: Int
+    var highExplosiveThrown: Int
+    var flashbangsThrown: Int
+    var smokesThrown: Int
+    var fireGrenadesThrown: Int
+    var decoysThrown: Int
 
     enum CodingKeys: String, CodingKey {
         case highExplosiveDamage = "he_damage"
@@ -301,6 +319,11 @@ struct PlayerUtilityStats: Content {
         case enemiesFlashed = "enemies_flashed"
         case blindDurationSeconds = "blind_duration_seconds"
         case flashAssists = "flash_assists"
+        case highExplosiveThrown = "he_grenades_thrown"
+        case flashbangsThrown = "flashbangs_thrown"
+        case smokesThrown = "smokes_thrown"
+        case fireGrenadesThrown = "fire_grenades_thrown"
+        case decoysThrown = "decoys_thrown"
     }
 }
 
@@ -330,11 +353,12 @@ struct PlayerWeaponProfileStats: Content {
     var weapon: String
     var kills: Int
     var shots: Int
+    var hits: Int
     var damage: Int
     var roundsUsed: Int
 
     enum CodingKeys: String, CodingKey {
-        case weapon, kills, shots, damage
+        case weapon, kills, shots, hits, damage
         case roundsUsed = "rounds_used"
     }
 }
@@ -415,11 +439,12 @@ struct ComparisonWeaponStats: Content {
     var weapon: String
     var kills: Int
     var shots: Int
+    var hits: Int
     var damage: Int
     var roundsUsed: Int
 
     enum CodingKeys: String, CodingKey {
-        case weapon, kills, shots, damage
+        case weapon, kills, shots, hits, damage
         case roundsUsed = "rounds_used"
     }
 }

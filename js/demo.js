@@ -273,7 +273,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260911-7");
+      const worker = new Worker("./js/demo-worker.js?v=20260911-8");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -546,6 +546,9 @@
       trade_kills: numberValue(left.trade_kills) + numberValue(right.trade_kills),
       trade_d: sumArray(left.trade_d, right.trade_d, 3),
       utility: sumArray(left.utility, right.utility, 2),
+      damage_received: numberValue(left.damage_received) + numberValue(right.damage_received),
+      utility_thrown: sumArray(left.utility_thrown, right.utility_thrown, 5),
+      objectives: sumArray(left.objectives, right.objectives, 2),
       speed: mergeSpeed(left.speed, right.speed),
       clutches: sumArray(left.clutches, right.clutches, 5),
       clutch_attempts: sumArray(left.clutch_attempts, right.clutch_attempts, 5),
@@ -674,6 +677,7 @@
       return {
         ...player,
         kills, deaths, assists, headshots, damage,
+        damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
         adr, kast, kast_rounds: kastRounds, rounds_played: rounds, round_wins: wins,
         opening_kills: numberValue(stats.opening?.[0]),
@@ -702,6 +706,17 @@
           fire: numberValue(stats.utility?.[1]),
           total: numberValue(stats.utility?.[0]) + numberValue(stats.utility?.[1])
         },
+        utility_thrown: {
+          high_explosive: numberValue(stats.utility_thrown?.[0]),
+          flashbang: numberValue(stats.utility_thrown?.[1]),
+          smoke: numberValue(stats.utility_thrown?.[2]),
+          fire: numberValue(stats.utility_thrown?.[3]),
+          decoy: numberValue(stats.utility_thrown?.[4])
+        },
+        objectives: {
+          plants: numberValue(stats.objectives?.[0]),
+          defuses: numberValue(stats.objectives?.[1])
+        },
         kill_context: {
           blinded_enemy_kills: outgoingContext[0], deaths_while_blind: incomingContext[0],
           kills_while_blind: outgoingContext[1], deaths_to_blind_killer: incomingContext[1],
@@ -721,7 +736,7 @@
         },
         weapon_stats: (stats.weapons || []).map(row => ({
           weapon: row[0], kills: numberValue(row[1]), shots: numberValue(row[2]),
-          damage: numberValue(row[3]), rounds_used: numberValue(row[4])
+          damage: numberValue(row[3]), rounds_used: numberValue(row[4]), hits: numberValue(row[5])
         })),
         duels,
         trade_matchups: (stats.trades || []).map(row => ({
@@ -1428,6 +1443,7 @@
       ["Weapon", "weapon"],
       ["Kills", "kills"],
       ["Shots", "shots"],
+      ["Hits", "hits"],
       ["Damage", "damage"],
       ["Rounds used", "rounds_used"]
     ];
@@ -1443,6 +1459,7 @@
       cell(row, weaponName(stat.weapon));
       cell(row, stat.kills || 0);
       cell(row, stat.shots || 0);
+      cell(row, stat.hits || 0);
       cell(row, stat.damage || 0);
       cell(row, stat.rounds_used || 0);
       body.appendChild(row);
@@ -1450,7 +1467,7 @@
     if (!weapons.length) {
       const row = document.createElement("tr");
       const empty = document.createElement("td");
-      empty.colSpan = 5;
+      empty.colSpan = 6;
       empty.className = "empty";
       empty.textContent = "No weapon events were recorded.";
       row.appendChild(empty);
@@ -1812,12 +1829,19 @@
         utility: [
           number(player.grenade_damage?.high_explosive), number(player.grenade_damage?.fire)
         ],
+        damage_received: number(player.damage_received),
+        utility_thrown: [
+          number(player.utility_thrown?.high_explosive), number(player.utility_thrown?.flashbang),
+          number(player.utility_thrown?.smoke), number(player.utility_thrown?.fire),
+          number(player.utility_thrown?.decoy)
+        ],
+        objectives: [number(player.objectives?.plants), number(player.objectives?.defuses)],
         speed: [...speedArray(context.speed_on_kill), ...speedArray(context.killer_speed_on_death)],
         clutches: countArray(player.clutch_wins),
         clutch_attempts: countArray(player.clutch_attempts),
         kill_rounds: countArray(player.kill_rounds),
         weapons: (player.weapon_stats || []).map(stat => [
-          stat.weapon, number(stat.kills), number(stat.shots), number(stat.damage), number(stat.rounds_used)
+          stat.weapon, number(stat.kills), number(stat.shots), number(stat.damage), number(stat.rounds_used), number(stat.hits)
         ]),
         duels: (player.duels || []).filter(duel => number(duel.kills) > 0).map(duel => [
           referenceIndex(duel.opponent, duel.opponent_steam_id, duel.opponent_is_bot),
@@ -1850,7 +1874,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/9",
-      nickstats_build: "2026.09.11.5",
+      nickstats_build: "2026.09.11.6",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

@@ -275,6 +275,66 @@ struct UtilityDamage: Codable, Sendable {
     }
 }
 
+struct UtilityThrown: Codable, Sendable {
+    var highExplosive: Int
+    var flashbang: Int
+    var smoke: Int
+    var fire: Int
+    var decoy: Int
+
+    static var zero: UtilityThrown {
+        UtilityThrown(highExplosive: 0, flashbang: 0, smoke: 0, fire: 0, decoy: 0)
+    }
+
+    init(highExplosive: Int, flashbang: Int, smoke: Int, fire: Int, decoy: Int) {
+        self.highExplosive = highExplosive
+        self.flashbang = flashbang
+        self.smoke = smoke
+        self.fire = fire
+        self.decoy = decoy
+    }
+
+    init(from decoder: any Decoder) throws {
+        var values = try decoder.unkeyedContainer()
+        highExplosive = try values.decode(Int.self)
+        flashbang = try values.decode(Int.self)
+        smoke = try values.decode(Int.self)
+        fire = try values.decode(Int.self)
+        decoy = try values.decode(Int.self)
+        try rejectExtraValues(in: values, description: "Utility thrown")
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.unkeyedContainer()
+        for count in [highExplosive, flashbang, smoke, fire, decoy] { try values.encode(count) }
+    }
+}
+
+struct ObjectiveStats: Codable, Sendable {
+    var plants: Int
+    var defuses: Int
+
+    static var zero: ObjectiveStats { ObjectiveStats(plants: 0, defuses: 0) }
+
+    init(plants: Int, defuses: Int) {
+        self.plants = plants
+        self.defuses = defuses
+    }
+
+    init(from decoder: any Decoder) throws {
+        var values = try decoder.unkeyedContainer()
+        plants = try values.decode(Int.self)
+        defuses = try values.decode(Int.self)
+        try rejectExtraValues(in: values, description: "Objective statistics")
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.unkeyedContainer()
+        try values.encode(plants)
+        try values.encode(defuses)
+    }
+}
+
 struct SpeedSummary: Sendable {
     var total: Double
     var samples: Int

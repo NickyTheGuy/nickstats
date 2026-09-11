@@ -42,7 +42,7 @@ Each compact player has a match-level array index. Importers first create all `m
 | `teams[]` | `match_teams` and its player-index membership |
 | `players[]` | `players` plus `match_players` |
 | `sides[0]`, `sides[1]` | T and CT rows respectively |
-| `rounds`, `kda`, `kast_rounds`, `opening`, `trade_kills`, `trade_d`, `utility`, `speed`, `clutches`, `clutch_attempts`, `kill_rounds` | Columns in `player_side_stats` |
+| `rounds`, `kda`, `kast_rounds`, `opening`, `trade_kills`, `trade_d`, `utility`, `damage_received`, `utility_thrown`, `objectives`, `speed`, `clutches`, `clutch_attempts`, `kill_rounds` | Columns in `player_side_stats` |
 | `weapons` | `weapon_side_stats` |
 | `duels` | `duel_side_stats` |
 | `trades` | `trade_side_stats` |
@@ -80,4 +80,4 @@ Apply numbered migrations once, in order. For example:
 sudo mysql < database/migrations/002_clutch_attempts.sql
 ```
 
-Migration 002 initializes attempt counts to the existing win counts because a win proves an attempt, but historical failed attempts cannot be reconstructed from the database. Reparse those matches to populate their real attempt totals.
+Migration 002 initializes attempt counts to the existing win counts because a win proves an attempt, but historical failed attempts cannot be reconstructed from the database. It also adds raw damage-received, utility-thrown, objective, and weapon-hit counters. Reparse existing matches to populate real values for all of these counters.

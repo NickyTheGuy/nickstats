@@ -9,6 +9,7 @@ private func emptySide() -> SideStatsPayload {
         kastRounds: 0, opening: OpeningStats(kills: 0, deaths: 0), tradeKills: 0,
         tradeDeaths: TradeDeathStats(tradeable: 0, attempted: 0, traded: 0),
         utility: UtilityDamage(highExplosive: 0, fire: 0),
+        damageReceived: 0, utilityThrown: .zero, objectives: .zero,
         speed: SpeedStats(
             kills: SpeedSummary(
                 total: 0, samples: 0, maximum: nil,
@@ -88,6 +89,13 @@ private func validPayload() -> MatchPayload {
     let decoded = try JSONDecoder().decode(MatchPayload.self, from: data)
     #expect(decoded.players[0].sides.terrorist.clutchAttempts == nil)
     try decoded.validate()
+}
+
+@Test func decodesLegacyAndCurrentWeaponRows() throws {
+    let legacy = try JSONDecoder().decode(WeaponPayload.self, from: Data(#"["ak47",3,20,275,8]"#.utf8))
+    #expect(legacy.hits == 0)
+    let current = try JSONDecoder().decode(WeaponPayload.self, from: Data(#"["ak47",3,20,275,8,7]"#.utf8))
+    #expect(current.hits == 7)
 }
 
 @Test func rejectsDuplicateTeamMembership() {

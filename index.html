@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.11.20</span>
+          <span class="demo-build">Build 2026.09.11.21</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -306,10 +306,11 @@
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="utility" hidden>
-            <div class="player-section-grid player-section-grid-thirds">
+            <div class="player-section-grid">
               <section class="player-stat-section"><header><span>01</span><div><h3>Damage</h3><p>HE and incendiary impact</p></div></header><div class="player-detail-grid" id="playerUtilityDamageStats"></div></section>
-              <section class="player-stat-section"><header><span>02</span><div><h3>Flashes</h3><p>Enemies affected and assists</p></div></header><div class="player-detail-grid" id="playerFlashStats"></div></section>
-              <section class="player-stat-section"><header><span>03</span><div><h3>Assisted kills</h3><p>How kills were enabled</p></div></header><div class="player-detail-grid" id="playerAssistStats"></div></section>
+              <section class="player-stat-section"><header><span>02</span><div><h3>Grenades thrown</h3><p>Usage by grenade type</p></div></header><div class="player-detail-grid" id="playerUtilityThrownStats"></div></section>
+              <section class="player-stat-section"><header><span>03</span><div><h3>Flashes</h3><p>Enemies affected and assists</p></div></header><div class="player-detail-grid" id="playerFlashStats"></div></section>
+              <section class="player-stat-section"><header><span>04</span><div><h3>Assisted kills</h3><p>How kills were enabled</p></div></header><div class="player-detail-grid" id="playerAssistStats"></div></section>
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="trades" hidden>
@@ -332,6 +333,7 @@
             <div class="player-round-sections">
               <section class="player-stat-section player-count-section"><header><span>01</span><div><h3>Clutch performance</h3><p>Wins / attempts at the initial 1vX disadvantage</p></div></header><div class="player-count-strip" id="playerClutchStats"></div></section>
               <section class="player-stat-section player-count-section"><header><span>02</span><div><h3>Multikill rounds</h3><p>Rounds grouped by total kills</p></div></header><div class="player-count-strip" id="playerMultikillStats"></div></section>
+              <section class="player-stat-section player-count-section"><header><span>03</span><div><h3>Objectives</h3><p>Bomb plants and defuses</p></div></header><div class="player-count-strip" id="playerObjectiveStats"></div></section>
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="movement" hidden>
@@ -372,9 +374,9 @@
 
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/filters.js?v=20260911-2"></script>
-  <script defer src="./js/demo.js?v=20260911-13"></script>
-  <script defer src="./js/profile.js?v=20260911-2"></script>
-  <script defer src="./js/players.js?v=20260911-12"></script>
-  <script defer src="./js/compare.js?v=20260911-17"></script>
+  <script defer src="./js/demo.js?v=20260911-14"></script>
+  <script defer src="./js/profile.js?v=20260911-3"></script>
+  <script defer src="./js/players.js?v=20260911-13"></script>
+  <script defer src="./js/compare.js?v=20260911-18"></script>
 </body>
 </html>

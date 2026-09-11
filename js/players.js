@@ -60,8 +60,8 @@
     for (const row of selected) {
       mergeStats(stats, row.stats);
       for (const weapon of row.weapons || []) {
-        const current = weapons.get(weapon.weapon) || { weapon: weapon.weapon, kills: 0, shots: 0, damage: 0, rounds_used: 0 };
-        current.kills += number(weapon.kills); current.shots += number(weapon.shots); current.damage += number(weapon.damage); current.rounds_used += number(weapon.rounds_used); weapons.set(weapon.weapon, current);
+        const current = weapons.get(weapon.weapon) || { weapon: weapon.weapon, kills: 0, shots: 0, hits: 0, damage: 0, rounds_used: 0 };
+        current.kills += number(weapon.kills); current.shots += number(weapon.shots); current.hits += number(weapon.hits); current.damage += number(weapon.damage); current.rounds_used += number(weapon.rounds_used); weapons.set(weapon.weapon, current);
       }
     }
     return { match, stats, weapons: [...weapons.values()] };
@@ -71,8 +71,8 @@
     for (const view of matches.map(match => matchView(match, side))) {
       mergeStats(stats, view.stats);
       for (const weapon of view.weapons) {
-        const current = weapons.get(weapon.weapon) || { ...weapon, kills: 0, shots: 0, damage: 0, rounds_used: 0 };
-        for (const key of ["kills", "shots", "damage", "rounds_used"]) current[key] += number(weapon[key]);
+        const current = weapons.get(weapon.weapon) || { ...weapon, kills: 0, shots: 0, hits: 0, damage: 0, rounds_used: 0 };
+        for (const key of ["kills", "shots", "hits", "damage", "rounds_used"]) current[key] += number(weapon[key]);
         weapons.set(weapon.weapon, current);
       }
     }
