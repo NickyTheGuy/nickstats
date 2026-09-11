@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260911-13">
+  <link rel="stylesheet" href="./styles.css?v=20260911-14">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.11.10</span>
+          <span class="demo-build">Build 2026.09.11.11</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -258,9 +258,9 @@
                   <section class="player-stat-section"><header><span>02</span><div><h3>Being traded</h3><p>How teammates responded after this player died</p></div></header><div class="player-detail-grid" id="comboTradeDeathStats"></div></section>
                 </div></div>
                 <div class="player-profile-view" data-combo-profile-panel="openings" hidden><section class="player-stat-section player-stat-section-single"><header><span>01</span><div><h3>First engagements</h3><p>Opening attempts, differential, and success rate</p></div></header><div class="player-detail-grid" id="comboOpeningStats"></div></section></div>
-                <div class="player-profile-view" data-combo-profile-panel="context" hidden><div class="player-section-grid">
-                  <section class="player-stat-section"><header><span>01</span><div><h3>Kill context</h3><p>Conditions surrounding this player's kills</p></div></header><div class="player-metric-list" id="comboKillContextStats"></div></section>
-                  <section class="player-stat-section"><header><span>02</span><div><h3>Death context</h3><p>Conditions surrounding this player's deaths</p></div></header><div class="player-metric-list" id="comboDeathContextStats"></div></section>
+                <div class="player-profile-view" data-combo-profile-panel="context" hidden><p class="player-context-note">Each label names who had the condition. Equipment-out checks include the two seconds before death; “running” means above 34% of maximum weapon speed. Counts can overlap.</p><div class="player-section-grid">
+                  <section class="player-stat-section"><header><span>01</span><div><h3>When this player got the kill</h3><p>Conditions recorded on their kills</p></div></header><div class="player-metric-list" id="comboKillContextStats"></div></section>
+                  <section class="player-stat-section"><header><span>02</span><div><h3>When this player died</h3><p>Conditions recorded on their deaths</p></div></header><div class="player-metric-list" id="comboDeathContextStats"></div></section>
                 </div></div>
                 <div class="player-profile-view" data-combo-profile-panel="rounds" hidden><div class="player-round-sections">
                   <section class="player-stat-section player-count-section"><header><span>01</span><div><h3>Clutches won</h3><p>Rounds won as the final surviving player</p></div></header><div class="player-count-strip" id="comboClutchStats"></div></section>
@@ -357,9 +357,10 @@
             <section class="player-stat-section player-stat-section-single"><header><span>01</span><div><h3>First engagements</h3><p>Opening attempts, differential, and success rate</p></div></header><div class="player-detail-grid" id="playerOpeningStats"></div></section>
           </div>
           <div class="player-profile-view" data-player-profile-view="context" hidden>
+            <p class="player-context-note">Each label names who had the condition. Equipment-out checks include the two seconds before death; “running” means above 34% of maximum weapon speed. Counts can overlap.</p>
             <div class="player-section-grid">
-              <section class="player-stat-section"><header><span>01</span><div><h3>Kill context</h3><p>Conditions surrounding this player's kills</p></div></header><div class="player-metric-list" id="playerKillContextStats"></div></section>
-              <section class="player-stat-section"><header><span>02</span><div><h3>Death context</h3><p>Conditions surrounding this player's deaths</p></div></header><div class="player-metric-list" id="playerDeathContextStats"></div></section>
+              <section class="player-stat-section"><header><span>01</span><div><h3>When this player got the kill</h3><p>Conditions recorded on their kills</p></div></header><div class="player-metric-list" id="playerKillContextStats"></div></section>
+              <section class="player-stat-section"><header><span>02</span><div><h3>When this player died</h3><p>Conditions recorded on their deaths</p></div></header><div class="player-metric-list" id="playerDeathContextStats"></div></section>
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="rounds" hidden>
@@ -403,7 +404,7 @@
 
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/demo.js?v=20260911-7"></script>
-  <script defer src="./js/players.js?v=20260911-6"></script>
-  <script defer src="./js/compare.js?v=20260911-10"></script>
+  <script defer src="./js/players.js?v=20260911-7"></script>
+  <script defer src="./js/compare.js?v=20260911-11"></script>
 </body>
 </html>
