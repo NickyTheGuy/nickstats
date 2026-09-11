@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260911-5">
+  <link rel="stylesheet" href="./styles.css?v=20260911-6">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.11.5</span>
+          <span class="demo-build">Build 2026.09.11.6</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -133,6 +133,14 @@
         </div>
         </div>
       </section>
+
+      <details class="demo-diagnostics" id="demoDiagnostics" hidden>
+        <summary>Parser troubleshooting</summary>
+        <div class="demo-diagnostics-body">
+          <p>Download the round-allocation report when a parsed match cannot be uploaded.</p>
+          <button class="button button-secondary" id="demoDiagnosticsDownloadButton" type="button">Download diagnostics JSON</button>
+        </div>
+      </details>
       </div>
     </section>
 
@@ -319,7 +327,7 @@
   </dialog>
 
   <script defer src="./js/navigation.js?v=20260906-1"></script>
-  <script defer src="./js/demo.js?v=20260911-5"></script>
+  <script defer src="./js/demo.js?v=20260911-6"></script>
   <script defer src="./js/players.js?v=20260911-3"></script>
   <script defer src="./js/compare.js?v=20260911-4"></script>
 </body>

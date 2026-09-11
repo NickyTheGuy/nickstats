@@ -1641,6 +1641,41 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   display: none;
 }
 
+.demo-diagnostics {
+  border: 1px solid rgba(104, 164, 255, .2);
+  border-radius: 12px;
+  background: rgba(8, 12, 19, .4);
+  color: var(--muted);
+}
+
+.demo-diagnostics[hidden] {
+  display: none;
+}
+
+.demo-diagnostics summary {
+  padding: 12px 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.demo-diagnostics[open] summary {
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+}
+
+.demo-diagnostics-body {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+}
+
+.demo-diagnostics-body p {
+  margin: 0;
+  font-size: 13px;
+}
+
 .match-library-panel .demo-results {
   margin-top: 0;
 }
@@ -2133,6 +2168,11 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
     min-height: 32px;
     padding: 4px 7px;
     font-size: 17px;
+  }
+
+  .demo-diagnostics-body {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .player-search-panel,

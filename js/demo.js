@@ -142,6 +142,12 @@
     $("demoStatus").classList.toggle("error", error);
   }
 
+  function showDiagnosticsDownload(show) {
+    const panel = $("demoDiagnostics");
+    panel.hidden = !show || !state.diagnostics;
+    if (panel.hidden) panel.open = false;
+  }
+
   function parsedMatchDescription(result) {
     return `Parsed ${result.rounds} rounds and ${result.player_count} players.`;
   }
@@ -199,12 +205,14 @@
       const matchID = responseBody?.id == null ? "" : ` as match #${responseBody.id}`;
       const outcome = responseBody?.created === false ? "It was already stored" : "Saved to the database";
       setStatus(`${parsedMatchDescription(result)} ${outcome}${matchID}.`);
+      showDiagnosticsDownload(false);
       await loadMatches(0);
     } catch (error) {
       state.uploadPending = true;
       retryButton.hidden = false;
       const reason = error.message || "The API could not be reached.";
       setStatus(`${parsedMatchDescription(result)} Database upload failed: ${reason}`, true);
+      showDiagnosticsDownload(true);
       if (error.status === 401) {
         state.uploadToken = "";
         updateUploadAuthenticationDisplay();
@@ -297,6 +305,7 @@
     state.parsedResult = null;
     state.uploadPending = false;
     state.diagnostics = null;
+    showDiagnosticsDownload(false);
     $("demoRetryUploadButton").hidden = true;
     $("demoFileLabel").textContent = `${file.name} · ${formatBytes(file.size)}`;
     $("demoParseButton").disabled = false;
@@ -1672,6 +1681,7 @@
       return;
     }
     state.diagnostics = null;
+    showDiagnosticsDownload(false);
     $("demoParseButton").disabled = true;
     setStatus("Loading the browser demo parser…");
     try {
@@ -1690,6 +1700,7 @@
       await uploadParsedMatch(result);
     } catch (error) {
       setStatus(error.message || "The demo could not be parsed.", true);
+      showDiagnosticsDownload(true);
     } finally {
       $("demoParseButton").disabled = !state.file;
     }
@@ -1701,6 +1712,7 @@
     state.uploadPending = false;
     state.parsePending = false;
     state.diagnostics = null;
+    showDiagnosticsDownload(false);
     $("demoInput").value = "";
     $("demoFileLabel").textContent = "Choose a demo";
     $("demoParseButton").disabled = true;
@@ -1855,10 +1867,25 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  function downloadDiagnostics() {
+    if (!state.diagnostics) return;
+    const blob = new Blob([JSON.stringify(state.diagnostics, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    const sourceName = state.diagnostics.source_file || state.file?.name || "demo";
+    anchor.download = `${String(sourceName).replace(/\.(?:dem(?:\.(?:gz|zst))?|gz|zst|zip)$/i, "")}-diagnostics.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   $("demoInput").addEventListener("change", event => chooseFile(event.target.files[0]));
   $("demoParseButton").addEventListener("click", parseDemo);
   $("demoClearButton").addEventListener("click", clear);
   $("demoDownloadButton").addEventListener("click", downloadJson);
+  $("demoDiagnosticsDownloadButton").addEventListener("click", downloadDiagnostics);
   $("demoRetryUploadButton").addEventListener("click", () => uploadParsedMatch());
   $("demoAuthButton").addEventListener("click", () => openUploadAuthentication());
   $("demoAuthForm").addEventListener("submit", event => {
