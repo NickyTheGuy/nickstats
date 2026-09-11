@@ -8,7 +8,7 @@ struct MatchValidationError: AbortError, Sendable {
     var reason: String { "\(path): \(message)" }
 }
 
-private func invalid(_ path: String, _ message: String) throws -> Never {
+func invalid(_ path: String, _ message: String) throws -> Never {
     throw MatchValidationError(path: path, message: message)
 }
 
@@ -25,7 +25,7 @@ private func validateCounts(_ values: [Int], count: Int, path: String, maximum: 
     }
 }
 
-private func validateText(_ value: String, path: String, maximum: Int) throws {
+func validateText(_ value: String, path: String, maximum: Int) throws {
     guard !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
         try invalid(path, "Expected a non-empty string.")
     }

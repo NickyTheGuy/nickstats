@@ -10,6 +10,7 @@ The compact format intentionally uses fixed-position arrays to keep uploads smal
 |---|---|---|---|
 | `GET` | `/health` | Public | Database health check |
 | `POST` | `/matches` | Bearer token | Validate and atomically import one compact match |
+| `POST` | `/matches/faceit-dates` | Scoped bearer token | Update FACEIT match start times in batches |
 | `GET` | `/matches` | Public | Match list and filters |
 | `GET` | `/matches/<id>` | Public | Reconstruct compact match JSON from normalized rows |
 | `GET` | `/players` | Public | Player search/list |
@@ -17,6 +18,8 @@ The compact format intentionally uses fixed-position arrays to keep uploads smal
 | `GET` | `/compare?players=<ids>` | Public | Per-match teammate data for group and lineup comparisons |
 
 `POST /matches` is idempotent by demo SHA-256 and FACEIT match ID. A repeated upload returns the existing ID with `created: false`. Validation occurs before a transaction; all database rows then commit together or roll back together.
+
+`POST /matches/faceit-dates` accepts up to 100 FACEIT match IDs and Unix start timestamps using the `nickstats.faceit-dates/1` schema. It updates only `played_at`, `played_at_source`, and the affected players' first/last-seen bounds; match statistics are untouched. The response reports updated, unchanged, and not-yet-imported IDs.
 
 Match-list query parameters are `steam_id`, `map`, `maps`, `from`, `to`, `limit`, and `offset`. `maps` accepts comma-separated map names for an OR filter; the singular `map` remains supported. Match-list responses include every available map name for filter controls. Dates are ISO-8601; `to` is exclusive. Player-list parameters are `q`, `limit`, and `offset`.
 
@@ -30,11 +33,13 @@ Match-list query parameters are `steam_id`, `map`, `maps`, `from`, `to`, `limit`
 
 The API joins the server's existing external `web_default` and `mysql_default` Docker networks. It reaches MySQL through the private `mysql` network alias and Nginx reaches the API through `nickstats-api`. The API container is not published directly to the internet; Nginx is the only intended entry point. Do not publish MySQL port 3306.
 
-Generate the upload token on the server, for example:
+Generate separate upload and FACEIT date-sync tokens on the server, for example:
 
 ```bash
 openssl rand -hex 32
 ```
+
+Set the second value as `NICKSTATS_FACEIT_SYNC_TOKEN`. It grants access only to the date-sync route and is the token stored by the private browser extension.
 
 Keep `.env` out of Git. Upload a compact file with:
 

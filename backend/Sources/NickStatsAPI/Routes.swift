@@ -11,13 +11,18 @@ private func constantTimeEqual(_ supplied: String, _ expected: String) -> Bool {
     return difference == 0
 }
 
-private func requireUploadToken(_ request: Request) throws {
-    guard let expected = Environment.get("NICKSTATS_UPLOAD_TOKEN"), !expected.isEmpty else {
-        throw Abort(.serviceUnavailable, reason: "Match uploads are not configured.")
+private func requireToken(
+    _ request: Request,
+    environmentName: String,
+    unavailableReason: String,
+    unauthorizedReason: String
+) throws {
+    guard let expected = Environment.get(environmentName), !expected.isEmpty else {
+        throw Abort(.serviceUnavailable, reason: unavailableReason)
     }
     guard let supplied = request.headers.bearerAuthorization?.token,
           constantTimeEqual(supplied, expected) else {
-        throw Abort(.unauthorized, reason: "A valid upload token is required.")
+        throw Abort(.unauthorized, reason: unauthorizedReason)
     }
 }
 
@@ -29,7 +34,12 @@ func routes(_ app: Application) throws {
     }
 
     app.on(.POST, "matches", body: .collect(maxSize: "2mb")) { request async throws -> Response in
-        try requireUploadToken(request)
+        try requireToken(
+            request,
+            environmentName: "NICKSTATS_UPLOAD_TOKEN",
+            unavailableReason: "Match uploads are not configured.",
+            unauthorizedReason: "A valid upload token is required."
+        )
         let replaceExisting = request.query[Bool.self, at: "replace"] ?? false
         let payload: MatchPayload
         do {
@@ -44,6 +54,25 @@ func routes(_ app: Application) throws {
         let response = Response(status: result.created ? .created : .ok)
         try response.content.encode(UploadResponse(id: result.id, created: result.created, replaced: result.replaced))
         return response
+    }
+
+    app.on(.POST, "matches", "faceit-dates", body: .collect(maxSize: "128kb")) { request async throws -> FaceitDateSyncResponse in
+        try requireToken(
+            request,
+            environmentName: "NICKSTATS_FACEIT_SYNC_TOKEN",
+            unavailableReason: "FACEIT date synchronization is not configured.",
+            unauthorizedReason: "A valid FACEIT sync token is required."
+        )
+        let payload: FaceitDateSyncPayload
+        do {
+            payload = try request.content.decode(FaceitDateSyncPayload.self)
+        } catch {
+            throw Abort(.badRequest, reason: "The request body is not valid \(faceitDateSyncSchema) JSON.")
+        }
+        try payload.validate()
+        return try await request.db.transaction { database in
+            try await syncFaceitDates(payload, on: database)
+        }
     }
 
     app.get("matches") { request async throws -> MatchListResponse in
