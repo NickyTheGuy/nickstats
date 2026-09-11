@@ -644,7 +644,7 @@ async function parseDemo(fileName, buffer) {
       return false;
     }
     const inputWinnerSide = winningSide;
-    const inference = inferWinnerSideDetails();
+    const inference = inferWinnerSideDetails(trigger);
     if (winningSide !== 2 && winningSide !== 3) winningSide = inference.winner_side;
     refreshControllerTeams();
     const participants = new Set(
@@ -735,7 +735,7 @@ async function parseDemo(fileName, buffer) {
     return true;
   }
 
-  function inferWinnerSideDetails() {
+  function inferWinnerSideDetails(trigger = "unknown") {
     const alive = { 2: 0, 3: 0 };
     for (const [userId, team] of teamNow) {
       if ((team === 2 || team === 3) && !round.deaths.has(userId)) alive[team] += 1;
@@ -748,6 +748,23 @@ async function parseDemo(fileName, buffer) {
     // evidence, but do not let a stale value override current-round facts.
     const gameRules = gameRulesWinner();
     const scoreEvidence = teamScoreWinner();
+    // The final match panel is emitted after the authoritative score and win
+    // reason have settled. Prefer those signals there; ordinary delayed round
+    // events can expose next-round entity state and still use the safeguards
+    // below.
+    if (trigger === "cs_win_panel_match") {
+      const finalWinner = scoreEvidence.winner_side || gameRules.winner_side;
+      if (finalWinner === 2 || finalWinner === 3) {
+        return {
+          winner_side: finalWinner,
+          source: scoreEvidence.winner_side ? "final_score_delta" : "final_game_rules",
+          alive,
+          stored_winner_side: null,
+          game_rules: gameRules,
+          score_evidence: scoreEvidence
+        };
+      }
+    }
     if (round.bombPlanted && (alive[2] > 0 || alive[3] === 0)) {
       return {
         winner_side: 2,
@@ -1959,7 +1976,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.11.2",
+    nickstats_build: "2026.09.11.3",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
