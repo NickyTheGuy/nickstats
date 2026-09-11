@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260910-6">
+  <link rel="stylesheet" href="./styles.css?v=20260911-1">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.10.6</span>
+          <span class="demo-build">Build 2026.09.11.1</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -28,23 +28,23 @@
     </nav>
 
     <section class="app-view" id="matchPage" role="tabpanel" aria-labelledby="matchPageTab" data-app-view="match">
-      <section class="panel demo-panel">
+      <div class="match-page-stack">
+      <section class="panel demo-panel demo-upload-panel">
         <div class="section-head">
           <div>
-            <div class="eyebrow">Match page</div>
-            <h2>Open a CS2 match</h2>
-            <p>Choose a <code>.dem</code>, compressed FACEIT <code>.zst</code>, <code>.dem.gz</code>, or <code>.zip</code> file. Processing stays inside your browser.</p>
+            <div class="eyebrow">Upload</div>
+            <h2>Add a match</h2>
+            <p>Parse a CS2 or FACEIT demo locally and save its statistics.</p>
           </div>
           <div class="demo-session-controls">
-            <span class="demo-local-badge">Demo stays on this device</span>
             <button class="button button-secondary demo-auth-button" id="demoAuthButton" type="button">Enter upload token</button>
           </div>
         </div>
 
         <div class="demo-drop" id="demoDropZone">
           <div>
-            <strong id="demoFileLabel">Choose a FACEIT or CS2 demo</strong>
-            <span>The first load downloads the parser; parsing may briefly use substantial memory.</span>
+            <strong id="demoFileLabel">Choose a demo</strong>
+            <span><code>.dem</code>, <code>.zst</code>, <code>.gz</code>, or <code>.zip</code> · processed only in this browser</span>
           </div>
           <label class="button button-primary" for="demoInput">Choose demo</label>
           <input class="file-input" id="demoInput" type="file" accept=".dem,.gz,.dem.gz,.zst,.dem.zst,.zip,application/gzip,application/zstd,application/zip">
@@ -53,9 +53,38 @@
         <div class="actions">
           <button class="button button-primary" id="demoParseButton" type="button" disabled>Parse match</button>
           <button class="button button-secondary" id="demoClearButton" type="button" disabled>Clear</button>
-          <button class="button button-secondary" id="demoDiagnosticsButton" type="button" hidden>Download round diagnostics</button>
+          <button class="button button-primary" id="demoRetryUploadButton" type="button" hidden>Retry upload</button>
           <div class="status" id="demoStatus" role="status" aria-live="polite">Choose one demo file.</div>
         </div>
+      </section>
+
+      <section class="panel match-library-panel">
+        <div class="section-head match-library-head">
+          <div>
+            <div class="eyebrow">Database</div>
+            <h2>Your matches</h2>
+            <p>Open a stored match to inspect its scoreboard, duels, trades, and weapons.</p>
+          </div>
+          <button class="button button-secondary" id="matchListRefreshButton" type="button">Refresh</button>
+        </div>
+
+        <nav class="match-browser-tabs" role="tablist" aria-label="Stored match browser">
+          <button class="match-browser-tab active" id="matchListTab" type="button" role="tab" aria-selected="true" aria-controls="matchListView" data-match-browser-view="list">Match list</button>
+          <button class="match-browser-tab" id="matchDetailTab" type="button" role="tab" aria-selected="false" aria-controls="matchDetailView" data-match-browser-view="detail" disabled>Match details</button>
+        </nav>
+
+        <div class="match-browser-view" id="matchListView" role="tabpanel" aria-labelledby="matchListTab">
+          <div class="match-list-status" id="matchListStatus" role="status" aria-live="polite">Loading stored matches…</div>
+          <div class="match-list" id="matchList"></div>
+          <div class="match-list-pagination" id="matchListPagination" hidden>
+            <button class="button button-secondary" id="matchListPreviousButton" type="button">Previous</button>
+            <span id="matchListPageLabel"></span>
+            <button class="button button-secondary" id="matchListNextButton" type="button">Next</button>
+          </div>
+        </div>
+
+        <div class="match-browser-view" id="matchDetailView" role="tabpanel" aria-labelledby="matchDetailTab" hidden>
+          <div class="match-detail-loading" id="matchDetailStatus" role="status" aria-live="polite"></div>
 
         <div class="demo-results" id="demoResults" hidden>
           <div class="demo-summary" id="demoSummary"></div>
@@ -99,11 +128,12 @@
             <div class="demo-weapon-teams" id="demoWeapons"></div>
           </section>
           <div class="actions">
-            <button class="button button-primary" id="demoRetryUploadButton" type="button" hidden>Retry database upload</button>
             <button class="button button-primary" id="demoDownloadButton" type="button">Download match JSON</button>
           </div>
         </div>
+        </div>
       </section>
+      </div>
     </section>
 
     <section class="app-view" id="comparePage" role="tabpanel" aria-labelledby="comparePageTab" data-app-view="compare" hidden>
@@ -147,6 +177,6 @@
   </dialog>
 
   <script defer src="./js/navigation.js?v=20260906-1"></script>
-  <script defer src="./js/demo.js?v=20260910-6"></script>
+  <script defer src="./js/demo.js?v=20260911-1"></script>
 </body>
 </html>
