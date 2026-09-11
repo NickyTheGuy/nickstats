@@ -27,6 +27,22 @@
     return card;
   }
   function fillCards(target, cards) { $(target).replaceChildren(...cards.map(card => statCard(...card))); }
+  function fillMetricList(target, metrics) {
+    $(target).replaceChildren(...metrics.map(([label, value, note = ""]) => {
+      const row = document.createElement("div"); row.className = "player-metric-row";
+      const copy = document.createElement("div");
+      const name = document.createElement("span"); name.textContent = label; copy.appendChild(name);
+      if (note) { const detail = document.createElement("small"); detail.textContent = note; copy.appendChild(detail); }
+      const strong = document.createElement("strong"); strong.textContent = value; row.append(copy, strong); return row;
+    }));
+  }
+  function fillCountStrip(target, metrics) {
+    $(target).replaceChildren(...metrics.map(([label, value]) => {
+      const item = document.createElement("div"); item.className = "player-count-item";
+      const strong = document.createElement("strong"); strong.textContent = value;
+      const name = document.createElement("span"); name.textContent = label; item.append(strong, name); return item;
+    }));
+  }
   function setPlayerView(view) {
     document.querySelectorAll("[data-player-view]").forEach(button => {
       const active = button.dataset.playerView === view;
@@ -102,7 +118,6 @@
     rows.forEach(values => { const row = document.createElement("tr"); values.forEach((value, index) => { const cell = document.createElement(index ? "td" : "th"); if (!index) cell.scope = "row"; cell.textContent = value; row.appendChild(cell); }); body.appendChild(row); });
     table.replaceChildren(head, body);
   }
-  const countCards = (stats, fields) => fields.map(([label, key]) => [label, integer(stats[key])]);
   const perRound = (stats, key) => `${decimal(ratio(stats[key], stats.rounds), 2)} per round`;
 
   function renderProfile() {
@@ -118,27 +133,24 @@
       ["Average ADR", decimal(summary.adr, 1), `${integer(s.damage)} total damage`], ["Average KAST", percent(summary.kast), `${integer(s.kast_rounds)} KAST rounds`],
       [state.side === "ALL" ? "Match win rate" : "Round win rate", percent(summary.winRate), state.side === "ALL" ? `${summary.wins} wins in ${summary.matches} matches` : `${integer(s.round_wins)} of ${integer(summary.rounds)} rounds`]
     ]);
-    fillCards("playerOverviewStats", [["Matches", integer(summary.matches), `${summary.wins} W · ${summary.losses} L · ${summary.draws} D`], ["Rounds", integer(summary.rounds), `${integer(s.round_wins)} won`],
-      ["Kills", integer(s.kills), perRound(s, "kills")], ["Deaths", integer(s.deaths), perRound(s, "deaths")], ["Assists", integer(s.assists), perRound(s, "assists")], ["Headshot rate", percent(100 * ratio(s.headshots, s.kills)), `${integer(s.headshots)} headshots`]]);
+    fillCards("playerRecordStats", [["Matches", integer(summary.matches), `${summary.wins} W · ${summary.losses} L · ${summary.draws} D`], ["Rounds", integer(summary.rounds), `${integer(s.round_wins)} won`]]);
+    fillCards("playerCombatStats", [["Kills", integer(s.kills), perRound(s, "kills")], ["Deaths", integer(s.deaths), perRound(s, "deaths")], ["Assists", integer(s.assists), perRound(s, "assists")], ["Headshot rate", percent(100 * ratio(s.headshots, s.kills)), `${integer(s.headshots)} headshots`]]);
     const utilityDamage = number(s.he_damage) + number(s.fire_damage);
-    fillCards("playerUtilityStats", [["Utility damage", integer(utilityDamage), `${decimal(ratio(utilityDamage, s.rounds), 1)} per round`], ["HE damage", integer(s.he_damage)], ["Fire damage", integer(s.fire_damage)],
-      ["Enemies flashed", integer(s.enemies_flashed)], ["Enemy blind time", `${decimal(number(s.blind_duration_ms) / 1000, 1)}s`], ["Flash assists", integer(s.flash_assists)],
-      ["Damage-assisted kills", integer(s.damage_assisted_kills)], ["Teammate-flash kills", integer(s.teammate_flash_assisted_kills)], ["Own-flash kills", integer(s.own_flash_kills)]]);
-    fillCards("playerTradeStats", [["Trade kills", integer(s.trade_kills)], ["Opportunities", integer(s.trade_opportunities)], ["Attempts", integer(s.trade_attempts), `${percent(100 * ratio(s.trade_attempts, s.trade_opportunities))} attempt rate`],
-      ["Successful trades", integer(s.trade_successes), `${percent(100 * ratio(s.trade_successes, s.trade_attempts))} success rate`], ["Tradeable deaths", integer(s.tradeable_deaths)],
-      ["Deaths attempted", integer(s.attempted_tradeable_deaths), `${percent(100 * ratio(s.attempted_tradeable_deaths, s.tradeable_deaths))} response rate`], ["Deaths traded", integer(s.traded_deaths), `${percent(100 * ratio(s.traded_deaths, s.attempted_tradeable_deaths))} success rate`]]);
+    fillCards("playerUtilityDamageStats", [["Total damage", integer(utilityDamage), `${decimal(ratio(utilityDamage, s.rounds), 1)} per round`], ["HE", integer(s.he_damage)], ["Fire", integer(s.fire_damage)]]);
+    fillCards("playerFlashStats", [["Enemies flashed", integer(s.enemies_flashed)], ["Enemy blind time", `${decimal(number(s.blind_duration_ms) / 1000, 1)}s`], ["Flash assists", integer(s.flash_assists)]]);
+    fillCards("playerAssistStats", [["Damage", integer(s.damage_assisted_kills)], ["Teammate flash", integer(s.teammate_flash_assisted_kills)], ["Own flash", integer(s.own_flash_kills)]]);
+    fillCards("playerTradeAttackStats", [["Opportunities", integer(s.trade_opportunities)], ["Attempts", integer(s.trade_attempts), `${percent(100 * ratio(s.trade_attempts, s.trade_opportunities))} response`],
+      ["Trade kills", integer(s.trade_kills)], ["Successful trades", integer(s.trade_successes), `${percent(100 * ratio(s.trade_successes, s.trade_attempts))} conversion`]]);
+    fillCards("playerTradeDeathStats", [["Tradeable deaths", integer(s.tradeable_deaths)], ["Teammates attempted", integer(s.attempted_tradeable_deaths), `${percent(100 * ratio(s.attempted_tradeable_deaths, s.tradeable_deaths))} response`], ["Deaths traded", integer(s.traded_deaths), `${percent(100 * ratio(s.traded_deaths, s.attempted_tradeable_deaths))} conversion`]]);
     const openingTotal = number(s.opening_kills) + number(s.opening_deaths);
     fillCards("playerOpeningStats", [["Opening kills", integer(s.opening_kills)], ["Opening deaths", integer(s.opening_deaths)], ["Opening differential", `${number(s.opening_kills) - number(s.opening_deaths) >= 0 ? "+" : ""}${integer(number(s.opening_kills) - number(s.opening_deaths))}`], ["Opening success", percent(100 * ratio(s.opening_kills, openingTotal)), `${integer(openingTotal)} opening duels`]]);
-    fillCards("playerContextStats", countCards(s, [["Blinded enemies", "blinded_kills"], ["Kills while blind", "blind_kills"], ["Wallbang kills", "wallbang_kills"], ["Penetrations", "penetration_total"], ["Through smoke", "smoke_kills"], ["Airborne kills", "airborne_kills"],
-      ["Grenade-out kills", "grenade_out_kills"], ["Knife-out kills", "knife_out_kills"], ["Equipment disadvantage", "equipment_disadvantage_kills"], ["Unfair kills", "unfair_kills"],
-      ["Deaths while blind", "deaths_while_blind"], ["Deaths to blind killer", "deaths_to_blind_killer"], ["Wallbang deaths", "wallbang_deaths"], ["Death penetrations", "death_penetration_total"],
-      ["Through-smoke deaths", "smoke_deaths"], ["Airborne-killer deaths", "airborne_deaths"], ["Moving-killer deaths", "moving_killer_deaths"], ["Still-killer deaths", "still_killer_deaths"],
-      ["Running-killer deaths", "running_killer_deaths"], ["Grenade-out deaths", "grenade_out_deaths"], ["Knife-out deaths", "knife_out_deaths"],
-      ["Equipment-advantage deaths", "equipment_disadvantage_deaths"], ["Unfair deaths", "unfair_deaths"]]));
-    fillCards("playerRoundStats", countCards(s, [["1v1 clutches", "clutch_1v1"], ["1v2 clutches", "clutch_1v2"], ["1v3 clutches", "clutch_1v3"], ["1v4 clutches", "clutch_1v4"], ["1v5 clutches", "clutch_1v5"], ["1K rounds", "kill_rounds_1k"], ["2K rounds", "kill_rounds_2k"], ["3K rounds", "kill_rounds_3k"], ["4K rounds", "kill_rounds_4k"], ["5K rounds", "kill_rounds_5k"]]));
-    fillCards("playerMovementStats", [["Kill speed", decimal(ratio(s.kill_speed_total, s.kill_speed_samples), 1), `${integer(s.kill_speed_samples)} samples · ${decimal(s.kill_speed_max, 1)} peak`], ["Kill speed %", percent(ratio(s.kill_speed_percent_total, s.kill_speed_percent_samples)), `${percent(s.kill_speed_percent_max)} peak`],
-      ["Death speed", decimal(ratio(s.death_speed_total, s.death_speed_samples), 1), `${integer(s.death_speed_samples)} samples · ${decimal(s.death_speed_max, 1)} peak`], ["Death speed %", percent(ratio(s.death_speed_percent_total, s.death_speed_percent_samples)), `${percent(s.death_speed_percent_max)} peak`],
-      ["Moving kills", integer(s.moving_kills)], ["Still kills", integer(s.still_kills)], ["Running kills", integer(s.running_kills)], ["Airborne kills", integer(s.airborne_kills)]]);
+    fillMetricList("playerKillContextStats", [["Blinded enemies", integer(s.blinded_kills)], ["Kills while blind", integer(s.blind_kills)], ["Wallbang kills", integer(s.wallbang_kills)], ["Penetrations", integer(s.penetration_total)], ["Through smoke", integer(s.smoke_kills)], ["Airborne", integer(s.airborne_kills)], ["Grenade out", integer(s.grenade_out_kills)], ["Knife out", integer(s.knife_out_kills)], ["Equipment disadvantage", integer(s.equipment_disadvantage_kills)], ["Unfair fight", integer(s.unfair_kills)]]);
+    fillMetricList("playerDeathContextStats", [["While blind", integer(s.deaths_while_blind)], ["To a blind killer", integer(s.deaths_to_blind_killer)], ["Wallbang", integer(s.wallbang_deaths)], ["Penetrations", integer(s.death_penetration_total)], ["Through smoke", integer(s.smoke_deaths)], ["Airborne killer", integer(s.airborne_deaths)], ["Moving killer", integer(s.moving_killer_deaths)], ["Still killer", integer(s.still_killer_deaths)], ["Running killer", integer(s.running_killer_deaths)], ["Grenade out", integer(s.grenade_out_deaths)], ["Knife out", integer(s.knife_out_deaths)], ["Equipment advantage", integer(s.equipment_disadvantage_deaths)], ["Unfair fight", integer(s.unfair_deaths)]]);
+    fillCountStrip("playerClutchStats", [["1v1", integer(s.clutch_1v1)], ["1v2", integer(s.clutch_1v2)], ["1v3", integer(s.clutch_1v3)], ["1v4", integer(s.clutch_1v4)], ["1v5", integer(s.clutch_1v5)]]);
+    fillCountStrip("playerMultikillStats", [["1 kill", integer(s.kill_rounds_1k)], ["2 kills", integer(s.kill_rounds_2k)], ["3 kills", integer(s.kill_rounds_3k)], ["4 kills", integer(s.kill_rounds_4k)], ["5 kills", integer(s.kill_rounds_5k)]]);
+    fillCards("playerKillSpeedStats", [["Average", decimal(ratio(s.kill_speed_total, s.kill_speed_samples), 1), `${integer(s.kill_speed_samples)} samples`], ["Maximum", decimal(s.kill_speed_max, 1)], ["Average of max", percent(ratio(s.kill_speed_percent_total, s.kill_speed_percent_samples))], ["Peak of max", percent(s.kill_speed_percent_max)]]);
+    fillCards("playerDeathSpeedStats", [["Average", decimal(ratio(s.death_speed_total, s.death_speed_samples), 1), `${integer(s.death_speed_samples)} samples`], ["Maximum", decimal(s.death_speed_max, 1)], ["Average of max", percent(ratio(s.death_speed_percent_total, s.death_speed_percent_samples))], ["Peak of max", percent(s.death_speed_percent_max)]]);
+    fillMetricList("playerMovementStateStats", [["Moving kills", integer(s.moving_kills)], ["Still kills", integer(s.still_kills)], ["Running kills", integer(s.running_kills)], ["Airborne kills", integer(s.airborne_kills)]]);
     renderTable($("playerWeaponsTable"), ["Weapon", "Kills", "Damage", "Shots", "Rounds used"], summary.weapons.map(w => [titleCase(w.weapon), integer(w.kills), integer(w.damage), integer(w.shots), integer(w.rounds_used)]));
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
     const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: aggregate(map.rows) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));

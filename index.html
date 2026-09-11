@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260911-7">
+  <link rel="stylesheet" href="./styles.css?v=20260911-8">
 </head>
 <body>
   <main class="shell">
@@ -317,25 +317,45 @@
           </nav>
 
           <div class="player-profile-view" data-player-profile-view="overview">
-            <div class="player-detail-grid" id="playerOverviewStats"></div>
+            <div class="player-section-grid">
+              <section class="player-stat-section"><header><span>01</span><div><h3>Record</h3><p>Matches and rounds played</p></div></header><div class="player-detail-grid player-detail-grid-compact" id="playerRecordStats"></div></section>
+              <section class="player-stat-section"><header><span>02</span><div><h3>Combat totals</h3><p>Output across the selected side</p></div></header><div class="player-detail-grid" id="playerCombatStats"></div></section>
+            </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="utility" hidden>
-            <div class="player-detail-grid" id="playerUtilityStats"></div>
+            <div class="player-section-grid player-section-grid-thirds">
+              <section class="player-stat-section"><header><span>01</span><div><h3>Damage</h3><p>HE and incendiary impact</p></div></header><div class="player-detail-grid" id="playerUtilityDamageStats"></div></section>
+              <section class="player-stat-section"><header><span>02</span><div><h3>Flashes</h3><p>Enemies affected and assists</p></div></header><div class="player-detail-grid" id="playerFlashStats"></div></section>
+              <section class="player-stat-section"><header><span>03</span><div><h3>Assisted kills</h3><p>How kills were enabled</p></div></header><div class="player-detail-grid" id="playerAssistStats"></div></section>
+            </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="trades" hidden>
-            <div class="player-detail-grid" id="playerTradeStats"></div>
+            <div class="player-section-grid">
+              <section class="player-stat-section"><header><span>01</span><div><h3>Trading teammates</h3><p>Opportunities, responses, and conversions</p></div></header><div class="player-detail-grid" id="playerTradeAttackStats"></div></section>
+              <section class="player-stat-section"><header><span>02</span><div><h3>Being traded</h3><p>How teammates responded after this player died</p></div></header><div class="player-detail-grid" id="playerTradeDeathStats"></div></section>
+            </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="openings" hidden>
-            <div class="player-detail-grid" id="playerOpeningStats"></div>
+            <section class="player-stat-section player-stat-section-single"><header><span>01</span><div><h3>First engagements</h3><p>Opening attempts, differential, and success rate</p></div></header><div class="player-detail-grid" id="playerOpeningStats"></div></section>
           </div>
           <div class="player-profile-view" data-player-profile-view="context" hidden>
-            <div class="player-detail-grid" id="playerContextStats"></div>
+            <div class="player-section-grid">
+              <section class="player-stat-section"><header><span>01</span><div><h3>Kill context</h3><p>Conditions surrounding this player's kills</p></div></header><div class="player-metric-list" id="playerKillContextStats"></div></section>
+              <section class="player-stat-section"><header><span>02</span><div><h3>Death context</h3><p>Conditions surrounding this player's deaths</p></div></header><div class="player-metric-list" id="playerDeathContextStats"></div></section>
+            </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="rounds" hidden>
-            <div class="player-detail-grid" id="playerRoundStats"></div>
+            <div class="player-round-sections">
+              <section class="player-stat-section player-count-section"><header><span>01</span><div><h3>Clutches won</h3><p>Rounds won as the final surviving player</p></div></header><div class="player-count-strip" id="playerClutchStats"></div></section>
+              <section class="player-stat-section player-count-section"><header><span>02</span><div><h3>Multikill rounds</h3><p>Rounds grouped by total kills</p></div></header><div class="player-count-strip" id="playerMultikillStats"></div></section>
+            </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="movement" hidden>
-            <div class="player-detail-grid" id="playerMovementStats"></div>
+            <div class="player-section-grid player-section-grid-thirds">
+              <section class="player-stat-section"><header><span>01</span><div><h3>At the kill</h3><p>Average and peak movement speed</p></div></header><div class="player-detail-grid" id="playerKillSpeedStats"></div></section>
+              <section class="player-stat-section"><header><span>02</span><div><h3>At death</h3><p>Average and peak movement speed</p></div></header><div class="player-detail-grid" id="playerDeathSpeedStats"></div></section>
+              <section class="player-stat-section"><header><span>03</span><div><h3>Movement state</h3><p>Kills while moving, still, or running</p></div></header><div class="player-metric-list" id="playerMovementStateStats"></div></section>
+            </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="weapons" hidden>
             <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerWeaponsTable"></table></div>
@@ -365,7 +385,7 @@
 
   <script defer src="./js/navigation.js?v=20260906-1"></script>
   <script defer src="./js/demo.js?v=20260911-7"></script>
-  <script defer src="./js/players.js?v=20260911-4"></script>
+  <script defer src="./js/players.js?v=20260911-5"></script>
   <script defer src="./js/compare.js?v=20260911-5"></script>
 </body>
 </html>
