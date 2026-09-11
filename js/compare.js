@@ -376,7 +376,7 @@
     const current = state.choices.get(String(id));
     const included = [...state.choices.values()].filter(value => value === "include").length;
     if (choice === "include" && current !== "include" && included >= MAX_INCLUDED) {
-      setStatus(`A team can have at most ${MAX_INCLUDED} profile players.`, true);
+      setStatus(`A team can have at most ${MAX_INCLUDED} Included players.`, true);
       return;
     }
     state.choices.set(String(id), choice);
@@ -388,7 +388,8 @@
     const roster = $("compareSelectedRoster");
     roster.replaceChildren();
     for (const player of state.selected.values()) {
-      const chip = el("div", null, "compare-selected-player");
+      const choice = state.choices.get(String(player.id)) || "include";
+      const chip = el("div", null, `compare-selected-player${state.workspace === "compare" ? ` is-${choice}` : ""}`);
       const identity = el("span", null);
       identity.append(el("strong", player.name), el("small", `${player.match_count} matches`));
       const remove = el("button", "×", "compare-player-remove");
@@ -399,10 +400,11 @@
       chip.append(remove, identity);
       if (state.workspace === "compare") {
         const roles = el("div", null, "compare-roster-role");
-        roles.setAttribute("role", "group"); roles.setAttribute("aria-label", `${player.name} profile condition`);
-        [["include", "Profile"], ["exclude", "Condition"]].forEach(([value, label]) => {
+        roles.setAttribute("role", "group"); roles.setAttribute("aria-label", `Include or exclude ${player.name}`);
+        [["include", "Include"], ["exclude", "Exclude"]].forEach(([value, label]) => {
           const button = el("button", label); button.type = "button";
-          const active = state.choices.get(String(player.id)) === value;
+          button.dataset.choice = value;
+          const active = choice === value;
           button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
           button.addEventListener("click", () => setRosterChoice(player.id, value)); roles.appendChild(button);
         });
@@ -414,7 +416,7 @@
     const included = [...state.choices.entries()].filter(([id, choice]) => state.selected.has(id) && choice === "include").length;
     $("compareAnalyzeButton").disabled = count < 2 || (state.workspace === "compare" && included === 0);
     $("compareClearButton").disabled = count === 0;
-    setStatus(count < 2 ? "Choose at least two players." : state.workspace === "compare" && !included ? "Choose at least one player profile." : `${count} players selected. Ready to analyze.`);
+    setStatus(count < 2 ? "Choose at least two players." : state.workspace === "matrix" ? `${count} players selected. Ready to build.` : !included ? "Choose at least one Included player." : `${included} included · ${count - included} excluded. Ready to build.`);
   }
 
   async function analyze() {
@@ -434,7 +436,6 @@
       renderVerdicts(state.analysis.overall);
       renderMatrix(state.analysis);
       renderPairDetails(state.analysis.pairs);
-      renderComboRoster();
       $("compareResults").hidden = false;
       setWorkspace(state.workspace);
       setStatus(state.workspace === "matrix" ? `Built a matrix for ${state.players.length} players.` : `Built ${selectedPlayers("include").length} conditional player profile${selectedPlayers("include").length === 1 ? "" : "s"}.`);
@@ -462,7 +463,7 @@
     $("compareBuilderTitle").textContent = matrix ? "Build a matrix group" : "Build a player profile";
     $("compareBuilderDescription").textContent = matrix
       ? "Add the players whose teammate impact you want to compare."
-      : "Choose whose profiles to include, then optionally test how they perform with or without other players.";
+      : "Add players, then mark each one Include or Exclude for the lineup comparison.";
     $("compareAnalyzeButton").textContent = matrix ? "Build matrix" : "Build profiles";
     document.querySelector(".compare-stats-toolbar").hidden = !matrix;
     setCompareMode(matrix ? "group" : "combination");
@@ -471,52 +472,11 @@
   }
 
   function choiceFor(player) {
-    return state.choices.get(player.profileId) || "ignore";
+    return state.choices.get(player.profileId) || "include";
   }
 
   function selectedPlayers(choice) {
     return state.players.filter(player => choiceFor(player) === choice);
-  }
-
-  function setChoice(player, choice) {
-    if (choice === "include" && choiceFor(player) !== "include" && selectedPlayers("include").length >= MAX_INCLUDED) {
-      $("comboStatus").textContent = `A team can have at most ${MAX_INCLUDED} Included players.`;
-      $("comboStatus").classList.add("error");
-      return;
-    }
-    state.choices.set(player.profileId, choice);
-    $("comboResults").hidden = true;
-    renderComboRoster();
-  }
-
-  function renderComboRoster() {
-    const roster = $("comboRoster");
-    roster.replaceChildren();
-    for (const player of state.players) {
-      const current = choiceFor(player);
-      const card = el("article", null, `combo-player-card is-${current}`);
-      const meta = el("div", null, "combo-player-meta");
-      meta.append(el("strong", player.label), el("small", `${player.rows.length} recorded matches`));
-      const choices = el("div", null, "combo-choice");
-      choices.setAttribute("role", "group");
-      choices.setAttribute("aria-label", `${player.label} condition`);
-      [["ignore", "Ignore"], ["include", "Include"], ["exclude", "Exclude"]].forEach(([value, label]) => {
-        const button = el("button", label);
-        button.type = "button";
-        button.dataset.choice = value;
-        button.setAttribute("aria-pressed", String(current === value));
-        button.addEventListener("click", () => setChoice(player, value));
-        choices.appendChild(button);
-      });
-      card.append(meta, choices);
-      roster.appendChild(card);
-    }
-    const included = selectedPlayers("include").length;
-    const excluded = selectedPlayers("exclude").length;
-    $("comboSelectionCount").textContent = `${included} / ${MAX_INCLUDED} included · ${excluded} excluded`;
-    $("comboRun").disabled = included === 0;
-    $("comboStatus").classList.remove("error");
-    $("comboStatus").textContent = included ? `${included} included, ${excluded} excluded. Ready to run.` : "Include at least one player.";
   }
 
   function findCombination() {
@@ -552,9 +512,9 @@
     const warnings = $("comboWarnings");
     warnings.replaceChildren();
     const add = message => warnings.appendChild(el("div", message, "warning"));
-    if (current.fullTeam && current.excluded.length) add("Five Profile players already fill the team, so Condition selections cannot be added.");
+    if (current.fullTeam && current.excluded.length) add("Five Included players already fill the team, so Excluded players cannot be added.");
     else if (current.excluded.length && !current.comparisonPossible) add(`The ${current.included.length + current.excluded.length}-player “With” roster cannot fit on one team.`);
-    if (current.partialMatches.length) add(`${current.partialMatches.length} match${current.partialMatches.length === 1 ? " contains" : "es contain"} only some Condition players and ${current.partialMatches.length === 1 ? "is" : "are"} omitted from both groups.`);
+    if (current.partialMatches.length) add(`${current.partialMatches.length} match${current.partialMatches.length === 1 ? " contains" : "es contain"} only some Excluded players and ${current.partialMatches.length === 1 ? "is" : "are"} omitted from both groups.`);
   }
 
   function comboMatchesForCondition(current) {
@@ -628,11 +588,14 @@
       button.disabled = button.dataset.comboCondition === "with" && !canCompare;
     });
 
-    const profileSelect = $("comboProfilePlayer"), previous = state.comboPlayerId;
-    profileSelect.replaceChildren(...current.included.map(player => { const option = el("option", player.label); option.value = player.profileId; return option; }));
-    profileSelect.value = previous;
-    profileSelect.hidden = current.included.length === 1;
-    $("comboProfilePlayerLabel").hidden = current.included.length === 1;
+    const profileTabs = $("comboProfilePlayers"); profileTabs.replaceChildren();
+    current.included.forEach(player => {
+      const active = player.profileId === state.comboPlayerId;
+      const button = el("button", player.label, `match-browser-tab${active ? " active" : ""}`);
+      button.type = "button"; button.setAttribute("role", "tab"); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
+      button.addEventListener("click", () => { state.comboPlayerId = player.profileId; renderComboProfile(current); });
+      profileTabs.appendChild(button);
+    });
     const player = current.included.find(item => item.profileId === state.comboPlayerId);
     const rows = comboProfileRows(current, player), stats = summarize(rows), s = stats;
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
@@ -689,7 +652,7 @@
     }
     renderProfileTable($("comboMatchesTable"), ["Date", "Map", "Result", "Score", "K–D–A", "ADR", "Rating", "Match"], values);
     $("comboEmpty").hidden = matches.length > 0;
-    const condition = state.comboCondition === "with" ? "with all Condition players present" : current.excluded.length ? "with all Condition players absent" : "for the selected Profile lineup";
+    const condition = state.comboCondition === "with" ? "with all Excluded players present" : current.excluded.length ? "with all Excluded players absent" : "for the Included lineup";
     const includedTeammates = current.included.filter(item => item.profileId !== player.profileId).map(item => item.label);
     $("comboMatchLabel").textContent = `${matches.length} match${matches.length === 1 ? "" : "es"} ${condition}${includedTeammates.length ? ` while playing with ${includedTeammates.join(" + ")}` : ""}.`;
   }
@@ -697,22 +660,9 @@
   function runCombination() {
     const current = findCombination();
     if (!current) return;
-    $("comboTitle").textContent = `${current.included.map(player => player.label).join(" + ")} lineup conditions${current.excluded.length ? ` · testing ${current.excluded.map(player => player.label).join(" + ")}` : ""}`;
-    $("comboMatchTotal").textContent = current.matches.length;
-    $("comboIncludedTotal").textContent = current.included.length;
-    $("comboExcludedTotal").textContent = current.excluded.length;
-    $("comboComparisonTotal").textContent = current.comparisonMatches.length;
     renderComboWarnings(current);
     renderComboProfile(current);
     $("comboResults").hidden = false;
-    $("comboStatus").textContent = `Found ${current.matches.length} without-excluded and ${current.comparisonMatches.length} with-excluded matches.`;
-  }
-
-  function resetCombination() {
-    state.players.forEach(player => state.choices.set(player.profileId, "ignore"));
-    $("comboResults").hidden = true;
-    $("comboWarnings").replaceChildren();
-    renderComboRoster();
   }
 
   function clear() {
@@ -736,9 +686,6 @@
   });
   $("compareAnalyzeButton").addEventListener("click", analyze);
   $("compareClearButton").addEventListener("click", clear);
-  $("comboRun").addEventListener("click", runCombination);
-  $("comboReset").addEventListener("click", resetCombination);
-  $("comboProfilePlayer").addEventListener("change", event => { state.comboPlayerId = event.target.value; runCombination(); });
   document.querySelectorAll("[data-combo-profile-view]").forEach(button => button.addEventListener("click", () => setComboProfileView(button.dataset.comboProfileView)));
   document.querySelectorAll("[data-combo-condition]").forEach(button => button.addEventListener("click", () => {
     if (button.disabled) return;

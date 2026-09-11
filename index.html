@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260911-12">
+  <link rel="stylesheet" href="./styles.css?v=20260911-13">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.11.9</span>
+          <span class="demo-build">Build 2026.09.11.10</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -152,7 +152,7 @@
             <div>
               <div class="eyebrow" id="compareBuilderEyebrow">Conditional profiles</div>
               <h2 id="compareBuilderTitle">Build a player profile</h2>
-              <p id="compareBuilderDescription">Choose whose profiles to include, then optionally test how they perform with or without other players.</p>
+              <p id="compareBuilderDescription">Add players, then mark each one Include or Exclude for the lineup comparison.</p>
             </div>
             <form class="compare-search-form" id="compareSearchForm" role="search">
               <label class="visually-hidden" for="compareSearchInput">Player name or Steam ID</label>
@@ -217,33 +217,9 @@
           </div>
 
           <div class="mode-view" data-compare-view="combination">
-            <section class="panel section-panel" id="comboBuilderPanel" hidden>
-              <div class="section-head combo-heading">
-                <div>
-                  <h2>Build a lineup condition</h2>
-                  <p>Included players must all be teammates. Compare them with every Excluded player absent against every Excluded player present.</p>
-                </div>
-                <div class="combo-limit" id="comboSelectionCount">0 / 5 included · 0 excluded</div>
-              </div>
-              <div class="combo-roster" id="comboRoster"></div>
-              <div class="actions combo-actions">
-                <button class="button button-primary" id="comboRun" type="button" disabled>Run combination</button>
-                <button class="button button-secondary" id="comboReset" type="button">Reset</button>
-                <div class="status" id="comboStatus" role="status" aria-live="polite">Include at least one player.</div>
-              </div>
-            </section>
-
             <div class="warning-list" id="comboWarnings"></div>
             <div class="combo-results" id="comboResults" hidden>
-              <section class="panel section-panel combo-summary-panel" hidden>
-                <h2 id="comboTitle">Combination results</h2>
-                <div class="combo-summary">
-                  <div class="combo-stat"><span class="label">Without excluded</span><strong class="blue" id="comboMatchTotal">—</strong><small>All Included present</small></div>
-                  <div class="combo-stat"><span class="label">Included</span><strong id="comboIncludedTotal">—</strong><small>Must all be teammates</small></div>
-                  <div class="combo-stat"><span class="label">Excluded</span><strong id="comboExcludedTotal">—</strong><small>Must all be absent</small></div>
-                  <div class="combo-stat"><span class="label">With excluded</span><strong id="comboComparisonTotal">—</strong><small>Comparison group</small></div>
-                </div>
-              </section>
+              <nav class="match-browser-tabs combo-player-tabs" id="comboProfilePlayers" role="tablist" aria-label="Included player profiles"></nav>
 
               <section class="panel player-profile combo-player-profile" id="comboProfilePanel">
                 <header class="player-profile-header">
@@ -251,7 +227,6 @@
                   <div class="player-record" id="comboProfileRecord"></div>
                 </header>
                 <div class="stats-toolbar combo-profile-toolbar">
-                  <label id="comboProfilePlayerLabel" for="comboProfilePlayer">Profile</label><select id="comboProfilePlayer" aria-label="Included player profile"></select>
                   <label for="compareMap">Map</label><select id="compareMap"><option value="ALL">All maps</option></select>
                   <span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div>
                   <span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-compare-side="ALL">All</button><button type="button" aria-pressed="false" data-compare-side="T">T</button><button type="button" aria-pressed="false" data-compare-side="CT">CT</button></div>
@@ -429,6 +404,6 @@
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/demo.js?v=20260911-7"></script>
   <script defer src="./js/players.js?v=20260911-6"></script>
-  <script defer src="./js/compare.js?v=20260911-9"></script>
+  <script defer src="./js/compare.js?v=20260911-10"></script>
 </body>
 </html>

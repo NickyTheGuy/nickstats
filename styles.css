@@ -535,7 +535,6 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   font-weight: 820;
 }
 
-.combo-choice button[data-choice="ignore"][aria-pressed="true"] { background: #344155; color: white; }
 .combo-choice button[data-choice="include"][aria-pressed="true"] { background: var(--green); color: #07150f; }
 .combo-choice button[data-choice="exclude"][aria-pressed="true"] { background: var(--red); color: #21080a; }
 .combo-actions { margin-top: 18px; }
@@ -1939,7 +1938,10 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   border: 1px solid #344155;
   border-radius: 11px;
   background: var(--panel-2);
+  transition: border-color .16s ease, background .16s ease;
 }
+.compare-selected-player.is-include { border-color: rgba(98, 212, 157, .55); background: rgba(98, 212, 157, .08); }
+.compare-selected-player.is-exclude { border-color: rgba(255, 122, 131, .55); background: rgba(255, 122, 131, .07); }
 
 .compare-selected-player > span { display: grid; }
 .compare-selected-player small { color: var(--muted); }
@@ -1961,7 +1963,8 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   font-size: 10px;
   font-weight: 850;
 }
-.compare-roster-role button.active { background: var(--blue); color: white; }
+.compare-roster-role button[data-choice="include"].active { background: var(--green); color: #07150f; }
+.compare-roster-role button[data-choice="exclude"].active { background: var(--red); color: #21080a; }
 .compare-selected-player > .compare-player-remove {
   display: grid;
   flex: 0 0 27px;
@@ -2186,6 +2189,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 .combo-profile-toolbar .combo-condition-toggle { margin-right: 8px; }
 .combo-profile-footnote { margin: 14px 2px 0; color: var(--muted); font-size: 12px; }
+.combo-player-tabs { margin: 0; }
 
 .player-stat-card {
   min-width: 0;
