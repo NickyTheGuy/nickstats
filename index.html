@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260911-6">
+  <link rel="stylesheet" href="./styles.css?v=20260911-7">
 </head>
 <body>
   <main class="shell">
@@ -170,6 +170,23 @@
         </section>
 
         <div class="compare-results" id="compareResults" hidden>
+          <div class="stats-toolbar compare-stats-toolbar">
+            <label for="compareMetricGroup">Statistics</label>
+            <select id="compareMetricGroup">
+              <option value="core">Core</option><option value="openings">Openings</option>
+              <option value="trades">Trades</option><option value="utility">Utility</option>
+              <option value="context">Kill context</option><option value="contextDeaths">Death context</option><option value="rounds">Rounds</option>
+              <option value="movement">Movement</option><option value="weapons">Weapons</option>
+            </select>
+            <select id="compareWeapon" aria-label="Weapon" hidden></select>
+            <label for="compareMap">Map</label><select id="compareMap"><option value="ALL">All maps</option></select>
+            <span>Side</span>
+            <div class="side-toggle" role="group" aria-label="Comparison side">
+              <button class="active" type="button" aria-pressed="true" data-compare-side="ALL">All</button>
+              <button type="button" aria-pressed="false" data-compare-side="T">T</button>
+              <button type="button" aria-pressed="false" data-compare-side="CT">CT</button>
+            </div>
+          </div>
           <nav class="mode-tabs compare-mode-tabs" role="tablist" aria-label="Comparison mode">
             <button class="tab-button" type="button" role="tab" aria-selected="true" data-compare-mode="group">Group matrix</button>
             <button class="tab-button" type="button" role="tab" aria-selected="false" data-compare-mode="combination">Lineup conditions</button>
@@ -193,7 +210,7 @@
             <section class="panel table-panel">
               <div class="table-heading"><div><h2>Pair details</h2><p>With-versus-without changes, sample size, and confidence for every direction.</p></div></div>
               <div class="table-wrap">
-                <table><thead><tr><th>Measured player</th><th>Player present</th><th>Class</th><th>With</th><th>Without</th><th>Win-rate Δ</th><th>Rating Δ</th><th>Confidence</th></tr></thead><tbody id="compareDetailsBody"></tbody></table>
+                <table><thead id="compareDetailsHead"></thead><tbody id="compareDetailsBody"></tbody></table>
               </div>
             </section>
           </div>
@@ -230,7 +247,7 @@
               <section class="panel table-panel">
                 <div class="table-heading"><div><h2>Performance with and without excluded players</h2><p>Team results are shared; personal statistics are shown for every Included player.</p></div></div>
                 <div class="table-wrap">
-                  <table class="combo-stats-table"><thead><tr><th>Player</th><th>Group</th><th>Matches</th><th>Record</th><th>Win rate</th><th>K/D</th><th>Avg K</th><th>Avg D</th><th>Avg A</th><th>HS%</th><th>ADR</th><th>Rating</th></tr></thead><tbody id="comboStatsBody"></tbody></table>
+                  <table class="combo-stats-table"><thead id="comboStatsHead"></thead><tbody id="comboStatsBody"></tbody></table>
                 </div>
               </section>
 
@@ -277,6 +294,14 @@
           </header>
 
           <div class="player-profile-status" id="playerProfileStatus" role="status" aria-live="polite"></div>
+          <div class="stats-toolbar">
+            <span>Side</span>
+            <div class="side-toggle" role="group" aria-label="Player side">
+              <button class="active" type="button" aria-pressed="true" data-player-side="ALL">All</button>
+              <button type="button" aria-pressed="false" data-player-side="T">T</button>
+              <button type="button" aria-pressed="false" data-player-side="CT">CT</button>
+            </div>
+          </div>
           <div class="player-headline-stats" id="playerHeadlineStats"></div>
 
           <nav class="player-profile-tabs" role="tablist" aria-label="Player statistics">
@@ -284,6 +309,9 @@
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="utility">Utility</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="trades">Trades</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="openings">Openings</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="context">Context</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="rounds">Rounds</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="movement">Movement</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="weapons">Weapons</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="maps">Maps</button>
           </nav>
@@ -299,6 +327,15 @@
           </div>
           <div class="player-profile-view" data-player-profile-view="openings" hidden>
             <div class="player-detail-grid" id="playerOpeningStats"></div>
+          </div>
+          <div class="player-profile-view" data-player-profile-view="context" hidden>
+            <div class="player-detail-grid" id="playerContextStats"></div>
+          </div>
+          <div class="player-profile-view" data-player-profile-view="rounds" hidden>
+            <div class="player-detail-grid" id="playerRoundStats"></div>
+          </div>
+          <div class="player-profile-view" data-player-profile-view="movement" hidden>
+            <div class="player-detail-grid" id="playerMovementStats"></div>
           </div>
           <div class="player-profile-view" data-player-profile-view="weapons" hidden>
             <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerWeaponsTable"></table></div>
@@ -328,7 +365,7 @@
 
   <script defer src="./js/navigation.js?v=20260906-1"></script>
   <script defer src="./js/demo.js?v=20260911-7"></script>
-  <script defer src="./js/players.js?v=20260911-3"></script>
-  <script defer src="./js/compare.js?v=20260911-4"></script>
+  <script defer src="./js/players.js?v=20260911-4"></script>
+  <script defer src="./js/compare.js?v=20260911-5"></script>
 </body>
 </html>

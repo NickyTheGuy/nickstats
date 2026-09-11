@@ -13,7 +13,20 @@
   const $ = id => document.getElementById(id);
   const state = {
     selected: new Map(), players: [], choices: new Map(), analysis: null,
-    searchController: null, compareController: null, searchTimer: null
+    searchController: null, compareController: null, searchTimer: null,
+    side: "ALL", map: "ALL", metricGroup: "core", weapon: ""
+  };
+
+  const metricGroups = {
+    core: [["Win rate", "winRate", "percent"], ["Rating", "rating", "rating"], ["K/D", "kd", "ratio"], ["ADR", "adr", "decimal"], ["KAST", "kast", "percent"], ["K/R", "kpr", "ratio"], ["D/R", "dpr", "ratio", false], ["A/R", "apr", "ratio"], ["HS%", "hs", "percent"]],
+    openings: [["Opening K", "opening_kills", "integer"], ["Opening D", "opening_deaths", "integer", false], ["Opening diff", "openingDiff", "signed"], ["Success", "openingSuccess", "percent"]],
+    trades: [["Trade K", "trade_kills", "integer"], ["Opportunities", "trade_opportunities", "integer"], ["Attempts", "trade_attempts", "integer"], ["Successes", "trade_successes", "integer"], ["Attempt rate", "tradeAttemptRate", "percent"], ["Success rate", "tradeSuccessRate", "percent"], ["Tradeable D", "tradeable_deaths", "integer", false], ["D attempted", "attempted_tradeable_deaths", "integer"], ["D traded", "traded_deaths", "integer"]],
+    utility: [["Utility dmg", "utilityDamage", "integer"], ["UD/R", "udr", "decimal"], ["HE dmg", "he_damage", "integer"], ["Fire dmg", "fire_damage", "integer"], ["Flashed", "enemies_flashed", "integer"], ["Blind sec", "blindSeconds", "decimal"], ["Flash assists", "flash_assists", "integer"], ["Damage assists", "damage_assisted_kills", "integer"], ["Teammate-flash K", "teammate_flash_assisted_kills", "integer"], ["Own-flash K", "own_flash_kills", "integer"]],
+    context: [["Blinded K", "blinded_kills", "integer"], ["Blind K", "blind_kills", "integer"], ["Wallbang K", "wallbang_kills", "integer"], ["Penetrations", "penetration_total", "integer"], ["Smoke K", "smoke_kills", "integer"], ["Airborne K", "airborne_kills", "integer"], ["Grenade-out K", "grenade_out_kills", "integer"], ["Knife-out K", "knife_out_kills", "integer"], ["Equip disadvantage K", "equipment_disadvantage_kills", "integer"], ["Unfair K", "unfair_kills", "integer"], ["Blind D", "deaths_while_blind", "integer", false], ["Wallbang D", "wallbang_deaths", "integer", false], ["Smoke D", "smoke_deaths", "integer", false]],
+    contextDeaths: [["While blind", "deaths_while_blind", "integer", false], ["Blind killer", "deaths_to_blind_killer", "integer", false], ["Wallbang", "wallbang_deaths", "integer", false], ["Penetrations", "death_penetration_total", "integer", false], ["Smoke", "smoke_deaths", "integer", false], ["Airborne killer", "airborne_deaths", "integer", false], ["Moving killer", "moving_killer_deaths", "integer", false], ["Still killer", "still_killer_deaths", "integer", false], ["Running killer", "running_killer_deaths", "integer", false], ["Grenade out", "grenade_out_deaths", "integer", false], ["Knife out", "knife_out_deaths", "integer", false], ["Equip advantage", "equipment_disadvantage_deaths", "integer", false], ["Unfair", "unfair_deaths", "integer", false]],
+    rounds: [["Round wins", "round_wins", "integer"], ["1v1", "clutch_1v1", "integer"], ["1v2", "clutch_1v2", "integer"], ["1v3", "clutch_1v3", "integer"], ["1v4", "clutch_1v4", "integer"], ["1v5", "clutch_1v5", "integer"], ["1K rounds", "kill_rounds_1k", "integer"], ["2K rounds", "kill_rounds_2k", "integer"], ["3K rounds", "kill_rounds_3k", "integer"], ["4K rounds", "kill_rounds_4k", "integer"], ["5K rounds", "kill_rounds_5k", "integer"]],
+    movement: [["Kill speed", "killSpeed", "decimal"], ["Kill speed %", "killSpeedPercent", "percent"], ["Peak kill speed", "kill_speed_max", "decimal"], ["Death speed", "deathSpeed", "decimal", false], ["Death speed %", "deathSpeedPercent", "percent", false], ["Peak death speed", "death_speed_max", "decimal", false], ["Moving K", "moving_kills", "integer"], ["Still K", "still_kills", "integer"], ["Running K", "running_kills", "integer"]],
+    weapons: [["Kills", "weaponKills", "integer"], ["Damage", "weaponDamage", "integer"], ["Shots", "weaponShots", "integer"], ["Rounds used", "weaponRounds", "integer"]]
   };
 
   function num(value) {
@@ -61,6 +74,24 @@
       0.2372 * impact + 0.0032 * adr + 0.1587);
   }
 
+  function mergeStats(target, source) {
+    for (const [key, value] of Object.entries(source || {})) target[key] = key.endsWith("_max") ? Math.max(num(target[key]), num(value)) : num(target[key]) + num(value);
+  }
+
+  function selectedView(row) {
+    const selected = (row.sideRows || []).filter(side => state.side === "ALL" || side.side === state.side);
+    const stats = {}, weapons = new Map();
+    selected.forEach(side => {
+      mergeStats(stats, side.stats);
+      (side.weapons || []).forEach(weapon => {
+        const current = weapons.get(weapon.weapon) || { kills: 0, damage: 0, shots: 0, rounds_used: 0 };
+        current.kills += num(weapon.kills); current.damage += num(weapon.damage); current.shots += num(weapon.shots); current.rounds_used += num(weapon.rounds_used); weapons.set(weapon.weapon, current);
+      });
+    });
+    if (!selected.length && state.side === "ALL") mergeStats(stats, row.legacy);
+    return { stats, weapons };
+  }
+
   function normalizePlayer(player) {
     return {
       profileId: String(player.id),
@@ -71,34 +102,45 @@
         result: ["w", "l", "n"].includes(match.result) ? match.result : "n",
         score: [match.score_for, match.score_against],
         teammateIds: (match.teammate_ids || []).map(String),
-        rounds: num(match.rounds), k: num(match.kills), d: num(match.deaths),
-        a: num(match.assists), headshots: num(match.headshots), damage: num(match.damage),
-        kastRounds: num(match.kast_rounds), rating: playerRating(match)
+        sideRows: Array.isArray(match.sides) ? match.sides : [],
+        legacy: { rounds: num(match.rounds), kills: num(match.kills), deaths: num(match.deaths), assists: num(match.assists), headshots: num(match.headshots), damage: num(match.damage), kast_rounds: num(match.kast_rounds) }
       }))
     };
   }
 
   function summarize(rows) {
     const n = rows.length;
-    const sum = key => rows.reduce((total, row) => total + num(row[key]), 0);
-    const kills = sum("k"), deaths = sum("d"), assists = sum("a");
-    const rounds = sum("rounds"), damage = sum("damage"), kastRounds = sum("kastRounds");
+    const stats = {}, weapons = new Map();
+    rows.forEach(row => { const view = selectedView(row); mergeStats(stats, view.stats); view.weapons.forEach((weapon, name) => { const current = weapons.get(name) || { kills: 0, damage: 0, shots: 0, rounds_used: 0 }; Object.keys(current).forEach(key => current[key] += num(weapon[key])); weapons.set(name, current); }); });
+    const kills = num(stats.kills), deaths = num(stats.deaths), assists = num(stats.assists);
+    const rounds = num(stats.rounds), damage = num(stats.damage), kastRounds = num(stats.kast_rounds);
     const wins = rows.filter(row => row.result === "w").length;
     const losses = rows.filter(row => row.result === "l").length;
     const ties = rows.filter(row => row.result === "n").length;
     const aggregate = { rounds, kills, deaths, assists, damage, kast_rounds: kastRounds };
-    return {
+    const result = {
+      ...stats,
       n, wins, losses, ties,
-      winRate: n ? 100 * wins / n : 0,
+      winRate: state.side === "ALL" ? (n ? 100 * wins / n : 0) : (rounds ? 100 * num(stats.round_wins) / rounds : 0),
       kd: deaths ? kills / deaths : kills,
       avgK: n ? kills / n : 0,
       avgD: n ? deaths / n : 0,
       avgA: n ? assists / n : 0,
-      avgHs: kills ? 100 * sum("headshots") / kills : 0,
+      avgHs: kills ? 100 * num(stats.headshots) / kills : 0,
       adr: rounds ? damage / rounds : 0,
       kast: rounds ? 100 * kastRounds / rounds : 0,
-      rating: playerRating(aggregate)
+      rating: playerRating(aggregate), kpr: rounds ? kills / rounds : 0, dpr: rounds ? deaths / rounds : 0, apr: rounds ? assists / rounds : 0,
+      hs: kills ? 100 * num(stats.headshots) / kills : 0,
+      openingDiff: num(stats.opening_kills) - num(stats.opening_deaths), openingSuccess: 100 * num(stats.opening_kills) / Math.max(1, num(stats.opening_kills) + num(stats.opening_deaths)),
+      tradeAttemptRate: 100 * num(stats.trade_attempts) / Math.max(1, num(stats.trade_opportunities)), tradeSuccessRate: 100 * num(stats.trade_successes) / Math.max(1, num(stats.trade_attempts)),
+      utilityDamage: num(stats.he_damage) + num(stats.fire_damage), udr: rounds ? (num(stats.he_damage) + num(stats.fire_damage)) / rounds : 0,
+      blindSeconds: num(stats.blind_duration_ms) / 1000, killSpeed: num(stats.kill_speed_total) / Math.max(1, num(stats.kill_speed_samples)),
+      killSpeedPercent: num(stats.kill_speed_percent_total) / Math.max(1, num(stats.kill_speed_percent_samples)), deathSpeed: num(stats.death_speed_total) / Math.max(1, num(stats.death_speed_samples)),
+      deathSpeedPercent: num(stats.death_speed_percent_total) / Math.max(1, num(stats.death_speed_percent_samples))
     };
+    const weapon = weapons.get(state.weapon) || {};
+    result.weaponKills = num(weapon.kills); result.weaponDamage = num(weapon.damage); result.weaponShots = num(weapon.shots); result.weaponRounds = num(weapon.rounds_used);
+    return result;
   }
 
   function signed(value, digits = 1, suffix = "") {
@@ -106,13 +148,24 @@
     return `${value > 0 ? "+" : value < 0 ? "−" : ""}${magnitude}${suffix}`;
   }
 
+  function metricFields() { return metricGroups[state.metricGroup] || metricGroups.core; }
+  function formatMetric(value, type) {
+    if (type === "percent") return `${num(value).toFixed(1)}%`;
+    if (type === "rating") return num(value).toFixed(2);
+    if (type === "ratio") return num(value).toFixed(2);
+    if (type === "decimal") return num(value).toFixed(1);
+    if (type === "signed") return signed(value, 0);
+    return Math.round(num(value)).toLocaleString();
+  }
+
   function classify(score) {
     return score >= scoring.lifterThreshold ? "Lifter" : score <= scoring.draggerThreshold ? "Dragger" : "Exister";
   }
 
   function pairImpact(target, actor) {
-    const withRows = target.rows.filter(row => row.teammateIds.includes(actor.profileId));
-    const withoutRows = target.rows.filter(row => !row.teammateIds.includes(actor.profileId));
+    const eligibleRows = target.rows.filter(row => state.map === "ALL" || row.map === state.map);
+    const withRows = eligibleRows.filter(row => row.teammateIds.includes(actor.profileId));
+    const withoutRows = eligibleRows.filter(row => !row.teammateIds.includes(actor.profileId));
     const withStats = summarize(withRows), withoutStats = summarize(withoutRows);
     const delta = {
       winRate: withStats.winRate - withoutStats.winRate,
@@ -152,6 +205,28 @@
     return { players, pairs, overall };
   }
 
+  function populateWeapons() {
+    const names = new Set();
+    state.players.forEach(player => player.rows.forEach(row => row.sideRows.forEach(side => (side.weapons || []).forEach(weapon => names.add(weapon.weapon)))));
+    const select = $("compareWeapon"), previous = state.weapon;
+    select.replaceChildren(...[...names].sort().map(name => { const option = el("option", name.replace(/^weapon_/, "").replaceAll("_", " ")); option.value = name; return option; }));
+    state.weapon = names.has(previous) ? previous : ([...names].sort()[0] || ""); select.value = state.weapon;
+  }
+
+  function populateMaps() {
+    const names = new Set(); state.players.forEach(player => player.rows.forEach(row => names.add(row.map)));
+    const select = $("compareMap"), all = el("option", "All maps"); all.value = "ALL";
+    select.replaceChildren(all, ...[...names].sort().map(name => { const option = el("option", name.replace(/^de_/, "")); option.value = name; return option; }));
+    state.map = "ALL"; select.value = "ALL";
+  }
+
+  function refreshAnalysis() {
+    if (!state.players.length) return;
+    state.analysis = buildAnalysis(state.players);
+    renderVerdicts(state.analysis.overall); renderMatrix(state.analysis); renderPairDetails(state.analysis.pairs);
+    if (!$("comboResults").hidden) runCombination();
+  }
+
   function renderVerdicts(overall) {
     const grid = $("compareVerdicts");
     grid.replaceChildren();
@@ -163,7 +238,7 @@
       const alias = el("div", `${item.player.rows.length} recorded matches`, "alias");
       const deltas = el("div", null, "delta-row");
       const win = el("div", null, "delta");
-      win.append(el("strong", signed(item.delta.winRate, 1, " pp"), item.delta.winRate > 0 ? "positive" : item.delta.winRate < 0 ? "negative" : "neutral"), el("span", "Teammate win rate"));
+      win.append(el("strong", signed(item.delta.winRate, 1, " pp"), item.delta.winRate > 0 ? "positive" : item.delta.winRate < 0 ? "negative" : "neutral"), el("span", state.side === "ALL" ? "Teammate match win rate" : `Teammate ${state.side} round win rate`));
       const rating = el("div", null, "delta");
       rating.append(el("strong", signed(item.delta.rating, 3), item.delta.rating > 0 ? "positive" : item.delta.rating < 0 ? "negative" : "neutral"), el("span", "Teammate rating"));
       deltas.append(win, rating);
@@ -202,15 +277,20 @@
   }
 
   function renderPairDetails(pairs) {
+    const header = document.createElement("tr");
+    ["Measured player", "Player present", "Group", "Sample", ...metricFields().map(field => field[0]), "Confidence"].forEach(label => header.appendChild(el("th", label)));
+    $("compareDetailsHead").replaceChildren(header);
     const body = $("compareDetailsBody");
     body.replaceChildren();
     for (const pair of pairs) {
-      const row = document.createElement("tr");
-      const kind = pair.classification.toLowerCase();
-      [pair.target.label, pair.actor.label, pair.classification, pair.withN, pair.withoutN,
-        signed(pair.delta.winRate, 1, " pp"), signed(pair.delta.rating, 3), pair.confidence]
-        .forEach((value, index) => row.appendChild(td(value, index === 2 ? (kind === "lifter" ? "positive" : kind === "dragger" ? "negative" : "neutral") : "")));
-      body.appendChild(row);
+      [["With", pair.withN, pair.withStats], ["Without", pair.withoutN, pair.withoutStats]].forEach(([label, sample, stats], index) => {
+        const row = document.createElement("tr");
+        if (!index) { const target = td(pair.target.label); target.rowSpan = 2; row.appendChild(target); const actor = td(pair.actor.label); actor.rowSpan = 2; row.appendChild(actor); }
+        row.append(td(label), td(sample));
+        metricFields().forEach(([, key, type]) => row.appendChild(td(formatMetric(stats[key], type))));
+        if (!index) { const confidence = td(pair.confidence); confidence.rowSpan = 2; row.appendChild(confidence); }
+        body.appendChild(row);
+      });
     }
   }
 
@@ -306,7 +386,7 @@
         headers: { Accept: "application/json" }, signal: state.compareController.signal
       }));
       state.players = (payload.players || []).map(normalizePlayer).sort((a, b) => a.label.localeCompare(b.label));
-      state.analysis = buildAnalysis(state.players);
+      populateWeapons(); populateMaps(); state.analysis = buildAnalysis(state.players);
       state.choices = new Map(state.players.map(player => [player.profileId, "ignore"]));
       renderVerdicts(state.analysis.overall);
       renderMatrix(state.analysis);
@@ -385,8 +465,9 @@
     const excluded = selectedPlayers("exclude");
     if (!included.length) return null;
     const first = included[0];
-    const rowMaps = new Map(included.map(player => [player.profileId, new Map(player.rows.map(row => [row.id, row]))]));
-    const baseMatches = first.rows.filter(row => included.every(player =>
+    const eligible = player => player.rows.filter(row => state.map === "ALL" || row.map === state.map);
+    const rowMaps = new Map(included.map(player => [player.profileId, new Map(eligible(player).map(row => [row.id, row]))]));
+    const baseMatches = eligible(first).filter(row => included.every(player =>
       player.profileId === first.profileId || row.teammateIds.includes(player.profileId)
     )).map(firstRow => ({
       id: firstRow.id,
@@ -429,6 +510,9 @@
   }
 
   function renderComboStats(current) {
+    const header = document.createElement("tr");
+    ["Player", "Group", "Sample", ...metricFields().map(field => field[0])].forEach(label => header.appendChild(el("th", label)));
+    $("comboStatsHead").replaceChildren(header);
     const body = $("comboStatsBody");
     body.replaceChildren();
     const sharedWithout = summarize(current.matches.map(match => match.rows[0].row));
@@ -436,16 +520,9 @@
     current.included.forEach((player, playerIndex) => {
       const withoutStats = summarize(current.matches.map(match => match.rows.find(item => item.player.profileId === player.profileId).row));
       const withStats = summarize(current.comparisonMatches.map(match => match.rows.find(item => item.player.profileId === player.profileId).row));
-      const outcomes = [sharedWithout, sharedWith];
       const statsRows = [withoutStats, withStats];
       const labels = [current.excluded.length ? "Without excluded" : "Included lineup", current.excluded.length ? "With excluded" : "No comparison"];
-      const fields = {
-        winRate: comparisonClasses(sharedWithout, sharedWith, "winRate"),
-        kd: comparisonClasses(withoutStats, withStats, "kd"), avgK: comparisonClasses(withoutStats, withStats, "avgK"),
-        avgD: comparisonClasses(withoutStats, withStats, "avgD", false), avgA: comparisonClasses(withoutStats, withStats, "avgA"),
-        avgHs: comparisonClasses(withoutStats, withStats, "avgHs"), adr: comparisonClasses(withoutStats, withStats, "adr"),
-        rating: comparisonClasses(withoutStats, withStats, "rating")
-      };
+      const classes = new Map(metricFields().map(([, key, , higher = true]) => [key, comparisonClasses(withoutStats, withStats, key, higher)]));
       for (let index = 0; index < 2; index += 1) {
         const row = document.createElement("tr");
         row.className = index ? "condition-without" : "condition-with";
@@ -454,17 +531,14 @@
           playerCell.rowSpan = 2;
           row.appendChild(playerCell);
         }
-        const stats = statsRows[index], outcome = outcomes[index];
-        row.append(td(labels[index]), td(outcome.n), td(record(outcome), fields.winRate[index]), td(`${outcome.winRate.toFixed(1)}%`, fields.winRate[index]),
-          td(stats.kd.toFixed(2), fields.kd[index]), td(stats.avgK.toFixed(1), fields.avgK[index]), td(stats.avgD.toFixed(1), fields.avgD[index]),
-          td(stats.avgA.toFixed(1), fields.avgA[index]), td(`${stats.avgHs.toFixed(1)}%`, fields.avgHs[index]),
-          td(stats.adr.toFixed(1), fields.adr[index]), td(stats.rating.toFixed(2), fields.rating[index]));
+        const stats = statsRows[index]; row.append(td(labels[index]), td(stats.n));
+        metricFields().forEach(([, key, type]) => row.appendChild(td(formatMetric(stats[key], type), classes.get(key)[index])));
         body.appendChild(row);
       }
       if (playerIndex < current.included.length - 1) {
         const spacer = el("tr", null, "combo-player-spacer");
         const cell = document.createElement("td");
-        cell.colSpan = 12;
+        cell.colSpan = 3 + metricFields().length;
         spacer.appendChild(cell);
         body.appendChild(spacer);
       }
@@ -487,7 +561,7 @@
       const result = first.result === "w" ? "Win" : first.result === "l" ? "Loss" : "Tie";
       row.append(td(formatDate(first.date)), td(first.map.replace(/^de_/, "")), td(result, first.result === "w" ? "result-win" : first.result === "l" ? "result-loss" : "result-tie"),
         td(first.score.every(value => value != null) ? `${first.score[0]}–${first.score[1]}` : "—"));
-      match.rows.forEach(item => row.appendChild(td(`${item.row.k}/${item.row.d}/${item.row.a} · ${summarize([item.row]).adr.toFixed(0)} ADR · ${item.row.rating.toFixed(2)} R`, "combo-player-line")));
+      match.rows.forEach(item => { const stats = summarize([item.row]); row.appendChild(td(`${Math.round(stats.kills)}/${Math.round(stats.deaths)}/${Math.round(stats.assists)} · ${stats.adr.toFixed(0)} ADR · ${stats.rating.toFixed(2)} R`, "combo-player-line")); });
       row.appendChild(td(`#${match.id}`));
       body.appendChild(row);
     }
@@ -539,6 +613,18 @@
   $("compareClearButton").addEventListener("click", clear);
   $("comboRun").addEventListener("click", runCombination);
   $("comboReset").addEventListener("click", resetCombination);
+  $("compareMetricGroup").addEventListener("change", event => {
+    state.metricGroup = event.target.value;
+    $("compareWeapon").hidden = state.metricGroup !== "weapons";
+    refreshAnalysis();
+  });
+  $("compareWeapon").addEventListener("change", event => { state.weapon = event.target.value; refreshAnalysis(); });
+  $("compareMap").addEventListener("change", event => { state.map = event.target.value; refreshAnalysis(); });
+  document.querySelectorAll("[data-compare-side]").forEach(button => button.addEventListener("click", () => {
+    state.side = button.dataset.compareSide;
+    document.querySelectorAll("[data-compare-side]").forEach(item => { const active = item === button; item.classList.toggle("active", active); item.setAttribute("aria-pressed", String(active)); });
+    refreshAnalysis();
+  }));
   document.querySelectorAll("[data-compare-mode]").forEach(button => button.addEventListener("click", () => setCompareMode(button.dataset.compareMode)));
   renderSelectedRoster();
 })();

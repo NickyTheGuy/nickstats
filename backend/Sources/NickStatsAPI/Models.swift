@@ -2,7 +2,7 @@ import Vapor
 
 let compactSchema = "nickstats.match/9"
 
-enum PlayerSide: String, CaseIterable, Sendable {
+enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
     case counterTerrorist = "CT"
 }
@@ -229,6 +229,7 @@ struct PlayerProfileResponse: Content {
     var openings: PlayerOpeningProfileStats
     var weapons: [PlayerWeaponProfileStats]
     var maps: [PlayerMapProfileStats]
+    var matches: [ComparisonMatch]
 }
 
 struct PlayerProfileIdentity: Content {
@@ -387,6 +388,7 @@ struct ComparisonMatch: Content {
     var headshots: Int
     var damage: Int
     var kastRounds: Int
+    var sides: [ComparisonSideStats]
 
     enum CodingKeys: String, CodingKey {
         case id, map, result, rounds, kills, deaths, assists, headshots, damage
@@ -395,5 +397,25 @@ struct ComparisonMatch: Content {
         case scoreAgainst = "score_against"
         case teammateIDs = "teammate_ids"
         case kastRounds = "kast_rounds"
+        case sides
+    }
+}
+
+struct ComparisonSideStats: Content {
+    var side: PlayerSide
+    var stats: [String: Double]
+    var weapons: [ComparisonWeaponStats]
+}
+
+struct ComparisonWeaponStats: Content {
+    var weapon: String
+    var kills: Int
+    var shots: Int
+    var damage: Int
+    var roundsUsed: Int
+
+    enum CodingKeys: String, CodingKey {
+        case weapon, kills, shots, damage
+        case roundsUsed = "rounds_used"
     }
 }

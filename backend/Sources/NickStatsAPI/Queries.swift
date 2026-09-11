@@ -183,28 +183,191 @@ func listPlayers(_ request: Request) async throws -> PlayerListResponse {
     return PlayerListResponse(players: players, limit: limit, offset: offset)
 }
 
-func comparisonData(_ request: Request) async throws -> ComparisonResponse {
-    guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
-    let query = try request.query.decode(ComparisonQuery.self)
-    let tokens = query.players.split(separator: ",")
-    let requestedIDs = tokens.compactMap {
-        Int64($0.trimmingCharacters(in: .whitespacesAndNewlines))
+private struct ComparisonSideAccumulator {
+    var side: PlayerSide
+    var stats: [String: Double] = [:]
+    var weapons: [ComparisonWeaponStats] = []
+}
+
+private func comparisonSideData(
+    playerID: Int64, sql: any SQLDatabase
+) async throws -> [Int64: [ComparisonSideStats]] {
+    let rows = try await sql.raw("""
+        SELECT mp.match_id, s.*
+        FROM match_players mp
+        JOIN player_side_stats s ON s.match_player_id = mp.id
+        WHERE mp.player_id = \(bind: playerID)
+        """).all()
+    var values: [String: ComparisonSideAccumulator] = [:]
+    func storageKey(_ matchID: Int64, _ side: PlayerSide) -> String { "\(matchID):\(side.rawValue)" }
+    func add(_ matchID: Int64, _ side: PlayerSide, _ name: String, _ amount: Double) {
+        let key = storageKey(matchID, side)
+        guard var value = values[key] else { return }
+        value.stats[name, default: 0] += amount
+        values[key] = value
     }
-    let playerIDs = requestedIDs.reduce(into: [Int64]()) { result, id in
-        if id > 0 && !result.contains(id) { result.append(id) }
-    }
-    guard requestedIDs.count == tokens.count, playerIDs.count == requestedIDs.count,
-          (2...20).contains(playerIDs.count) else {
-        throw Abort(.badRequest, reason: "players must contain 2-20 unique positive player IDs.")
+    for row in rows {
+        let matchID = try int64(row, "match_id")
+        let side = try playerSide(row, "side")
+        let key = storageKey(matchID, side)
+        values[key] = ComparisonSideAccumulator(side: side)
+        let integerColumns = [
+            ("rounds_played", "rounds"), ("rounds_won", "round_wins"),
+            ("kills", "kills"), ("deaths", "deaths"), ("assists", "assists"),
+            ("headshots", "headshots"), ("damage", "damage"), ("kast_rounds", "kast_rounds"),
+            ("opening_kills", "opening_kills"), ("opening_deaths", "opening_deaths"),
+            ("trade_kills", "trade_kills"), ("tradeable_deaths", "tradeable_deaths"),
+            ("attempted_tradeable_deaths", "attempted_tradeable_deaths"), ("traded_deaths", "traded_deaths"),
+            ("he_damage", "he_damage"), ("fire_damage", "fire_damage"),
+            ("kill_speed_samples", "kill_speed_samples"), ("kill_speed_percent_samples", "kill_speed_percent_samples"),
+            ("death_speed_samples", "death_speed_samples"), ("death_speed_percent_samples", "death_speed_percent_samples"),
+            ("clutch_1v1", "clutch_1v1"), ("clutch_1v2", "clutch_1v2"),
+            ("clutch_1v3", "clutch_1v3"), ("clutch_1v4", "clutch_1v4"), ("clutch_1v5", "clutch_1v5"),
+            ("kill_rounds_1k", "kill_rounds_1k"), ("kill_rounds_2k", "kill_rounds_2k"),
+            ("kill_rounds_3k", "kill_rounds_3k"), ("kill_rounds_4k", "kill_rounds_4k"),
+            ("kill_rounds_5k", "kill_rounds_5k")
+        ]
+        for (column, name) in integerColumns { add(matchID, side, name, Double(try integer(row, column))) }
+        let decimalColumns = [
+            ("kill_speed_total", "kill_speed_total"), ("kill_speed_percent_total", "kill_speed_percent_total"),
+            ("death_speed_total", "death_speed_total"), ("death_speed_percent_total", "death_speed_percent_total")
+        ]
+        for (column, name) in decimalColumns { add(matchID, side, name, try double(row, column)) }
+        let maximumColumns = [
+            ("kill_speed_max", "kill_speed_max"), ("kill_speed_percent_max", "kill_speed_percent_max"),
+            ("death_speed_max", "death_speed_max"), ("death_speed_percent_max", "death_speed_percent_max")
+        ]
+        for (column, name) in maximumColumns {
+            if let maximum = try optionalDouble(row, column) { add(matchID, side, name, maximum) }
+        }
     }
 
-    var players: [ComparisonPlayer] = []
-    for playerID in playerIDs {
-        guard let identity = try await sql.raw("""
-            SELECT id, CAST(steam_id AS CHAR) AS steam_id, current_name
-            FROM players WHERE id = \(bind: playerID)
-            """).first() else { throw Abort(.notFound, reason: "Player \(playerID) was not found.") }
-        let rows = try await sql.raw("""
+    let trades = try await sql.raw("""
+        SELECT t.match_id, t.trader_side AS side,
+               CAST(SUM(t.opportunities) AS SIGNED) AS opportunities,
+               CAST(SUM(t.attempts) AS SIGNED) AS attempts,
+               CAST(SUM(t.successes) AS SIGNED) AS successes
+        FROM trade_side_stats t JOIN match_players mp ON mp.id = t.trader_match_player_id
+        WHERE mp.player_id = \(bind: playerID) GROUP BY t.match_id, t.trader_side
+        """).all()
+    for row in trades {
+        let id = try int64(row, "match_id"), side = try playerSide(row, "side")
+        add(id, side, "trade_opportunities", Double(try integer(row, "opportunities")))
+        add(id, side, "trade_attempts", Double(try integer(row, "attempts")))
+        add(id, side, "trade_successes", Double(try integer(row, "successes")))
+    }
+
+    let flashes = try await sql.raw("""
+        SELECT f.match_id, f.thrower_side AS side,
+               CAST(SUM(f.flash_effects) AS SIGNED) AS effects,
+               CAST(SUM(f.blind_duration_ms) AS SIGNED) AS duration
+        FROM flash_side_stats f JOIN match_players mp ON mp.id = f.thrower_match_player_id
+        WHERE mp.player_id = \(bind: playerID) GROUP BY f.match_id, f.thrower_side
+        """).all()
+    for row in flashes {
+        let id = try int64(row, "match_id"), side = try playerSide(row, "side")
+        add(id, side, "enemies_flashed", Double(try integer(row, "effects")))
+        add(id, side, "blind_duration_ms", Double(try integer(row, "duration")))
+    }
+
+    let beneficiaries = try await sql.raw("""
+        SELECT a.match_id, a.beneficiary_side AS side,
+               CAST(SUM(a.damage_assisted_kills) AS SIGNED) AS damage_assists,
+               CAST(SUM(a.teammate_flash_assisted_kills) AS SIGNED) AS teammate_flash_assists,
+               CAST(SUM(a.own_flash_kills) AS SIGNED) AS own_flash
+        FROM assisted_kill_side_stats a
+        JOIN match_players mp ON mp.id = a.beneficiary_match_player_id
+        WHERE mp.player_id = \(bind: playerID) GROUP BY a.match_id, a.beneficiary_side
+        """).all()
+    for row in beneficiaries {
+        let id = try int64(row, "match_id"), side = try playerSide(row, "side")
+        add(id, side, "damage_assisted_kills", Double(try integer(row, "damage_assists")))
+        add(id, side, "teammate_flash_assisted_kills", Double(try integer(row, "teammate_flash_assists")))
+        add(id, side, "own_flash_kills", Double(try integer(row, "own_flash")))
+    }
+
+    let assisters = try await sql.raw("""
+        SELECT a.match_id, a.beneficiary_side AS side,
+               CAST(SUM(a.teammate_flash_assisted_kills) AS SIGNED) AS flash_assists
+        FROM assisted_kill_side_stats a
+        JOIN match_players mp ON mp.id = a.assister_match_player_id
+        WHERE mp.player_id = \(bind: playerID) GROUP BY a.match_id, a.beneficiary_side
+        """).all()
+    for row in assisters {
+        let id = try int64(row, "match_id"), side = try playerSide(row, "side")
+        add(id, side, "flash_assists", Double(try integer(row, "flash_assists")))
+    }
+
+    let contextColumns = [
+        ("victim_blinded_kills", "blinded_kills", "deaths_while_blind"),
+        ("attacker_blind_kills", "blind_kills", "deaths_to_blind_killer"),
+        ("wallbang_kills", "wallbang_kills", "wallbang_deaths"),
+        ("penetration_total", "penetration_total", "death_penetration_total"),
+        ("smoke_kills", "smoke_kills", "smoke_deaths"),
+        ("airborne_kills", "airborne_kills", "airborne_deaths"),
+        ("moving_kills", "moving_kills", "moving_killer_deaths"),
+        ("still_kills", "still_kills", "still_killer_deaths"),
+        ("running_kills", "running_kills", "running_killer_deaths"),
+        ("victim_grenade_out_kills", "grenade_out_kills", "grenade_out_deaths"),
+        ("victim_knife_out_kills", "knife_out_kills", "knife_out_deaths"),
+        ("equipment_disadvantage_kills", "equipment_disadvantage_kills", "equipment_disadvantage_deaths"),
+        ("unfair_kills", "unfair_kills", "unfair_deaths")
+    ]
+    let contexts = try await sql.raw("""
+        SELECT c.* FROM kill_context_side_stats c
+        JOIN match_players mp ON mp.id = c.killer_match_player_id
+        WHERE mp.player_id = \(bind: playerID)
+        """).all()
+    for row in contexts {
+        let id = try int64(row, "match_id"), side = try playerSide(row, "killer_side")
+        for (column, outgoing, _) in contextColumns { add(id, side, outgoing, Double(try integer(row, column))) }
+    }
+    let incomingContexts = try await sql.raw("""
+        SELECT c.*, CASE WHEN killer.match_team_id = victim.match_team_id THEN c.killer_side
+                         WHEN c.killer_side = 'T' THEN 'CT' ELSE 'T' END AS victim_side
+        FROM kill_context_side_stats c
+        JOIN match_players victim ON victim.id = c.victim_match_player_id
+        JOIN match_players killer ON killer.id = c.killer_match_player_id
+        WHERE victim.player_id = \(bind: playerID)
+        """).all()
+    for row in incomingContexts {
+        let id = try int64(row, "match_id"), side = try playerSide(row, "victim_side")
+        for (column, _, incoming) in contextColumns { add(id, side, incoming, Double(try integer(row, column))) }
+    }
+
+    let weapons = try await sql.raw("""
+        SELECT mp.match_id, w.side, w.weapon,
+               CAST(SUM(w.kills) AS SIGNED) AS kills, CAST(SUM(w.shots) AS SIGNED) AS shots,
+               CAST(SUM(w.damage) AS SIGNED) AS damage, CAST(SUM(w.rounds_used) AS SIGNED) AS rounds_used
+        FROM weapon_side_stats w JOIN match_players mp ON mp.id = w.match_player_id
+        WHERE mp.player_id = \(bind: playerID)
+        GROUP BY mp.match_id, w.side, w.weapon
+        """).all()
+    for row in weapons {
+        let id = try int64(row, "match_id"), side = try playerSide(row, "side")
+        let key = storageKey(id, side)
+        guard var value = values[key] else { continue }
+        value.weapons.append(ComparisonWeaponStats(
+            weapon: try row.decode(column: "weapon", as: String.self),
+            kills: try integer(row, "kills"), shots: try integer(row, "shots"),
+            damage: try integer(row, "damage"), roundsUsed: try integer(row, "rounds_used")
+        ))
+        values[key] = value
+    }
+
+    var result: [Int64: [ComparisonSideStats]] = [:]
+    for row in rows {
+        let matchID = try int64(row, "match_id"), side = try playerSide(row, "side")
+        guard let value = values[storageKey(matchID, side)] else { continue }
+        result[matchID, default: []].append(ComparisonSideStats(side: side, stats: value.stats, weapons: value.weapons))
+    }
+    for matchID in Array(result.keys) { result[matchID]?.sort { $0.side.rawValue < $1.side.rawValue } }
+    return result
+}
+
+private func comparisonMatches(playerID: Int64, sql: any SQLDatabase) async throws -> [ComparisonMatch] {
+    let sideData = try await comparisonSideData(playerID: playerID, sql: sql)
+    let rows = try await sql.raw("""
             SELECT m.id, m.played_at, m.map_name,
                    own_team.score AS score_for, other_team.score AS score_against,
                    (
@@ -231,7 +394,7 @@ func comparisonData(_ request: Request) async throws -> ComparisonResponse {
                      own_team.score, other_team.score
             ORDER BY m.played_at IS NULL, m.played_at DESC, m.id DESC
             """).all()
-        let matches = try rows.map { row in
+    return try rows.map { row in
             let scoreFor = try optionalInteger(row, "score_for")
             let scoreAgainst = try optionalInteger(row, "score_against")
             let result: String
@@ -242,21 +405,42 @@ func comparisonData(_ request: Request) async throws -> ComparisonResponse {
             }
             let teammateIDs = try optionalString(row, "teammate_ids")?
                 .split(separator: ",").compactMap { Int64($0) } ?? []
+            let matchID = try int64(row, "id")
             return ComparisonMatch(
-                id: try int64(row, "id"), playedAt: unix(try optionalDate(row, "played_at")),
+                id: matchID, playedAt: unix(try optionalDate(row, "played_at")),
                 map: try row.decode(column: "map_name", as: String.self), result: result,
                 scoreFor: scoreFor, scoreAgainst: scoreAgainst, teammateIDs: teammateIDs,
                 rounds: try integer(row, "rounds"), kills: try integer(row, "kills"),
                 deaths: try integer(row, "deaths"), assists: try integer(row, "assists"),
                 headshots: try integer(row, "headshots"), damage: try integer(row, "damage"),
-                kastRounds: try integer(row, "kast_rounds")
+                kastRounds: try integer(row, "kast_rounds"), sides: sideData[matchID] ?? []
             )
         }
+}
+
+func comparisonData(_ request: Request) async throws -> ComparisonResponse {
+    guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
+    let query = try request.query.decode(ComparisonQuery.self)
+    let tokens = query.players.split(separator: ",")
+    let requestedIDs = tokens.compactMap { Int64($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+    let playerIDs = requestedIDs.reduce(into: [Int64]()) { result, id in
+        if id > 0 && !result.contains(id) { result.append(id) }
+    }
+    guard requestedIDs.count == tokens.count, playerIDs.count == requestedIDs.count,
+          (2...20).contains(playerIDs.count) else {
+        throw Abort(.badRequest, reason: "players must contain 2-20 unique positive player IDs.")
+    }
+    var players: [ComparisonPlayer] = []
+    for playerID in playerIDs {
+        guard let identity = try await sql.raw("""
+            SELECT id, CAST(steam_id AS CHAR) AS steam_id, current_name
+            FROM players WHERE id = \(bind: playerID)
+            """).first() else { throw Abort(.notFound, reason: "Player \(playerID) was not found.") }
         players.append(ComparisonPlayer(
             id: try int64(identity, "id"),
             steamID: try identity.decode(column: "steam_id", as: String.self),
             name: try identity.decode(column: "current_name", as: String.self),
-            matches: matches
+            matches: try await comparisonMatches(playerID: playerID, sql: sql)
         ))
     }
     return ComparisonResponse(players: players)
@@ -333,6 +517,7 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
         SELECT id, CAST(steam_id AS CHAR) AS steam_id, current_name, first_seen_at, last_seen_at
         FROM players WHERE id = \(bind: playerID)
         """).first() else { throw Abort(.notFound, reason: "Player not found.") }
+    let profileMatches = try await comparisonMatches(playerID: playerID, sql: sql)
 
     let matchRows = try await sql.raw("""
         SELECT m.id, m.map_name, own_team.score AS own_score, other_team.score AS other_score,
@@ -485,7 +670,8 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
                 damage: try integer(row, "damage"), roundsUsed: try integer(row, "rounds_used")
             )
         },
-        maps: maps
+        maps: maps,
+        matches: profileMatches
     )
 }
 
