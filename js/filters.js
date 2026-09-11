@@ -34,10 +34,11 @@
       return `${this.selected.size} maps`;
     }
     setOptions(values, { reset = false } = {}) {
+      const openTarget = this.targets.find(target => target.querySelector("details[open]")) || null;
       this.options = [...new Set(values.filter(Boolean))].sort();
       if (reset) this.selected.clear();
       else this.selected = new Set([...this.selected].filter(value => this.options.includes(value)));
-      this.render();
+      this.render(openTarget);
     }
     reset({ notify = false } = {}) {
       this.selected.clear(); this.render();

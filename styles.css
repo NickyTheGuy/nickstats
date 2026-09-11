@@ -2168,12 +2168,13 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .map-filter-menu > summary::after {
   content: "▾";
   position: absolute;
-  top: 9px;
+  top: 50%;
   right: 11px;
   color: var(--muted);
+  transform: translateY(-50%);
 }
 
-.map-filter-menu[open] > summary::after { transform: rotate(180deg); }
+.map-filter-menu[open] > summary::after { transform: translateY(-50%) rotate(180deg); }
 
 .map-filter-options {
   position: absolute;
