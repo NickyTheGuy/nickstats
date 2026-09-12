@@ -14,7 +14,7 @@
   const state = {
     selected: new Map(), players: [], choices: new Map(), analysis: null,
     searchController: null, compareController: null, searchTimer: null,
-    side: "ALL", metricGroup: "core", weapon: "",
+    side: "ALL", result: "ALL", metricGroup: "core", weapon: "",
     comboPlayerId: "", comboCondition: "without", comboView: "overview",
     workspace: location.hash === "#matrix" ? "matrix" : "compare"
   };
@@ -123,6 +123,7 @@
     const result = {
       ...stats,
       n, wins, losses, ties,
+      scores: scoreBreakdown(rows, { scoreFor: row => row.score?.[0], scoreAgainst: row => row.score?.[1] }),
       winRate: state.side === "ALL" ? (n ? 100 * wins / n : 0) : (rounds ? 100 * num(stats.round_wins) / rounds : 0),
       kd: deaths ? kills / deaths : kills,
       avgK: n ? kills / n : 0,
@@ -523,10 +524,13 @@
   }
 
   function comboProfileRows(current, player) {
-    return comboMatchesForCondition(current).map(match => match.rows.find(item => item.player.profileId === player.profileId)?.row).filter(Boolean);
+    return comboMatchesForCondition(current)
+      .map(match => match.rows.find(item => item.player.profileId === player.profileId)?.row)
+      .filter(row => row && matchResultMatches(row.result, state.result));
   }
 
   const { integer, decimal, percent, ratio, titleCase } = window.NickStatsProfile;
+  const { bindSegmentedToggle, matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
   const mapFilter = new window.NickStatsFilters.MultiMapFilter(["compareMapFilter", "matrixMapFilter"], { onChange: () => refreshAnalysis(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
 
   function setComboProfileView(view) {
@@ -557,15 +561,14 @@
       profileTabs.appendChild(button);
     });
     const player = current.included.find(item => item.profileId === state.comboPlayerId);
-    const rows = comboProfileRows(current, player), stats = summarize(rows), s = stats;
+    const rows = comboProfileRows(current, player), stats = summarize(rows);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("comboProfileTitle").textContent = player.label;
-    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(rows.length)} qualifying match${rows.length === 1 ? "" : "es"} · ${sideLabel}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}`;
-    $("comboProfileRecord").textContent = state.side === "ALL" ? `${stats.wins}–${stats.losses}${stats.ties ? `–${stats.ties}` : ""}` : `${integer(s.round_wins)}–${integer(s.rounds - num(s.round_wins))} rounds`;
+    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(rows.length)} qualifying match${rows.length === 1 ? "" : "es"} · ${sideLabel} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}`;
     const maps = new Map(); rows.forEach(row => { const collection = maps.get(row.map) || []; collection.push(row); maps.set(row.map, collection); });
-    const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate });
+    const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate, scores: source.scores });
     const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches)) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
-    window.NickStatsProfile.render({ prefix: "combo", headlineId: "comboProfileHeadline", summary: normalize(stats), side: state.side, maps: mapRows });
+    window.NickStatsProfile.render({ prefix: "combo", headlineId: "comboProfileHeadline", summary: normalize(stats), side: state.side, result: state.result, maps: mapRows });
     setComboProfileView(state.comboView);
   }
 
@@ -582,6 +585,8 @@
     state.compareController?.abort();
     state.selected.clear();
     state.choices.clear();
+    state.result = "ALL";
+    comboResultFilter.set("ALL", { notify: false });
     invalidateAnalysis();
     $("compareSearchInput").value = "";
     $("compareSearchResults").replaceChildren();
@@ -599,6 +604,7 @@
   $("compareAnalyzeButton").addEventListener("click", analyze);
   $("compareClearButton").addEventListener("click", clear);
   document.querySelectorAll("[data-combo-profile-view]").forEach(button => button.addEventListener("click", () => setComboProfileView(button.dataset.comboProfileView)));
+  const comboResultFilter = bindSegmentedToggle({ selector: "[data-combo-result]", valueFor: button => button.dataset.comboResult, onChange: result => { state.result = result; runCombination(); } });
   document.querySelectorAll("[data-combo-condition]").forEach(button => button.addEventListener("click", () => {
     if (button.disabled) return;
     state.comboCondition = button.dataset.comboCondition; runCombination();

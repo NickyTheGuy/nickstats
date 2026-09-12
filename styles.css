@@ -2294,6 +2294,8 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .player-stat-card.rating-good > strong { color: var(--green); }
 .player-stat-card.rating-average > strong { color: var(--amber); }
 .player-stat-card.rating-bad > strong { color: var(--red); }
+.player-stat-card.player-score-win > strong { color: var(--green); }
+.player-stat-card.player-score-loss > strong { color: var(--red); }
 
 .player-profile-tabs {
   display: flex;

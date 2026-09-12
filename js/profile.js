@@ -74,7 +74,7 @@
     table.replaceChildren(head, body);
   }
 
-  function render({ prefix, headlineId, summary, side, maps }) {
+  function render({ prefix, headlineId, summary, side, result = "ALL", maps }) {
     const s = summary.stats || {}, rounds = number(s.rounds), sideAll = side === "ALL";
     const metric = (label, value) => [label, integer(value), countPerRound(value, rounds)];
     const ratingClass = summary.rating >= 1.1 ? "rating-good" : summary.rating <= .9 ? "rating-bad" : "rating-average";
@@ -83,7 +83,15 @@
       ["Average ADR", decimal(summary.adr, 1), `${integer(s.damage)} total damage`], ["Average KAST", percent(summary.kast), `${integer(s.kast_rounds)} KAST rounds`],
       [sideAll ? "Match win rate" : "Round win rate", percent(summary.winRate), sideAll ? `${summary.wins} wins in ${summary.matches} matches` : `${integer(s.round_wins)} of ${integer(rounds)} rounds`]
     ]);
-    fillCards(`${prefix}RecordStats`, [["Matches", integer(summary.matches), `${summary.wins} W · ${summary.losses} L · ${summary.draws} D`], ["Rounds", integer(rounds), `${integer(s.round_wins)} won`]]);
+    const scoreCard = (label, sample, className) => {
+      if (!sample?.count) return [label, "—", `No scored ${className === "player-score-win" ? "wins" : "losses"}`, className];
+      const margin = number(sample.margin), sign = margin > 0 ? "+" : margin < 0 ? "−" : "";
+      return [label, `${decimal(sample.for, 1)}–${decimal(sample.against, 1)}`, `${integer(sample.count)} scored match${sample.count === 1 ? "" : "es"} · ${sign}${decimal(Math.abs(margin), 1)} average margin`, className];
+    };
+    const recordCards = [["Matches", integer(summary.matches), `${summary.wins} W · ${summary.losses} L · ${summary.draws} D`], ["Rounds", integer(rounds), `${integer(s.round_wins)} won`]];
+    if (result !== "l") recordCards.push(scoreCard("Average score when winning", summary.scores?.wins, "player-score-win"));
+    if (result !== "w") recordCards.push(scoreCard("Average score when losing", summary.scores?.losses, "player-score-loss"));
+    fillCards(`${prefix}RecordStats`, recordCards);
     const damageDifferential = number(s.damage) - number(s.damage_received);
     fillCards(`${prefix}CombatStats`, [["Kills", integer(s.kills), countPerRound(s.kills, rounds)], ["Deaths", integer(s.deaths), countPerRound(s.deaths, rounds)], ["Assists", integer(s.assists), countPerRound(s.assists, rounds)], ["Headshot rate", percent(100 * ratio(s.headshots, s.kills)), `${integer(s.headshots)} headshots`], ["Damage received", integer(s.damage_received), countPerRound(s.damage_received, rounds, 1)], ["Damage differential", `${damageDifferential >= 0 ? "+" : ""}${integer(damageDifferential)}`, `${damageDifferential >= 0 ? "+" : ""}${decimal(ratio(damageDifferential, rounds), 1)} per round`]]);
     const utilityDamage = number(s.he_damage) + number(s.fire_damage);

@@ -2,8 +2,9 @@
   "use strict";
   const PLAYER_ENDPOINT = "/nickstats/api/players";
   const $ = id => document.getElementById(id);
-  const state = { payload: null, side: "ALL", searchController: null, profileController: null, searchTimer: null };
+  const state = { payload: null, side: "ALL", result: "ALL", searchController: null, profileController: null, searchTimer: null };
   const { number, integer, ratio, titleCase } = window.NickStatsProfile;
+  const { matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
   const mapFilter = new window.NickStatsFilters.MultiMapFilter("playerMapFilter", { onChange: () => renderProfile(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
 
   async function apiJson(response) {
@@ -81,26 +82,34 @@
     const kpr = ratio(kills, rounds), dpr = ratio(deaths, rounds), apr = ratio(assists, rounds), adr = ratio(stats.damage, rounds), kast = 100 * ratio(stats.kast_rounds, rounds);
     const impact = 2.13 * kpr + .42 * apr - .41;
     const rating = rounds ? Math.max(0, .0073 * kast + .3591 * kpr - .5329 * dpr + .2372 * impact + .0032 * adr + .1587) : 0;
-    return { stats, weapons: [...weapons.values()].sort((a, b) => b.kills - a.kills || b.damage - a.damage), matches: matches.length, wins, losses, draws, rounds, rating, kd: ratio(kills, deaths), adr, kast, winRate: side === "ALL" ? 100 * ratio(wins, matches.length) : 100 * ratio(stats.round_wins, rounds) };
+    return {
+      stats,
+      weapons: [...weapons.values()].sort((a, b) => b.kills - a.kills || b.damage - a.damage),
+      matches: matches.length, wins, losses, draws, rounds, rating,
+      kd: ratio(kills, deaths), adr, kast,
+      winRate: side === "ALL" ? 100 * ratio(wins, matches.length) : 100 * ratio(stats.round_wins, rounds),
+      scores: scoreBreakdown(matches)
+    };
   }
   function renderProfile() {
     const payload = state.payload; if (!payload) return;
     const player = payload.player || {}, allMatches = Array.isArray(payload.matches) ? payload.matches : [];
-    const matches = allMatches.filter(match => mapFilter.matches(match.map)), summary = aggregate(matches), s = summary.stats;
+    const matches = allMatches.filter(match => mapFilter.matches(match.map) && matchResultMatches(match.result, state.result));
+    const summary = aggregate(matches);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("playerProfileName").textContent = player.name || "Unknown player";
-    $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}`;
+    $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}`;
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
     const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: aggregate(map.rows) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
-    window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: state.side, maps: mapRows });
+    window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: state.side, result: state.result, maps: mapRows });
     $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "";
   }
   async function loadProfile(playerID) {
     state.profileController?.abort(); state.profileController = new AbortController();
     $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "Loading player profile…"; $("playerProfileStatus").classList.remove("error"); $("playerHeadlineStats").replaceChildren();
     try {
-      state.payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(playerID)}`, { headers: { Accept: "application/json" }, signal: state.profileController.signal })); state.side = "ALL";
-      mapFilter.setOptions((state.payload.matches || []).map(match => match.map), { reset: true }); playerSideFilter.set("ALL", { notify: false });
+      state.payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(playerID)}`, { headers: { Accept: "application/json" }, signal: state.profileController.signal })); state.side = "ALL"; state.result = "ALL";
+      mapFilter.setOptions((state.payload.matches || []).map(match => match.map), { reset: true }); playerSideFilter.set("ALL", { notify: false }); playerResultFilter.set("ALL", { notify: false });
       renderProfile(); setPlayerView("overview"); $("playerProfile").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (error) { if (error.name !== "AbortError") { $("playerProfileStatus").textContent = `Could not load player: ${error.message}`; $("playerProfileStatus").classList.add("error"); } }
   }
@@ -108,4 +117,5 @@
   $("playerSearchInput").addEventListener("input", event => { clearTimeout(state.searchTimer); const query = event.target.value.trim(); if (!query) { state.searchController?.abort(); $("playerSearchResults").replaceChildren(); setSearchStatus("Search for a player to open their profile."); return; } if (query.length >= 2) state.searchTimer = setTimeout(searchPlayers, 250); });
   document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
   const playerSideFilter = window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { state.side = side; renderProfile(); } });
+  const playerResultFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-result]", valueFor: button => button.dataset.playerResult, onChange: result => { state.result = result; renderProfile(); } });
 })();

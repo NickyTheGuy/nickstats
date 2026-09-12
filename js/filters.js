@@ -67,7 +67,7 @@
     }
   }
 
-  function bindSideToggle({ selector, valueFor, initial = "ALL", onChange = () => {} }) {
+  function bindSegmentedToggle({ selector, valueFor, initial = "ALL", onChange = () => {} }) {
     const buttons = [...document.querySelectorAll(selector)];
     let value = initial;
     const set = (next, { notify = true } = {}) => {
@@ -83,5 +83,43 @@
     return { get value() { return value; }, set };
   }
 
-  window.NickStatsFilters = Object.freeze({ MultiMapFilter, bindSideToggle });
+  function matchResultMatches(result, filter) {
+    return filter === "ALL" || result === filter;
+  }
+
+  function resultFilterLabel(filter) {
+    return filter === "w" ? "Wins only" : filter === "l" ? "Losses only" : "All results";
+  }
+
+  function scoreBreakdown(rows, {
+    resultFor = row => row.result,
+    scoreFor = row => row.score_for,
+    scoreAgainst = row => row.score_against
+  } = {}) {
+    const buckets = { wins: { count: 0, for: 0, against: 0 }, losses: { count: 0, for: 0, against: 0 } };
+    for (const row of rows || []) {
+      const bucket = resultFor(row) === "w" ? buckets.wins : resultFor(row) === "l" ? buckets.losses : null;
+      const ownRaw = scoreFor(row), opponentRaw = scoreAgainst(row);
+      const own = Number(ownRaw), opponent = Number(opponentRaw);
+      if (!bucket || ownRaw == null || ownRaw === "" || opponentRaw == null || opponentRaw === "" ||
+          !Number.isFinite(own) || !Number.isFinite(opponent)) continue;
+      bucket.count += 1; bucket.for += own; bucket.against += opponent;
+    }
+    for (const bucket of Object.values(buckets)) {
+      if (bucket.count) {
+        bucket.for /= bucket.count; bucket.against /= bucket.count;
+      }
+      bucket.margin = bucket.for - bucket.against;
+    }
+    return buckets;
+  }
+
+  window.NickStatsFilters = Object.freeze({
+    MultiMapFilter,
+    bindSegmentedToggle,
+    bindSideToggle: bindSegmentedToggle,
+    matchResultMatches,
+    resultFilterLabel,
+    scoreBreakdown
+  });
 })();
