@@ -2331,12 +2331,14 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .player-profile-tab[data-player-view="context"].active { box-shadow: inset 0 -4px 0 #ff975c, inset 0 0 0 1px #344155; }
 .player-profile-tab[data-player-view="rounds"].active { box-shadow: inset 0 -4px 0 var(--green), inset 0 0 0 1px #344155; }
 .player-profile-tab[data-player-view="movement"].active { box-shadow: inset 0 -4px 0 #be82ff, inset 0 0 0 1px #344155; }
+.player-profile-tab[data-player-view="graphs"].active { box-shadow: inset 0 -4px 0 var(--blue), inset 0 0 0 1px #344155; }
 .player-profile-tab[data-combo-profile-view="utility"].active { box-shadow: inset 0 -4px 0 var(--blue), inset 0 0 0 1px #344155; }
 .player-profile-tab[data-combo-profile-view="trades"].active { box-shadow: inset 0 -4px 0 #55d6d2, inset 0 0 0 1px #344155; }
 .player-profile-tab[data-combo-profile-view="openings"].active { box-shadow: inset 0 -4px 0 var(--amber), inset 0 0 0 1px #344155; }
 .player-profile-tab[data-combo-profile-view="context"].active { box-shadow: inset 0 -4px 0 #ff975c, inset 0 0 0 1px #344155; }
 .player-profile-tab[data-combo-profile-view="rounds"].active { box-shadow: inset 0 -4px 0 var(--green), inset 0 0 0 1px #344155; }
 .player-profile-tab[data-combo-profile-view="movement"].active { box-shadow: inset 0 -4px 0 #be82ff, inset 0 0 0 1px #344155; }
+.player-profile-tab[data-combo-profile-view="graphs"].active { box-shadow: inset 0 -4px 0 var(--blue), inset 0 0 0 1px #344155; }
 
 .player-profile-view {
   padding-top: 16px;
@@ -2533,6 +2535,71 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .player-count-item span { color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
 .player-count-item small { margin-top: 3px; color: var(--muted); font-size: 9px; white-space: nowrap; }
 
+.player-graph-builder {
+  display: flex;
+  gap: 18px;
+  align-items: end;
+  justify-content: space-between;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .018);
+}
+
+.player-graph-controls { display: flex; gap: 10px; flex-wrap: wrap; }
+.player-graph-controls label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.player-graph-controls select {
+  min-width: 170px;
+  min-height: 38px;
+  padding: 7px 34px 7px 10px;
+  border: 1px solid #344155;
+  border-radius: 9px;
+  background: #0d131d;
+  color: var(--text);
+  font: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+}
+.player-graph-controls label:last-child select { min-width: 250px; }
+.player-graph-builder p { max-width: 520px; margin: 0; color: var(--muted); font-size: 12px; }
+
+.graph-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+.graph-summary-card {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--series-color);
+  border-radius: 9px;
+  background: rgba(8, 11, 18, .3);
+}
+.graph-summary-card strong { color: var(--text); font-size: 13px; }
+.graph-summary-card span { color: var(--muted); font-size: 11px; }
+.graph-empty { grid-column: 1 / -1; margin: 12px 0; color: var(--muted); }
+
+.player-graph-frame {
+  overflow-x: auto;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0d131d;
+}
+.player-graph-frame svg { display: block; width: 100%; min-width: 620px; height: auto; }
+.graph-axis { stroke: #536177; stroke-width: 1.5; }
+.graph-grid-line { stroke: rgba(155, 168, 186, .15); stroke-width: 1; }
+.graph-axis-label { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.graph-axis-title { fill: #c5cedb; font-size: 12px; font-weight: 800; }
+.graph-series-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+.graph-point { stroke: #0d131d; stroke-width: 2; }
+.graph-legend { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+.graph-legend-item { display: inline-flex; gap: 7px; align-items: center; color: var(--muted); font-size: 11px; font-weight: 800; }
+.graph-legend-item::before { width: 11px; height: 11px; border-radius: 50%; background: var(--series-color); content: ""; }
+
 @media (max-width: 1050px) {
   .player-section-grid-thirds { grid-template-columns: 1fr; }
 }
@@ -2618,6 +2685,10 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 
 @media (max-width: 700px) {
+  .player-graph-builder { align-items: stretch; flex-direction: column; }
+  .player-graph-controls { display: grid; grid-template-columns: 1fr; }
+  .player-graph-controls select,
+  .player-graph-controls label:last-child select { width: 100%; min-width: 0; }
   .app-hero {
     align-items: start;
   }

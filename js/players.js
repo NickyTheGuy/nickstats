@@ -102,6 +102,7 @@
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
     const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: aggregate(map.rows) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: state.side, result: state.result, maps: mapRows });
+    window.NickStatsGraphs.render({ prefix: "player", series: [{ label: player.name || "Player", samples: window.NickStatsGraphs.samplesForMatches(matches, state.side) }] });
     $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "";
   }
   async function loadProfile(playerID) {

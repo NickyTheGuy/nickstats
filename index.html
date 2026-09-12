@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260912-1">
+  <link rel="stylesheet" href="./styles.css?v=20260912-2">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.12.5</span>
+          <span class="demo-build">Build 2026.09.12.6</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -302,6 +302,7 @@
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="utility">Utility</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="weapons">Weapons</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="maps">Maps</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="graphs">Graphs</button>
           </nav>
 
           <div class="player-profile-view" data-player-profile-view="overview">
@@ -357,6 +358,20 @@
           <div class="player-profile-view" data-player-profile-view="maps" hidden>
             <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerMapsTable"></table></div>
           </div>
+          <div class="player-profile-view" data-player-profile-view="graphs" hidden>
+            <section class="player-graph-builder">
+              <div class="player-graph-controls">
+                <label>Graph type<select id="playerGraphType"><option value="distribution">Distribution</option><option value="trend">Trend</option></select></label>
+                <label>Statistic<select id="playerGraphMetric"></select></label>
+              </div>
+              <p id="playerGraphNote"></p>
+            </section>
+            <div class="graph-summary" id="playerGraphSummary"></div>
+            <div class="player-graph-frame">
+              <svg id="playerGraphSvg" viewBox="0 0 900 420" role="img" aria-label="Player statistic graph"></svg>
+            </div>
+            <div class="graph-legend" id="playerGraphLegend"></div>
+          </div>
           </div>
         </section>
       </div>
@@ -381,8 +396,9 @@
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/filters.js?v=20260912-1"></script>
   <script defer src="./js/demo.js?v=20260912-4"></script>
+  <script defer src="./js/graphs.js?v=20260912-1"></script>
   <script defer src="./js/profile.js?v=20260912-5"></script>
-  <script defer src="./js/players.js?v=20260912-1"></script>
-  <script defer src="./js/compare.js?v=20260912-1"></script>
+  <script defer src="./js/players.js?v=20260912-2"></script>
+  <script defer src="./js/compare.js?v=20260912-2"></script>
 </body>
 </html>
