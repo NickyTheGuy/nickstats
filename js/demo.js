@@ -1581,9 +1581,9 @@
     const columns = [
       ["Weapon", "weapon"],
       ["Kills", "kills"],
-      ["K/R", "kills_per_round"],
+      ["K/RU", "kills_per_round"],
       ["Damage", "damage"],
-      ["Dmg/R", "damage_per_round"],
+      ["Dmg/RU", "damage_per_round"],
       ["Shots", "shots"],
       ["Hits", "hits"],
       ["Hit rate", "hit_rate"],

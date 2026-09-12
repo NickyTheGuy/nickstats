@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.12.3</span>
+          <span class="demo-build">Build 2026.09.12.4</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -128,7 +128,7 @@
           <section class="demo-weapon-section demo-analysis-panel" id="demoWeaponsView" role="tabpanel" aria-labelledby="demoWeaponsTab" hidden>
             <div class="demo-weapon-heading">
               <h3 id="demoWeaponTitle">Weapon breakdown</h3>
-              <p>Kills, damage, shots, hits, rates, and distinct rounds used. Expand a player to inspect their weapons.</p>
+              <p>Kills, damage, shots, hits, rates, and distinct rounds used. RU means rounds in which that weapon was used.</p>
             </div>
             <div class="demo-weapon-teams" id="demoWeapons"></div>
           </section>
@@ -345,6 +345,7 @@
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="weapons" hidden>
+            <p class="player-movement-note">K/RU and Dmg/RU use only rounds in which that weapon was used.</p>
             <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerWeaponsTable"></table></div>
           </div>
           <div class="player-profile-view" data-player-profile-view="maps" hidden>
@@ -373,8 +374,8 @@
 
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/filters.js?v=20260911-2"></script>
-  <script defer src="./js/demo.js?v=20260912-3"></script>
-  <script defer src="./js/profile.js?v=20260912-3"></script>
+  <script defer src="./js/demo.js?v=20260912-4"></script>
+  <script defer src="./js/profile.js?v=20260912-4"></script>
   <script defer src="./js/players.js?v=20260911-14"></script>
   <script defer src="./js/compare.js?v=20260911-18"></script>
 </body>
