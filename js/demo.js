@@ -1563,7 +1563,7 @@
     const weapons = (Array.isArray(player.weapon_stats) ? player.weapon_stats : []).map(stat => ({
       ...stat,
       kills_per_round: (stat.kills || 0) / Math.max(1, rounds),
-      damage_per_round: (stat.damage || 0) / Math.max(1, rounds),
+      damage_per_round: (stat.damage || 0) / Math.max(1, stat.rounds_used || 0),
       hit_rate: 100 * (stat.hits || 0) / Math.max(1, stat.shots || 0),
       usage: 100 * (stat.rounds_used || 0) / Math.max(1, rounds)
     }));
