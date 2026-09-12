@@ -2637,6 +2637,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 
 .player-graph-controls { display: flex; gap: 10px; flex-wrap: wrap; }
 .player-graph-controls label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.player-graph-controls label[hidden] { display: none; }
 .player-graph-controls select {
   min-width: 170px;
   min-height: 38px;
@@ -2672,6 +2673,8 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .graph-bucket-control button:focus-visible { background: rgba(52, 124, 240, .12); color: var(--text); }
 .graph-bucket-control button:disabled { background: transparent; color: #536177; cursor: default; }
 .graph-bucket-control output { display: grid; place-items: center; border-right: 1px solid var(--line); border-left: 1px solid var(--line); color: var(--text); font-size: 12px; letter-spacing: normal; }
+.graph-series-bar { opacity: .78; transition: opacity .14s ease; }
+.graph-series-bar:hover { opacity: 1; }
 .player-graph-builder p { max-width: 520px; margin: 0; color: var(--muted); font-size: 12px; }
 
 .graph-summary {

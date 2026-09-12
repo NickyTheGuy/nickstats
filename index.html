@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.12.8</span>
+          <span class="demo-build">Build 2026.09.12.9</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -373,6 +373,7 @@
               <div class="player-graph-controls">
                 <label>Graph type<select id="playerGraphType"><option value="distribution">Distribution</option><option value="trend">Trend</option></select></label>
                 <label>Statistic<select id="playerGraphMetric"></select></label>
+                <label id="playerGraphDistributionStyleControl">Display<select id="playerGraphDistributionStyle"><option value="bars">Bars</option><option value="line">Line</option></select></label>
                 <div class="graph-bucket-control" id="playerGraphBucketControl">
                   <span>Buckets</span>
                   <div><button id="playerGraphBucketsLess" type="button" aria-label="Use fewer buckets">−</button><output id="playerGraphBucketCount">10</output><button id="playerGraphBucketsMore" type="button" aria-label="Use more buckets">+</button></div>
@@ -410,7 +411,7 @@
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/filters.js?v=20260912-2"></script>
   <script defer src="./js/demo.js?v=20260912-4"></script>
-  <script defer src="./js/graphs.js?v=20260912-3"></script>
+  <script defer src="./js/graphs.js?v=20260912-4"></script>
   <script defer src="./js/profile.js?v=20260912-6"></script>
   <script defer src="./js/players.js?v=20260912-4"></script>
   <script defer src="./js/compare.js?v=20260912-3"></script>

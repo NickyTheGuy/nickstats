@@ -134,7 +134,7 @@
     }
   }
 
-  function drawDistribution(svg, prepared, domainSeries, metric, bins) {
+  function drawDistribution(svg, prepared, domainSeries, metric, bins, displayStyle) {
     const bounds = distributionBounds(domainSeries.length ? domainSeries : prepared);
     if (!bounds) return;
     const { min, max } = bounds;
@@ -151,20 +151,40 @@
       const x = left + width * tick / 4, value = min + (max - min) * tick / 4;
       svg.appendChild(svgElement("text", { x, y: top + height + 24, class: "graph-axis-label", "text-anchor": "middle" }, format(value, metric)));
     }
-    histograms.forEach((series, seriesIndex) => {
-      const colorIndex = series.colorIndex ?? seriesIndex;
-      const points = series.percentages.map((value, index) => {
-        const x = left + width * (index + .5) / bins, y = top + height - height * value / yMax;
-        return `${x},${y}`;
-      }).join(" ");
-      const line = svgElement("polyline", { points, class: "graph-series-line", stroke: colors[colorIndex % colors.length] });
-      line.appendChild(svgElement("title", {}, `${series.label} distribution`)); svg.appendChild(line);
-      series.percentages.forEach((value, index) => {
-        const x = left + width * (index + .5) / bins, y = top + height - height * value / yMax;
-        const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
-        dot.appendChild(svgElement("title", {}, `${series.label}: ${value.toFixed(1)}% of matches in ${format(min + index * binWidth, metric)}–${format(min + (index + 1) * binWidth, metric)}`)); svg.appendChild(dot);
+    const pointTitle = (series, value, index) => `${series.label}: ${value.toFixed(1)}% of matches in ${format(min + index * binWidth, metric)}–${format(min + (index + 1) * binWidth, metric)}`;
+    if (displayStyle === "line") {
+      histograms.forEach((series, seriesIndex) => {
+        const colorIndex = series.colorIndex ?? seriesIndex;
+        const points = series.percentages.map((value, index) => {
+          const x = left + width * (index + .5) / bins, y = top + height - height * value / yMax;
+          return `${x},${y}`;
+        }).join(" ");
+        const line = svgElement("polyline", { points, class: "graph-series-line", stroke: colors[colorIndex % colors.length] });
+        line.appendChild(svgElement("title", {}, `${series.label} distribution`)); svg.appendChild(line);
+        series.percentages.forEach((value, index) => {
+          const x = left + width * (index + .5) / bins, y = top + height - height * value / yMax;
+          const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
+          dot.appendChild(svgElement("title", {}, pointTitle(series, value, index))); svg.appendChild(dot);
+        });
       });
-    });
+    } else {
+      const groupWidth = width / bins, innerWidth = groupWidth * .84, barWidth = innerWidth / histograms.length;
+      histograms.forEach((series, seriesIndex) => {
+        const colorIndex = series.colorIndex ?? seriesIndex;
+        series.percentages.forEach((value, index) => {
+          const barHeight = height * value / yMax;
+          const bar = svgElement("rect", {
+            x: left + index * groupWidth + (groupWidth - innerWidth) / 2 + seriesIndex * barWidth,
+            y: top + height - barHeight,
+            width: Math.max(1, barWidth - 1),
+            height: barHeight,
+            fill: colors[colorIndex % colors.length],
+            class: "graph-series-bar"
+          });
+          bar.appendChild(svgElement("title", {}, pointTitle(series, value, index))); svg.appendChild(bar);
+        });
+      });
+    }
     svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, metric.label));
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, "Share of matches"));
   }
@@ -217,12 +237,15 @@
     const type = document.getElementById(`${prefix}GraphType`), metricSelect = document.getElementById(`${prefix}GraphMetric`);
     const svg = document.getElementById(`${prefix}GraphSvg`), summary = document.getElementById(`${prefix}GraphSummary`);
     const legend = document.getElementById(`${prefix}GraphLegend`), note = document.getElementById(`${prefix}GraphNote`);
+    const distributionStyleControl = document.getElementById(`${prefix}GraphDistributionStyleControl`);
+    const distributionStyle = document.getElementById(`${prefix}GraphDistributionStyle`);
     const bucketControl = document.getElementById(`${prefix}GraphBucketControl`), bucketCount = document.getElementById(`${prefix}GraphBucketCount`);
     const bucketLess = document.getElementById(`${prefix}GraphBucketsLess`), bucketMore = document.getElementById(`${prefix}GraphBucketsMore`);
     if (!type || !metricSelect || !svg || !summary || !legend || !note) return;
     const metric = registry.get(metricSelect.value) || registry.get("rating");
     const prepared = state.series.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
     const domainPrepared = state.domainSeries.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
+    if (distributionStyleControl) distributionStyleControl.hidden = type.value !== "distribution";
     if (bucketControl) bucketControl.hidden = type.value !== "distribution";
     if (bucketCount) bucketCount.textContent = String(state.bucketCount);
     if (bucketLess) bucketLess.disabled = state.bucketCount <= MIN_BUCKETS;
@@ -248,7 +271,7 @@
     });
     if (multiTrendNeedsDates) {
       svg.appendChild(svgElement("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
-    } else type.value === "trend" ? drawTrend(svg, prepared, metric) : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount);
+    } else type.value === "trend" ? drawTrend(svg, prepared, metric) : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount, distributionStyle?.value || "bars");
   }
 
   function render({ prefix, series, domainSeries = series, independent = false }) {
@@ -258,6 +281,7 @@
     const previous = graphState.get(prefix);
     if (!previous) {
       type.addEventListener("change", () => draw(prefix)); metric.addEventListener("change", () => draw(prefix));
+      document.getElementById(`${prefix}GraphDistributionStyle`)?.addEventListener("change", () => draw(prefix));
       document.getElementById(`${prefix}GraphBucketsLess`)?.addEventListener("click", () => {
         const current = graphState.get(prefix); current.bucketCount = Math.max(MIN_BUCKETS, current.bucketCount - 1); draw(prefix);
       });
