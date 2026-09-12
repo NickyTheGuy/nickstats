@@ -38,7 +38,7 @@ Each player also receives a per-weapon ledger containing enemy kills, enemy heal
 
 Default pistols (Glock, USP-S, and P2000) and the knife use a stricter definition because every player spawns with them. Knife and grenades remain activity-only. A retained default pistol receives passive credit only when the player has no primary weapon or alternate pistol—for example, an unarmed pistol-round player who dies before firing.
 
-Weapon player cards are expandable, retain their open state across ALL/CT/T changes, and have independently sortable Weapon, Kills, K/R, Damage, Dmg/R, Shots, Hits, Hit Rate, Rounds Used, and Usage columns. `Dmg/R` divides weapon damage by the rounds in which that weapon was used; `K/R` remains kills per total round played. The profile Weapons and Maps tables are sortable as well.
+Weapon player cards are expandable, retain their open state across ALL/CT/T changes, and have independently sortable Weapon, Kills, K/R, Damage, Dmg/R, Shots, Hits, Hit Rate, Rounds Used, and Usage columns. Both `K/R` and `Dmg/R` divide by the rounds in which that weapon was used. The profile Weapons and Maps tables are sortable as well.
 
 Pickup, equip, and even damage events sometimes use the shared `hkp2000` family label for both CT starting pistols. NickStats learns each player's CT pistol choice from the explicit item definition index—USP-S (61), P2000 (32)—or unambiguous combat events, retains it across rounds, and routes ambiguous inventory/damage events to that choice. An unindexed `hkp2000` inventory event cannot create a P2000 statistic by itself.
 
