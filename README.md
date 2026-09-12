@@ -1,18 +1,19 @@
 # NickStats
 
-A local-first Counter-Strike 2 analysis application organized around three product views:
+A local-first Counter-Strike 2 analysis application organized around four product views:
 
 - **Match** — parse a CS2 `.dem`, FACEIT `.zst`, `.dem.gz`, or `.zip` and inspect the scoreboard, duels, trades, and weapons.
-- **Compare** — database-backed teammate matrices, pairwise comparisons, and Included/Excluded lineup conditions.
-- **Players** — personal summaries, splits, relationships, and match history.
+- **Player** — reusable personal profiles, splits, graphs, and match history.
+- **Matrix** — database-backed teammate matrices and pairwise comparisons.
+- **Groups** — Included/Excluded teammate conditions and With/Without player profiles.
 
-Demo files are processed in the browser and are never uploaded. Match, Compare, and Players remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/9` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually. Compare and Players are currently database-ready empty states.
+Demo files are processed in the browser and are never uploaded. All four views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/9` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
 
 The visible date-based build number in the NickStats header is bumped with parser and interface deployments, making it easy to tell when a published host has received the newest version.
 
 Standalone and conditional player profiles combine independent Map, Result (All / Wins / Losses), and Side (All / T / CT) filters. The result filter applies to every displayed statistic by selecting whole matches before their player totals are aggregated. The Overview record also shows the player's average final scoreline and average margin separately for scored wins and losses. The underlying match rows remain available client-side so per-match distributions can be added later without changing this aggregation path.
 
-The shared **Graphs** profile tab turns those filtered match rows into one observation per match. Distribution graphs compare each player's percentage of matches within common value ranges and report mean, median, standard deviation, and sample size. Trend graphs use calendar order wherever `played_at` is available and otherwise fall back to database match order. Standalone profiles show one series; conditional Compare profiles overlay every Included player under the current lineup condition, map, result, and side filters.
+The Player view keeps multiple closable profiles open as tabs, remembers each tab's filters and section, and stores the ten most recently viewed players in local browser storage. Open profiles form the available player pool in **Graphs**: up to five independent careers can be selected for a general comparison under the active profile's common map, result, and side filters, whether or not those players shared matches. Distribution graphs compare each player's percentage of matches within common value ranges and report mean, median, standard deviation, range, and sample size. Single-player trends can fall back to match order; independent multi-player trends wait for complete `played_at` coverage so unrelated timelines are not falsely aligned. Conditional Groups profiles continue to graph Included players under the current lineup condition.
 
 Demo statistics use the roster present when each round goes live as the denominator, so transient pre-freeze spawns do not count. Bots that enter live play remain separate, visibly labeled rows and are identified in JSON so future aggregate analysis can exclude them by default.
 
@@ -112,7 +113,7 @@ If a demo contains no recognizable completed rounds, the app offers a small diag
 
 - `index.html` — interface markup
 - `styles.css` — presentation
-- `js/navigation.js` — Match, Compare, and Players navigation
+- `js/navigation.js` — Match, Player, Matrix, and Groups navigation
 - `js/demo.js` — demo upload, worker control, and scoreboard rendering
 - `js/demo-worker.js` — local CS2 demo parsing and aggregation
 - `database/schema.sql` — normalized MySQL schema

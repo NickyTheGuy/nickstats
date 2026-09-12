@@ -2094,6 +2094,65 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   font-weight: 850;
 }
 
+.player-recent {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.player-recent header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.player-recent h3 { margin: 0; font-size: 13px; }
+.player-recent header button {
+  padding: 3px 7px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+}
+.player-recent header button:hover,
+.player-recent header button:focus-visible { color: var(--text); }
+.player-recent-list { display: flex; gap: 7px; overflow-x: auto; padding-top: 9px; }
+.player-recent-chip {
+  display: grid;
+  flex: 0 0 auto;
+  min-width: 135px;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .018);
+  color: var(--text);
+  text-align: left;
+}
+.player-recent-chip:hover { border-color: #45648e; background: rgba(52, 124, 240, .07); }
+.player-recent-chip strong { font-size: 12px; }
+.player-recent-chip span { overflow: hidden; max-width: 180px; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+
+.player-open-profiles {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0d131d;
+}
+.player-open-tab {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+.player-open-tab.active { border-color: #45648e; background: var(--panel-2); }
+.player-open-tab-label,
+.player-open-tab-close { min-height: 34px; border: 0; background: transparent; color: var(--muted); font-weight: 800; }
+.player-open-tab-label { padding: 6px 8px 6px 11px; }
+.player-open-tab-close { width: 30px; padding: 0 7px 2px; font-size: 18px; line-height: 1; }
+.player-open-tab.active .player-open-tab-label { color: var(--text); }
+.player-open-tab-close:hover,
+.player-open-tab-close:focus-visible { background: rgba(255, 122, 131, .14); color: var(--red); }
+
 .player-profile[hidden],
 .player-profile-view[hidden] {
   display: none;
@@ -2535,6 +2594,36 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .player-count-item span { color: var(--muted); font-size: 10px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
 .player-count-item small { margin-top: 3px; color: var(--muted); font-size: 9px; white-space: nowrap; }
 
+.graph-player-picker {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .018);
+}
+.graph-player-picker > div:first-child { display: grid; flex: 0 0 auto; }
+.graph-player-picker strong { font-size: 12px; }
+.graph-player-picker > div:first-child span { color: var(--muted); font-size: 10px; }
+.graph-player-choices { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.graph-player-choice {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 800;
+}
+.graph-player-choice:has(input:checked) { border-color: #45648e; background: rgba(52, 124, 240, .09); color: var(--text); }
+.graph-player-choice input { margin: 0; accent-color: var(--blue); }
+
 .player-graph-builder {
   display: flex;
   gap: 18px;
@@ -2594,6 +2683,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .graph-grid-line { stroke: rgba(155, 168, 186, .15); stroke-width: 1; }
 .graph-axis-label { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .graph-axis-title { fill: #c5cedb; font-size: 12px; font-weight: 800; }
+.graph-waiting-message { fill: var(--muted); font-size: 14px; font-weight: 800; }
 .graph-series-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .graph-point { stroke: #0d131d; stroke-width: 2; }
 .graph-legend { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
@@ -2685,6 +2775,8 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 
 @media (max-width: 700px) {
+  .graph-player-picker { align-items: stretch; flex-direction: column; }
+  .graph-player-choices { justify-content: flex-start; }
   .player-graph-builder { align-items: stretch; flex-direction: column; }
   .player-graph-controls { display: grid; grid-template-columns: 1fr; }
   .player-graph-controls select,

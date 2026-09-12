@@ -105,6 +105,10 @@
     return series.samples.map(sample => ({ ...sample, value: metric.value(sample.stats) })).filter(sample => Number.isFinite(sample.value));
   }
 
+  function independentTrendNeedsDates(series) {
+    return series.length > 1 && series.some(item => item.values.some(point => point.date <= 0));
+  }
+
   function setLine(svg, x1, y1, x2, y2, className = "graph-axis") {
     svg.appendChild(svgElement("line", { x1, y1, x2, y2, class: className }));
   }
@@ -205,9 +209,12 @@
     const metric = registry.get(metricSelect.value) || registry.get("rating");
     const prepared = state.series.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
     svg.replaceChildren(); summary.replaceChildren(); legend.replaceChildren();
+    const multiTrendNeedsDates = type.value === "trend" && state.independent && independentTrendNeedsDates(prepared);
     note.textContent = type.value === "distribution"
       ? "Each observation is one match. Lines show the percentage of that player’s matches in each range."
-      : "Points follow match date when available and match order otherwise. Hover a point for its match and value.";
+      : multiTrendNeedsDates
+        ? "Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for match order, or use Distribution for comparisons now."
+        : "Points follow match date when available and match order otherwise. Hover a point for its match and value.";
     if (!prepared.length) {
       const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = "No qualifying match samples for this statistic."; summary.appendChild(empty); return;
     }
@@ -219,18 +226,20 @@
       item.append(label, details); summary.appendChild(item);
       const key = document.createElement("span"); key.className = "graph-legend-item"; key.style.setProperty("--series-color", colors[index % colors.length]); key.textContent = series.label; legend.appendChild(key);
     });
-    type.value === "trend" ? drawTrend(svg, prepared, metric) : drawDistribution(svg, prepared, metric);
+    if (multiTrendNeedsDates) {
+      svg.appendChild(svgElement("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
+    } else type.value === "trend" ? drawTrend(svg, prepared, metric) : drawDistribution(svg, prepared, metric);
   }
 
-  function render({ prefix, series }) {
+  function render({ prefix, series, independent = false }) {
     const type = document.getElementById(`${prefix}GraphType`), metric = document.getElementById(`${prefix}GraphMetric`);
     if (!type || !metric) return;
     populateMetrics(metric);
     if (!graphState.has(prefix)) {
       type.addEventListener("change", () => draw(prefix)); metric.addEventListener("change", () => draw(prefix));
     }
-    graphState.set(prefix, { series: series || [] }); draw(prefix);
+    graphState.set(prefix, { series: series || [], independent }); draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, statsForMatch, samplesForMatches, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, statsForMatch, samplesForMatches, independentTrendNeedsDates, render });
 })();

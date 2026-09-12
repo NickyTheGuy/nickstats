@@ -8,7 +8,7 @@ const source = fs.readFileSync(path.join(__dirname, "../js/graphs.js"), "utf8");
 const context = vm.createContext({ window: {}, document: {} });
 vm.runInContext(source, context);
 
-const { metrics, samplesForMatches, statsForMatch } = context.window.NickStatsGraphs;
+const { metrics, samplesForMatches, statsForMatch, independentTrendNeedsDates } = context.window.NickStatsGraphs;
 
 const match = {
   id: 8,
@@ -46,4 +46,10 @@ test("graph metric registry calculates per-match rates from matching denominator
 
 test("matches without qualifying rounds do not become zero-valued observations", () => {
   assert.equal(samplesForMatches([{ id: 9, sides: [] }], "ALL").length, 0);
+});
+
+test("independent multi-player trends wait for complete date coverage", () => {
+  assert.equal(independentTrendNeedsDates([{ values: [{ date: 100 }] }]), false);
+  assert.equal(independentTrendNeedsDates([{ values: [{ date: 100 }] }, { values: [{ date: 0 }] }]), true);
+  assert.equal(independentTrendNeedsDates([{ values: [{ date: 100 }] }, { values: [{ date: 200 }] }]), false);
 });

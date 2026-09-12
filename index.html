@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260912-2">
+  <link rel="stylesheet" href="./styles.css?v=20260912-3">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.12.6</span>
+          <span class="demo-build">Build 2026.09.12.7</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -25,7 +25,7 @@
       <button class="data-tab" id="matchPageTab" type="button" role="tab" aria-selected="true" aria-controls="matchPage" data-app-page="match">Match</button>
       <button class="data-tab" id="playersPageTab" type="button" role="tab" aria-selected="false" aria-controls="playersPage" data-app-page="players">Player</button>
       <button class="data-tab" id="matrixPageTab" type="button" role="tab" aria-selected="false" aria-controls="comparePage" data-app-page="matrix">Matrix</button>
-      <button class="data-tab" id="comparePageTab" type="button" role="tab" aria-selected="false" aria-controls="comparePage" data-app-page="compare">Compare</button>
+      <button class="data-tab" id="comparePageTab" type="button" role="tab" aria-selected="false" aria-controls="comparePage" data-app-page="compare">Groups</button>
     </nav>
 
     <section class="app-view" id="matchPage" role="tabpanel" aria-labelledby="matchPageTab" data-app-view="match">
@@ -154,9 +154,9 @@
         <section class="panel compare-builder-panel">
           <div class="section-head compare-builder-heading">
             <div>
-              <div class="eyebrow" id="compareBuilderEyebrow">Conditional profiles</div>
-              <h2 id="compareBuilderTitle">Build a player profile</h2>
-              <p id="compareBuilderDescription">Add players, then mark each one Include or Exclude for the lineup comparison.</p>
+              <div class="eyebrow" id="compareBuilderEyebrow">Conditional groups</div>
+              <h2 id="compareBuilderTitle">Build a player group</h2>
+              <p id="compareBuilderDescription">Add players, then mark each one Include or Exclude for the group condition.</p>
             </div>
             <form class="compare-search-form" id="compareSearchForm" role="search">
               <label class="visually-hidden" for="compareSearchInput">Player name or Steam ID</label>
@@ -261,7 +261,13 @@
           </div>
           <div class="player-search-status" id="playerSearchStatus" role="status" aria-live="polite">Search for a player to open their profile.</div>
           <div class="player-search-results" id="playerSearchResults"></div>
+          <section class="player-recent" id="playerRecent" hidden>
+            <header><h3>Recently viewed</h3><button id="playerRecentClear" type="button">Clear</button></header>
+            <div class="player-recent-list" id="playerRecentList"></div>
+          </section>
         </section>
+
+        <nav class="player-open-profiles" id="playerOpenProfiles" role="tablist" aria-label="Open player profiles" hidden></nav>
 
         <section class="panel player-profile" id="playerProfile" hidden>
           <header class="player-profile-header">
@@ -359,6 +365,10 @@
             <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerMapsTable"></table></div>
           </div>
           <div class="player-profile-view" data-player-profile-view="graphs" hidden>
+            <section class="graph-player-picker" data-standalone-profile-only>
+              <div><strong>Players</strong><span id="playerGraphPlayerStatus">Choose open profiles to compare</span></div>
+              <div class="graph-player-choices" id="playerGraphPlayers"></div>
+            </section>
             <section class="player-graph-builder">
               <div class="player-graph-controls">
                 <label>Graph type<select id="playerGraphType"><option value="distribution">Distribution</option><option value="trend">Trend</option></select></label>
@@ -394,11 +404,11 @@
   </dialog>
 
   <script defer src="./js/navigation.js?v=20260911-2"></script>
-  <script defer src="./js/filters.js?v=20260912-1"></script>
+  <script defer src="./js/filters.js?v=20260912-2"></script>
   <script defer src="./js/demo.js?v=20260912-4"></script>
-  <script defer src="./js/graphs.js?v=20260912-1"></script>
-  <script defer src="./js/profile.js?v=20260912-5"></script>
-  <script defer src="./js/players.js?v=20260912-2"></script>
-  <script defer src="./js/compare.js?v=20260912-2"></script>
+  <script defer src="./js/graphs.js?v=20260912-2"></script>
+  <script defer src="./js/profile.js?v=20260912-6"></script>
+  <script defer src="./js/players.js?v=20260912-3"></script>
+  <script defer src="./js/compare.js?v=20260912-3"></script>
 </body>
 </html>

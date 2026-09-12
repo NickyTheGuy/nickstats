@@ -126,6 +126,7 @@
     const source = $("playerProfileBody"), target = $("comboProfileBody");
     if (!source || !target) return;
     const component = source.cloneNode(true); component.removeAttribute("id");
+    component.querySelectorAll("[data-standalone-profile-only]").forEach(element => element.remove());
     component.querySelectorAll("[id]").forEach(element => {
       if (element.id.startsWith("player")) element.id = `combo${element.id.slice("player".length)}`;
     });

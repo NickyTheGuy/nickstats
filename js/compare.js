@@ -461,11 +461,11 @@
   function setWorkspace(page) {
     state.workspace = page === "matrix" ? "matrix" : "compare";
     const matrix = state.workspace === "matrix";
-    $("compareBuilderEyebrow").textContent = matrix ? "Group analysis" : "Conditional profiles";
-    $("compareBuilderTitle").textContent = matrix ? "Build a matrix group" : "Build a player profile";
+    $("compareBuilderEyebrow").textContent = matrix ? "Group analysis" : "Conditional groups";
+    $("compareBuilderTitle").textContent = matrix ? "Build a matrix group" : "Build a player group";
     $("compareBuilderDescription").textContent = matrix
       ? "Add the players whose teammate impact you want to compare."
-      : "Add players, then mark each one Include or Exclude for the lineup comparison.";
+      : "Add players, then mark each one Include or Exclude for the group condition.";
     $("compareAnalyzeButton").textContent = matrix ? "Build matrix" : "Build profiles";
     document.querySelector(".compare-stats-toolbar").hidden = !matrix;
     setCompareMode(matrix ? "group" : "combination");

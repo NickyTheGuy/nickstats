@@ -40,6 +40,11 @@
       else this.selected = new Set([...this.selected].filter(value => this.options.includes(value)));
       this.render(openTarget);
     }
+    setSelected(values, { notify = false } = {}) {
+      this.selected = new Set((values || []).filter(value => this.options.includes(value)));
+      this.render();
+      if (notify) this.onChange(this.values());
+    }
     reset({ notify = false } = {}) {
       this.selected.clear(); this.render();
       if (notify) this.onChange(this.values());
