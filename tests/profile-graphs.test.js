@@ -8,7 +8,7 @@ const source = fs.readFileSync(path.join(__dirname, "../js/graphs.js"), "utf8");
 const context = vm.createContext({ window: {}, document: {} });
 vm.runInContext(source, context);
 
-const { metrics, samplesForMatches, statsForMatch, independentTrendNeedsDates } = context.window.NickStatsGraphs;
+const { metrics, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds } = context.window.NickStatsGraphs;
 
 const match = {
   id: 8,
@@ -52,4 +52,18 @@ test("independent multi-player trends wait for complete date coverage", () => {
   assert.equal(independentTrendNeedsDates([{ values: [{ date: 100 }] }]), false);
   assert.equal(independentTrendNeedsDates([{ values: [{ date: 100 }] }, { values: [{ date: 0 }] }]), true);
   assert.equal(independentTrendNeedsDates([{ values: [{ date: 100 }] }, { values: [{ date: 200 }] }]), false);
+});
+
+test("distribution bounds come from the stable available-player pool", () => {
+  const available = [
+    { values: [{ value: .8 }, { value: 1.2 }] },
+    { values: [{ value: .6 }, { value: 1.5 }] }
+  ];
+  const bounds = distributionBounds(available);
+
+  assert.equal(bounds.min, .6);
+  assert.equal(bounds.max, 1.5);
+  const selectedOnly = distributionBounds([available[0]]);
+  assert.equal(selectedOnly.min, .8);
+  assert.equal(selectedOnly.max, 1.2);
 });

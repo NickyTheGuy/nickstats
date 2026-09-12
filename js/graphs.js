@@ -3,6 +3,9 @@
 
   const SVG_NS = "http://www.w3.org/2000/svg";
   const colors = ["#6ca4ff", "#ffc969", "#55d6d2", "#be82ff", "#ff7b86"];
+  const MIN_BUCKETS = 4;
+  const MAX_BUCKETS = 24;
+  const DEFAULT_BUCKETS = 10;
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
   const ratio = (a, b) => number(b) > 0 ? number(a) / number(b) : number(a);
   const rate = key => stats => ratio(stats[key], stats.rounds);
@@ -109,6 +112,14 @@
     return series.length > 1 && series.some(item => item.values.some(point => point.date <= 0));
   }
 
+  function distributionBounds(series) {
+    const values = series.flatMap(item => item.values.map(point => point.value));
+    if (!values.length) return null;
+    let min = Math.min(...values), max = Math.max(...values);
+    if (min === max) { const padding = Math.abs(min) * .1 || 1; min -= padding; max += padding; }
+    return { min, max };
+  }
+
   function setLine(svg, x1, y1, x2, y2, className = "graph-axis") {
     svg.appendChild(svgElement("line", { x1, y1, x2, y2, class: className }));
   }
@@ -123,34 +134,34 @@
     }
   }
 
-  function drawDistribution(svg, prepared, metric) {
-    const all = prepared.flatMap(series => series.values.map(point => point.value));
-    if (!all.length) return;
-    let min = Math.min(...all), max = Math.max(...all);
-    if (min === max) { const padding = Math.abs(min) * .1 || 1; min -= padding; max += padding; }
-    const bins = Math.max(5, Math.min(12, Math.ceil(Math.sqrt(all.length))));
+  function drawDistribution(svg, prepared, domainSeries, metric, bins) {
+    const bounds = distributionBounds(domainSeries.length ? domainSeries : prepared);
+    if (!bounds) return;
+    const { min, max } = bounds;
     const left = 68, top = 24, width = 796, height = 318, binWidth = (max - min) / bins;
-    const histograms = prepared.map(series => {
+    const histogram = series => {
       const counts = Array(bins).fill(0);
       series.values.forEach(point => counts[Math.min(bins - 1, Math.floor((point.value - min) / binWidth))] += 1);
       return { ...series, percentages: counts.map(value => 100 * value / Math.max(1, series.values.length)) };
-    });
-    const yMax = Math.max(1, ...histograms.flatMap(series => series.percentages));
+    };
+    const histograms = prepared.map(histogram), domainHistograms = (domainSeries.length ? domainSeries : prepared).map(histogram);
+    const yMax = Math.max(1, ...domainHistograms.flatMap(series => series.percentages));
     drawAxes(svg, { left, top, width, height, min, max, metric, yMax });
     for (let tick = 0; tick <= 4; tick += 1) {
       const x = left + width * tick / 4, value = min + (max - min) * tick / 4;
       svg.appendChild(svgElement("text", { x, y: top + height + 24, class: "graph-axis-label", "text-anchor": "middle" }, format(value, metric)));
     }
     histograms.forEach((series, seriesIndex) => {
+      const colorIndex = series.colorIndex ?? seriesIndex;
       const points = series.percentages.map((value, index) => {
         const x = left + width * (index + .5) / bins, y = top + height - height * value / yMax;
         return `${x},${y}`;
       }).join(" ");
-      const line = svgElement("polyline", { points, class: "graph-series-line", stroke: colors[seriesIndex % colors.length], "stroke-dasharray": seriesIndex > 4 ? "7 5" : "none" });
+      const line = svgElement("polyline", { points, class: "graph-series-line", stroke: colors[colorIndex % colors.length] });
       line.appendChild(svgElement("title", {}, `${series.label} distribution`)); svg.appendChild(line);
       series.percentages.forEach((value, index) => {
         const x = left + width * (index + .5) / bins, y = top + height - height * value / yMax;
-        const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[seriesIndex % colors.length], class: "graph-point" });
+        const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
         dot.appendChild(svgElement("title", {}, `${series.label}: ${value.toFixed(1)}% of matches in ${format(min + index * binWidth, metric)}–${format(min + (index + 1) * binWidth, metric)}`)); svg.appendChild(dot);
       });
     });
@@ -174,15 +185,16 @@
     const left = 68, top = 24, width = 796, height = 318;
     drawAxes(svg, { left, top, width, height, min, max, metric });
     prepared.forEach((series, seriesIndex) => {
+      const colorIndex = series.colorIndex ?? seriesIndex;
       const ordered = [...series.values].sort((a, b) => positions.get(a.id) - positions.get(b.id));
       const coordinates = ordered.map(point => {
         const x = left + width * positions.get(point.id) / Math.max(1, matches.length - 1);
         const y = top + height - height * (point.value - min) / (max - min);
         return { point, x, y };
       });
-      svg.appendChild(svgElement("polyline", { points: coordinates.map(({ x, y }) => `${x},${y}`).join(" "), class: "graph-series-line", stroke: colors[seriesIndex % colors.length] }));
+      svg.appendChild(svgElement("polyline", { points: coordinates.map(({ x, y }) => `${x},${y}`).join(" "), class: "graph-series-line", stroke: colors[colorIndex % colors.length] }));
       coordinates.forEach(({ point, x, y }) => {
-        const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[seriesIndex % colors.length], class: "graph-point" });
+        const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
         const date = point.date > 0 ? new Date(point.date * 1000).toLocaleDateString() : `Match #${point.id}`;
         dot.appendChild(svgElement("title", {}, `${series.label} · ${date}: ${format(point.value, metric)}`)); svg.appendChild(dot);
       });
@@ -205,13 +217,20 @@
     const type = document.getElementById(`${prefix}GraphType`), metricSelect = document.getElementById(`${prefix}GraphMetric`);
     const svg = document.getElementById(`${prefix}GraphSvg`), summary = document.getElementById(`${prefix}GraphSummary`);
     const legend = document.getElementById(`${prefix}GraphLegend`), note = document.getElementById(`${prefix}GraphNote`);
+    const bucketControl = document.getElementById(`${prefix}GraphBucketControl`), bucketCount = document.getElementById(`${prefix}GraphBucketCount`);
+    const bucketLess = document.getElementById(`${prefix}GraphBucketsLess`), bucketMore = document.getElementById(`${prefix}GraphBucketsMore`);
     if (!type || !metricSelect || !svg || !summary || !legend || !note) return;
     const metric = registry.get(metricSelect.value) || registry.get("rating");
     const prepared = state.series.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
+    const domainPrepared = state.domainSeries.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
+    if (bucketControl) bucketControl.hidden = type.value !== "distribution";
+    if (bucketCount) bucketCount.textContent = String(state.bucketCount);
+    if (bucketLess) bucketLess.disabled = state.bucketCount <= MIN_BUCKETS;
+    if (bucketMore) bucketMore.disabled = state.bucketCount >= MAX_BUCKETS;
     svg.replaceChildren(); summary.replaceChildren(); legend.replaceChildren();
     const multiTrendNeedsDates = type.value === "trend" && state.independent && independentTrendNeedsDates(prepared);
     note.textContent = type.value === "distribution"
-      ? "Each observation is one match. Lines show the percentage of that player’s matches in each range."
+      ? "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity."
       : multiTrendNeedsDates
         ? "Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for match order, or use Distribution for comparisons now."
         : "Points follow match date when available and match order otherwise. Hover a point for its match and value.";
@@ -219,27 +238,35 @@
       const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = "No qualifying match samples for this statistic."; summary.appendChild(empty); return;
     }
     prepared.forEach((series, index) => {
+      const colorIndex = series.colorIndex ?? index;
       const values = series.values.map(point => point.value), item = document.createElement("div"); item.className = "graph-summary-card";
-      item.style.setProperty("--series-color", colors[index % colors.length]);
+      item.style.setProperty("--series-color", colors[colorIndex % colors.length]);
       const label = document.createElement("strong"); label.textContent = series.label;
       const details = document.createElement("span"); details.textContent = `Mean ${format(mean(values), metric)} · Median ${format(median(values), metric)} · SD ${format(deviation(values), metric)} · Range ${format(Math.min(...values), metric)}–${format(Math.max(...values), metric)} · n=${values.length}`;
       item.append(label, details); summary.appendChild(item);
-      const key = document.createElement("span"); key.className = "graph-legend-item"; key.style.setProperty("--series-color", colors[index % colors.length]); key.textContent = series.label; legend.appendChild(key);
+      const key = document.createElement("span"); key.className = "graph-legend-item"; key.style.setProperty("--series-color", colors[colorIndex % colors.length]); key.textContent = series.label; legend.appendChild(key);
     });
     if (multiTrendNeedsDates) {
       svg.appendChild(svgElement("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
-    } else type.value === "trend" ? drawTrend(svg, prepared, metric) : drawDistribution(svg, prepared, metric);
+    } else type.value === "trend" ? drawTrend(svg, prepared, metric) : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount);
   }
 
-  function render({ prefix, series, independent = false }) {
+  function render({ prefix, series, domainSeries = series, independent = false }) {
     const type = document.getElementById(`${prefix}GraphType`), metric = document.getElementById(`${prefix}GraphMetric`);
     if (!type || !metric) return;
     populateMetrics(metric);
-    if (!graphState.has(prefix)) {
+    const previous = graphState.get(prefix);
+    if (!previous) {
       type.addEventListener("change", () => draw(prefix)); metric.addEventListener("change", () => draw(prefix));
+      document.getElementById(`${prefix}GraphBucketsLess`)?.addEventListener("click", () => {
+        const current = graphState.get(prefix); current.bucketCount = Math.max(MIN_BUCKETS, current.bucketCount - 1); draw(prefix);
+      });
+      document.getElementById(`${prefix}GraphBucketsMore`)?.addEventListener("click", () => {
+        const current = graphState.get(prefix); current.bucketCount = Math.min(MAX_BUCKETS, current.bucketCount + 1); draw(prefix);
+      });
     }
-    graphState.set(prefix, { series: series || [], independent }); draw(prefix);
+    graphState.set(prefix, { series: series || [], domainSeries: domainSeries || series || [], independent, bucketCount: previous?.bucketCount || DEFAULT_BUCKETS }); draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, statsForMatch, samplesForMatches, independentTrendNeedsDates, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, render });
 })();

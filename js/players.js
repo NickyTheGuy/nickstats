@@ -149,11 +149,12 @@
   function renderGraphs() {
     const profile = activeProfile(); if (!profile) return;
     renderGraphPlayers();
-    const series = [...state.profiles.entries()].filter(([id]) => state.graphPlayers.has(id)).map(([, candidate]) => {
+    const availableSeries = [...state.profiles.entries()].map(([id, candidate], colorIndex) => {
       const matches = matchesFor(candidate.payload, profile);
-      return { label: candidate.payload.player?.name || "Unknown player", samples: window.NickStatsGraphs.samplesForMatches(matches, profile.side) };
+      return { id, colorIndex, label: candidate.payload.player?.name || "Unknown player", samples: window.NickStatsGraphs.samplesForMatches(matches, profile.side) };
     });
-    window.NickStatsGraphs.render({ prefix: "player", series, independent: true });
+    const series = availableSeries.filter(candidate => state.graphPlayers.has(candidate.id));
+    window.NickStatsGraphs.render({ prefix: "player", series, domainSeries: availableSeries, independent: true });
   }
 
   function renderOpenTabs() {
