@@ -170,6 +170,7 @@ async function parseDemo(fileName, buffer) {
   const positionSamples = new Map();
   const derivedSpeeds = new Map();
   const ctPistolChoice = new Map();
+  const ctRifleChoice = new Map();
   const latestInventory = new Map();
   const tradeAudit = [];
   const roundSideAudit = [];
@@ -381,6 +382,7 @@ async function parseDemo(fileName, buffer) {
     positionSamples.clear();
     derivedSpeeds.clear();
     ctPistolChoice.clear();
+    ctRifleChoice.clear();
     latestInventory.clear();
     inventorySamples = 0;
     resolvedInventoryItems = 0;
@@ -1048,6 +1050,7 @@ async function parseDemo(fileName, buffer) {
         const weapon = weaponEntityId(entity);
         if (!weapon) continue;
         inventory.set(handle, weapon);
+        if (weapon === "m4a1" || weapon === "m4a1_silencer") ctRifleChoice.set(row, weapon);
         if (activeHandles.has(handle)) noteDisadvantagedWeapon(row, weapon, tick);
         resolvedInventoryItems += 1;
       }
@@ -1266,6 +1269,11 @@ async function parseDemo(fileName, buffer) {
       // equip/pickup and player_hurt events are resolved elsewhere/after fire.
       return "hkp2000";
     }
+    if (id === "m4a1_silencer") {
+      ctRifleChoice.set(row, "m4a1_silencer");
+      return "m4a1_silencer";
+    }
+    if (id === "m4a1") return ctRifleChoice.get(row) || "m4a1";
     return weapon;
   }
 
@@ -1670,6 +1678,9 @@ async function parseDemo(fileName, buffer) {
     if (normalizedWeapon(event.weapon) === "hkp2000" && !ctPistolChoice.has(row)) {
       ctPistolChoice.set(row, "hkp2000");
     }
+    if (normalizedWeapon(event.weapon) === "m4a1" && !ctRifleChoice.has(row)) {
+      ctRifleChoice.set(row, "m4a1");
+    }
     const stat = weaponStat(row, resolvedWeapon);
     if (stat) stat.shots += 1;
     noteWeaponUse(row, resolvedWeapon);
@@ -1697,7 +1708,7 @@ async function parseDemo(fileName, buffer) {
     const userId = integer(event.userid);
     const row = stats.get(userId);
     if (!row) return;
-    const weapon = itemEventWeapon(ctPistolChoice, row, event);
+    const weapon = itemEventWeapon(ctPistolChoice, ctRifleChoice, row, event);
     const id = weaponStatId(weapon);
     if (!round.live && PISTOL_WEAPONS.has(id) &&
         (eventType === "equip" || !round.preLivePistol.has(row))) {
@@ -2065,7 +2076,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.11.8",
+    nickstats_build: "2026.09.12.1",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2392,29 +2403,45 @@ function equipmentDisadvantageKind(weapon) {
   return null;
 }
 
-function itemEventWeapon(choices, row, event) {
+function itemEventWeapon(pistolChoices, rifleChoices, row, event) {
   const definitionIndex = integer(
     event?.defindex ?? event?.itemdefindex ?? event?.item_def_index
   );
   // CS2 sometimes labels both CT starter pistols as the hkp2000 weapon family
   // in pickup/equip events. Their item definition indices remain distinct.
   if (definitionIndex === 61) {
-    choices.set(row, "usp_silencer");
+    pistolChoices.set(row, "usp_silencer");
     return "usp_silencer";
   }
   if (definitionIndex === 32) {
-    choices.set(row, "hkp2000");
+    pistolChoices.set(row, "hkp2000");
     return "hkp2000";
+  }
+  if (definitionIndex === 60) {
+    rifleChoices.set(row, "m4a1_silencer");
+    return "m4a1_silencer";
+  }
+  if (definitionIndex === 16) {
+    rifleChoices.set(row, "m4a1");
+    return "m4a1";
   }
   const weapon = event?.item ?? event?.weapon;
   const id = normalizedWeapon(weapon);
   if (id === "usp_silencer") {
-    choices.set(row, "usp_silencer");
+    pistolChoices.set(row, "usp_silencer");
     return "usp_silencer";
   }
   // An unindexed hkp2000 inventory event is ambiguous. Use a previously learned
   // loadout choice, but never create a P2000 statistic from this label alone.
-  if (id === "hkp2000") return choices.get(row) || null;
+  if (id === "hkp2000") return pistolChoices.get(row) || null;
+  if (id === "m4a1_silencer") {
+    rifleChoices.set(row, "m4a1_silencer");
+    return "m4a1_silencer";
+  }
+  if (id === "m4a1") {
+    rifleChoices.set(row, "m4a1");
+    return "m4a1";
+  }
   return weapon;
 }
 

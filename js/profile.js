@@ -7,7 +7,11 @@
   const decimal = (value, places = 1) => number(value).toFixed(places);
   const percent = value => `${decimal(value, 1)}%`;
   const ratio = (a, b) => number(b) > 0 ? number(a) / number(b) : number(a);
-  const titleCase = value => String(value || "Unknown").replace(/^weapon_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase());
+  const titleCase = value => {
+    const normalized = String(value || "Unknown").replace(/^weapon_/, "");
+    const weaponNames = { hkp2000: "P2000", m4a1: "M4A4", m4a1_silencer: "M4A1-S", usp_silencer: "USP-S" };
+    return weaponNames[normalized] || normalized.replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase());
+  };
   const countPerRound = (value, rounds, places = 2) => `${decimal(ratio(value, rounds), places)} per round`;
   const tableSorts = new Map();
 
