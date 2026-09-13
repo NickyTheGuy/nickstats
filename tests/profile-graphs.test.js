@@ -44,6 +44,14 @@ test("graph metric registry calculates per-match rates from matching denominator
   assert.equal(metrics.get("kd").value({ kills: 5, deaths: 0 }), 5);
 });
 
+test("round timing rates ignore unreparsed rounds", () => {
+  const timing = { rounds: 24, timed_rounds: 12, early_kills: 3, kill_time_samples: 2, kill_time_total_ms: 70000 };
+  assert.equal(metrics.get("early_kr").value(timing), .25);
+  assert.equal(metrics.get("kill_time").value(timing), 35);
+  assert.equal(Number.isNaN(metrics.get("early_kr").value({ rounds: 24, early_kills: 0 })), true);
+  assert.equal(Number.isNaN(metrics.get("kill_time").value({ rounds: 24 })), true);
+});
+
 test("matches without qualifying rounds do not become zero-valued observations", () => {
   assert.equal(samplesForMatches([{ id: 9, sides: [] }], "ALL").length, 0);
 });

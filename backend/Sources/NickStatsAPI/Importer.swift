@@ -106,6 +106,7 @@ func importMatch(
     let matchID: Int64
     if let existingMatchID {
         // Relationship rows must go first because they also reference match_players.
+        try await sql.raw("DELETE FROM match_rounds WHERE match_id = \(bind: existingMatchID)").run()
         try await sql.raw("DELETE FROM duel_side_stats WHERE match_id = \(bind: existingMatchID)").run()
         try await sql.raw("DELETE FROM trade_side_stats WHERE match_id = \(bind: existingMatchID)").run()
         try await sql.raw("DELETE FROM kill_context_side_stats WHERE match_id = \(bind: existingMatchID)").run()
@@ -177,6 +178,39 @@ func importMatch(
             )
             """).run()
         matchPlayerIDs.append(try await lastInsertID(sql))
+    }
+
+    var roundIDs: [Int: Int64] = [:]
+    for timing in payload.roundTiming ?? [] {
+        try await sql.raw("""
+            INSERT INTO match_rounds (
+              match_id, round_number, live_start_tick, end_tick, duration_ms,
+              winner_side, bomb_plant_elapsed_ms
+            ) VALUES (
+              \(bind: matchID), \(bind: timing.round), \(bind: timing.liveStartTick),
+              \(bind: timing.endTick), \(bind: timing.durationMilliseconds),
+              \(bind: timing.winnerSide?.rawValue), \(bind: timing.bombPlantElapsedMilliseconds)
+            )
+            """).run()
+        roundIDs[timing.round] = try await lastInsertID(sql)
+    }
+    for event in payload.deathEvents ?? [] {
+        guard let roundID = roundIDs[event.round] else { continue }
+        let killerID = event.killerPlayerIndex.map { matchPlayerIDs[$0] }
+        try await sql.raw("""
+            INSERT INTO death_events (
+              match_id, match_round_id, event_sequence, event_tick, elapsed_ms,
+              killer_match_player_id, victim_match_player_id, killer_side, victim_side,
+              weapon, enemy_kill, context_flags, t_alive_before, ct_alive_before, since_plant_ms
+            ) VALUES (
+              \(bind: matchID), \(bind: roundID), \(bind: event.sequence), \(bind: event.tick),
+              \(bind: event.elapsedMilliseconds), \(bind: killerID),
+              \(bind: matchPlayerIDs[event.victimPlayerIndex]), \(bind: event.killerSide?.rawValue),
+              \(bind: event.victimSide.rawValue), \(bind: event.weapon), \(bind: event.enemyKill),
+              \(bind: event.flags), \(bind: event.terroristAliveBefore),
+              \(bind: event.counterTerroristAliveBefore), \(bind: event.sincePlantMilliseconds)
+            )
+            """).run()
     }
 
     for (playerSlot, player) in payload.players.enumerated() {

@@ -115,6 +115,59 @@ CREATE TABLE IF NOT EXISTS match_players (
   )
 ) ENGINE = InnoDB;
 
+CREATE TABLE IF NOT EXISTS match_rounds (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  match_id BIGINT UNSIGNED NOT NULL,
+  round_number SMALLINT UNSIGNED NOT NULL,
+  live_start_tick BIGINT UNSIGNED NOT NULL,
+  end_tick BIGINT UNSIGNED NOT NULL,
+  duration_ms INT UNSIGNED NOT NULL,
+  winner_side ENUM('T', 'CT') NULL,
+  bomb_plant_elapsed_ms INT UNSIGNED NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_match_rounds_number (match_id, round_number),
+  UNIQUE KEY uq_match_rounds_id_match (id, match_id),
+  CONSTRAINT fk_match_rounds_match
+    FOREIGN KEY (match_id) REFERENCES matches (id)
+    ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT chk_match_rounds_ticks CHECK (end_tick >= live_start_tick),
+  CONSTRAINT chk_match_rounds_plant CHECK (bomb_plant_elapsed_ms IS NULL OR bomb_plant_elapsed_ms <= duration_ms)
+) ENGINE = InnoDB;
+
+CREATE TABLE IF NOT EXISTS death_events (
+  match_id BIGINT UNSIGNED NOT NULL,
+  match_round_id BIGINT UNSIGNED NOT NULL,
+  event_sequence TINYINT UNSIGNED NOT NULL,
+  event_tick BIGINT UNSIGNED NOT NULL,
+  elapsed_ms INT UNSIGNED NOT NULL,
+  killer_match_player_id BIGINT UNSIGNED NULL,
+  victim_match_player_id BIGINT UNSIGNED NOT NULL,
+  killer_side ENUM('T', 'CT') NULL,
+  victim_side ENUM('T', 'CT') NOT NULL,
+  weapon VARCHAR(64) NOT NULL,
+  enemy_kill BOOLEAN NOT NULL,
+  context_flags SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  t_alive_before TINYINT UNSIGNED NOT NULL,
+  ct_alive_before TINYINT UNSIGNED NOT NULL,
+  since_plant_ms INT UNSIGNED NULL,
+  PRIMARY KEY (match_round_id, event_sequence),
+  KEY idx_death_events_match (match_id, elapsed_ms),
+  KEY idx_death_events_killer (killer_match_player_id, killer_side, elapsed_ms),
+  KEY idx_death_events_victim (victim_match_player_id, victim_side, elapsed_ms),
+  CONSTRAINT fk_death_events_round
+    FOREIGN KEY (match_round_id, match_id) REFERENCES match_rounds (id, match_id)
+    ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT fk_death_events_killer
+    FOREIGN KEY (killer_match_player_id, match_id) REFERENCES match_players (id, match_id)
+    ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT fk_death_events_victim
+    FOREIGN KEY (victim_match_player_id, match_id) REFERENCES match_players (id, match_id)
+    ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT chk_death_events_enemy CHECK (
+    enemy_kill = FALSE OR (killer_match_player_id IS NOT NULL AND killer_side IS NOT NULL AND killer_side <> victim_side)
+  )
+) ENGINE = InnoDB;
+
 CREATE TABLE IF NOT EXISTS player_side_stats (
   match_player_id BIGINT UNSIGNED NOT NULL,
   side ENUM('T', 'CT') NOT NULL,
@@ -125,6 +178,7 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
   assists SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   headshots SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   damage INT UNSIGNED NOT NULL DEFAULT 0,
+  damage_received INT UNSIGNED NOT NULL DEFAULT 0,
   kast_rounds SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   opening_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   opening_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
@@ -134,6 +188,13 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
   traded_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   he_damage INT UNSIGNED NOT NULL DEFAULT 0,
   fire_damage INT UNSIGNED NOT NULL DEFAULT 0,
+  he_grenades_thrown SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  flashbangs_thrown SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  smokes_thrown SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  fire_grenades_thrown SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  decoys_thrown SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  bomb_plants SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  bomb_defuses SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   kill_speed_total DECIMAL(12, 3) NOT NULL DEFAULT 0,
   kill_speed_samples SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   kill_speed_max DECIMAL(9, 3) NULL,
@@ -151,6 +212,11 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
   clutch_1v3 SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   clutch_1v4 SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   clutch_1v5 SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  clutch_attempt_1v1 SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  clutch_attempt_1v2 SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  clutch_attempt_1v3 SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  clutch_attempt_1v4 SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  clutch_attempt_1v5 SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   kill_rounds_1k SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   kill_rounds_2k SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   kill_rounds_3k SMALLINT UNSIGNED NOT NULL DEFAULT 0,
@@ -165,6 +231,13 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
   CONSTRAINT chk_player_side_stats_trade_deaths CHECK (
     traded_deaths <= attempted_tradeable_deaths AND
     attempted_tradeable_deaths <= tradeable_deaths
+  ),
+  CONSTRAINT chk_player_side_stats_clutches CHECK (
+    clutch_1v1 <= clutch_attempt_1v1 AND clutch_1v2 <= clutch_attempt_1v2 AND
+    clutch_1v3 <= clutch_attempt_1v3 AND clutch_1v4 <= clutch_attempt_1v4 AND
+    clutch_1v5 <= clutch_attempt_1v5 AND
+    clutch_attempt_1v1 + clutch_attempt_1v2 + clutch_attempt_1v3 +
+      clutch_attempt_1v4 + clutch_attempt_1v5 <= rounds_played
   )
 ) ENGINE = InnoDB;
 
@@ -174,6 +247,7 @@ CREATE TABLE IF NOT EXISTS weapon_side_stats (
   weapon VARCHAR(64) NOT NULL,
   kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   shots INT UNSIGNED NOT NULL DEFAULT 0,
+  hits INT UNSIGNED NOT NULL DEFAULT 0,
   damage INT UNSIGNED NOT NULL DEFAULT 0,
   rounds_used SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (match_player_id, side, weapon),
@@ -306,6 +380,8 @@ CREATE TABLE IF NOT EXISTS flash_side_stats (
   CONSTRAINT chk_flash_side_stats_values CHECK (flash_effects > 0 OR blind_duration_ms > 0)
 ) ENGINE = InnoDB;
 
-INSERT INTO schema_migrations (version, description)
-VALUES (1, 'Initial normalized NickStats match schema')
-ON DUPLICATE KEY UPDATE description = 'Initial normalized NickStats match schema';
+INSERT INTO schema_migrations (version, description) VALUES
+  (1, 'Initial normalized NickStats match schema'),
+  (2, 'Add clutch attempts and extended raw counters'),
+  (3, 'Round timing and death event facts')
+ON DUPLICATE KEY UPDATE description = VALUES(description);

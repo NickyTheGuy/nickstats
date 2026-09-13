@@ -1,6 +1,6 @@
 # NickStats database
 
-The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/9` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
+The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/10` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
 
 ## Why it is normalized
 
@@ -18,6 +18,8 @@ Derived values are not stored. ALL-side totals are calculated from T + CT; ADR i
 | `players` | Stable human identity keyed by Steam ID |
 | `match_teams` | The two teams, final scores, and side-win totals |
 | `match_players` | Match roster, match-time name, team, slot, and bot status |
+| `match_rounds` | Live-start/end ticks, duration, winner side, and bomb-plant timing for each parsed round |
+| `death_events` | One factual row per player death, supporting both kill and death timing analysis |
 | `player_side_stats` | Base T/CT counters used to derive scoreboard values |
 | `weapon_side_stats` | Weapon counters by player and side |
 | `duel_side_stats` | Directional killer-to-victim counts |
@@ -52,6 +54,10 @@ Each compact player has a match-level array index. Importers first create all `m
 
 `played_at` is a UTC Unix timestamp in the compact payload. The importer converts it to a UTC MySQL `DATETIME`; a missing value remains null. Every backend connection must use UTC.
 
+`death_events.elapsed_ms` is measured from `round_freeze_end`. Phase summaries are derived as Early (0–25 seconds, pre-plant), Mid (25–75 seconds, pre-plant), Late (75+ seconds, pre-plant), and Post-plant. The raw event also retains time since plant and T/CT alive counts, so these definitions can evolve without reparsing.
+
+`context_flags` is a bit mask: 1 headshot, 2 wallbang, 4 smoke, 8 blind attacker, 16 airborne attacker, 32 running attacker, 64 blinded victim, 128 Paul/equipment disadvantage, and 256 the unique Bullshit composite.
+
 ## Duplicate handling
 
 `matches.demo_sha256` is always unique. `(provider, provider_match_id)` is also unique when a provider ID exists. An upload matching either identifier is the same match and normally returns the existing record. An authenticated `POST /matches?replace=true` atomically replaces that match's imported data while preserving its database ID; a failed replacement rolls the transaction back to the prior version.
@@ -74,10 +80,12 @@ The file creates only the `nickstats` database and its tables. It does not creat
 
 Before any later migration, back up the database. New changes will be added as numbered migration files rather than editing an already-applied production migration in place.
 
-Apply numbered migrations once, in order. For example:
+Apply numbered migrations once, in order, to an existing database. Do not run them after a fresh import of the current `schema.sql`, because that file already contains and records the current schema. For example, using the same remote/container connection that successfully reaches MySQL:
 
 ```bash
 sudo mysql < database/migrations/002_clutch_attempts.sql
 ```
 
 Migration 002 initializes attempt counts to the existing win counts because a win proves an attempt, but historical failed attempts cannot be reconstructed from the database. It also adds raw damage-received, utility-thrown, objective, and weapon-hit counters. Reparse existing matches to populate real values for all of these counters.
+
+Migration 003 adds factual round timing and death-event tables. Apply it before deploying the schema-10 backend, then reparse matches to populate timing data; older schema-9 matches remain readable. Timing-rate denominators include only schema-10 matches with timing rows for every completed round, so old or incomplete data cannot quietly dilute the new rates.

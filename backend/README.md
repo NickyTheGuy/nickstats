@@ -1,8 +1,8 @@
 # NickStats API
 
-The API imports compact `nickstats.match/9` files into the normalized MySQL schema and exposes read-only match/player endpoints. The browser still parses demos locally; only the much smaller compact result is uploaded.
+The API imports compact `nickstats.match/10` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schema 9 remains readable for existing stored matches; the browser still parses demos locally and uploads only the compact result.
 
-The compact format intentionally uses fixed-position arrays to keep uploads small. Inside the Swift service, those arrays decode into named domain types such as `TradeStats`, `KillContextStats`, `RoundRecord`, and `SpeedSummary`; database and validation code never rely on unexplained numeric indexes. Encoding those types reconstructs the same `nickstats.match/9` wire format.
+The compact format intentionally uses fixed-position arrays to keep uploads small. Inside the Swift service, those arrays decode into named domain types such as `TradeStats`, `KillContextStats`, `RoundTimingPayload`, and `DeathEventPayload`; database and validation code never rely on unexplained numeric indexes. Encoding those types reconstructs the same versioned wire format.
 
 ## Routes
 
@@ -25,7 +25,7 @@ Match-list query parameters are `steam_id`, `map`, `maps`, `from`, `to`, `limit`
 
 ## Local/container setup
 
-1. Apply `database/schema.sql` and then each numbered `database/migrations/*.sql` file to MySQL 8 or 9.
+1. For a new database, apply the current `database/schema.sql`. For an existing database, apply only the unapplied numbered files in `database/migrations/`.
 2. Copy `.env.example` to `.env` and replace every placeholder.
 3. Create `nickstats_app` restricted to the `172.20.%` MySQL network with `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on `nickstats.*`.
 4. Run `docker compose -f compose.example.yml up -d --build`.

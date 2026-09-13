@@ -70,7 +70,7 @@ private func validateSpeedSummary(_ summary: SpeedSummary, startingAt index: Int
 
 extension MatchPayload {
     func validate() throws {
-        guard schema == compactSchema else { try invalid("$.schema", "Only \(compactSchema) is supported.") }
+        guard acceptedCompactSchemas.contains(schema) else { try invalid("$.schema", "Supported schemas are nickstats.match/9 and \(compactSchema).") }
         try validateText(nickstatsBuild, path: "$.nickstats_build", maximum: 32)
         try validateText(parser.name, path: "$.parser[0]", maximum: 64)
         try validateText(parser.version, path: "$.parser[1]", maximum: 32)
@@ -84,6 +84,51 @@ extension MatchPayload {
         }
         if let playedAtSource { try validateText(playedAtSource, path: "$.played_at_source", maximum: 32) }
         guard rounds > 0, rounds <= 255 else { try invalid("$.rounds", "Expected 1 through 255 rounds.") }
+
+        if schema == compactSchema, roundTiming == nil || deathEvents == nil {
+            try invalid("$", "\(compactSchema) requires round_timing and death_events.")
+        }
+        var timingByRound: [Int: RoundTimingPayload] = [:]
+        for (index, timing) in (roundTiming ?? []).enumerated() {
+            let path = "$.round_timing[\(index)]"
+            guard (1...rounds).contains(timing.round) else { try invalid("\(path)[0]", "Invalid round number.") }
+            guard timingByRound[timing.round] == nil else { try invalid(path, "Duplicate round timing row.") }
+            guard timing.liveStartTick >= 0, timing.endTick >= timing.liveStartTick else { try invalid(path, "Expected ordered non-negative ticks.") }
+            try validateCount(timing.durationMilliseconds, path: "\(path)[3]", maximum: Int(UInt32.max))
+            if let plant = timing.bombPlantElapsedMilliseconds {
+                try validateCount(plant, path: "\(path)[5]", maximum: timing.durationMilliseconds)
+            }
+            timingByRound[timing.round] = timing
+        }
+        var eventKeys = Set<String>()
+        for (index, event) in (deathEvents ?? []).enumerated() {
+            let path = "$.death_events[\(index)]"
+            guard (1...rounds).contains(event.round) else { try invalid("\(path)[0]", "Invalid round number.") }
+            guard let timing = timingByRound[event.round] else { try invalid("\(path)[0]", "Death event has no matching round timing row.") }
+            try validateCount(event.sequence, path: "\(path)[1]", maximum: 63)
+            guard eventKeys.insert("\(event.round):\(event.sequence)").inserted else { try invalid(path, "Duplicate death sequence within a round.") }
+            guard event.tick >= 0 else { try invalid("\(path)[2]", "Tick must be non-negative.") }
+            guard event.tick >= timing.liveStartTick, event.tick <= timing.endTick else { try invalid("\(path)[2]", "Death tick must fall within its round.") }
+            try validateCount(event.elapsedMilliseconds, path: "\(path)[3]", maximum: Int(UInt32.max))
+            if let killer = event.killerPlayerIndex, !(0..<players.count).contains(killer) { try invalid("\(path)[4]", "Invalid killer player index.") }
+            guard (0..<players.count).contains(event.victimPlayerIndex) else { try invalid("\(path)[5]", "Invalid victim player index.") }
+            try validateText(event.weapon, path: "\(path)[8]", maximum: 64)
+            try validateCount(event.flags, path: "\(path)[10]", maximum: 511)
+            try validateCount(event.terroristAliveBefore, path: "\(path)[11]", maximum: 16)
+            try validateCount(event.counterTerroristAliveBefore, path: "\(path)[12]", maximum: 16)
+            if let sincePlant = event.sincePlantMilliseconds {
+                try validateCount(sincePlant, path: "\(path)[13]", maximum: event.elapsedMilliseconds)
+                guard timing.bombPlantElapsedMilliseconds != nil else { try invalid("\(path)[13]", "Post-plant timing requires a bomb plant in the round.") }
+            }
+            if event.enemyKill {
+                guard event.killerPlayerIndex != nil, event.killerSide != nil, event.killerSide != event.victimSide else {
+                    try invalid(path, "An enemy kill requires a killer on the opposing side.")
+                }
+            }
+            if event.elapsedMilliseconds > timing.durationMilliseconds {
+                try invalid("\(path)[3]", "Death cannot occur after the stored round end.")
+            }
+        }
 
         try validateNumber(rules.trade.windowSeconds, path: "$.rules.trade[0]")
         try validateNumber(rules.trade.proximityUnits, path: "$.rules.trade[1]")

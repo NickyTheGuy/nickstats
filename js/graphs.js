@@ -9,6 +9,8 @@
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
   const ratio = (a, b) => number(b) > 0 ? number(a) / number(b) : number(a);
   const rate = key => stats => ratio(stats[key], stats.rounds);
+  const timingRate = key => stats => number(stats.timed_rounds) > 0 ? ratio(stats[key], stats.timed_rounds) : Number.NaN;
+  const timedAverage = (total, samples) => stats => number(stats[samples]) > 0 ? ratio(stats[total], stats[samples]) / 1000 : Number.NaN;
   const count = key => stats => number(stats[key]);
   const percentage = (a, b) => stats => 100 * ratio(stats[a], stats[b]);
 
@@ -55,6 +57,14 @@
       ["bullshit_kr", "Bullshit kills per round", rate("unfair_kills"), 3], ["bullshit_dr", "Bullshit deaths per round", rate("unfair_deaths"), 3],
       ["wallbang_kr", "Wallbang kills per round", rate("wallbang_kills"), 3], ["smoke_kr", "Smoke kills per round", rate("smoke_kills"), 3],
       ["paul_kr", "Paul kills per round", rate("equipment_disadvantage_kills"), 3], ["paul_dr", "Paul deaths per round", rate("equipment_disadvantage_deaths"), 3]
+    ]],
+    ["Round timing", [
+      ["kill_time", "Average kill time", timedAverage("kill_time_total_ms", "kill_time_samples"), 1, "s"],
+      ["death_time", "Average death time", timedAverage("death_time_total_ms", "death_time_samples"), 1, "s"],
+      ["early_kr", "Early kills per timed round", timingRate("early_kills"), 3], ["early_dr", "Early deaths per timed round", timingRate("early_deaths"), 3],
+      ["mid_kr", "Mid-round kills per timed round", timingRate("mid_kills"), 3], ["mid_dr", "Mid-round deaths per timed round", timingRate("mid_deaths"), 3],
+      ["late_kr", "Late kills per timed round", timingRate("late_kills"), 3], ["late_dr", "Late deaths per timed round", timingRate("late_deaths"), 3],
+      ["postplant_kr", "Post-plant kills per timed round", timingRate("postplant_kills"), 3], ["postplant_dr", "Post-plant deaths per timed round", timingRate("postplant_deaths"), 3]
     ]]
   ];
 

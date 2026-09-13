@@ -106,6 +106,116 @@ struct SideScores: Codable, Sendable {
     }
 }
 
+struct RoundTimingPayload: Codable, Sendable {
+    var round: Int
+    var liveStartTick: Int64
+    var endTick: Int64
+    var durationMilliseconds: Int
+    var winnerSide: PlayerSide?
+    var bombPlantElapsedMilliseconds: Int?
+
+    init(round: Int, liveStartTick: Int64, endTick: Int64, durationMilliseconds: Int, winnerSide: PlayerSide?, bombPlantElapsedMilliseconds: Int?) {
+        self.round = round
+        self.liveStartTick = liveStartTick
+        self.endTick = endTick
+        self.durationMilliseconds = durationMilliseconds
+        self.winnerSide = winnerSide
+        self.bombPlantElapsedMilliseconds = bombPlantElapsedMilliseconds
+    }
+
+    init(from decoder: any Decoder) throws {
+        var values = try decoder.unkeyedContainer()
+        round = try values.decode(Int.self)
+        liveStartTick = try values.decode(Int64.self)
+        endTick = try values.decode(Int64.self)
+        durationMilliseconds = try values.decode(Int.self)
+        winnerSide = try values.decodeIfPresent(PlayerSide.self)
+        bombPlantElapsedMilliseconds = try values.decodeIfPresent(Int.self)
+        try rejectExtraValues(in: values, description: "Round timing row")
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.unkeyedContainer()
+        try values.encode(round)
+        try values.encode(liveStartTick)
+        try values.encode(endTick)
+        try values.encode(durationMilliseconds)
+        try values.encode(winnerSide)
+        try values.encode(bombPlantElapsedMilliseconds)
+    }
+}
+
+struct DeathEventPayload: Codable, Sendable {
+    var round: Int
+    var sequence: Int
+    var tick: Int64
+    var elapsedMilliseconds: Int
+    var killerPlayerIndex: Int?
+    var victimPlayerIndex: Int
+    var killerSide: PlayerSide?
+    var victimSide: PlayerSide
+    var weapon: String
+    var enemyKill: Bool
+    var flags: Int
+    var terroristAliveBefore: Int
+    var counterTerroristAliveBefore: Int
+    var sincePlantMilliseconds: Int?
+
+    init(round: Int, sequence: Int, tick: Int64, elapsedMilliseconds: Int, killerPlayerIndex: Int?, victimPlayerIndex: Int, killerSide: PlayerSide?, victimSide: PlayerSide, weapon: String, enemyKill: Bool, flags: Int, terroristAliveBefore: Int, counterTerroristAliveBefore: Int, sincePlantMilliseconds: Int?) {
+        self.round = round
+        self.sequence = sequence
+        self.tick = tick
+        self.elapsedMilliseconds = elapsedMilliseconds
+        self.killerPlayerIndex = killerPlayerIndex
+        self.victimPlayerIndex = victimPlayerIndex
+        self.killerSide = killerSide
+        self.victimSide = victimSide
+        self.weapon = weapon
+        self.enemyKill = enemyKill
+        self.flags = flags
+        self.terroristAliveBefore = terroristAliveBefore
+        self.counterTerroristAliveBefore = counterTerroristAliveBefore
+        self.sincePlantMilliseconds = sincePlantMilliseconds
+    }
+
+    init(from decoder: any Decoder) throws {
+        var values = try decoder.unkeyedContainer()
+        round = try values.decode(Int.self)
+        sequence = try values.decode(Int.self)
+        tick = try values.decode(Int64.self)
+        elapsedMilliseconds = try values.decode(Int.self)
+        killerPlayerIndex = try values.decodeIfPresent(Int.self)
+        victimPlayerIndex = try values.decode(Int.self)
+        killerSide = try values.decodeIfPresent(PlayerSide.self)
+        victimSide = try values.decode(PlayerSide.self)
+        weapon = try values.decode(String.self)
+        enemyKill = try values.decode(Bool.self)
+        flags = try values.decode(Int.self)
+        terroristAliveBefore = try values.decode(Int.self)
+        counterTerroristAliveBefore = try values.decode(Int.self)
+        sincePlantMilliseconds = try values.decodeIfPresent(Int.self)
+        try rejectExtraValues(in: values, description: "Death event row")
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.unkeyedContainer()
+        try values.encode(round)
+        try values.encode(sequence)
+        try values.encode(tick)
+        try values.encode(elapsedMilliseconds)
+        try values.encode(killerPlayerIndex)
+        try values.encode(victimPlayerIndex)
+        try values.encode(killerSide)
+        try values.encode(victimSide)
+        try values.encode(weapon)
+        try values.encode(enemyKill)
+        try values.encode(flags)
+        try values.encode(terroristAliveBefore)
+        try values.encode(counterTerroristAliveBefore)
+        try values.encode(sincePlantMilliseconds)
+    }
+}
+
 struct PlayerSideStats: Codable, Sendable {
     var terrorist: SideStatsPayload
     var counterTerrorist: SideStatsPayload

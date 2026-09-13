@@ -199,9 +199,15 @@ private func comparisonSideData(
     playerID: Int64, sql: any SQLDatabase
 ) async throws -> [Int64: [ComparisonSideStats]] {
     let rows = try await sql.raw("""
-        SELECT mp.match_id, s.*
+        SELECT mp.match_id, m.payload_schema, m.rounds AS match_round_count,
+               COALESCE(rt.timed_round_count, 0) AS timed_round_count, s.*
         FROM match_players mp
         JOIN player_side_stats s ON s.match_player_id = mp.id
+        JOIN matches m ON m.id = mp.match_id
+        LEFT JOIN (
+          SELECT match_id, COUNT(*) AS timed_round_count
+          FROM match_rounds GROUP BY match_id
+        ) rt ON rt.match_id = mp.match_id
         WHERE mp.player_id = \(bind: playerID)
         """).all()
     var values: [String: ComparisonSideAccumulator] = [:]
@@ -242,6 +248,10 @@ private func comparisonSideData(
             ("kill_rounds_5k", "kill_rounds_5k")
         ]
         for (column, name) in integerColumns { add(matchID, side, name, Double(try integer(row, column))) }
+        if try row.decode(column: "payload_schema", as: String.self) == compactSchema,
+           try integer(row, "timed_round_count") == integer(row, "match_round_count") {
+            add(matchID, side, "timed_rounds", Double(try integer(row, "rounds_played")))
+        }
         let decimalColumns = [
             ("kill_speed_total", "kill_speed_total"), ("kill_speed_percent_total", "kill_speed_percent_total"),
             ("death_speed_total", "death_speed_total"), ("death_speed_percent_total", "death_speed_percent_total")
@@ -350,6 +360,60 @@ private func comparisonSideData(
     for row in incomingContexts {
         let id = try int64(row, "match_id"), side = try playerSide(row, "victim_side")
         for (column, _, incoming) in contextColumns { add(id, side, incoming, Double(try integer(row, column))) }
+    }
+
+    let killTiming = try await sql.raw("""
+        SELECT e.match_id, e.killer_side AS side,
+               CAST(COUNT(*) AS SIGNED) AS samples,
+               CAST(SUM(e.elapsed_ms) AS SIGNED) AS elapsed_total,
+               CAST(SUM(e.since_plant_ms IS NULL AND e.elapsed_ms < 25000) AS SIGNED) AS early_count,
+               CAST(SUM(e.since_plant_ms IS NULL AND e.elapsed_ms >= 25000 AND e.elapsed_ms < 75000) AS SIGNED) AS mid_count,
+               CAST(SUM(e.since_plant_ms IS NULL AND e.elapsed_ms >= 75000) AS SIGNED) AS late_count,
+               CAST(SUM(e.since_plant_ms IS NOT NULL) AS SIGNED) AS postplant_count,
+               CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
+        FROM death_events e
+        JOIN match_players mp ON mp.id = e.killer_match_player_id
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema = \(bind: compactSchema)
+        JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
+          ON rt.match_id = m.id AND rt.round_count = m.rounds
+        WHERE mp.player_id = \(bind: playerID) AND e.enemy_kill = TRUE
+        GROUP BY e.match_id, e.killer_side
+        """).all()
+    for row in killTiming {
+        let id = try int64(row, "match_id"), side = try playerSide(row, "side")
+        for (column, name) in [
+            ("samples", "kill_time_samples"), ("elapsed_total", "kill_time_total_ms"),
+            ("early_count", "early_kills"), ("mid_count", "mid_kills"),
+            ("late_count", "late_kills"), ("postplant_count", "postplant_kills"),
+            ("postplant_elapsed_total", "postplant_kill_time_total_ms")
+        ] { add(id, side, name, Double(try integer(row, column))) }
+    }
+
+    let deathTiming = try await sql.raw("""
+        SELECT e.match_id, e.victim_side AS side,
+               CAST(COUNT(*) AS SIGNED) AS samples,
+               CAST(SUM(e.elapsed_ms) AS SIGNED) AS elapsed_total,
+               CAST(SUM(e.since_plant_ms IS NULL AND e.elapsed_ms < 25000) AS SIGNED) AS early_count,
+               CAST(SUM(e.since_plant_ms IS NULL AND e.elapsed_ms >= 25000 AND e.elapsed_ms < 75000) AS SIGNED) AS mid_count,
+               CAST(SUM(e.since_plant_ms IS NULL AND e.elapsed_ms >= 75000) AS SIGNED) AS late_count,
+               CAST(SUM(e.since_plant_ms IS NOT NULL) AS SIGNED) AS postplant_count,
+               CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
+        FROM death_events e
+        JOIN match_players mp ON mp.id = e.victim_match_player_id
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema = \(bind: compactSchema)
+        JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
+          ON rt.match_id = m.id AND rt.round_count = m.rounds
+        WHERE mp.player_id = \(bind: playerID)
+        GROUP BY e.match_id, e.victim_side
+        """).all()
+    for row in deathTiming {
+        let id = try int64(row, "match_id"), side = try playerSide(row, "side")
+        for (column, name) in [
+            ("samples", "death_time_samples"), ("elapsed_total", "death_time_total_ms"),
+            ("early_count", "early_deaths"), ("mid_count", "mid_deaths"),
+            ("late_count", "late_deaths"), ("postplant_count", "postplant_deaths"),
+            ("postplant_elapsed_total", "postplant_death_time_total_ms")
+        ] { add(id, side, name, Double(try integer(row, column))) }
     }
 
     let weapons = try await sql.raw("""
@@ -783,6 +847,45 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
     try await attachWeapons(sql, matchID: matchID, players: &players, slots: internalToSlot)
     try await attachRelations(sql, matchID: matchID, players: &players, slots: internalToSlot)
 
+    let roundRows = try await sql.raw("""
+        SELECT * FROM match_rounds WHERE match_id = \(bind: matchID) ORDER BY round_number
+        """).all()
+    let roundTiming = try roundRows.map { row in
+            RoundTimingPayload(
+                round: try integer(row, "round_number"), liveStartTick: try int64(row, "live_start_tick"),
+                endTick: try int64(row, "end_tick"), durationMilliseconds: try integer(row, "duration_ms"),
+                winnerSide: (try optionalString(row, "winner_side")).flatMap { PlayerSide(rawValue: $0) },
+                bombPlantElapsedMilliseconds: try optionalInteger(row, "bomb_plant_elapsed_ms")
+            )
+        }
+    let deathRows = try await sql.raw("""
+        SELECT e.*, r.round_number FROM death_events e
+        JOIN match_rounds r ON r.id = e.match_round_id
+        WHERE e.match_id = \(bind: matchID) ORDER BY r.round_number, e.event_sequence
+        """).all()
+    let deathEvents = try deathRows.map { row in
+            let killerID: Int64?
+            if (try? row.decodeNil(column: "killer_match_player_id")) == true {
+                killerID = nil
+            } else {
+                killerID = try int64(row, "killer_match_player_id")
+            }
+            return DeathEventPayload(
+                round: try integer(row, "round_number"), sequence: try integer(row, "event_sequence"),
+                tick: try int64(row, "event_tick"), elapsedMilliseconds: try integer(row, "elapsed_ms"),
+                killerPlayerIndex: killerID.flatMap { internalToSlot[$0] },
+                victimPlayerIndex: internalToSlot[try int64(row, "victim_match_player_id")]!,
+                killerSide: (try optionalString(row, "killer_side")).flatMap { PlayerSide(rawValue: $0) },
+                victimSide: try playerSide(row, "victim_side"),
+                weapon: try row.decode(column: "weapon", as: String.self),
+                enemyKill: try row.decode(column: "enemy_kill", as: Bool.self),
+                flags: try integer(row, "context_flags"),
+                terroristAliveBefore: try integer(row, "t_alive_before"),
+                counterTerroristAliveBefore: try integer(row, "ct_alive_before"),
+                sincePlantMilliseconds: try optionalInteger(row, "since_plant_ms")
+            )
+        }
+
     let rulesJSON = try match.decode(column: "rules_json", as: String.self)
     let rules = try JSONDecoder().decode(ParserRules.self, from: Data(rulesJSON.utf8))
     let teams = try teamRows.map { row in
@@ -814,7 +917,8 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
         map: try match.decode(column: "map_name", as: String.self),
         playedAt: unix(try optionalDate(match, "played_at")),
         playedAtSource: try optionalString(match, "played_at_source"),
-        rounds: try integer(match, "rounds"), rules: rules, teams: teams, players: players
+        rounds: try integer(match, "rounds"), roundTiming: roundTiming, deathEvents: deathEvents,
+        rules: rules, teams: teams, players: players
     )
 }
 

@@ -1,6 +1,7 @@
 import Vapor
 
-let compactSchema = "nickstats.match/9"
+let compactSchema = "nickstats.match/10"
+let acceptedCompactSchemas = Set(["nickstats.match/9", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
@@ -16,12 +17,16 @@ struct MatchPayload: Content, Sendable {
     var playedAt: Int64?
     var playedAtSource: String?
     var rounds: Int
+    var roundTiming: [RoundTimingPayload]? = nil
+    var deathEvents: [DeathEventPayload]? = nil
     var rules: ParserRules
     var teams: [TeamPayload]
     var players: [PlayerPayload]
 
     enum CodingKeys: String, CodingKey {
         case schema, parser, id, map, rounds, rules, teams, players
+        case roundTiming = "round_timing"
+        case deathEvents = "death_events"
         case nickstatsBuild = "nickstats_build"
         case playedAt = "played_at"
         case playedAtSource = "played_at_source"

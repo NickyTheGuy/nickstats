@@ -13,6 +13,11 @@
     return weaponNames[normalized] || normalized.replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase());
   };
   const countPerRound = (value, rounds, places = 2) => `${decimal(ratio(value, rounds), places)} per round`;
+  const elapsed = milliseconds => {
+    if (!Number.isFinite(Number(milliseconds))) return "—";
+    const seconds = Math.max(0, number(milliseconds) / 1000), minutes = Math.floor(seconds / 60);
+    return `${minutes}:${(seconds % 60).toFixed(1).padStart(4, "0")}`;
+  };
   const tableSorts = new Map();
 
   function card(label, value, note = "", className = "") {
@@ -112,6 +117,25 @@
     }));
     fillStrip(`${prefix}MultikillStats`, [["1 kill", s.kill_rounds_1k], ["2 kills", s.kill_rounds_2k], ["3 kills", s.kill_rounds_3k], ["4 kills", s.kill_rounds_4k], ["5 kills", s.kill_rounds_5k]].map(([label, value]) => [label, integer(value), `${decimal(ratio(value, rounds), 2)}/R`]));
     fillStrip(`${prefix}ObjectiveStats`, [["Bomb plants", s.bomb_plants], ["Bomb defuses", s.bomb_defuses]].map(([label, value]) => [label, integer(value), countPerRound(value, rounds)]));
+    const killTimeSamples = number(s.kill_time_samples), deathTimeSamples = number(s.death_time_samples);
+    const postplantKills = number(s.postplant_kills), postplantDeaths = number(s.postplant_deaths);
+    const timedRounds = number(s.timed_rounds);
+    fillCards(`${prefix}TimingAverageStats`, [
+      ["Average kill time", killTimeSamples ? elapsed(number(s.kill_time_total_ms) / killTimeSamples) : "—", `${integer(killTimeSamples)} timed kills`],
+      ["Average death time", deathTimeSamples ? elapsed(number(s.death_time_total_ms) / deathTimeSamples) : "—", `${integer(deathTimeSamples)} timed deaths`],
+      ["After-plant kill time", postplantKills ? `${decimal(ratio(s.postplant_kill_time_total_ms, postplantKills) / 1000, 1)}s` : "—", "Time since bomb plant"],
+      ["After-plant death time", postplantDeaths ? `${decimal(ratio(s.postplant_death_time_total_ms, postplantDeaths) / 1000, 1)}s` : "—", "Time since bomb plant"]
+    ]);
+    fillStrip(`${prefix}PhaseStats`, [
+      ["Early", s.early_kills, s.early_deaths, "0–25 seconds"],
+      ["Mid", s.mid_kills, s.mid_deaths, "25–75 seconds"],
+      ["Late", s.late_kills, s.late_deaths, "75+ seconds, pre-plant"],
+      ["Post-plant", s.postplant_kills, s.postplant_deaths, "After the bomb is planted"]
+    ].map(([label, kills, deaths, note]) => [
+      label,
+      `${integer(kills)} K / ${integer(deaths)} D`,
+      timedRounds ? `${note} · ${decimal(ratio(kills, timedRounds), 2)} K/TR · ${decimal(ratio(deaths, timedRounds), 2)} D/TR` : `${note} · no reparsed rounds`
+    ]));
     fillCards(`${prefix}KillSpeedStats`, [["Average", decimal(ratio(s.kill_speed_total, s.kill_speed_samples), 1), `${integer(s.kill_speed_samples)} samples`], ["Maximum", decimal(s.kill_speed_max, 1)], ["Average of max", percent(ratio(s.kill_speed_percent_total, s.kill_speed_percent_samples))], ["Peak of max", percent(s.kill_speed_percent_max)]]);
     fillCards(`${prefix}DeathSpeedStats`, [["Average", decimal(ratio(s.death_speed_total, s.death_speed_samples), 1), `${integer(s.death_speed_samples)} samples`], ["Maximum", decimal(s.death_speed_max, 1)], ["Average of max", percent(ratio(s.death_speed_percent_total, s.death_speed_percent_samples))], ["Peak of max", percent(s.death_speed_percent_max)]]);
     fillList(`${prefix}MovementStateStats`, [["Moving kills", s.moving_kills], ["Still kills", s.still_kills], ["Running kills", s.running_kills], ["Airborne kills", s.airborne_kills]].map(([label, value]) => metric(label, value)));

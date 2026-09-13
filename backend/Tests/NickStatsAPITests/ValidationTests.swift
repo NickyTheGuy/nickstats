@@ -39,6 +39,11 @@ private func validPayload() -> MatchPayload {
         playedAt: 1_757_462_400,
         playedAtSource: "zip_extended_mtime",
         rounds: 1,
+        roundTiming: [RoundTimingPayload(
+            round: 1, liveStartTick: 100, endTick: 200, durationMilliseconds: 1_562,
+            winnerSide: .terrorist, bombPlantElapsedMilliseconds: nil
+        )],
+        deathEvents: [],
         rules: ParserRules(
             trade: TradeRules(
                 windowSeconds: 5, proximityUnits: 250, engagementLullSeconds: 2,
@@ -47,7 +52,7 @@ private func validPayload() -> MatchPayload {
             movement: MovementRules(
                 stillSpeedToleranceUnitsPerSecond: 1, runningThresholdPercentOfWeaponMax: 0.34
             ),
-            equipmentDisadvantageSeconds: 2
+            equipmentDisadvantageSeconds: 1.4
         ),
         teams: [
             TeamPayload(
@@ -85,10 +90,27 @@ private func validPayload() -> MatchPayload {
 }
 
 @Test func acceptsLegacyPayloadWithoutClutchAttempts() throws {
-    let data = try JSONEncoder().encode(validPayload())
+    var legacyPayload = validPayload()
+    legacyPayload.schema = "nickstats.match/9"
+    legacyPayload.roundTiming = nil
+    legacyPayload.deathEvents = nil
+    let data = try JSONEncoder().encode(legacyPayload)
     let decoded = try JSONDecoder().decode(MatchPayload.self, from: data)
     #expect(decoded.players[0].sides.terrorist.clutchAttempts == nil)
     try decoded.validate()
+}
+
+@Test func rejectsDeathWithoutMatchingRoundTiming() {
+    var payload = validPayload()
+    payload.roundTiming = []
+    payload.deathEvents = [DeathEventPayload(
+        round: 1, sequence: 0, tick: 150, elapsedMilliseconds: 781,
+        killerPlayerIndex: 0, victimPlayerIndex: 2, killerSide: .terrorist,
+        victimSide: .counterTerrorist, weapon: "ak47", enemyKill: true,
+        flags: 1, terroristAliveBefore: 2, counterTerroristAliveBefore: 2,
+        sincePlantMilliseconds: nil
+    )]
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
 }
 
 @Test func decodesLegacyAndCurrentWeaponRows() throws {
@@ -148,6 +170,13 @@ private func validPayload() -> MatchPayload {
         oneVersusOne: 2, oneVersusTwo: 1, oneVersusThree: 0,
         oneVersusFour: 0, oneVersusFive: 0
     )
+    payload.deathEvents = [DeathEventPayload(
+        round: 1, sequence: 0, tick: 150, elapsedMilliseconds: 781,
+        killerPlayerIndex: 0, victimPlayerIndex: 2, killerSide: .terrorist,
+        victimSide: .counterTerrorist, weapon: "ak47", enemyKill: true,
+        flags: 1, terroristAliveBefore: 2, counterTerroristAliveBefore: 2,
+        sincePlantMilliseconds: nil
+    )]
 
     let data = try JSONEncoder().encode(payload)
     let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
@@ -158,11 +187,14 @@ private func validPayload() -> MatchPayload {
     #expect(sides[0]["duels"] as? [[Int]] == [[2, 3]])
     #expect(sides[0]["trades"] as? [[Int]] == [[1, 4, 3, 2]])
     #expect(sides[0]["clutch_attempts"] as? [Int] == [2, 1, 0, 0, 0])
+    #expect(object["round_timing"] as? [[Any]] != nil)
+    #expect(object["death_events"] as? [[Any]] != nil)
 
     let decoded = try JSONDecoder().decode(MatchPayload.self, from: data)
     #expect(decoded.players[0].sides.terrorist.duels[0].opponentPlayerIndex == 2)
     #expect(decoded.players[0].sides.terrorist.trades[0].successes == 2)
     #expect(decoded.players[0].sides.terrorist.clutchAttempts?.oneVersusTwo == 1)
+    #expect(decoded.deathEvents?.first?.elapsedMilliseconds == 781)
 }
 
 private func validFaceitDatePayload() -> FaceitDateSyncPayload {

@@ -1321,7 +1321,8 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .utility-cell { background: rgba(104, 164, 255, .05); }
 .clutches-cell { background: rgba(98, 212, 157, .12); }
 .multikills-cell,
-.objectives-cell { background: rgba(98, 212, 157, .07); }
+.objectives-cell,
+.timing-cell { background: rgba(98, 212, 157, .07); }
 
 .combat-heading { background: rgba(104, 164, 255, .10); }
 .opening-heading { background: rgba(255, 201, 105, .10); }
@@ -1331,7 +1332,8 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .utility-heading { background: rgba(104, 164, 255, .10); }
 .clutches-heading { background: rgba(98, 212, 157, .17); }
 .multikills-heading,
-.objectives-heading { background: rgba(98, 212, 157, .11); }
+.objectives-heading,
+.timing-heading { background: rgba(98, 212, 157, .11); }
 
 .demo-toggle-heading {
   border-top-width: 3px;
@@ -1347,7 +1349,8 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .demo-toggle-heading.utility-heading { border-top: 3px double var(--blue); }
 .demo-toggle-heading.clutches-heading { border-top: 3px dotted var(--green); }
 .demo-toggle-heading.multikills-heading,
-.demo-toggle-heading.objectives-heading { border-top: 3px dotted var(--green); }
+.demo-toggle-heading.objectives-heading,
+.demo-toggle-heading.timing-heading { border-top: 3px dotted var(--green); }
 
 .demo-score-table :is(th, td).demo-group-start {
   border-left: 2px solid rgba(238, 243, 251, .24);
@@ -2580,6 +2583,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   border-radius: 11px;
   background: rgba(8, 11, 18, .3);
 }
+.player-timing-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 12px; }
 
 .player-count-item {
   display: grid;

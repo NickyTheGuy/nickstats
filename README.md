@@ -7,7 +7,7 @@ A local-first Counter-Strike 2 analysis application organized around four produc
 - **Matrix** — database-backed teammate matrices and pairwise comparisons.
 - **Groups** — Included/Excluded teammate conditions and With/Without player profiles.
 
-Demo files are processed in the browser and are never uploaded. All four views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/9` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
+Demo files are processed in the browser and are never uploaded. All four views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/10` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
 
 The visible date-based build number in the NickStats header is bumped with parser and interface deployments, making it easy to tell when a published host has received the newest version.
 
@@ -53,7 +53,7 @@ The duel ledger records every kill/death pairing and its differential. Enemy kil
 
 The trade-response matrix breaks the aggregate trade model down by teammate. Rows are potential traders, columns are the teammates whose deaths they could respond to, and same-team cells display `opportunities / attempts / successes`. Opposing-team and self cells are blank. Like the scoreboard and duel matrix, the trade matrix follows the ALL / CT / T selector using the potential trader's side when the response occurred.
 
-Scoreboard headers are sortable within each team. Its expandable groups follow the player-profile order and color language: Combat, Opening, Trades, clutch/multikill/objective Rounds, Context, Movement, and Utility. The expanded groups expose the corresponding single-match counters while keeping the default scoreboard compact. Composite headers cycle through their component statistics and then return to the original neutral order; single-stat headers toggle between that statistic and neutral. Favorable values sort first, so death-based penalty columns use fewer-first ordering.
+Scoreboard headers are sortable within each team. Its expandable groups follow the player-profile order and color language: Combat, Opening, Trades, clutch/multikill/objective Rounds, Round timing, Context, Movement, and Utility. Round timing shows average kill/death elapsed time plus Early, Mid, Late, and Post-plant K-D for the selected side. The expanded groups expose the corresponding single-match counters while keeping the default scoreboard compact. Composite headers cycle through their component statistics and then return to the original neutral order; single-stat headers toggle between that statistic and neutral. Favorable values sort first, so death-based penalty columns use fewer-first ordering.
 
 The first trade-opportunity model is intentionally simple and transparent. A living teammate receives an opportunity when they are within 250 Source 2 game units of a teammate at the moment that teammate dies. This radius was calibrated against a known Leetify match result. A teammate outside that radius also receives a retroactive, proven opportunity if they damage or kill the killer within five seconds. Damaging the killer is an attempt; killing that player is a success. Success percentage uses attempts—not opportunities—as its denominator. A death is “tradeable” if at least one teammate met either rule, and it is counted only once regardless of how many teammates qualify. Its death-side attempt and success also count once even if multiple teammates act.
 
@@ -67,7 +67,9 @@ Trade calibration traces remain available while a demo is being parsed but are d
 
 ## Compact match JSON
 
-**Download compact JSON** writes the versioned `nickstats.match/9` storage schema. It is minified and normalized for a future match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship entries reference the match-level player index.
+**Download compact JSON** writes the versioned `nickstats.match/10` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index.
+
+Round timing begins at `round_freeze_end`, not the freeze-time `round_start` event. Version 10 stores exact live-start/end ticks and one row for every player death, including elapsed milliseconds, kill/victim sides, weapon, pre- or post-plant state, alive counts, and existing kill-context flags. Early (0–25 seconds), Mid (25–75), Late (75+ before plant), and Post-plant are derived query labels; changing those labels does not require another demo parse.
 
 NickStats also exposes **Download round diagnostics** after every successful parse. This separate JSON traces each completed round's end event, raw or inferred winner side, game-rules and team-score evidence, bomb and alive-state inference, frozen player-side assignments, participant set, awarded round wins, stable team winner, and delayed end events. It is intentionally excluded from match uploads and normal compact downloads.
 
@@ -84,7 +86,7 @@ Each player has a `sides` array in T, CT order. The full-match view is deliberat
 - `clutches`: 1v1 through 1v5 wins
 - `clutch_attempts`: 1v1 through 1v5 attempts, classified once at the initial disadvantage
 - `kill_rounds`: 1K through 5K rounds
-- `weapons`: weapon, kills, shots, damage, rounds used
+- `weapons`: weapon, kills, shots, damage, rounds used, hits
 - `duels`: opponent player index, kills
 - `trades`: teammate player index, opportunities, attempts, successes
 - `contexts`: victim player index, blinded victim, blind attacker, wallbang, penetration count, smoke, airborne, moving, still, running, grenade out, knife out, unique equipment disadvantage, unique unfair

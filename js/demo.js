@@ -27,7 +27,7 @@
     rejectReady: null,
     resolveParse: null,
     rejectParse: null,
-    expandedGroups: { combat: false, opening: false, trades: false, clutches: false, multikills: false, objectives: false, killContext: false, movement: false, utility: false },
+    expandedGroups: { combat: false, opening: false, trades: false, clutches: false, multikills: false, objectives: false, timing: false, killContext: false, movement: false, utility: false },
     scoreboardSort: null,
     sideFilter: "ALL",
     resultView: "scoreboard",
@@ -154,6 +154,16 @@
     blindDuration: oneMode("blindDuration", "Blind sec", player => enemyFlashMatchups(player).reduce((sum, row) => sum + (row.blind_duration || 0), 0)),
     bombPlants: oneMode("bombPlants", "Plants", player => player.objectives?.plants ?? 0),
     bombDefuses: oneMode("bombDefuses", "Defuses", player => player.objectives?.defuses ?? 0),
+    timingSummary: { id: "timingSummary", modes: [
+      { label: "Kill", value: player => numberValue(player.kill_time_total_ms) / Math.max(1, numberValue(player.kill_time_samples)), direction: "asc" },
+      { label: "Death", value: player => numberValue(player.death_time_total_ms) / Math.max(1, numberValue(player.death_time_samples)), direction: "asc" }
+    ] },
+    averageKillTime: oneMode("averageKillTime", "Avg kill", player => numberValue(player.kill_time_total_ms) / Math.max(1, numberValue(player.kill_time_samples)), "asc"),
+    averageDeathTime: oneMode("averageDeathTime", "Avg death", player => numberValue(player.death_time_total_ms) / Math.max(1, numberValue(player.death_time_samples)), "asc"),
+    earlyTiming: { id: "earlyTiming", modes: [{ label: "K", value: player => player.early_kills ?? 0 }, { label: "D", value: player => player.early_deaths ?? 0, direction: "asc" }] },
+    midTiming: { id: "midTiming", modes: [{ label: "K", value: player => player.mid_kills ?? 0 }, { label: "D", value: player => player.mid_deaths ?? 0, direction: "asc" }] },
+    lateTiming: { id: "lateTiming", modes: [{ label: "K", value: player => player.late_kills ?? 0 }, { label: "D", value: player => player.late_deaths ?? 0, direction: "asc" }] },
+    postplantTiming: { id: "postplantTiming", modes: [{ label: "K", value: player => player.postplant_kills ?? 0 }, { label: "D", value: player => player.postplant_deaths ?? 0, direction: "asc" }] },
     movementSummary: { id: "movementSummary", modes: [
       { label: "Move K", value: player => player.kill_context?.moving_kills ?? 0 },
       { label: "Run K", value: player => player.kill_context?.running_kills ?? 0 },
@@ -320,7 +330,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260912-1");
+      const worker = new Worker("./js/demo-worker.js?v=20260913-3");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -651,6 +661,33 @@
       steam_id: sourcePlayers[index]?.steam_id || null,
       is_bot: Boolean(sourcePlayers[index]?.bot)
     });
+    const emptyTiming = () => ({
+      kill_time_samples: 0, kill_time_total_ms: 0, death_time_samples: 0, death_time_total_ms: 0,
+      early_kills: 0, early_deaths: 0, mid_kills: 0, mid_deaths: 0,
+      late_kills: 0, late_deaths: 0, postplant_kills: 0, postplant_deaths: 0
+    });
+    const timingByPlayer = sourcePlayers.map(() => ({ T: emptyTiming(), CT: emptyTiming() }));
+    const phaseForEvent = event => event?.[13] != null ? "postplant" : numberValue(event?.[3]) < 25000 ? "early" : numberValue(event?.[3]) < 75000 ? "mid" : "late";
+    const addTiming = (playerIndex, side, kind, event) => {
+      const timing = timingByPlayer[playerIndex]?.[side];
+      if (!timing) return;
+      timing[`${kind}_time_samples`] += 1;
+      timing[`${kind}_time_total_ms`] += numberValue(event[3]);
+      timing[`${phaseForEvent(event)}_${kind === "kill" ? "kills" : "deaths"}`] += 1;
+    };
+    for (const event of payload.death_events || []) {
+      if (!Array.isArray(event)) continue;
+      addTiming(numberValue(event[5]), event[7], "death", event);
+      if (event[9] && event[4] != null) addTiming(numberValue(event[4]), event[6], "kill", event);
+    }
+    const timingFor = (playerIndex, side) => {
+      if (side !== "ALL") return timingByPlayer[playerIndex]?.[side] || emptyTiming();
+      const output = emptyTiming();
+      for (const source of [timingByPlayer[playerIndex]?.T, timingByPlayer[playerIndex]?.CT]) {
+        for (const key of Object.keys(output)) output[key] += numberValue(source?.[key]);
+      }
+      return output;
+    };
 
     function incomingRows(playerIndex, side, field) {
       const output = [];
@@ -666,6 +703,7 @@
 
     function expandPlayerSide(playerIndex, side) {
       const stats = statsFor(playerIndex, side);
+      const timing = timingFor(playerIndex, side);
       const player = identity(playerIndex);
       const rounds = numberValue(stats.rounds?.[0]);
       const wins = numberValue(stats.rounds?.[1]);
@@ -723,7 +761,8 @@
         0.2372 * impact + 0.0032 * adr + 0.1587 : 0;
 
       return {
-        ...player,
+        ...player, ...timing,
+        timing_available: payload.schema === "nickstats.match/10" && (payload.round_timing || []).length === numberValue(payload.rounds),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -1183,6 +1222,21 @@
     } else {
       cell(row, `${player.objectives?.plants ?? 0}/${player.objectives?.defuses ?? 0}`, "demo-group-cell objectives-cell");
     }
+    const timingAverage = kind => {
+      if (!player.timing_available) return "—";
+      const samples = numberValue(player[`${kind}_time_samples`]);
+      return samples ? `${(numberValue(player[`${kind}_time_total_ms`]) / samples / 1000).toFixed(1)}s` : "—";
+    };
+    const timingPair = phase => player.timing_available
+      ? `${player[`${phase}_kills`] ?? 0}-${player[`${phase}_deaths`] ?? 0}`
+      : "—";
+    if (state.expandedGroups.timing) {
+      [timingAverage("kill"), timingAverage("death"),
+        timingPair("early"), timingPair("mid"), timingPair("late"), timingPair("postplant")]
+        .forEach(value => cell(row, value, "demo-group-cell timing-cell"));
+    } else {
+      cell(row, player.timing_available ? `${timingAverage("kill")}/${timingAverage("death")}` : "Not parsed", "demo-group-cell timing-cell");
+    }
     if (state.expandedGroups.killContext) {
       [blind, blindKiller, wall, smoke, air, grenade, knife, equipment, running]
         .forEach(value => cell(row, value, "demo-group-cell killContext-cell"));
@@ -1215,7 +1269,7 @@
   }
 
   function markGroupBoundaries(row) {
-    for (const group of ["combat", "opening", "trades", "clutches", "multikills", "objectives", "killContext", "movement", "utility"]) {
+    for (const group of ["combat", "opening", "trades", "clutches", "multikills", "objectives", "timing", "killContext", "movement", "utility"]) {
       const cells = [...row.cells].filter(item => item.classList.contains(`${group}-cell`));
       cells[0]?.classList.add("demo-group-start");
       cells.at(-1)?.classList.add("demo-group-end");
@@ -1272,6 +1326,11 @@
       if (detail === "Run K-D") child.title = "Kills by a player moving above 34% of the held weapon's maximum speed – deaths to such a killer";
       if (detail === "Spd% K-D") child.title = "Average horizontal killer speed as a percentage of the held weapon maximum: your kills – your deaths";
       if (detail === "Bullshit K-D") child.title = "Unique kills and deaths where the killer was blind, airborne, or running; the kill was a wallbang or smoke kill; or the victim was caught for a Paul; overlaps count once";
+      if (detail === "Avg kill" || detail === "Avg death" || detail === "Avg K/D time") child.title = "Average time from freeze end; collapsed values are kill/death";
+      if (detail === "Early K-D") child.title = "Kills and deaths from 0–25 seconds after freeze end";
+      if (detail === "Mid K-D") child.title = "Kills and deaths from 25–75 seconds after freeze end";
+      if (detail === "Late K-D") child.title = "Kills and deaths after 75 seconds but before the bomb plant";
+      if (detail === "Post-plant K-D") child.title = "Kills and deaths after the bomb is planted";
       child.className = `demo-group-detail ${group}-cell`;
       if (index === 0) child.classList.add("demo-group-start");
       if (index === details.length - 1) child.classList.add("demo-group-end");
@@ -1361,6 +1420,15 @@
         "Plants/defuses": sortSpecs.bombPlants,
         Plants: sortSpecs.bombPlants,
         Defuses: sortSpecs.bombDefuses
+      },
+      timing: {
+        "Avg K/D time": sortSpecs.timingSummary,
+        "Avg kill": sortSpecs.averageKillTime,
+        "Avg death": sortSpecs.averageDeathTime,
+        "Early K-D": sortSpecs.earlyTiming,
+        "Mid K-D": sortSpecs.midTiming,
+        "Late K-D": sortSpecs.lateTiming,
+        "Post-plant K-D": sortSpecs.postplantTiming
       },
       movement: {
         "Move/run/air": sortSpecs.movementSummary,
@@ -1464,6 +1532,7 @@
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
     widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
     widths.push(...(state.expandedGroups.objectives ? [74, 74] : [92]));
+    widths.push(...(state.expandedGroups.timing ? [82, 82, 84, 84, 84, 112] : [110]));
     widths.push(...(state.expandedGroups.killContext ? [104, 104, 98, 88, 88, 112, 104, 88, 88] : [112]));
     widths.push(...(state.expandedGroups.movement ? [88, 88, 88, 88, 116, 132, 126, 142] : [112]));
     widths.push(...(state.expandedGroups.utility ? [82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90] : [144]));
@@ -1511,6 +1580,7 @@
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A");
     groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
     groupHeader(header, detailHeader, "objectives", "Objectives", ["Plants", "Defuses"], "Plants/defuses");
+    groupHeader(header, detailHeader, "timing", "Round timing", ["Avg kill", "Avg death", "Early K-D", "Mid K-D", "Late K-D", "Post-plant K-D"], "Avg K/D time");
     groupHeader(header, detailHeader, "killContext", "Context", ["Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D");
     groupHeader(header, detailHeader, "movement", "Movement", ["Move K-D", "Still K-D", "Run K-D", "Air K-D", "Kill speed avg/max", "Kill speed avg/peak %", "Enemy speed avg/max", "Enemy speed avg/peak %"], "Move/run/air");
     groupHeader(header, detailHeader, "utility", "Utility", ["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Blind sec", "FA", "Damage assist", "Teammate flash", "Own flash"], "Damage · thrown");
@@ -2020,8 +2090,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/9",
-      nickstats_build: "2026.09.12.1",
+      schema: "nickstats.match/10",
+      nickstats_build: "2026.09.13.3",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -2031,6 +2101,17 @@
       played_at: Number.isFinite(result.played_at) ? Math.trunc(result.played_at) : null,
       played_at_source: result.played_at_source || null,
       rounds: result.rounds,
+      round_timing: (result.round_timing || []).map(round => [
+        number(round.round), number(round.live_start_tick), number(round.end_tick), number(round.duration_ms),
+        round.winner_side || null, round.bomb_plant_elapsed_ms == null ? null : number(round.bomb_plant_elapsed_ms)
+      ]),
+      death_events: (result.death_events || []).map(event => [
+        number(event.round), number(event.sequence), number(event.tick), number(event.elapsed_ms),
+        event.killer_index == null ? null : number(event.killer_index), number(event.victim_index),
+        event.killer_side || null, event.victim_side, event.weapon || "world", Boolean(event.enemy_kill),
+        number(event.flags), number(event.t_alive_before), number(event.ct_alive_before),
+        event.since_plant_ms == null ? null : number(event.since_plant_ms)
+      ]),
       rules: {
         trade: [
           trade.window_seconds, trade.proximity_units, trade.engagement_lull_seconds,

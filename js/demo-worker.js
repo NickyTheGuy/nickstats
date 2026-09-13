@@ -12,6 +12,10 @@ const RUNNING_ACCURACY_THRESHOLD_PERCENT = 34;
 const STILL_SPEED_TOLERANCE = 1;
 const EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS = 1.4;
 const TRADE_AUDIT_RADII = [150, 200, 250, 300, 400, 500];
+const DEATH_EVENT_FLAGS = Object.freeze({
+  headshot: 1, wallbang: 2, smoke: 4, attackerBlind: 8, attackerAirborne: 16,
+  attackerRunning: 32, victimBlinded: 64, equipmentDisadvantage: 128, unfair: 256
+});
 // CCSGameRules.m_eRoundWinReason values used by CS2. The game-rules entity is
 // authoritative when a demo omits the legacy round_end/bomb terminal events.
 const ROUND_WIN_REASON_TO_SIDE = new Map([
@@ -174,6 +178,8 @@ async function parseDemo(fileName, buffer) {
   const latestInventory = new Map();
   const tradeAudit = [];
   const roundSideAudit = [];
+  const roundTimings = [];
+  const deathEvents = [];
   const ignoredRoundEndEvents = [];
   const packetCounts = {
     demo_packets: 0,
@@ -376,6 +382,8 @@ async function parseDemo(fileName, buffer) {
     observedTeamScores.clear();
     tradeAudit.length = 0;
     roundSideAudit.length = 0;
+    roundTimings.length = 0;
+    deathEvents.length = 0;
     ignoredRoundEndEvents.length = 0;
     blindUntilTick.clear();
     blindSources.clear();
@@ -754,6 +762,18 @@ async function parseDemo(fileName, buffer) {
       stable_team_scores_after_round: Object.fromEntries([...teamScores].map(([team, score]) => [team, score])),
       allocations
     });
+    if (Number.isFinite(round.liveStartTick) && Number.isFinite(tick)) {
+      roundTimings.push({
+        round: completedRounds + 1,
+        live_start_tick: round.liveStartTick,
+        end_tick: tick,
+        duration_ms: Math.max(0, Math.round((tick - round.liveStartTick) * tickInterval * 1000)),
+        winner_side: winningSide === 2 ? "T" : winningSide === 3 ? "CT" : null,
+        bomb_plant_elapsed_ms: Number.isFinite(round.bombPlantTick)
+          ? Math.max(0, Math.round((round.bombPlantTick - round.liveStartTick) * tickInterval * 1000))
+          : null
+      });
+    }
     completedRounds += 1;
     round.finished = true;
     round.live = false;
@@ -1301,6 +1321,32 @@ async function parseDemo(fileName, buffer) {
       (victimTeam === 2 || victimTeam === 3) &&
       attackerTeam !== victimTeam;
 
+    const aliveBefore = { T: 0, CT: 0 };
+    for (const row of new Set([...round.participants].map(userId => stats.get(userId)).filter(Boolean))) {
+      const died = [...row.userIds].some(userId => round.deaths.has(userId));
+      const side = round.sideAssignments.get(row) || rowSide(row);
+      if (!died && side === 2) aliveBefore.T += 1;
+      if (!died && side === 3) aliveBefore.CT += 1;
+    }
+    const timingEvent = victim && Number.isFinite(round.liveStartTick) && Number.isFinite(tick) ? {
+      round: completedRounds + 1,
+      sequence: round.deathSequence++,
+      tick,
+      elapsed_ms: Math.max(0, Math.round((tick - round.liveStartTick) * tickInterval * 1000)),
+      killer: attacker || null,
+      victim,
+      killer_side: attacker ? (round.sideAssignments.get(attacker) || attackerTeam) : null,
+      victim_side: round.sideAssignments.get(victim) || victimTeam,
+      weapon: attacker ? combatEventWeapon(attacker, event.weapon) : String(event.weapon || "world"),
+      enemy_kill: Boolean(enemyKill),
+      flags: event.headshot ? DEATH_EVENT_FLAGS.headshot : 0,
+      t_alive_before: aliveBefore.T,
+      ct_alive_before: aliveBefore.CT,
+      since_plant_ms: Number.isFinite(round.bombPlantTick) && tick >= round.bombPlantTick
+        ? Math.max(0, Math.round((tick - round.bombPlantTick) * tickInterval * 1000))
+        : null
+    } : null;
+
     if (attackerId !== null) round.participants.add(attackerId);
     if (victimId !== null) round.participants.add(victimId);
     if (assisterId !== null) round.participants.add(assisterId);
@@ -1350,24 +1396,29 @@ async function parseDemo(fileName, buffer) {
       let stillKill = false;
       let runningKill = false;
       if (victimWasBlind) {
+        if (timingEvent) timingEvent.flags |= DEATH_EVENT_FLAGS.victimBlinded;
         attacker.blindedEnemyKills += 1;
         victim.deathsWhileBlind += 1;
       }
       if (attackerWasBlind) {
+        if (timingEvent) timingEvent.flags |= DEATH_EVENT_FLAGS.attackerBlind;
         attacker.killsWhileBlind += 1;
         victim.deathsToBlindKiller += 1;
       }
       if (penetrations > 0) {
+        if (timingEvent) timingEvent.flags |= DEATH_EVENT_FLAGS.wallbang;
         attacker.wallbangKills += 1;
         victim.wallbangDeaths += 1;
         attacker.killPenetrations += penetrations;
         victim.deathPenetrations += penetrations;
       }
       if (throughSmoke) {
+        if (timingEvent) timingEvent.flags |= DEATH_EVENT_FLAGS.smoke;
         attacker.smokeKills += 1;
         victim.smokeDeaths += 1;
       }
       if (attackerInAir) {
+        if (timingEvent) timingEvent.flags |= DEATH_EVENT_FLAGS.attackerAirborne;
         attacker.airborneKills += 1;
         victim.deathsToAirborneKiller += 1;
       }
@@ -1402,6 +1453,7 @@ async function parseDemo(fileName, buffer) {
         victim.deathsToStillKiller += 1;
       }
       if (runningKill) {
+        if (timingEvent) timingEvent.flags |= DEATH_EVENT_FLAGS.attackerRunning;
         attacker.runningKills += 1;
         victim.deathsToRunningKiller += 1;
       }
@@ -1414,6 +1466,7 @@ async function parseDemo(fileName, buffer) {
         victim.knifeOutDeaths += 1;
       }
       if (caughtWithEquipmentOut) {
+        if (timingEvent) timingEvent.flags |= DEATH_EVENT_FLAGS.equipmentDisadvantage;
         attacker.equipmentDisadvantageKills += 1;
         victim.equipmentDisadvantageDeaths += 1;
       }
@@ -1423,6 +1476,7 @@ async function parseDemo(fileName, buffer) {
       const unfairKill = attackerWasBlind || attackerInAir || runningKill || penetrations > 0 ||
         throughSmoke || caughtWithEquipmentOut;
       if (unfairKill) {
+        if (timingEvent) timingEvent.flags |= DEATH_EVENT_FLAGS.unfair;
         // The collapsed total is event-based, so overlapping contexts count once.
         attacker.unfairKills += 1;
         victim.unfairDeaths += 1;
@@ -1545,6 +1599,8 @@ async function parseDemo(fileName, buffer) {
         }
       }
     }
+
+    if (timingEvent) deathEvents.push(timingEvent);
 
     detectClutchCandidates();
   }
@@ -1825,6 +1881,7 @@ async function parseDemo(fileName, buffer) {
         round.boundaryEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         round.freezeSeen = true;
         round.live = true;
+        round.liveStartTick = demoPacket.tick;
         // Discard transient pre-freeze spawns (for example a bot created while
         // a player reconnects) and snapshot the roster that actually goes live.
         round.participants.clear();
@@ -1844,6 +1901,7 @@ async function parseDemo(fileName, buffer) {
         break;
       case "bomb_planted":
         round.bombPlanted = true;
+        round.bombPlantTick = demoPacket.tick;
         if (round.live) recordObjective(gameEvent, "bombPlants");
         round.objectiveEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         break;
@@ -1977,6 +2035,7 @@ async function parseDemo(fileName, buffer) {
   }
   const officialTeamData = new Map((endState?.teams || []).map(team => [team.id, team]));
   const groups = groupPlayers(activePlayers, assignments);
+  const outputPlayerByRow = new Map();
   const teams = [...groups.entries()]
     .sort(([a], [b]) => String(a).localeCompare(String(b)))
     .map(([teamId, players], index) => {
@@ -1987,6 +2046,7 @@ async function parseDemo(fileName, buffer) {
           T: finishPlayer(ensureSideRow(row, 2)),
           CT: finishPlayer(ensureSideRow(row, 3))
         };
+        outputPlayerByRow.set(row, output);
         return output;
       });
       return {
@@ -2001,6 +2061,24 @@ async function parseDemo(fileName, buffer) {
           .sort((a, b) => Number(a.is_bot) - Number(b.is_bot) || b.rating - a.rating || b.kills - a.kills)
       };
     });
+  const orderedOutputPlayers = teams.flatMap(team => team.players || []);
+  const outputPlayerIndexes = new Map(orderedOutputPlayers.map((player, index) => [player, index]));
+  const outputDeathEvents = deathEvents.map(event => ({
+    round: event.round,
+    sequence: event.sequence,
+    tick: event.tick,
+    elapsed_ms: event.elapsed_ms,
+    killer_index: event.killer ? outputPlayerIndexes.get(outputPlayerByRow.get(event.killer)) ?? null : null,
+    victim_index: outputPlayerIndexes.get(outputPlayerByRow.get(event.victim)) ?? null,
+    killer_side: event.killer_side === 2 ? "T" : event.killer_side === 3 ? "CT" : null,
+    victim_side: event.victim_side === 2 ? "T" : event.victim_side === 3 ? "CT" : null,
+    weapon: event.weapon,
+    enemy_kill: event.enemy_kill,
+    flags: event.flags,
+    t_alive_before: event.t_alive_before,
+    ct_alive_before: event.ct_alive_before,
+    since_plant_ms: event.since_plant_ms
+  })).filter(event => event.victim_index !== null && event.victim_side !== null);
 
   const result = {
     format_version: 1,
@@ -2013,6 +2091,8 @@ async function parseDemo(fileName, buffer) {
     source_file: fileName,
     map: mapName,
     rounds: completedRounds,
+    round_timing: roundTimings,
+    death_events: outputDeathEvents,
     side_definition: {
       T: 2,
       CT: 3,
@@ -2076,7 +2156,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.12.1",
+    nickstats_build: "2026.09.13.3",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2150,6 +2230,9 @@ function freshRound() {
     winnerSide: null,
     freezeSeen: false,
     live: false,
+    liveStartTick: null,
+    bombPlantTick: null,
+    deathSequence: 0,
     hasActivity: false,
     finished: false
   };

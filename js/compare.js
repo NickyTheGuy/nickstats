@@ -27,6 +27,7 @@
     context: [["Enemy blind", "blinded_kills", "countRate"], ["Player blind", "blind_kills", "countRate"], ["Wallbang kills", "wallbang_kills", "countRate"], ["Smoke kills", "smoke_kills", "countRate"], ["Airborne kills", "airborne_kills", "countRate"], ["Running kills", "running_kills", "countRate"], ["Enemy grenade out", "grenade_out_kills", "countRate"], ["Enemy knife out", "knife_out_kills", "countRate"], ["Paul kills", "equipment_disadvantage_kills", "countRate"], ["Bullshit kills", "unfair_kills", "countRate"]],
     contextDeaths: [["Player blind", "deaths_while_blind", "countRate", false], ["Enemy blind", "deaths_to_blind_killer", "countRate", false], ["Wallbang deaths", "wallbang_deaths", "countRate", false], ["Smoke deaths", "smoke_deaths", "countRate", false], ["Airborne enemy", "airborne_deaths", "countRate", false], ["Running enemy", "running_killer_deaths", "countRate", false], ["Player grenade out", "grenade_out_deaths", "countRate", false], ["Player knife out", "knife_out_deaths", "countRate", false], ["Paul deaths", "equipment_disadvantage_deaths", "countRate", false], ["Bullshit deaths", "unfair_deaths", "countRate", false]],
     rounds: [["Round wins", "round_wins", "countRate"], ["Bomb plants", "bomb_plants", "countRate"], ["Bomb defuses", "bomb_defuses", "countRate"], ["1v1 W/A", "clutch_1v1", "clutch1"], ["1v2 W/A", "clutch_1v2", "clutch2"], ["1v3 W/A", "clutch_1v3", "clutch3"], ["1v4 W/A", "clutch_1v4", "clutch4"], ["1v5 W/A", "clutch_1v5", "clutch5"], ["1K rounds", "kill_rounds_1k", "countRate"], ["2K rounds", "kill_rounds_2k", "countRate"], ["3K rounds", "kill_rounds_3k", "countRate"], ["4K rounds", "kill_rounds_4k", "countRate"], ["5K rounds", "kill_rounds_5k", "countRate"]],
+    timing: [["Avg kill time", "averageKillTime", "seconds"], ["Avg death time", "averageDeathTime", "seconds", false], ["Early K", "early_kills", "timingRate"], ["Early D", "early_deaths", "timingRate", false], ["Mid K", "mid_kills", "timingRate"], ["Mid D", "mid_deaths", "timingRate", false], ["Late K", "late_kills", "timingRate"], ["Late D", "late_deaths", "timingRate", false], ["Post-plant K", "postplant_kills", "timingRate"], ["Post-plant D", "postplant_deaths", "timingRate", false]],
     movement: [["Kill speed", "killSpeed", "decimal"], ["Kill speed %", "killSpeedPercent", "percent"], ["Peak kill speed", "kill_speed_max", "decimal"], ["Death speed", "deathSpeed", "decimal", false], ["Death speed %", "deathSpeedPercent", "percent", false], ["Peak death speed", "death_speed_max", "decimal", false], ["Moving K", "moving_kills", "countRate"], ["Still K", "still_kills", "countRate"], ["Running K", "running_kills", "countRate"]],
     weapons: [["Kills", "weaponKills", "countRate"], ["Damage", "weaponDamage", "damageRate"], ["Shots", "weaponShots", "countRate"], ["Hits", "weaponHits", "countRate"], ["Hit rate", "weaponAccuracy", "percent"], ["Rounds used", "weaponRounds", "countRate"]]
   };
@@ -140,7 +141,9 @@
       utilityDamage: num(stats.he_damage) + num(stats.fire_damage), udr: rounds ? (num(stats.he_damage) + num(stats.fire_damage)) / rounds : 0,
       blindSeconds: num(stats.blind_duration_ms) / 1000, killSpeed: num(stats.kill_speed_total) / Math.max(1, num(stats.kill_speed_samples)),
       killSpeedPercent: num(stats.kill_speed_percent_total) / Math.max(1, num(stats.kill_speed_percent_samples)), deathSpeed: num(stats.death_speed_total) / Math.max(1, num(stats.death_speed_samples)),
-      deathSpeedPercent: num(stats.death_speed_percent_total) / Math.max(1, num(stats.death_speed_percent_samples))
+      deathSpeedPercent: num(stats.death_speed_percent_total) / Math.max(1, num(stats.death_speed_percent_samples)),
+      averageKillTime: num(stats.kill_time_samples) ? num(stats.kill_time_total_ms) / num(stats.kill_time_samples) / 1000 : Number.NaN,
+      averageDeathTime: num(stats.death_time_samples) ? num(stats.death_time_total_ms) / num(stats.death_time_samples) / 1000 : Number.NaN
     };
     const weapon = weapons.get(state.weapon) || {};
     result.weaponKills = num(weapon.kills); result.weaponDamage = num(weapon.damage); result.weaponShots = num(weapon.shots); result.weaponHits = num(weapon.hits); result.weaponAccuracy = 100 * num(weapon.hits) / Math.max(1, num(weapon.shots)); result.weaponRounds = num(weapon.rounds_used);
@@ -161,6 +164,10 @@
       return `${total} · ${type === "signedRate" && rate > 0 ? "+" : ""}${rate.toFixed(digits)}/R`;
     };
     if (type === "countRate" || type === "signedRate") return perRound(2);
+    if (type === "timingRate") {
+      const timedRounds = num(stats.timed_rounds);
+      return timedRounds ? `${Math.round(num(value)).toLocaleString()} · ${(num(value) / timedRounds).toFixed(2)}/TR` : "—";
+    }
     if (type.startsWith("clutch")) {
       const opponents = type.slice("clutch".length);
       const attempts = num(stats[`clutch_attempt_1v${opponents}`]);
@@ -168,6 +175,7 @@
     }
     if (type === "damageRate") return `${Math.round(num(value)).toLocaleString()} · ${(num(value) / Math.max(1, num(stats.rounds))).toFixed(1)}/R`;
     if (type === "secondsRate") return `${num(value).toFixed(1)}s · ${(num(value) / Math.max(1, num(stats.rounds))).toFixed(2)}s/R`;
+    if (type === "seconds") return Number.isFinite(value) ? `${value.toFixed(1)}s` : "—";
     if (type === "percent") return `${num(value).toFixed(1)}%`;
     if (type === "rating") return num(value).toFixed(2);
     if (type === "ratio") return num(value).toFixed(2);
