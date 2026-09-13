@@ -600,7 +600,7 @@
     const clutchTotal = (stats, prefix) => [1, 2, 3, 4, 5].reduce((total, size) => total + clutchValue(stats, prefix, size), 0);
     const fixedColumns = [
       { key: "player", label: "Player", value: item => item.player.label, format: item => item.player.label },
-      { key: "matches", label: "Matches", value: item => item.stats.n, format: item => integer(item.stats.n) },
+      { key: "rounds", label: "Rounds", value: item => num(item.stats.rounds), format: item => integer(item.stats.rounds) },
       { key: "kda", label: "K / D / A", value: item => item.stats.kills, format: item => `${integer(item.stats.kills)} / ${integer(item.stats.deaths)} / ${integer(item.stats.assists)}` },
       { key: "kd", label: "K/D", value: item => item.stats.kd, format: item => decimal(item.stats.kd, 2) },
       { key: "adr", label: "ADR", value: item => item.stats.adr, format: item => decimal(item.stats.adr, 1) },

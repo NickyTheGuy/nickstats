@@ -96,7 +96,11 @@
       const margin = number(sample.margin), sign = margin > 0 ? "+" : margin < 0 ? "−" : "";
       return [label, `${decimal(sample.for, 1)}–${decimal(sample.against, 1)}`, `${integer(sample.count)} scored match${sample.count === 1 ? "" : "es"} · ${sign}${decimal(Math.abs(margin), 1)} average margin`, className];
     };
-    const recordCards = [["Matches", integer(summary.matches), `${summary.wins} W · ${summary.losses} L · ${summary.draws} D`], ["Rounds", integer(rounds), `${integer(s.round_wins)} won`]];
+    const roundWins = number(s.round_wins), roundLosses = Math.max(0, rounds - roundWins);
+    const roundNote = roundResult === "ALL"
+      ? `${integer(roundWins)} W · ${integer(roundLosses)} L · ${percent(100 * ratio(roundWins, rounds))}`
+      : roundResult === "win" ? "Winning rounds only" : "Losing rounds only";
+    const recordCards = [["Matches", integer(summary.matches), `${summary.wins} W · ${summary.losses} L · ${summary.draws} D`], ["Rounds", integer(rounds), roundNote]];
     if (result !== "l") recordCards.push(scoreCard("Average score when winning", summary.scores?.wins, "player-score-win"));
     if (result !== "w") recordCards.push(scoreCard("Average score when losing", summary.scores?.losses, "player-score-loss"));
     fillCards(`${prefix}RecordStats`, recordCards);

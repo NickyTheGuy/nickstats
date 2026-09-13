@@ -12,6 +12,11 @@ test("quick comparison uses the scoreboard rating colors", () => {
   assert.match(compareSource, /demo-rating.*rating-good.*rating-bad.*rating-average/);
 });
 
+test("quick comparison shows filtered rounds instead of redundant match count", () => {
+  assert.match(compareSource, /key: "rounds", label: "Rounds"/);
+  assert.doesNotMatch(compareSource, /key: "matches", label: "Matches"/);
+});
+
 test("quick comparison openings and clutches are expandable scoreboard groups", () => {
   assert.match(compareSource, /quickExpandedGroups: \{ opening: false, clutches: false \}/);
   assert.match(compareSource, /group: "opening", label: "Opening"/);
