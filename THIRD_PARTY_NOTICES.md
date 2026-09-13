@@ -49,3 +49,7 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## zstd-codec and Zstandard
+
+NickStats bundles the WebAssembly binding from [zstd-codec version 0.1.5](https://github.com/yoshihitoh/zstd-codec) as a compatibility fallback. zstd-codec is MIT licensed. Its bundled Zstandard reference implementation is Copyright (c) Meta Platforms, Inc. and affiliates and is licensed under the BSD 3-Clause License.

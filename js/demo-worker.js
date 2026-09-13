@@ -2,6 +2,8 @@
 
 const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
 const ZSTD_URL = "https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js";
+const ZSTD_WASM_URL = "./zstd-codec-worker.js?v=20260914-1";
+const MAX_UNCOMPRESSED_DEMO_BYTES = 450 * 1024 * 1024;
 const TRADE_WINDOW_SECONDS = 5;
 const TRADE_PROXIMITY_UNITS = 250;
 const TRADE_ENGAGEMENT_LULL_SECONDS = 2;
@@ -93,6 +95,7 @@ const ADDITIVE_STAT_FIELDS = [
   "openingDeaths", "multikillRounds"
 ];
 let libraryError = null;
+let zstdWasmBindingPromise = null;
 
 try {
   self.window = self;
@@ -106,6 +109,64 @@ self.postMessage(libraryError
   ? { type: "error", message: `Could not load the demo parser: ${libraryError.message || libraryError}` }
   : { type: "ready" });
 
+function loadZstdWasmBinding() {
+  if (zstdWasmBindingPromise) return zstdWasmBindingPromise;
+  zstdWasmBindingPromise = new Promise((resolve, reject) => {
+    try {
+      if (!self.NickStatsZstdWasm) importScripts(ZSTD_WASM_URL);
+      if (!self.NickStatsZstdWasm?.run) throw new Error("The fallback Zstandard decoder did not load correctly.");
+      self.NickStatsZstdWasm.run(resolve, reject);
+    } catch (error) {
+      reject(error);
+    }
+  });
+  return zstdWasmBindingPromise;
+}
+
+async function decompressZstdWithWasm(input) {
+  const binding = await loadZstdWasmBinding();
+  const stream = new binding.ZstdDecompressStreamBinding();
+  const chunks = [];
+  let total = 0;
+  const collect = chunk => {
+    total += chunk.length;
+    if (total <= MAX_UNCOMPRESSED_DEMO_BYTES) chunks.push(new Uint8Array(chunk));
+  };
+  try {
+    if (!stream.begin() || !stream.transform(input, collect) || !stream.end(collect)) {
+      throw new Error("The fallback decoder could not decompress this Zstandard frame.");
+    }
+  } finally {
+    stream.delete();
+  }
+  if (total > MAX_UNCOMPRESSED_DEMO_BYTES) {
+    throw new Error("The uncompressed demo exceeds the 450 MB browser prototype limit.");
+  }
+  const output = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return output;
+}
+
+async function decompressZstd(buffer) {
+  const input = new Uint8Array(buffer);
+  try {
+    if (!self.fzstd) importScripts(ZSTD_URL);
+    if (!self.fzstd?.decompress) throw new Error("The Zstandard decoder did not load correctly.");
+    return self.fzstd.decompress(input);
+  } catch (primaryError) {
+    self.postMessage({ type: "status", message: "The fast Zstandard decoder could not read this frame; retrying with the compatibility decoder…" });
+    try {
+      return await decompressZstdWithWasm(input);
+    } catch (fallbackError) {
+      throw new Error(`Zstandard decompression failed: ${fallbackError.message || fallbackError} (fast decoder: ${primaryError.message || primaryError})`);
+    }
+  }
+}
+
 self.addEventListener("message", async event => {
   if (event.data?.type !== "parse") return;
   if (libraryError) {
@@ -117,10 +178,8 @@ self.addEventListener("message", async event => {
     let buffer = event.data.data;
     if (event.data.compression === "zstd") {
       self.postMessage({ type: "status", message: "Decompressing FACEIT Zstandard demo locally…" });
-      if (!self.fzstd) importScripts(ZSTD_URL);
-      if (!self.fzstd?.decompress) throw new Error("The Zstandard decoder did not load correctly.");
-      const output = self.fzstd.decompress(new Uint8Array(buffer));
-      if (output.byteLength > 450 * 1024 * 1024) {
+      const output = await decompressZstd(buffer);
+      if (output.byteLength > MAX_UNCOMPRESSED_DEMO_BYTES) {
         throw new Error("The uncompressed demo exceeds the 450 MB browser prototype limit.");
       }
       buffer = output.byteOffset === 0 && output.byteLength === output.buffer.byteLength
