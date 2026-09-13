@@ -1,8 +1,8 @@
 import Vapor
 
-let compactSchema = "nickstats.match/13"
-let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", compactSchema])
-let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", compactSchema])
+let compactSchema = "nickstats.match/14"
+let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", compactSchema])
+let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
@@ -96,9 +96,11 @@ struct PlayerPayload: Content, Sendable {
     var bot: Bool?
     var sides: PlayerSideStats
     var buys: [SideStatsPayload]? = nil
+    var roundResults: [SideStatsPayload]? = nil
 
     enum CodingKeys: String, CodingKey {
         case name, bot, sides, buys
+        case roundResults = "round_results"
         case steamID = "steam_id"
     }
 }
@@ -444,12 +446,14 @@ struct ComparisonMatch: Content {
 struct ComparisonSideStats: Content {
     var side: PlayerSide
     var buyType: String
+    var roundResult: String
     var stats: [String: Double]
     var weapons: [ComparisonWeaponStats]
 
     enum CodingKeys: String, CodingKey {
         case side, stats, weapons
         case buyType = "buy_type"
+        case roundResult = "round_result"
     }
 }
 

@@ -14,7 +14,7 @@
   const state = {
     selected: new Map(), players: [], choices: new Map(), analysis: null,
     searchController: null, compareController: null, searchTimer: null,
-    side: "ALL", buy: "ALL", result: "ALL", metricGroup: "core", weapon: "",
+    side: "ALL", buy: "ALL", roundResult: "ALL", result: "ALL", metricGroup: "core", weapon: "",
     comboPlayerId: "", comboCondition: "without", comboView: "overview",
     workspace: location.hash === "#matrix" ? "matrix" : "compare"
   };
@@ -85,6 +85,7 @@
   function selectedView(row) {
     const selected = (row.sideRows || []).filter(side =>
       (state.buy === "ALL" ? (side.buy_type || "ALL") === "ALL" : side.buy_type === state.buy) &&
+      (state.roundResult === "ALL" ? (side.round_result || "ALL") === "ALL" : side.round_result === state.roundResult) &&
       (state.side === "ALL" || side.side === state.side));
     const stats = {}, weapons = new Map();
     selected.forEach(side => {
@@ -94,7 +95,7 @@
         current.kills += num(weapon.kills); current.damage += num(weapon.damage); current.shots += num(weapon.shots); current.hits += num(weapon.hits); current.rounds_used += num(weapon.rounds_used); weapons.set(weapon.weapon, current);
       });
     });
-    if (!selected.length && state.side === "ALL" && state.buy === "ALL") mergeStats(stats, row.legacy);
+    if (!selected.length && state.side === "ALL" && state.buy === "ALL" && state.roundResult === "ALL") mergeStats(stats, row.legacy);
     return { stats, weapons };
   }
 
@@ -159,7 +160,12 @@
     return `${value > 0 ? "+" : value < 0 ? "−" : ""}${magnitude}${suffix}`;
   }
 
-  function metricFields() { return metricGroups[state.metricGroup] || metricGroups.core; }
+  function metricFields() {
+    return (metricGroups[state.metricGroup] || metricGroups.core).map(field =>
+      field[1] === "kpr" && state.roundResult !== "ALL"
+        ? [state.roundResult === "win" ? "KPRW" : "KPRL", ...field.slice(1)]
+        : field);
+  }
   function formatMetric(value, type, stats = {}) {
     const perRound = digits => {
       const total = type === "signedRate" ? signed(value, 0) : Math.round(num(value)).toLocaleString();
@@ -581,12 +587,13 @@
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("comboProfileTitle").textContent = player.label;
     const buyLabel = state.buy === "ALL" ? "All buys" : `${titleCase(state.buy)} buys`;
-    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(rows.length)} qualifying match${rows.length === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}`;
+    const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
+    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(rows.length)} qualifying match${rows.length === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${roundLabel} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}`;
     const maps = new Map(); rows.forEach(row => { const collection = maps.get(row.map) || []; collection.push(row); maps.set(row.map, collection); });
     const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate, scores: source.scores });
     const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches)) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
-    window.NickStatsProfile.render({ prefix: "combo", headlineId: "comboProfileHeadline", summary: normalize(stats), side: state.side, result: state.result, maps: mapRows });
-    window.NickStatsGraphs.render({ prefix: "combo", series: current.included.map(candidate => ({ label: candidate.label, samples: window.NickStatsGraphs.samplesForMatches(comboProfileRows(current, candidate), state.side, state.buy) })) });
+    window.NickStatsProfile.render({ prefix: "combo", headlineId: "comboProfileHeadline", summary: normalize(stats), side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
+    window.NickStatsGraphs.render({ prefix: "combo", series: current.included.map(candidate => ({ label: candidate.label, samples: window.NickStatsGraphs.samplesForMatches(comboProfileRows(current, candidate), state.side, state.buy, state.roundResult) })) });
     setComboProfileView(state.comboView);
   }
 
@@ -605,6 +612,7 @@
     state.choices.clear();
     state.result = "ALL";
     state.buy = "ALL";
+    state.roundResult = "ALL";
     comboResultFilter.set("ALL", { notify: false });
     invalidateAnalysis();
     $("compareSearchInput").value = "";
@@ -636,6 +644,7 @@
   $("compareWeapon").addEventListener("change", event => { state.weapon = event.target.value; refreshAnalysis(); });
   window.NickStatsFilters.bindSideToggle({ selector: "[data-matrix-side], [data-compare-side]", valueFor: button => button.dataset.matrixSide || button.dataset.compareSide, onChange: side => { state.side = side; refreshAnalysis(); } });
   window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-compare-buy]", valueFor: button => button.dataset.compareBuy, onChange: buy => { state.buy = buy; refreshAnalysis(); } });
+  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-compare-round-result]", valueFor: button => button.dataset.compareRoundResult, onChange: roundResult => { state.roundResult = roundResult; refreshAnalysis(); } });
   document.querySelectorAll("[data-compare-mode]").forEach(button => button.addEventListener("click", () => setCompareMode(button.dataset.compareMode)));
   window.addEventListener("nickstats:page", event => {
     if (["compare", "matrix"].includes(event.detail?.page)) setWorkspace(event.detail.page);

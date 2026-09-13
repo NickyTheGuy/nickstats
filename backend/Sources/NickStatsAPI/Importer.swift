@@ -252,6 +252,29 @@ func importMatch(
                 }
             }
         }
+        if let roundResults = player.roundResults {
+            let buyTypes = ["ALL", "pistol", "eco", "force", "full"]
+            let results = ["win", "loss"]
+            for (buyIndex, buyType) in buyTypes.enumerated() {
+                for (resultIndex, result) in results.enumerated() {
+                    for (sideIndex, side) in PlayerSide.allCases.enumerated() {
+                        let stats = roundResults[buyIndex * 4 + resultIndex * 2 + sideIndex]
+                        let data = try JSONEncoder().encode(stats)
+                        guard let json = String(data: data, encoding: .utf8) else {
+                            throw Abort(.internalServerError, reason: "Could not encode round-result statistics.")
+                        }
+                        try await sql.raw("""
+                            INSERT INTO player_round_result_stats
+                              (match_id, match_player_id, side, buy_type, round_result, stats_json)
+                            VALUES (
+                              \(bind: matchID), \(bind: matchPlayerIDs[playerSlot]), \(bind: side.rawValue),
+                              \(bind: buyType), \(bind: result), CAST(\(bind: json) AS JSON)
+                            )
+                            """).run()
+                    }
+                }
+            }
+        }
     }
     return ImportResult(id: matchID, created: existingMatchID == nil, replaced: existingMatchID != nil)
 }

@@ -47,6 +47,17 @@ test("graph samples select a buy slice without mixing in all-buy rows", () => {
   assert.equal(sample.stats.kills, 11);
 });
 
+test("graph samples compose buy and round-result slices", () => {
+  const source = [{ id: 10, sides: [
+    { side: "T", buy_type: "full", round_result: "ALL", stats: { rounds: 6, kills: 9 } },
+    { side: "T", buy_type: "full", round_result: "win", stats: { rounds: 4, kills: 8 } },
+    { side: "T", buy_type: "full", round_result: "loss", stats: { rounds: 2, kills: 1 } }
+  ] }];
+  const [sample] = samplesForMatches(source, "T", "full", "win");
+  assert.equal(sample.stats.rounds, 4);
+  assert.equal(sample.stats.kills / sample.stats.rounds, 2);
+});
+
 test("graph metric registry calculates per-match rates from matching denominators", () => {
   const stats = statsForMatch(match, "ALL");
 

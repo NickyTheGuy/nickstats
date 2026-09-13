@@ -79,14 +79,17 @@
     table.replaceChildren(head, body);
   }
 
-  function render({ prefix, headlineId, summary, side, result = "ALL", maps }) {
+  function render({ prefix, headlineId, summary, side, result = "ALL", roundResult = "ALL", maps }) {
     const s = summary.stats || {}, rounds = number(s.rounds), sideAll = side === "ALL";
     const metric = (label, value) => [label, integer(value), countPerRound(value, rounds)];
     const ratingClass = summary.rating >= 1.1 ? "rating-good" : summary.rating <= .9 ? "rating-bad" : "rating-average";
+    const recordHeadline = roundResult === "ALL"
+      ? [sideAll ? "Match win rate" : "Round win rate", percent(summary.winRate), sideAll ? `${summary.wins} wins in ${summary.matches} matches` : `${integer(s.round_wins)} of ${integer(rounds)} rounds`]
+      : [roundResult === "win" ? "Winning rounds" : "Losing rounds", integer(rounds), "Filtered round sample"];
     fillCards(headlineId, [
       ["Average rating", decimal(summary.rating, 2), "Round-weighted", ratingClass], ["Average K/D", decimal(summary.kd, 2), `${integer(s.kills)} K · ${integer(s.deaths)} D`],
       ["Average ADR", decimal(summary.adr, 1), `${integer(s.damage)} total damage`], ["Average KAST", percent(summary.kast), `${integer(s.kast_rounds)} KAST rounds`],
-      [sideAll ? "Match win rate" : "Round win rate", percent(summary.winRate), sideAll ? `${summary.wins} wins in ${summary.matches} matches` : `${integer(s.round_wins)} of ${integer(rounds)} rounds`]
+      recordHeadline
     ]);
     const scoreCard = (label, sample, className) => {
       if (!sample?.count) return [label, "—", `No scored ${className === "player-score-win" ? "wins" : "losses"}`, className];
@@ -98,7 +101,8 @@
     if (result !== "w") recordCards.push(scoreCard("Average score when losing", summary.scores?.losses, "player-score-loss"));
     fillCards(`${prefix}RecordStats`, recordCards);
     const damageDifferential = number(s.damage) - number(s.damage_received);
-    fillCards(`${prefix}CombatStats`, [["Kills", integer(s.kills), countPerRound(s.kills, rounds)], ["Deaths", integer(s.deaths), countPerRound(s.deaths, rounds)], ["Assists", integer(s.assists), countPerRound(s.assists, rounds)], ["Headshot rate", percent(100 * ratio(s.headshots, s.kills)), `${integer(s.headshots)} headshots`], ["Damage received", integer(s.damage_received), countPerRound(s.damage_received, rounds, 1)], ["Damage differential", `${damageDifferential >= 0 ? "+" : ""}${integer(damageDifferential)}`, `${damageDifferential >= 0 ? "+" : ""}${decimal(ratio(damageDifferential, rounds), 1)} per round`]]);
+    const killRateLabel = roundResult === "win" ? "KPRW" : roundResult === "loss" ? "KPRL" : "per round";
+    fillCards(`${prefix}CombatStats`, [["Kills", integer(s.kills), `${decimal(ratio(s.kills, rounds), 2)} ${killRateLabel}`], ["Deaths", integer(s.deaths), countPerRound(s.deaths, rounds)], ["Assists", integer(s.assists), countPerRound(s.assists, rounds)], ["Headshot rate", percent(100 * ratio(s.headshots, s.kills)), `${integer(s.headshots)} headshots`], ["Damage received", integer(s.damage_received), countPerRound(s.damage_received, rounds, 1)], ["Damage differential", `${damageDifferential >= 0 ? "+" : ""}${integer(damageDifferential)}`, `${damageDifferential >= 0 ? "+" : ""}${decimal(ratio(damageDifferential, rounds), 1)} per round`]]);
     const utilityDamage = number(s.he_damage) + number(s.fire_damage);
     fillCards(`${prefix}UtilityDamageStats`, [["Total damage", integer(utilityDamage), countPerRound(utilityDamage, rounds, 1)], ["HE", integer(s.he_damage), countPerRound(s.he_damage, rounds, 1)], ["Fire", integer(s.fire_damage), countPerRound(s.fire_damage, rounds, 1)]]);
     fillCards(`${prefix}UtilityThrownStats`, [["HE", integer(s.he_grenades_thrown), countPerRound(s.he_grenades_thrown, rounds)], ["Flashes", integer(s.flashbangs_thrown), countPerRound(s.flashbangs_thrown, rounds)], ["Smokes", integer(s.smokes_thrown), countPerRound(s.smokes_thrown, rounds)], ["Fire", integer(s.fire_grenades_thrown), countPerRound(s.fire_grenades_thrown, rounds)], ["Decoys", integer(s.decoys_thrown), countPerRound(s.decoys_thrown, rounds)]]);

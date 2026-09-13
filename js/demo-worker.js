@@ -219,6 +219,7 @@ async function parseDemo(fileName, buffer) {
           observedOpponents: new Set(),
           sideStats: new Map(),
           buySideStats: new Map(),
+          roundResultStats: new Map(),
           weaponStats: new Map(),
           duelStats: new Map(),
           tradeMatchups: new Map(),
@@ -434,6 +435,7 @@ async function parseDemo(fileName, buffer) {
       row.kills = 0;
       row.sideStats = new Map();
       row.buySideStats = new Map();
+      row.roundResultStats = new Map();
       row.weaponStats = new Map();
       row.duelStats = new Map();
       row.tradeMatchups = new Map();
@@ -585,6 +587,21 @@ async function parseDemo(fileName, buffer) {
     return result;
   }
 
+  function ensureRoundResultRow(row, buy, side, result) {
+    if (!buy || (side !== 2 && side !== 3) || !["win", "loss"].includes(result)) return null;
+    const key = `${buy}:${side}:${result}`;
+    let output = row.roundResultStats.get(key);
+    if (!output) {
+      output = emptySideRow(row);
+      row.roundResultStats.set(key, output);
+    }
+    output.name = row.name;
+    output.steamId = row.steamId;
+    output.isBot = row.isBot;
+    output.userIds = new Set(row.userIds);
+    return output;
+  }
+
   function playerStatsSnapshot(row) {
     const snapshot = {
       scalar: {},
@@ -714,6 +731,12 @@ async function parseDemo(fileName, buffer) {
       applyRoundDelta(target, row, after, before, awardedWin);
       const buyTarget = ensureBuySideRow(row, buys[side], side);
       if (buyTarget) applyRoundDelta(buyTarget, row, after, before, awardedWin);
+      if (participated && (winningSide === 2 || winningSide === 3)) {
+        const result = awardedWin ? "win" : "loss";
+        applyRoundDelta(ensureRoundResultRow(row, "ALL", side, result), row, after, before, awardedWin);
+        const buyResultTarget = ensureRoundResultRow(row, buys[side], side, result);
+        if (buyResultTarget) applyRoundDelta(buyResultTarget, row, after, before, awardedWin);
+      }
     }
     return allocations;
   }
@@ -2146,6 +2169,16 @@ async function parseDemo(fileName, buffer) {
           T: finishPlayer(ensureBuySideRow(row, buy, 2)),
           CT: finishPlayer(ensureBuySideRow(row, buy, 3))
         }]));
+        output.by_round_result = Object.fromEntries(["win", "loss"].map(result => [result, {
+          T: finishPlayer(ensureRoundResultRow(row, "ALL", 2, result)),
+          CT: finishPlayer(ensureRoundResultRow(row, "ALL", 3, result))
+        }]));
+        output.by_buy_result = Object.fromEntries(["pistol", "eco", "force", "full"].map(buy => [buy,
+          Object.fromEntries(["win", "loss"].map(result => [result, {
+            T: finishPlayer(ensureRoundResultRow(row, buy, 2, result)),
+            CT: finishPlayer(ensureRoundResultRow(row, buy, 3, result))
+          }]))
+        ]));
         outputPlayerByRow.set(row, output);
         return output;
       });
@@ -2275,7 +2308,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.13.6",
+    nickstats_build: "2026.09.13.7",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,

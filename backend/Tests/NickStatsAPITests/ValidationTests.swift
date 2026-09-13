@@ -75,19 +75,19 @@ private func validPayload() -> MatchPayload {
         players: [
             PlayerPayload(
                 name: "One", steamID: "76561198000000001", bot: nil,
-                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8)
+                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8), roundResults: Array(repeating: emptySide(), count: 20)
             ),
             PlayerPayload(
                 name: "Two", steamID: "76561198000000002", bot: nil,
-                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8)
+                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8), roundResults: Array(repeating: emptySide(), count: 20)
             ),
             PlayerPayload(
                 name: "Three", steamID: "76561198000000003", bot: nil,
-                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8)
+                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8), roundResults: Array(repeating: emptySide(), count: 20)
             ),
             PlayerPayload(
                 name: "BOT", steamID: nil, bot: true,
-                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8)
+                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8), roundResults: Array(repeating: emptySide(), count: 20)
             )
         ]
     )

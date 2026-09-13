@@ -454,7 +454,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID) AND e.enemy_kill = TRUE
@@ -481,7 +481,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID)
@@ -522,7 +522,7 @@ private func comparisonSideData(
     for row in rows {
         let matchID = try int64(row, "match_id"), side = try playerSide(row, "side")
         guard let value = values[storageKey(matchID, side)] else { continue }
-        result[matchID, default: []].append(ComparisonSideStats(side: side, buyType: "ALL", stats: value.stats, weapons: value.weapons))
+        result[matchID, default: []].append(ComparisonSideStats(side: side, buyType: "ALL", roundResult: "ALL", stats: value.stats, weapons: value.weapons))
     }
     let buyRows = try await sql.raw("""
         SELECT b.match_id, b.side, b.buy_type, CAST(b.stats_json AS CHAR) AS stats_json
@@ -536,12 +536,30 @@ private func comparisonSideData(
         result[matchID, default: []].append(ComparisonSideStats(
             side: try playerSide(row, "side"),
             buyType: try row.decode(column: "buy_type", as: String.self),
+            roundResult: "ALL",
             stats: flattenedBuyStats(stats),
             weapons: stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
         ))
     }
-    func addBuyMetric(_ matchID: Int64, _ side: PlayerSide, _ buy: String, _ name: String, _ amount: Double) {
-        guard var rows = result[matchID], let index = rows.firstIndex(where: { $0.side == side && $0.buyType == buy }) else { return }
+    let roundResultRows = try await sql.raw("""
+        SELECT r.match_id, r.side, r.buy_type, r.round_result, CAST(r.stats_json AS CHAR) AS stats_json
+        FROM player_round_result_stats r JOIN match_players mp ON mp.id = r.match_player_id
+        WHERE mp.player_id = \(bind: playerID)
+        """).all()
+    for row in roundResultRows {
+        let matchID = try int64(row, "match_id")
+        let json = try row.decode(column: "stats_json", as: String.self)
+        let stats = try JSONDecoder().decode(SideStatsPayload.self, from: Data(json.utf8))
+        result[matchID, default: []].append(ComparisonSideStats(
+            side: try playerSide(row, "side"),
+            buyType: try row.decode(column: "buy_type", as: String.self),
+            roundResult: try row.decode(column: "round_result", as: String.self),
+            stats: flattenedBuyStats(stats),
+            weapons: stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
+        ))
+    }
+    func addBuyMetric(_ matchID: Int64, _ side: PlayerSide, _ buy: String, _ roundResult: String, _ name: String, _ amount: Double) {
+        guard var rows = result[matchID], let index = rows.firstIndex(where: { $0.side == side && $0.buyType == buy && $0.roundResult == roundResult }) else { return }
         rows[index].stats[name, default: 0] += amount
         result[matchID] = rows
     }
@@ -549,7 +567,7 @@ private func comparisonSideData(
         let playerColumn = kind == "killer" ? "killer_match_player_id" : "victim_match_player_id"
         let sideColumn = kind == "killer" ? "killer_side" : "victim_side"
         let rows = try await sql.raw("""
-            SELECT source.match_id, source.side, source.buy_type,
+            SELECT source.match_id, source.side, source.buy_type, source.round_result,
                    CAST(COUNT(*) AS SIGNED) AS samples,
                    CAST(SUM(source.elapsed_ms) AS SIGNED) AS elapsed_total,
                    CAST(SUM(source.since_plant_ms IS NULL AND source.elapsed_ms < 25000) AS SIGNED) AS early_count,
@@ -559,6 +577,7 @@ private func comparisonSideData(
                    CAST(COALESCE(SUM(source.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
             FROM (
               SELECT e.match_id, e.\(unsafeRaw: sideColumn) AS side, e.elapsed_ms, e.since_plant_ms,
+                     CASE WHEN r.winner_side = e.\(unsafeRaw: sideColumn) THEN 'win' ELSE 'loss' END AS round_result,
                      CASE WHEN r.pistol_round THEN 'pistol'
                           WHEN (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_equipment_value ELSE r.ct_equipment_value END)
                                <= (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_player_count ELSE r.ct_player_count END) * 1000 THEN 'eco'
@@ -570,18 +589,24 @@ private func comparisonSideData(
               JOIN match_players mp ON mp.id = e.\(unsafeRaw: playerColumn)
               WHERE mp.player_id = \(bind: playerID) \(unsafeRaw: kind == "killer" ? "AND e.enemy_kill = TRUE" : "")
             ) source
-            GROUP BY source.match_id, source.side, source.buy_type
+            GROUP BY source.match_id, source.side, source.buy_type, source.round_result
             """).all()
         for row in rows {
             let id = try int64(row, "match_id"), side = try playerSide(row, "side")
             let buy = try row.decode(column: "buy_type", as: String.self)
+            let roundResult = try row.decode(column: "round_result", as: String.self)
             let prefix = kind == "killer" ? "kill" : "death"
             for (column, name) in [
                 ("samples", "\(prefix)_time_samples"), ("elapsed_total", "\(prefix)_time_total_ms"),
                 ("early_count", "early_\(prefix)s"), ("mid_count", "mid_\(prefix)s"),
                 ("late_count", "late_\(prefix)s"), ("postplant_count", "postplant_\(prefix)s"),
                 ("postplant_elapsed_total", "postplant_\(prefix)_time_total_ms")
-            ] { addBuyMetric(id, side, buy, name, Double(try integer(row, column))) }
+            ] {
+                let amount = Double(try integer(row, column))
+                addBuyMetric(id, side, buy, "ALL", name, amount)
+                addBuyMetric(id, side, buy, roundResult, name, amount)
+                addBuyMetric(id, side, "ALL", roundResult, name, amount)
+            }
         }
     }
     for matchID in Array(result.keys) { result[matchID]?.sort { $0.side.rawValue < $1.side.rawValue } }
@@ -1006,6 +1031,25 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
     for slot in players.indices where buyStats[slot] != nil {
         players[slot].buys = buyOrder.flatMap { buy in
             [buyStats[slot]?["\(buy):T"] ?? emptySide(), buyStats[slot]?["\(buy):CT"] ?? emptySide()]
+        }
+    }
+    let roundResultRows = try await sql.raw("""
+        SELECT r.match_player_id, r.side, r.buy_type, r.round_result,
+               CAST(r.stats_json AS CHAR) AS stats_json
+        FROM player_round_result_stats r WHERE r.match_id = \(bind: matchID)
+        """).all()
+    var resultStats: [Int: [String: SideStatsPayload]] = [:]
+    for row in roundResultRows {
+        guard let slot = internalToSlot[try int64(row, "match_player_id")] else { continue }
+        let key = "\(try row.decode(column: "buy_type", as: String.self)):\(try row.decode(column: "round_result", as: String.self)):\(try row.decode(column: "side", as: String.self))"
+        let json = try row.decode(column: "stats_json", as: String.self)
+        resultStats[slot, default: [:]][key] = try JSONDecoder().decode(SideStatsPayload.self, from: Data(json.utf8))
+    }
+    for slot in players.indices where resultStats[slot] != nil {
+        players[slot].roundResults = ["ALL", "pistol", "eco", "force", "full"].flatMap { buy in
+            ["win", "loss"].flatMap { result in
+                [resultStats[slot]?["\(buy):\(result):T"] ?? emptySide(), resultStats[slot]?["\(buy):\(result):CT"] ?? emptySide()]
+            }
         }
     }
 
