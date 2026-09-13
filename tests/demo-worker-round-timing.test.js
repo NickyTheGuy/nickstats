@@ -9,6 +9,7 @@ const vm = require("node:vm");
 const workerPath = path.join(__dirname, "..", "js", "demo-worker.js");
 const source = fs.readFileSync(workerPath, "utf8");
 const frontendSource = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), "utf8");
+const indexSource = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 
 function workerContext() {
   const context = vm.createContext({
@@ -85,4 +86,10 @@ test("side damage is not counted again when round deltas are allocated", () => {
   assert.match(source, /ensureSideRow\(row, attackerTeam\)\.damage \+= damage/);
   assert.match(source, /applyRoundDelta\(target, row, after, before, awardedWin, true\)/);
   assert.match(source, /skipEventAttributedDamage && field === "damage"/);
+});
+
+test("failed uploads leave the compact match available for download", () => {
+  assert.match(indexSource, /id="demoParsedDownloadButton"[^>]*hidden/);
+  assert.match(frontendSource, /state\.parsedResult = result;\s*\$\("demoParsedDownloadButton"\)\.hidden = false/);
+  assert.match(frontendSource, /compactMatchResult\(state\.parsedResult\)/);
 });

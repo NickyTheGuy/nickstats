@@ -334,7 +334,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260914-2");
+      const worker = new Worker("./js/demo-worker.js?v=20260914-3");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -391,6 +391,7 @@
     showDiagnosticsDownload(false);
     $("demoRetryUploadButton").hidden = true;
     $("demoReplaceUploadButton").hidden = true;
+    $("demoParsedDownloadButton").hidden = true;
     $("demoFileLabel").textContent = `${file.name} · ${formatBytes(file.size)}`;
     $("demoParseButton").disabled = false;
     $("demoClearButton").disabled = false;
@@ -2139,6 +2140,7 @@
       result.played_at = demo.matchTime?.timestamp ?? null;
       result.played_at_source = demo.matchTime?.source ?? null;
       state.parsedResult = result;
+      $("demoParsedDownloadButton").hidden = false;
       await uploadParsedMatch(result);
     } catch (error) {
       setStatus(error.message || "The demo could not be parsed.", true);
@@ -2162,6 +2164,7 @@
     $("demoClearButton").disabled = true;
     $("demoRetryUploadButton").hidden = true;
     $("demoReplaceUploadButton").hidden = true;
+    $("demoParsedDownloadButton").hidden = true;
     setStatus("Choose one demo file.");
   }
 
@@ -2282,7 +2285,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/14",
-      nickstats_build: "2026.09.14.2",
+      nickstats_build: "2026.09.14.3",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -2363,6 +2366,20 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  function downloadParsedJson() {
+    if (!state.parsedResult) return;
+    const payload = compactMatchResult(state.parsedResult);
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${(state.file?.name || "demo").replace(/\.(?:dem(?:\.(?:gz|zst))?|gz|zst|zip)$/i, "")}-nickstats.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   function downloadDiagnostics() {
     if (!state.diagnostics) return;
     const blob = new Blob([JSON.stringify(state.diagnostics, null, 2)], { type: "application/json" });
@@ -2381,6 +2398,7 @@
   $("demoParseButton").addEventListener("click", parseDemo);
   $("demoClearButton").addEventListener("click", clear);
   $("demoDownloadButton").addEventListener("click", downloadJson);
+  $("demoParsedDownloadButton").addEventListener("click", downloadParsedJson);
   $("demoDiagnosticsDownloadButton").addEventListener("click", downloadDiagnostics);
   $("demoRetryUploadButton").addEventListener("click", () => uploadParsedMatch());
   $("demoReplaceUploadButton").addEventListener("click", () => {

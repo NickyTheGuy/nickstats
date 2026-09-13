@@ -2372,7 +2372,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.14.2",
+    nickstats_build: "2026.09.14.3",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
