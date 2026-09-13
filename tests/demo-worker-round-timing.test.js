@@ -94,3 +94,8 @@ test("failed uploads leave the compact match available for download", () => {
   assert.match(frontendSource, /state\.parsedResult = result;\s*\$\("demoParsedDownloadButton"\)\.hidden = false/);
   assert.match(frontendSource, /compactMatchResult\(state\.parsedResult\)/);
 });
+
+test("zstd failures direct the user to manual extraction without a compatibility decoder", () => {
+  assert.doesNotMatch(source, /NickStatsZstdWasm|ZSTD_WASM_URL|decompressZstdWithWasm/);
+  assert.match(source, /Extract the \.dem manually and select it instead/);
+});
