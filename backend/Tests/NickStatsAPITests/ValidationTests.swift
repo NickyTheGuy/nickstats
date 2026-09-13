@@ -188,6 +188,27 @@ private func validPayload() -> MatchPayload {
     #expect(throws: MatchValidationError.self) { try payload.validate() }
 }
 
+@Test func flattensFilteredClutchSizesUsingComparisonMetricNames() {
+    var stats = emptySide()
+    stats.clutches = ClutchWins(
+        oneVersusOne: 1, oneVersusTwo: 2, oneVersusThree: 3,
+        oneVersusFour: 4, oneVersusFive: 5
+    )
+    stats.clutchAttempts = ClutchWins(
+        oneVersusOne: 6, oneVersusTwo: 7, oneVersusThree: 8,
+        oneVersusFour: 9, oneVersusFive: 10
+    )
+
+    let flattened = flattenedBuyStats(stats)
+
+    for size in 1...5 {
+        #expect(flattened["clutch_1v\(size)"] == Double(size))
+        #expect(flattened["clutch_attempt_1v\(size)"] == Double(size + 5))
+    }
+    #expect(flattened["clutch_2v2"] == nil)
+    #expect(flattened["clutch_attempt_2v2"] == nil)
+}
+
 @Test func allowsBotAndSelfDuel() throws {
     var payload = validPayload()
     payload.players[3].sides.terrorist.duels = [DuelStats(opponentPlayerIndex: 3, kills: 1)]

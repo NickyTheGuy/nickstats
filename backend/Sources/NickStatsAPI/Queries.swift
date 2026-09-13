@@ -195,7 +195,7 @@ private struct ComparisonSideAccumulator {
     var weapons: [ComparisonWeaponStats] = []
 }
 
-private func flattenedBuyStats(_ value: SideStatsPayload) -> [String: Double] {
+func flattenedBuyStats(_ value: SideStatsPayload) -> [String: Double] {
     let attempts = value.clutchAttempts ?? value.clutches
     let thrown = value.utilityThrown ?? .zero
     let objectives = value.objectives ?? .zero
@@ -224,10 +224,15 @@ private func flattenedBuyStats(_ value: SideStatsPayload) -> [String: Double] {
         "death_speed_percent_max": value.speed.deaths.percentOfMaximumPeak ?? 0,
         "enemies_flashed": Double(profile[13]), "blind_duration_ms": Double(profile[14]), "flash_assists": Double(profile[15])
     ]
-    let numbered: [(String, [Int])] = [
-        ("clutch", value.clutches.values), ("clutch_attempt", attempts.values), ("kill_rounds", value.killRounds.values)
-    ]
-    for (prefix, values) in numbered { for (index, count) in values.enumerated() { output["\(prefix)_\(index + 1)\(prefix == "clutch" || prefix == "clutch_attempt" ? "v\(index + 1)" : "k")"] = Double(count) } }
+    for (index, count) in value.clutches.values.enumerated() {
+        output["clutch_1v\(index + 1)"] = Double(count)
+    }
+    for (index, count) in attempts.values.enumerated() {
+        output["clutch_attempt_1v\(index + 1)"] = Double(count)
+    }
+    for (index, count) in value.killRounds.values.enumerated() {
+        output["kill_rounds_\(index + 1)k"] = Double(count)
+    }
     for trade in value.trades {
         output["trade_opportunities", default: 0] += Double(trade.opportunities)
         output["trade_attempts", default: 0] += Double(trade.attempts)
