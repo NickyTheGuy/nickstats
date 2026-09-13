@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260913-5">
+  <link rel="stylesheet" href="./styles.css?v=20260913-6">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.13.4</span>
+          <span class="demo-build">Build 2026.09.13.5</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -251,22 +251,41 @@
           <div class="mode-view" data-compare-view="combination">
             <div class="warning-list" id="comboWarnings"></div>
             <div class="combo-results" id="comboResults" hidden>
-              <nav class="match-browser-tabs combo-player-tabs" id="comboProfilePlayers" role="tablist" aria-label="Included player profiles"></nav>
+              <div class="stats-toolbar combo-profile-toolbar">
+                <span>Map</span><div class="map-multiselect" id="compareMapFilter"></div>
+                <span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div>
+                <span>Result</span><div class="side-toggle" role="group" aria-label="Profile match result"><button class="active" type="button" aria-pressed="true" data-combo-result="ALL">All</button><button type="button" aria-pressed="false" data-combo-result="w">Wins</button><button type="button" aria-pressed="false" data-combo-result="l">Losses</button></div>
+                <span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-compare-side="ALL">All</button><button type="button" aria-pressed="false" data-compare-side="T">T</button><button type="button" aria-pressed="false" data-compare-side="CT">CT</button></div>
+                <span>Buy</span><div class="side-toggle" role="group" aria-label="Profile buy"><button class="active" type="button" aria-pressed="true" data-compare-buy="ALL">All</button><button type="button" aria-pressed="false" data-compare-buy="full">Full</button><button type="button" aria-pressed="false" data-compare-buy="force">Force</button><button type="button" aria-pressed="false" data-compare-buy="eco">Eco</button><button type="button" aria-pressed="false" data-compare-buy="pistol">Pistol</button></div>
+                <span>Rounds</span><div class="side-toggle" role="group" aria-label="Profile round result"><button class="active" type="button" aria-pressed="true" data-compare-round-result="ALL">All</button><button type="button" aria-pressed="false" data-compare-round-result="win">Won</button><button type="button" aria-pressed="false" data-compare-round-result="loss">Lost</button></div>
+              </div>
 
-              <section class="panel player-profile combo-player-profile" id="comboProfilePanel">
-                <header class="player-profile-header">
-                  <div><div class="eyebrow">Player profile</div><h2 id="comboProfileTitle">Included player</h2><p id="comboProfileMeta"></p></div>
+              <nav class="match-browser-tabs combo-display-tabs" role="tablist" aria-label="Group statistics view">
+                <button class="match-browser-tab active" type="button" role="tab" aria-selected="true" data-combo-display="profile">Profiles</button>
+                <button class="match-browser-tab" type="button" role="tab" aria-selected="false" data-combo-display="quick">Quick comparison</button>
+              </nav>
+
+              <div class="combo-display-panel" data-combo-display-panel="profile">
+                <nav class="match-browser-tabs combo-player-tabs" id="comboProfilePlayers" role="tablist" aria-label="Included player profiles"></nav>
+
+                <section class="panel player-profile combo-player-profile" id="comboProfilePanel">
+                  <header class="player-profile-header">
+                    <div><div class="eyebrow">Player profile</div><h2 id="comboProfileTitle">Included player</h2><p id="comboProfileMeta"></p></div>
+                  </header>
+                  <div class="player-headline-stats" id="comboProfileHeadline"></div>
+                  <div id="comboProfileBody"></div>
+                </section>
+              </div>
+
+              <section class="panel combo-quick-panel combo-display-panel" data-combo-display-panel="quick" hidden>
+                <header class="section-head combo-quick-heading">
+                  <div><div class="eyebrow">Quick comparison</div><h2>Group scoreboard</h2><p id="comboQuickMeta">Compare the included players at a glance.</p></div>
                 </header>
-                <div class="stats-toolbar combo-profile-toolbar">
-                  <span>Map</span><div class="map-multiselect" id="compareMapFilter"></div>
-                  <span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div>
-                  <span>Result</span><div class="side-toggle" role="group" aria-label="Profile match result"><button class="active" type="button" aria-pressed="true" data-combo-result="ALL">All</button><button type="button" aria-pressed="false" data-combo-result="w">Wins</button><button type="button" aria-pressed="false" data-combo-result="l">Losses</button></div>
-                  <span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-compare-side="ALL">All</button><button type="button" aria-pressed="false" data-compare-side="T">T</button><button type="button" aria-pressed="false" data-compare-side="CT">CT</button></div>
-                  <span>Buy</span><div class="side-toggle" role="group" aria-label="Profile buy"><button class="active" type="button" aria-pressed="true" data-compare-buy="ALL">All</button><button type="button" aria-pressed="false" data-compare-buy="full">Full</button><button type="button" aria-pressed="false" data-compare-buy="force">Force</button><button type="button" aria-pressed="false" data-compare-buy="eco">Eco</button><button type="button" aria-pressed="false" data-compare-buy="pistol">Pistol</button></div>
-                  <span>Rounds</span><div class="side-toggle" role="group" aria-label="Profile round result"><button class="active" type="button" aria-pressed="true" data-compare-round-result="ALL">All</button><button type="button" aria-pressed="false" data-compare-round-result="win">Won</button><button type="button" aria-pressed="false" data-compare-round-result="loss">Lost</button></div>
+                <nav class="match-browser-tabs combo-quick-map-tabs" id="comboQuickMaps" role="tablist" aria-label="Quick comparison map"></nav>
+                <div class="player-profile-table-wrap">
+                  <table class="player-profile-table combo-quick-table" id="comboQuickTable"></table>
                 </div>
-                <div class="player-headline-stats" id="comboProfileHeadline"></div>
-                <div id="comboProfileBody"></div>
+                <p class="combo-quick-empty" id="comboQuickEmpty" hidden>No qualifying matches for this map and filter combination.</p>
               </section>
             </div>
           </div>
@@ -460,6 +479,6 @@
   <script defer src="./js/graphs.js?v=20260913-6"></script>
   <script defer src="./js/profile.js?v=20260913-5"></script>
   <script defer src="./js/players.js?v=20260913-6"></script>
-  <script defer src="./js/compare.js?v=20260913-6"></script>
+  <script defer src="./js/compare.js?v=20260913-7"></script>
 </body>
 </html>

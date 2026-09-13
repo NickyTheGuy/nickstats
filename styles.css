@@ -2374,7 +2374,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 
 .combo-player-profile { padding: 22px; }
 .combo-profile-toolbar {
-  margin: 16px 0 0;
+  margin: 0;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -2383,6 +2383,40 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .combo-profile-toolbar .combo-condition-toggle { margin-right: 8px; }
 .combo-profile-footnote { margin: 14px 2px 0; color: var(--muted); font-size: 12px; }
 .combo-player-tabs { margin: 0; }
+.combo-display-tabs {
+  width: fit-content;
+  margin: 0;
+}
+.combo-display-panel[data-combo-display-panel="profile"] {
+  display: grid;
+  gap: 18px;
+}
+.combo-display-panel[hidden] { display: none; }
+.combo-quick-panel { min-width: 0; padding: 22px; }
+.combo-quick-heading { margin-bottom: 16px; }
+.combo-quick-heading h2,
+.combo-quick-heading p { margin: 0; }
+.combo-quick-heading p { margin-top: 5px; color: var(--muted); }
+.combo-quick-map-tabs {
+  max-width: 100%;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+.combo-quick-map-tabs .match-browser-tab { flex: 0 0 auto; }
+.combo-quick-table { min-width: 900px; }
+.combo-quick-table th:first-child,
+.combo-quick-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel-2);
+}
+.combo-quick-table thead th:first-child { z-index: 2; background: #0d131d; }
+.combo-quick-empty {
+  margin: 14px 2px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
 
 .player-stat-card {
   min-width: 0;

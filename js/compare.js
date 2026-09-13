@@ -15,7 +15,7 @@
     selected: new Map(), players: [], choices: new Map(), analysis: null,
     searchController: null, compareController: null, searchTimer: null,
     side: "ALL", buy: "ALL", roundResult: "ALL", result: "ALL", metricGroup: "core", weapon: "",
-    comboPlayerId: "", comboCondition: "without", comboView: "overview",
+    comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile", quickMap: "ALL",
     workspace: location.hash === "#matrix" ? "matrix" : "compare"
   };
 
@@ -488,7 +488,7 @@
     $("compareBuilderDescription").textContent = matrix
       ? "Add the players whose teammate impact you want to compare."
       : "Add players, then mark each one Include or Exclude for the group condition.";
-    $("compareAnalyzeButton").textContent = matrix ? "Build matrix" : "Build profiles";
+    $("compareAnalyzeButton").textContent = matrix ? "Build matrix" : "Build group";
     document.querySelector(".compare-stats-toolbar").hidden = !matrix;
     setCompareMode(matrix ? "group" : "combination");
     renderSelectedRoster();
@@ -564,6 +564,78 @@
     document.querySelectorAll("[data-combo-profile-panel]").forEach(panel => { panel.hidden = panel.dataset.comboProfilePanel !== view; });
   }
 
+  function setComboDisplay(display) {
+    state.comboDisplay = display === "quick" ? "quick" : "profile";
+    document.querySelectorAll("[data-combo-display]").forEach(button => {
+      const active = button.dataset.comboDisplay === state.comboDisplay;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-selected", String(active));
+      button.tabIndex = active ? 0 : -1;
+    });
+    document.querySelectorAll("[data-combo-display-panel]").forEach(panel => {
+      panel.hidden = panel.dataset.comboDisplayPanel !== state.comboDisplay;
+    });
+  }
+
+  function quickComparisonMaps(current) {
+    return [...new Set(comboMatchesForCondition(current)
+      .map(match => match.rows[0]?.row)
+      .filter(row => row && matchResultMatches(row.result, state.result))
+      .map(row => row.map))]
+      .sort((left, right) => titleCase(left.replace(/^de_/, "")).localeCompare(titleCase(right.replace(/^de_/, ""))));
+  }
+
+  function quickComparisonRows(current, map) {
+    return current.included.map(player => {
+      const rows = comboProfileRows(current, player).filter(row => map === "ALL" || row.map === map);
+      return { player, rows, stats: summarize(rows) };
+    });
+  }
+
+  function renderQuickComparison(current) {
+    const maps = quickComparisonMaps(current);
+    if (state.quickMap !== "ALL" && !maps.includes(state.quickMap)) state.quickMap = "ALL";
+
+    const tabs = $("comboQuickMaps");
+    tabs.replaceChildren();
+    [["ALL", "All maps"], ...maps.map(map => [map, titleCase(map.replace(/^de_/, ""))])].forEach(([value, label]) => {
+      const active = state.quickMap === value;
+      const button = el("button", label, `match-browser-tab${active ? " active" : ""}`);
+      button.type = "button"; button.setAttribute("role", "tab"); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
+      button.addEventListener("click", () => { state.quickMap = value; renderQuickComparison(current); });
+      tabs.appendChild(button);
+    });
+
+    const comparison = quickComparisonRows(current, state.quickMap);
+    const sampleMatches = comparison[0]?.rows.length || 0;
+    const conditionLabel = state.comboCondition === "with" ? "With excluded players" : "Without excluded players";
+    const mapLabel = state.quickMap === "ALL" ? "All maps" : titleCase(state.quickMap.replace(/^de_/, ""));
+    $("comboQuickMeta").textContent = `${mapLabel} · ${integer(sampleMatches)} qualifying match${sampleMatches === 1 ? "" : "es"} · ${conditionLabel}`;
+
+    const clutchTotal = (stats, prefix) => [1, 2, 3, 4, 5].reduce((total, size) => total + num(stats[`${prefix}_1v${size}`]), 0);
+    const rows = comparison.map(({ player, stats }) => {
+      const clutchWins = clutchTotal(stats, "clutch");
+      const clutchAttempts = clutchTotal(stats, "clutch_attempt");
+      return [
+        player.label,
+        integer(stats.n),
+        `${integer(stats.kills)} / ${integer(stats.deaths)} / ${integer(stats.assists)}`,
+        decimal(stats.kd, 2),
+        decimal(stats.adr, 1),
+        decimal(stats.rating, 2),
+        percent(stats.kast),
+        `${integer(stats.opening_kills)}–${integer(stats.opening_deaths)}`,
+        `${integer(clutchWins)} / ${integer(clutchAttempts)}`
+      ];
+    });
+    const sortRows = comparison.map(({ player, stats }) => [
+      player.label, stats.n, stats.kills, stats.kd, stats.adr, stats.rating, stats.kast,
+      num(stats.opening_kills) - num(stats.opening_deaths), clutchTotal(stats, "clutch")
+    ]);
+    window.NickStatsProfile.renderTable("comboQuickTable", ["Player", "Matches", "K / D / A", "K/D", "ADR", "Rating", "KAST", "Opening K–D", "Clutches W/A"], rows, sortRows);
+    $("comboQuickEmpty").hidden = sampleMatches > 0;
+  }
+
   function renderComboProfile(current) {
     if (!current.included.some(player => player.profileId === state.comboPlayerId)) state.comboPlayerId = current.included[0].profileId;
     const canCompare = current.excluded.length > 0 && current.comparisonPossible;
@@ -602,7 +674,9 @@
     if (!current) return;
     renderComboWarnings(current);
     renderComboProfile(current);
+    renderQuickComparison(current);
     $("comboResults").hidden = false;
+    setComboDisplay(state.comboDisplay);
   }
 
   function clear() {
@@ -613,6 +687,8 @@
     state.result = "ALL";
     state.buy = "ALL";
     state.roundResult = "ALL";
+    state.comboDisplay = "profile";
+    state.quickMap = "ALL";
     comboResultFilter.set("ALL", { notify: false });
     invalidateAnalysis();
     $("compareSearchInput").value = "";
@@ -631,6 +707,7 @@
   $("compareAnalyzeButton").addEventListener("click", analyze);
   $("compareClearButton").addEventListener("click", clear);
   document.querySelectorAll("[data-combo-profile-view]").forEach(button => button.addEventListener("click", () => setComboProfileView(button.dataset.comboProfileView)));
+  document.querySelectorAll("[data-combo-display]").forEach(button => button.addEventListener("click", () => setComboDisplay(button.dataset.comboDisplay)));
   const comboResultFilter = bindSegmentedToggle({ selector: "[data-combo-result]", valueFor: button => button.dataset.comboResult, onChange: result => { state.result = result; runCombination(); } });
   document.querySelectorAll("[data-combo-condition]").forEach(button => button.addEventListener("click", () => {
     if (button.disabled) return;
