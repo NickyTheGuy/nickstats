@@ -195,6 +195,59 @@ private struct ComparisonSideAccumulator {
     var weapons: [ComparisonWeaponStats] = []
 }
 
+private func flattenedBuyStats(_ value: SideStatsPayload) -> [String: Double] {
+    let attempts = value.clutchAttempts ?? value.clutches
+    let thrown = value.utilityThrown ?? .zero
+    let objectives = value.objectives ?? .zero
+    let profile = (value.profile ?? []) + Array(repeating: 0, count: max(0, 16 - (value.profile?.count ?? 0)))
+    var output: [String: Double] = [
+        "rounds": Double(value.rounds.played), "round_wins": Double(value.rounds.won),
+        "timed_rounds": Double(value.rounds.played),
+        "kills": Double(value.combat.kills), "deaths": Double(value.combat.deaths),
+        "assists": Double(value.combat.assists), "headshots": Double(value.combat.headshots),
+        "damage": Double(value.combat.damage), "damage_received": Double(value.damageReceived ?? 0),
+        "kast_rounds": Double(value.kastRounds), "opening_kills": Double(value.opening.kills),
+        "opening_deaths": Double(value.opening.deaths), "trade_kills": Double(value.tradeKills),
+        "tradeable_deaths": Double(value.tradeDeaths.tradeable),
+        "attempted_tradeable_deaths": Double(value.tradeDeaths.attempted), "traded_deaths": Double(value.tradeDeaths.traded),
+        "he_damage": Double(value.utility.highExplosive), "fire_damage": Double(value.utility.fire),
+        "he_grenades_thrown": Double(thrown.highExplosive), "flashbangs_thrown": Double(thrown.flashbang),
+        "smokes_thrown": Double(thrown.smoke), "fire_grenades_thrown": Double(thrown.fire),
+        "decoys_thrown": Double(thrown.decoy), "bomb_plants": Double(objectives.plants), "bomb_defuses": Double(objectives.defuses),
+        "kill_speed_total": value.speed.kills.total, "kill_speed_samples": Double(value.speed.kills.samples),
+        "kill_speed_max": value.speed.kills.maximum ?? 0, "kill_speed_percent_total": value.speed.kills.percentOfMaximumTotal,
+        "kill_speed_percent_samples": Double(value.speed.kills.percentOfMaximumSamples),
+        "kill_speed_percent_max": value.speed.kills.percentOfMaximumPeak ?? 0,
+        "death_speed_total": value.speed.deaths.total, "death_speed_samples": Double(value.speed.deaths.samples),
+        "death_speed_max": value.speed.deaths.maximum ?? 0, "death_speed_percent_total": value.speed.deaths.percentOfMaximumTotal,
+        "death_speed_percent_samples": Double(value.speed.deaths.percentOfMaximumSamples),
+        "death_speed_percent_max": value.speed.deaths.percentOfMaximumPeak ?? 0,
+        "enemies_flashed": Double(profile[13]), "blind_duration_ms": Double(profile[14]), "flash_assists": Double(profile[15])
+    ]
+    let numbered: [(String, [Int])] = [
+        ("clutch", value.clutches.values), ("clutch_attempt", attempts.values), ("kill_rounds", value.killRounds.values)
+    ]
+    for (prefix, values) in numbered { for (index, count) in values.enumerated() { output["\(prefix)_\(index + 1)\(prefix == "clutch" || prefix == "clutch_attempt" ? "v\(index + 1)" : "k")"] = Double(count) } }
+    for trade in value.trades {
+        output["trade_opportunities", default: 0] += Double(trade.opportunities)
+        output["trade_attempts", default: 0] += Double(trade.attempts)
+        output["trade_successes", default: 0] += Double(trade.successes)
+    }
+    let contextNames = ["blinded_kills", "blind_kills", "wallbang_kills", "penetration_total", "smoke_kills", "airborne_kills", "moving_kills", "still_kills", "running_kills", "grenade_out_kills", "knife_out_kills", "equipment_disadvantage_kills", "unfair_kills"]
+    for row in value.contexts {
+        let counts = [row.victimBlindedKills, row.attackerBlindKills, row.wallbangKills, row.penetrationTotal, row.smokeKills, row.airborneKills, row.movingKills, row.stillKills, row.runningKills, row.victimGrenadeOutKills, row.victimKnifeOutKills, row.equipmentDisadvantageKills, row.unfairKills]
+        for index in counts.indices { output[contextNames[index], default: 0] += Double(counts[index]) }
+    }
+    let incomingNames = ["deaths_while_blind", "deaths_to_blind_killer", "wallbang_deaths", "death_penetration_total", "smoke_deaths", "airborne_deaths", "moving_killer_deaths", "still_killer_deaths", "running_killer_deaths", "grenade_out_deaths", "knife_out_deaths", "equipment_disadvantage_deaths", "unfair_deaths"]
+    for index in incomingNames.indices { output[incomingNames[index]] = Double(profile[index]) }
+    for row in value.assistedBy {
+        output["damage_assisted_kills", default: 0] += Double(row.damageAssistedKills)
+        output["teammate_flash_assisted_kills", default: 0] += Double(row.teammateFlashAssistedKills)
+        output["own_flash_kills", default: 0] += Double(row.ownFlashKills)
+    }
+    return output
+}
+
 private func comparisonSideData(
     playerID: Int64, sql: any SQLDatabase
 ) async throws -> [Int64: [ComparisonSideStats]] {
@@ -401,7 +454,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID) AND e.enemy_kill = TRUE
@@ -428,7 +481,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID)
@@ -469,7 +522,67 @@ private func comparisonSideData(
     for row in rows {
         let matchID = try int64(row, "match_id"), side = try playerSide(row, "side")
         guard let value = values[storageKey(matchID, side)] else { continue }
-        result[matchID, default: []].append(ComparisonSideStats(side: side, stats: value.stats, weapons: value.weapons))
+        result[matchID, default: []].append(ComparisonSideStats(side: side, buyType: "ALL", stats: value.stats, weapons: value.weapons))
+    }
+    let buyRows = try await sql.raw("""
+        SELECT b.match_id, b.side, b.buy_type, CAST(b.stats_json AS CHAR) AS stats_json
+        FROM player_side_buy_stats b JOIN match_players mp ON mp.id = b.match_player_id
+        WHERE mp.player_id = \(bind: playerID)
+        """).all()
+    for row in buyRows {
+        let matchID = try int64(row, "match_id")
+        let json = try row.decode(column: "stats_json", as: String.self)
+        let stats = try JSONDecoder().decode(SideStatsPayload.self, from: Data(json.utf8))
+        result[matchID, default: []].append(ComparisonSideStats(
+            side: try playerSide(row, "side"),
+            buyType: try row.decode(column: "buy_type", as: String.self),
+            stats: flattenedBuyStats(stats),
+            weapons: stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
+        ))
+    }
+    func addBuyMetric(_ matchID: Int64, _ side: PlayerSide, _ buy: String, _ name: String, _ amount: Double) {
+        guard var rows = result[matchID], let index = rows.firstIndex(where: { $0.side == side && $0.buyType == buy }) else { return }
+        rows[index].stats[name, default: 0] += amount
+        result[matchID] = rows
+    }
+    for kind in ["killer", "victim"] {
+        let playerColumn = kind == "killer" ? "killer_match_player_id" : "victim_match_player_id"
+        let sideColumn = kind == "killer" ? "killer_side" : "victim_side"
+        let rows = try await sql.raw("""
+            SELECT source.match_id, source.side, source.buy_type,
+                   CAST(COUNT(*) AS SIGNED) AS samples,
+                   CAST(SUM(source.elapsed_ms) AS SIGNED) AS elapsed_total,
+                   CAST(SUM(source.since_plant_ms IS NULL AND source.elapsed_ms < 25000) AS SIGNED) AS early_count,
+                   CAST(SUM(source.since_plant_ms IS NULL AND source.elapsed_ms >= 25000 AND source.elapsed_ms < 75000) AS SIGNED) AS mid_count,
+                   CAST(SUM(source.since_plant_ms IS NULL AND source.elapsed_ms >= 75000) AS SIGNED) AS late_count,
+                   CAST(SUM(source.since_plant_ms IS NOT NULL) AS SIGNED) AS postplant_count,
+                   CAST(COALESCE(SUM(source.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
+            FROM (
+              SELECT e.match_id, e.\(unsafeRaw: sideColumn) AS side, e.elapsed_ms, e.since_plant_ms,
+                     CASE WHEN r.pistol_round THEN 'pistol'
+                          WHEN (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_equipment_value ELSE r.ct_equipment_value END)
+                               <= (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_player_count ELSE r.ct_player_count END) * 1000 THEN 'eco'
+                          WHEN (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_equipment_value ELSE r.ct_equipment_value END)
+                               >= (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_player_count ELSE r.ct_player_count END) * 4000 THEN 'full'
+                          ELSE 'force' END AS buy_type
+              FROM death_events e
+              JOIN match_rounds r ON r.id = e.match_round_id
+              JOIN match_players mp ON mp.id = e.\(unsafeRaw: playerColumn)
+              WHERE mp.player_id = \(bind: playerID) \(unsafeRaw: kind == "killer" ? "AND e.enemy_kill = TRUE" : "")
+            ) source
+            GROUP BY source.match_id, source.side, source.buy_type
+            """).all()
+        for row in rows {
+            let id = try int64(row, "match_id"), side = try playerSide(row, "side")
+            let buy = try row.decode(column: "buy_type", as: String.self)
+            let prefix = kind == "killer" ? "kill" : "death"
+            for (column, name) in [
+                ("samples", "\(prefix)_time_samples"), ("elapsed_total", "\(prefix)_time_total_ms"),
+                ("early_count", "early_\(prefix)s"), ("mid_count", "mid_\(prefix)s"),
+                ("late_count", "late_\(prefix)s"), ("postplant_count", "postplant_\(prefix)s"),
+                ("postplant_elapsed_total", "postplant_\(prefix)_time_total_ms")
+            ] { addBuyMetric(id, side, buy, name, Double(try integer(row, column))) }
+        }
     }
     for matchID in Array(result.keys) { result[matchID]?.sort { $0.side.rawValue < $1.side.rawValue } }
     return result
@@ -877,6 +990,24 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
 
     try await attachWeapons(sql, matchID: matchID, players: &players, slots: internalToSlot)
     try await attachRelations(sql, matchID: matchID, players: &players, slots: internalToSlot)
+
+    let buyRows = try await sql.raw("""
+        SELECT b.match_player_id, b.side, b.buy_type, CAST(b.stats_json AS CHAR) AS stats_json
+        FROM player_side_buy_stats b WHERE b.match_id = \(bind: matchID)
+        """).all()
+    let buyOrder = ["pistol", "eco", "force", "full"]
+    var buyStats: [Int: [String: SideStatsPayload]] = [:]
+    for row in buyRows {
+        guard let slot = internalToSlot[try int64(row, "match_player_id")] else { continue }
+        let key = "\(try row.decode(column: "buy_type", as: String.self)):\(try row.decode(column: "side", as: String.self))"
+        let json = try row.decode(column: "stats_json", as: String.self)
+        buyStats[slot, default: [:]][key] = try JSONDecoder().decode(SideStatsPayload.self, from: Data(json.utf8))
+    }
+    for slot in players.indices where buyStats[slot] != nil {
+        players[slot].buys = buyOrder.flatMap { buy in
+            [buyStats[slot]?["\(buy):T"] ?? emptySide(), buyStats[slot]?["\(buy):CT"] ?? emptySide()]
+        }
+    }
 
     let roundRows = try await sql.raw("""
         SELECT * FROM match_rounds WHERE match_id = \(bind: matchID) ORDER BY round_number

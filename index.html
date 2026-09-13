@@ -115,6 +115,14 @@
               <button class="demo-side-button" type="button" data-demo-side="CT" aria-pressed="false">CT</button>
               <button class="demo-side-button" type="button" data-demo-side="T" aria-pressed="false">T</button>
             </div>
+            <span>Buy</span>
+            <div class="demo-side-buttons">
+              <button class="demo-side-button active" type="button" data-demo-buy="ALL" aria-pressed="true">ALL</button>
+              <button class="demo-side-button" type="button" data-demo-buy="full" aria-pressed="false">Full</button>
+              <button class="demo-side-button" type="button" data-demo-buy="force" aria-pressed="false">Force</button>
+              <button class="demo-side-button" type="button" data-demo-buy="eco" aria-pressed="false">Eco</button>
+              <button class="demo-side-button" type="button" data-demo-buy="pistol" aria-pressed="false">Pistol</button>
+            </div>
           </div>
           <nav class="demo-result-tabs" role="tablist" aria-label="Match analysis section">
             <button class="demo-result-tab active" id="demoScoreboardTab" type="button" role="tab" aria-selected="true" aria-controls="demoScoreboardView" data-demo-result-view="scoreboard">Scoreboard</button>
@@ -248,6 +256,7 @@
                   <span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div>
                   <span>Result</span><div class="side-toggle" role="group" aria-label="Profile match result"><button class="active" type="button" aria-pressed="true" data-combo-result="ALL">All</button><button type="button" aria-pressed="false" data-combo-result="w">Wins</button><button type="button" aria-pressed="false" data-combo-result="l">Losses</button></div>
                   <span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-compare-side="ALL">All</button><button type="button" aria-pressed="false" data-compare-side="T">T</button><button type="button" aria-pressed="false" data-compare-side="CT">CT</button></div>
+                  <span>Buy</span><div class="side-toggle" role="group" aria-label="Profile buy"><button class="active" type="button" aria-pressed="true" data-compare-buy="ALL">All</button><button type="button" aria-pressed="false" data-compare-buy="full">Full</button><button type="button" aria-pressed="false" data-compare-buy="force">Force</button><button type="button" aria-pressed="false" data-compare-buy="eco">Eco</button><button type="button" aria-pressed="false" data-compare-buy="pistol">Pistol</button></div>
                 </div>
                 <div class="player-headline-stats" id="comboProfileHeadline"></div>
                 <div id="comboProfileBody"></div>
@@ -307,6 +316,14 @@
               <button class="active" type="button" aria-pressed="true" data-player-side="ALL">All</button>
               <button type="button" aria-pressed="false" data-player-side="T">T</button>
               <button type="button" aria-pressed="false" data-player-side="CT">CT</button>
+            </div>
+            <span>Buy</span>
+            <div class="side-toggle" role="group" aria-label="Player buy">
+              <button class="active" type="button" aria-pressed="true" data-player-buy="ALL">All</button>
+              <button type="button" aria-pressed="false" data-player-buy="full">Full</button>
+              <button type="button" aria-pressed="false" data-player-buy="force">Force</button>
+              <button type="button" aria-pressed="false" data-player-buy="eco">Eco</button>
+              <button type="button" aria-pressed="false" data-player-buy="pistol">Pistol</button>
             </div>
           </div>
           <div class="player-headline-stats" id="playerHeadlineStats"></div>
@@ -426,10 +443,10 @@
 
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/filters.js?v=20260912-2"></script>
-  <script defer src="./js/demo.js?v=20260913-5"></script>
-  <script defer src="./js/graphs.js?v=20260913-4"></script>
+  <script defer src="./js/demo.js?v=20260913-6"></script>
+  <script defer src="./js/graphs.js?v=20260913-5"></script>
   <script defer src="./js/profile.js?v=20260913-4"></script>
-  <script defer src="./js/players.js?v=20260912-4"></script>
-  <script defer src="./js/compare.js?v=20260913-4"></script>
+  <script defer src="./js/players.js?v=20260913-5"></script>
+  <script defer src="./js/compare.js?v=20260913-5"></script>
 </body>
 </html>

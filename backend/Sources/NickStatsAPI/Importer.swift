@@ -232,6 +232,26 @@ func importMatch(
                 matchID: matchID, playerIDs: matchPlayerIDs, sql: sql
             )
         }
+        if let buys = player.buys {
+            let buyTypes = ["pistol", "eco", "force", "full"]
+            for (buyIndex, buyType) in buyTypes.enumerated() {
+                for (sideIndex, side) in PlayerSide.allCases.enumerated() {
+                    let stats = buys[buyIndex * 2 + sideIndex]
+                    let data = try JSONEncoder().encode(stats)
+                    guard let json = String(data: data, encoding: .utf8) else {
+                        throw Abort(.internalServerError, reason: "Could not encode buy statistics.")
+                    }
+                    try await sql.raw("""
+                        INSERT INTO player_side_buy_stats
+                          (match_id, match_player_id, side, buy_type, stats_json)
+                        VALUES (
+                          \(bind: matchID), \(bind: matchPlayerIDs[playerSlot]), \(bind: side.rawValue),
+                          \(bind: buyType), CAST(\(bind: json) AS JSON)
+                        )
+                        """).run()
+                }
+            }
+        }
     }
     return ImportResult(id: matchID, created: existingMatchID == nil, replaced: existingMatchID != nil)
 }

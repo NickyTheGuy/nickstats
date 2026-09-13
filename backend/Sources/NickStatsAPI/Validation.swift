@@ -88,10 +88,10 @@ extension MatchPayload {
         if timingCompactSchemas.contains(schema), roundTiming == nil || deathEvents == nil {
             try invalid("$", "\(schema) requires round_timing and death_events.")
         }
-        if ["nickstats.match/11", compactSchema].contains(schema), roundSurvivors == nil {
+        if ["nickstats.match/11", "nickstats.match/12", compactSchema].contains(schema), roundSurvivors == nil {
             try invalid("$.round_survivors", "\(schema) requires round-end survivor counts.")
         }
-        if schema == compactSchema, roundEconomy == nil {
+        if ["nickstats.match/12", compactSchema].contains(schema), roundEconomy == nil {
             try invalid("$.round_economy", "\(compactSchema) requires round economy facts.")
         }
         var timingByRound: [Int: RoundTimingPayload] = [:]
@@ -114,7 +114,7 @@ extension MatchPayload {
             try validateCount(survivor.terroristAlive, path: "\(path)[1]", maximum: 16)
             try validateCount(survivor.counterTerroristAlive, path: "\(path)[2]", maximum: 16)
         }
-        if ["nickstats.match/11", compactSchema].contains(schema), survivorRounds != Set(timingByRound.keys) {
+        if ["nickstats.match/11", "nickstats.match/12", compactSchema].contains(schema), survivorRounds != Set(timingByRound.keys) {
             try invalid("$.round_survivors", "Expected exactly one survivor row for every timing row.")
         }
         var economyRounds = Set<Int>()
@@ -135,7 +135,7 @@ extension MatchPayload {
                 try invalid(path, "T and CT must reference two distinct valid teams.")
             }
         }
-        if schema == compactSchema, economyRounds != Set(timingByRound.keys) {
+        if ["nickstats.match/12", compactSchema].contains(schema), economyRounds != Set(timingByRound.keys) {
             try invalid("$.round_economy", "Expected exactly one economy row for every timing row.")
         }
         var eventKeys = Set<String>()
@@ -224,6 +224,22 @@ extension MatchPayload {
             }
             guard player.sides.terrorist.rounds.played + player.sides.counterTerrorist.rounds.played <= rounds else {
                 try invalid("\(path).sides", "A player cannot play more rounds than the match contains.")
+            }
+            if schema == compactSchema {
+                guard let buys = player.buys, buys.count == 8 else {
+                    try invalid("\(path).buys", "Schema 13 requires eight side/buy statistic slices.")
+                }
+                for (buyIndex, stats) in buys.enumerated() {
+                    guard let profile = stats.profile, profile.count == 16 else {
+                        try invalid("\(path).buys[\(buyIndex)].profile", "Expected exactly 16 profile counters.")
+                    }
+                    try validateCounts(profile, count: 16, path: "\(path).buys[\(buyIndex)].profile", maximum: Int(UInt32.max))
+                    try validateCount(stats.rounds.played, path: "\(path).buys[\(buyIndex)].rounds[0]")
+                    try validateCount(stats.rounds.won, path: "\(path).buys[\(buyIndex)].rounds[1]")
+                    guard stats.rounds.won <= stats.rounds.played else {
+                        try invalid("\(path).buys[\(buyIndex)].rounds", "Round wins cannot exceed rounds played.")
+                    }
+                }
             }
             let sideRecords = [player.sides.terrorist, player.sides.counterTerrorist]
             for (sideIndex, stats) in sideRecords.enumerated() {

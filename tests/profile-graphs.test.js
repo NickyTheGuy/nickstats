@@ -34,6 +34,19 @@ test("graph samples preserve one observation per match and selected side", () =>
   assert.equal(ct[0].stats.he_damage, 63);
 });
 
+test("graph samples select a buy slice without mixing in all-buy rows", () => {
+  const source = [{
+    id: 9, sides: [
+      { side: "T", buy_type: "ALL", stats: { rounds: 12, kills: 12 } },
+      { side: "T", buy_type: "full", stats: { rounds: 5, kills: 8 } },
+      { side: "CT", buy_type: "full", stats: { rounds: 4, kills: 3 } }
+    ]
+  }];
+  const [sample] = samplesForMatches(source, "ALL", "full");
+  assert.equal(sample.stats.rounds, 9);
+  assert.equal(sample.stats.kills, 11);
+});
+
 test("graph metric registry calculates per-match rates from matching denominators", () => {
   const stats = statsForMatch(match, "ALL");
 

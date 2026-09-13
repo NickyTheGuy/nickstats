@@ -1,8 +1,8 @@
 import Vapor
 
-let compactSchema = "nickstats.match/12"
-let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", compactSchema])
-let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", compactSchema])
+let compactSchema = "nickstats.match/13"
+let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", compactSchema])
+let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
@@ -95,9 +95,10 @@ struct PlayerPayload: Content, Sendable {
     var steamID: String?
     var bot: Bool?
     var sides: PlayerSideStats
+    var buys: [SideStatsPayload]? = nil
 
     enum CodingKeys: String, CodingKey {
-        case name, bot, sides
+        case name, bot, sides, buys
         case steamID = "steam_id"
     }
 }
@@ -123,9 +124,10 @@ struct SideStatsPayload: Content, Sendable {
     var contexts: [KillContextStats]
     var assistedBy: [AssistedKillStats]
     var flashes: [FlashStats]
+    var profile: [Int]? = nil
 
     enum CodingKeys: String, CodingKey {
-        case rounds, opening, utility, objectives, speed, clutches, weapons, duels, trades, contexts, flashes
+        case rounds, opening, utility, objectives, speed, clutches, weapons, duels, trades, contexts, flashes, profile
         case combat = "kda"
         case kastRounds = "kast_rounds"
         case tradeKills = "trade_kills"
@@ -441,8 +443,14 @@ struct ComparisonMatch: Content {
 
 struct ComparisonSideStats: Content {
     var side: PlayerSide
+    var buyType: String
     var stats: [String: Double]
     var weapons: [ComparisonWeaponStats]
+
+    enum CodingKeys: String, CodingKey {
+        case side, stats, weapons
+        case buyType = "buy_type"
+    }
 }
 
 struct ComparisonWeaponStats: Content {

@@ -90,21 +90,23 @@
     }
   }
 
-  function statsForMatch(match, side = "ALL") {
+  function statsForMatch(match, side = "ALL", buy = "ALL") {
     const stats = {}, sides = match.sides || match.sideRows || [];
-    const selected = sides.filter(row => side === "ALL" || row.side === side);
+    const selected = sides.filter(row =>
+      (buy === "ALL" ? (row.buy_type || "ALL") === "ALL" : row.buy_type === buy) &&
+      (side === "ALL" || row.side === side));
     selected.forEach(row => mergeStats(stats, row.stats));
-    if (!selected.length && side === "ALL") mergeStats(stats, match.legacy || match);
+    if (!selected.length && side === "ALL" && buy === "ALL") mergeStats(stats, match.legacy || match);
     return stats;
   }
 
-  function samplesForMatches(matches, side = "ALL") {
+  function samplesForMatches(matches, side = "ALL", buy = "ALL") {
     return (matches || []).map((match, index) => ({
       id: String(match.id ?? index),
       date: number(match.played_at ?? match.date),
       result: match.result,
       map: match.map,
-      stats: statsForMatch(match, side)
+      stats: statsForMatch(match, side, buy)
     })).filter(sample => number(sample.stats.rounds) > 0);
   }
 

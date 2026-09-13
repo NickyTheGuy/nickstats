@@ -3,7 +3,7 @@ import Testing
 @testable import NickStatsAPI
 
 private func emptySide() -> SideStatsPayload {
-    SideStatsPayload(
+    var value = SideStatsPayload(
         rounds: RoundRecord(played: 0, won: 0),
         combat: CombatStats(kills: 0, deaths: 0, assists: 0, headshots: 0, damage: 0),
         kastRounds: 0, opening: OpeningStats(kills: 0, deaths: 0), tradeKills: 0,
@@ -27,6 +27,8 @@ private func emptySide() -> SideStatsPayload {
         killRounds: KillRoundCounts(oneKill: 0, twoKills: 0, threeKills: 0, fourKills: 0, fiveKills: 0),
         weapons: [], duels: [], trades: [], contexts: [], assistedBy: [], flashes: []
     )
+    value.profile = Array(repeating: 0, count: 16)
+    return value
 }
 
 private func validPayload() -> MatchPayload {
@@ -73,19 +75,19 @@ private func validPayload() -> MatchPayload {
         players: [
             PlayerPayload(
                 name: "One", steamID: "76561198000000001", bot: nil,
-                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide())
+                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8)
             ),
             PlayerPayload(
                 name: "Two", steamID: "76561198000000002", bot: nil,
-                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide())
+                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8)
             ),
             PlayerPayload(
                 name: "Three", steamID: "76561198000000003", bot: nil,
-                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide())
+                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8)
             ),
             PlayerPayload(
                 name: "BOT", steamID: nil, bot: true,
-                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide())
+                sides: PlayerSideStats(terrorist: emptySide(), counterTerrorist: emptySide()), buys: Array(repeating: emptySide(), count: 8)
             )
         ]
     )

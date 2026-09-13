@@ -218,6 +218,7 @@ async function parseDemo(fileName, buffer) {
           isBot: Boolean(values.fakeplayer) || !steamId,
           observedOpponents: new Set(),
           sideStats: new Map(),
+          buySideStats: new Map(),
           weaponStats: new Map(),
           duelStats: new Map(),
           tradeMatchups: new Map(),
@@ -432,6 +433,7 @@ async function parseDemo(fileName, buffer) {
     for (const row of stats.values()) {
       row.kills = 0;
       row.sideStats = new Map();
+      row.buySideStats = new Map();
       row.weaponStats = new Map();
       row.duelStats = new Map();
       row.tradeMatchups = new Map();
@@ -568,6 +570,21 @@ async function parseDemo(fileName, buffer) {
     return result;
   }
 
+  function ensureBuySideRow(row, buy, side) {
+    if (!buy || (side !== 2 && side !== 3)) return null;
+    const key = `${buy}:${side}`;
+    let result = row.buySideStats.get(key);
+    if (!result) {
+      result = emptySideRow(row);
+      row.buySideStats.set(key, result);
+    }
+    result.name = row.name;
+    result.steamId = row.steamId;
+    result.isBot = row.isBot;
+    result.userIds = new Set(row.userIds);
+    return result;
+  }
+
   function playerStatsSnapshot(row) {
     const snapshot = {
       scalar: {},
@@ -637,7 +654,42 @@ async function parseDemo(fileName, buffer) {
     }
   }
 
-  function allocateRoundToSides(participants, winningSide) {
+  function applyRoundDelta(target, row, after, before, awardedWin) {
+    for (const field of ADDITIVE_STAT_FIELDS) target[field] += after.scalar[field] - before.scalar[field];
+    for (const [name, count] of after.tradedBy) {
+      const difference = count - (before.tradedBy.get(name) || 0);
+      if (difference) target.tradedBy.set(name, (target.tradedBy.get(name) || 0) + difference);
+    }
+    target.tradeProximityDistances.push(...row.tradeProximityDistances.slice(before.proximityLength));
+    for (const key of Object.keys(target.provenTradeOpportunities)) {
+      target.provenTradeOpportunities[key] += (after.proven[key] || 0) - (before.proven[key] || 0);
+    }
+    for (const key of [1, 2, 3, 4, 5]) {
+      target.killRoundsByCount[key] += (after.killRounds[key] || 0) - (before.killRounds[key] || 0);
+      target.clutchWins[key] += (after.clutches[key] || 0) - (before.clutches[key] || 0);
+      target.clutchAttempts[key] += (after.clutchAttempts[key] || 0) - (before.clutchAttempts[key] || 0);
+    }
+    addMapDeltas(target.weaponStats, after.weapons, before.weapons, ["weapon", "kills", "shots", "hits", "damage", "roundsUsed"]);
+    addMapDeltas(target.duelStats, after.duels, before.duels, ["kills", "deaths"]);
+    addMapDeltas(target.tradeMatchups, after.tradeMatchups, before.tradeMatchups, ["opportunities", "attempts", "successes"]);
+    addMapDeltas(target.killContextMatchups, after.killContextMatchups, before.killContextMatchups,
+      ["blinded", "attackerBlind", "wallbang", "penetrations", "smoke", "airborne", "moving", "still", "running",
+        "grenadeOut", "knifeOut", "equipmentDisadvantage", "unfair"]);
+    addMapDeltas(target.assistedKillMatchups, after.assistedKillMatchups, before.assistedKillMatchups,
+      ["damage", "flash", "ownFlash"]);
+    addMapDeltas(target.flashMatchups, after.flashMatchups, before.flashMatchups, ["flashes", "blindDuration"]);
+    for (const value of row.speedOnKillValues.slice(before.speedValueLength)) {
+      target.maxSpeedOnKill = Math.max(target.maxSpeedOnKill, value.speed);
+      if (value.percent !== null) target.maxSpeedOnKillPercent = Math.max(target.maxSpeedOnKillPercent, value.percent);
+    }
+    for (const value of row.killerSpeedValues.slice(before.killerSpeedValueLength)) {
+      target.maxKillerSpeed = Math.max(target.maxKillerSpeed, value.speed);
+      if (value.percent !== null) target.maxKillerSpeedPercent = Math.max(target.maxKillerSpeedPercent, value.percent);
+    }
+    if (awardedWin) target.roundWins += 1;
+  }
+
+  function allocateRoundToSides(participants, winningSide, buys = {}) {
     // Keep the assignment captured when the round went live. A delayed
     // official-end event can arrive after the next regulation/OT side swap.
     refreshRoundSideAssignments(false);
@@ -658,40 +710,10 @@ async function parseDemo(fileName, buffer) {
       if (!before || (side !== 2 && side !== 3)) continue;
       const target = ensureSideRow(row, side);
       const after = playerStatsSnapshot(row);
-      for (const field of ADDITIVE_STAT_FIELDS) {
-        target[field] += after.scalar[field] - before.scalar[field];
-      }
-      for (const [name, count] of after.tradedBy) {
-        const difference = count - (before.tradedBy.get(name) || 0);
-        if (difference) target.tradedBy.set(name, (target.tradedBy.get(name) || 0) + difference);
-      }
-      target.tradeProximityDistances.push(...row.tradeProximityDistances.slice(before.proximityLength));
-      for (const key of Object.keys(target.provenTradeOpportunities)) {
-        target.provenTradeOpportunities[key] += (after.proven[key] || 0) - (before.proven[key] || 0);
-      }
-      for (const key of [1, 2, 3, 4, 5]) {
-        target.killRoundsByCount[key] += (after.killRounds[key] || 0) - (before.killRounds[key] || 0);
-        target.clutchWins[key] += (after.clutches[key] || 0) - (before.clutches[key] || 0);
-        target.clutchAttempts[key] += (after.clutchAttempts[key] || 0) - (before.clutchAttempts[key] || 0);
-      }
-      addMapDeltas(target.weaponStats, after.weapons, before.weapons, ["weapon", "kills", "shots", "hits", "damage", "roundsUsed"]);
-      addMapDeltas(target.duelStats, after.duels, before.duels, ["kills", "deaths"]);
-      addMapDeltas(target.tradeMatchups, after.tradeMatchups, before.tradeMatchups, ["opportunities", "attempts", "successes"]);
-      addMapDeltas(target.killContextMatchups, after.killContextMatchups, before.killContextMatchups,
-        ["blinded", "attackerBlind", "wallbang", "penetrations", "smoke", "airborne", "moving", "still", "running",
-          "grenadeOut", "knifeOut", "equipmentDisadvantage", "unfair"]);
-      addMapDeltas(target.assistedKillMatchups, after.assistedKillMatchups, before.assistedKillMatchups,
-        ["damage", "flash", "ownFlash"]);
-      addMapDeltas(target.flashMatchups, after.flashMatchups, before.flashMatchups, ["flashes", "blindDuration"]);
-      for (const value of row.speedOnKillValues.slice(before.speedValueLength)) {
-        target.maxSpeedOnKill = Math.max(target.maxSpeedOnKill, value.speed);
-        if (value.percent !== null) target.maxSpeedOnKillPercent = Math.max(target.maxSpeedOnKillPercent, value.percent);
-      }
-      for (const value of row.killerSpeedValues.slice(before.killerSpeedValueLength)) {
-        target.maxKillerSpeed = Math.max(target.maxKillerSpeed, value.speed);
-        if (value.percent !== null) target.maxKillerSpeedPercent = Math.max(target.maxKillerSpeedPercent, value.percent);
-      }
-      if (participants.has(row) && side === winningSide) target.roundWins += 1;
+      const awardedWin = participants.has(row) && side === winningSide;
+      applyRoundDelta(target, row, after, before, awardedWin);
+      const buyTarget = ensureBuySideRow(row, buys[side], side);
+      if (buyTarget) applyRoundDelta(buyTarget, row, after, before, awardedWin);
     }
     return allocations;
   }
@@ -770,16 +792,6 @@ async function parseDemo(fileName, buffer) {
       }
     }
 
-    const allocations = allocateRoundToSides(participants, winningSide);
-    const aliveAtEnd = { T: 0, CT: 0 };
-    for (const row of participants) {
-      const died = [...row.userIds].some(userId => round.deaths.has(userId));
-      const side = round.sideAssignments.get(row) || rowSide(row);
-      if (!died && side === 2) aliveAtEnd.T += 1;
-      if (!died && side === 3) aliveAtEnd.CT += 1;
-    }
-
-    const stableWinner = dominantOriginalTeam(winningSide);
     const terroristTeam = dominantOriginalTeam(2);
     const counterTerroristTeam = dominantOriginalTeam(3);
     let pistolRound = completedRounds === 0;
@@ -789,6 +801,24 @@ async function parseDemo(fileName, buffer) {
       pistolRound = true;
       regulationHalftimeSeen = true;
     }
+    const buyFor = side => {
+      if (!round.economySnapshot) return null;
+      if (pistolRound) return "pistol";
+      const key = side === 2 ? "T" : "CT";
+      const players = Math.max(1, round.economySnapshot.players[key]);
+      const value = round.economySnapshot.values[key];
+      return value <= players * 1000 ? "eco" : value >= players * 4000 ? "full" : "force";
+    };
+    const allocations = allocateRoundToSides(participants, winningSide, { 2: buyFor(2), 3: buyFor(3) });
+    const aliveAtEnd = { T: 0, CT: 0 };
+    for (const row of participants) {
+      const died = [...row.userIds].some(userId => round.deaths.has(userId));
+      const side = round.sideAssignments.get(row) || rowSide(row);
+      if (!died && side === 2) aliveAtEnd.T += 1;
+      if (!died && side === 3) aliveAtEnd.CT += 1;
+    }
+
+    const stableWinner = dominantOriginalTeam(winningSide);
     if (round.economySnapshot && terroristTeam !== null && counterTerroristTeam !== null) {
       roundEconomies.push({
         round: completedRounds + 1,
@@ -2112,6 +2142,10 @@ async function parseDemo(fileName, buffer) {
           T: finishPlayer(ensureSideRow(row, 2)),
           CT: finishPlayer(ensureSideRow(row, 3))
         };
+        output.by_buy = Object.fromEntries(["pistol", "eco", "force", "full"].map(buy => [buy, {
+          T: finishPlayer(ensureBuySideRow(row, buy, 2)),
+          CT: finishPlayer(ensureBuySideRow(row, buy, 3))
+        }]));
         outputPlayerByRow.set(row, output);
         return output;
       });
@@ -2241,7 +2275,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.13.5",
+    nickstats_build: "2026.09.13.6",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
