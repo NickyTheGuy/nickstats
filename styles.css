@@ -2707,10 +2707,17 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .graph-axis { stroke: #536177; stroke-width: 1.5; }
 .graph-grid-line { stroke: rgba(155, 168, 186, .15); stroke-width: 1; }
 .graph-axis-label { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.graph-bucket-band { fill: rgba(108, 164, 255, .018); }
+.graph-bucket-band-alt { fill: rgba(108, 164, 255, .055); }
+.graph-bucket-divider { stroke: rgba(155, 168, 186, .2); stroke-width: 1; stroke-dasharray: 2 3; }
+.graph-bucket-label { fill: #c5cedb; font-size: 9.5px; font-weight: 750; font-variant-numeric: tabular-nums; }
 .graph-axis-title { fill: #c5cedb; font-size: 12px; font-weight: 800; }
 .graph-waiting-message { fill: var(--muted); font-size: 14px; font-weight: 800; }
 .graph-series-line { fill: none; stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
 .graph-point { stroke: #0d131d; stroke-width: 2; }
+.graph-tooltip { pointer-events: none; }
+.graph-tooltip rect { fill: #080c13; stroke: #536177; stroke-width: 1; }
+.graph-tooltip text { fill: #f3f6fb; font-size: 11px; font-weight: 750; font-variant-numeric: tabular-nums; }
 .graph-legend { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
 .graph-legend-item { display: inline-flex; gap: 7px; align-items: center; color: var(--muted); font-size: 11px; font-weight: 800; }
 .graph-legend-item::before { width: 11px; height: 11px; border-radius: 50%; background: var(--series-color); content: ""; }

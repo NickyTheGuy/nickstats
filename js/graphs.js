@@ -91,6 +91,23 @@
     if (text != null) element.textContent = text;
     return element;
   };
+
+  function attachTooltip(svg, element, label, anchorX, anchorY) {
+    const hide = () => svg.querySelector(".graph-tooltip")?.remove();
+    const show = () => {
+      hide();
+      const width = Math.min(360, Math.max(150, label.length * 6.2 + 16));
+      const x = Math.max(5, Math.min(895 - width, anchorX - width / 2));
+      const y = anchorY > 54 ? anchorY - 36 : anchorY + 10;
+      const tooltip = svgElement("g", { class: "graph-tooltip", role: "tooltip" });
+      tooltip.appendChild(svgElement("rect", { x, y, width, height: 28, rx: 6 }));
+      tooltip.appendChild(svgElement("text", { x: x + 8, y: y + 18 }, label));
+      svg.appendChild(tooltip);
+    };
+    element.setAttribute("aria-label", label);
+    element.addEventListener("pointerenter", show);
+    element.addEventListener("pointerleave", hide);
+  }
   const format = (value, metric) => `${number(value).toFixed(metric.digits)}${metric.suffix}`;
   const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
   const median = values => {
@@ -139,6 +156,8 @@
     if (!bounds) return;
     const { min, max } = bounds;
     const left = 68, top = 24, width = 796, height = 318, binWidth = (max - min) / bins;
+    const boundaryDigits = Math.max(metric.digits, Math.min(4, Math.max(0, Math.ceil(-Math.log10(Math.abs(binWidth))))));
+    const formatBoundary = value => `${number(value).toFixed(boundaryDigits)}${metric.suffix}`;
     const histogram = series => {
       const counts = Array(bins).fill(0);
       series.values.forEach(point => counts[Math.min(bins - 1, Math.floor((point.value - min) / binWidth))] += 1);
@@ -146,12 +165,22 @@
     };
     const histograms = prepared.map(histogram), domainHistograms = (domainSeries.length ? domainSeries : prepared).map(histogram);
     const yMax = Math.max(1, ...domainHistograms.flatMap(series => series.percentages));
-    drawAxes(svg, { left, top, width, height, min, max, metric, yMax });
-    for (let tick = 0; tick <= 4; tick += 1) {
-      const x = left + width * tick / 4, value = min + (max - min) * tick / 4;
-      svg.appendChild(svgElement("text", { x, y: top + height + 24, class: "graph-axis-label", "text-anchor": "middle" }, format(value, metric)));
+    const groupWidth = width / bins;
+    for (let index = 0; index < bins; index += 1) {
+      const x = left + index * groupWidth;
+      svg.appendChild(svgElement("rect", { x, y: top, width: groupWidth, height, class: `graph-bucket-band${index % 2 ? " graph-bucket-band-alt" : ""}` }));
+      setLine(svg, x, top, x, top + height, "graph-bucket-divider");
     }
-    const pointTitle = (series, value, index) => `${series.label}: ${value.toFixed(1)}% of matches in ${format(min + index * binWidth, metric)}–${format(min + (index + 1) * binWidth, metric)}`;
+    setLine(svg, left + width, top, left + width, top + height, "graph-bucket-divider");
+    drawAxes(svg, { left, top, width, height, min, max, metric, yMax });
+    for (let index = 0; index < bins; index += 1) {
+      const x = left + groupWidth * (index + .5), y = top + height + 20;
+      const label = `${formatBoundary(min + index * binWidth)}–${formatBoundary(min + (index + 1) * binWidth)}`;
+      const attributes = { x, y, class: "graph-bucket-label", "text-anchor": "middle" };
+      if (bins > 10) attributes.transform = `rotate(${bins > 17 ? -55 : -35} ${x} ${y})`;
+      svg.appendChild(svgElement("text", attributes, label));
+    }
+    const pointTitle = (series, value, index) => `${series.label}: ${value.toFixed(1)}% of matches in ${formatBoundary(min + index * binWidth)}–${formatBoundary(min + (index + 1) * binWidth)}`;
     if (displayStyle === "line") {
       histograms.forEach((series, seriesIndex) => {
         const colorIndex = series.colorIndex ?? seriesIndex;
@@ -160,15 +189,15 @@
           return `${x},${y}`;
         }).join(" ");
         const line = svgElement("polyline", { points, class: "graph-series-line", stroke: colors[colorIndex % colors.length] });
-        line.appendChild(svgElement("title", {}, `${series.label} distribution`)); svg.appendChild(line);
+        svg.appendChild(line);
         series.percentages.forEach((value, index) => {
           const x = left + width * (index + .5) / bins, y = top + height - height * value / yMax;
           const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
-          dot.appendChild(svgElement("title", {}, pointTitle(series, value, index))); svg.appendChild(dot);
+          svg.appendChild(dot); attachTooltip(svg, dot, pointTitle(series, value, index), x, y);
         });
       });
     } else {
-      const groupWidth = width / bins, innerWidth = groupWidth * .84, barWidth = innerWidth / histograms.length;
+      const innerWidth = groupWidth * .84, barWidth = innerWidth / histograms.length;
       histograms.forEach((series, seriesIndex) => {
         const colorIndex = series.colorIndex ?? seriesIndex;
         series.percentages.forEach((value, index) => {
@@ -181,11 +210,12 @@
             fill: colors[colorIndex % colors.length],
             class: "graph-series-bar"
           });
-          bar.appendChild(svgElement("title", {}, pointTitle(series, value, index))); svg.appendChild(bar);
+          svg.appendChild(bar);
+          attachTooltip(svg, bar, pointTitle(series, value, index), number(bar.getAttribute("x")) + number(bar.getAttribute("width")) / 2, number(bar.getAttribute("y")));
         });
       });
     }
-    svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, metric.label));
+    svg.appendChild(svgElement("text", { x: left + width / 2, y: 448, class: "graph-axis-title", "text-anchor": "middle" }, metric.label));
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, "Share of matches"));
   }
 
@@ -216,7 +246,7 @@
       coordinates.forEach(({ point, x, y }) => {
         const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
         const date = point.date > 0 ? new Date(point.date * 1000).toLocaleDateString() : `Match #${point.id}`;
-        dot.appendChild(svgElement("title", {}, `${series.label} · ${date}: ${format(point.value, metric)}`)); svg.appendChild(dot);
+        svg.appendChild(dot); attachTooltip(svg, dot, `${series.label} · ${date}: ${format(point.value, metric)}`, x, y);
       });
     });
     svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, allDated ? "Match date" : "Match order"));
@@ -250,6 +280,7 @@
     if (bucketCount) bucketCount.textContent = String(state.bucketCount);
     if (bucketLess) bucketLess.disabled = state.bucketCount <= MIN_BUCKETS;
     if (bucketMore) bucketMore.disabled = state.bucketCount >= MAX_BUCKETS;
+    svg.setAttribute("viewBox", type.value === "distribution" ? "0 0 900 460" : "0 0 900 420");
     svg.replaceChildren(); summary.replaceChildren(); legend.replaceChildren();
     const multiTrendNeedsDates = type.value === "trend" && state.independent && independentTrendNeedsDates(prepared);
     note.textContent = type.value === "distribution"
