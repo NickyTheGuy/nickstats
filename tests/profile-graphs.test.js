@@ -64,6 +64,7 @@ test("graph metric registry calculates per-match rates from matching denominator
   assert.equal(metrics.get("he_dr").value(stats), 5);
   assert.equal(metrics.get("adr").value(stats), 2150 / 21);
   assert.equal(metrics.get("round_win").value(stats), 100 * 13 / 21);
+  assert.equal(metrics.get("opening_attempt_rate").value({ rounds: 20, opening_kills: 3, opening_deaths: 2 }), 25);
   assert.ok(metrics.get("rating").value(stats) > 0);
   assert.equal(metrics.get("kd").value({ kills: 5, deaths: 0 }), 5);
 });

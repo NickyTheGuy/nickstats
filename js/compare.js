@@ -21,7 +21,7 @@
 
   const metricGroups = {
     core: [["Win rate", "winRate", "percent"], ["Rating", "rating", "rating"], ["K/D", "kd", "ratio"], ["ADR", "adr", "decimal"], ["Damage received", "damage_received", "damageRate", false], ["Damage diff", "damageDiff", "signedRate"], ["KAST", "kast", "percent"], ["K/R", "kpr", "ratio"], ["D/R", "dpr", "ratio", false], ["A/R", "apr", "ratio"], ["HS%", "hs", "percent"]],
-    openings: [["Opening K", "opening_kills", "countRate"], ["Opening D", "opening_deaths", "countRate", false], ["Opening diff", "openingDiff", "signedRate"], ["Success", "openingSuccess", "percent"]],
+    openings: [["Opening K", "opening_kills", "countRate"], ["Opening D", "opening_deaths", "countRate", false], ["Attempts", "openingAttempts", "countRate"], ["Attempt rate", "openingAttemptRate", "percent"], ["Opening diff", "openingDiff", "signedRate"], ["Success", "openingSuccess", "percent"]],
     trades: [["Trade K", "trade_kills", "countRate"], ["Opportunities", "trade_opportunities", "countRate"], ["Attempts", "trade_attempts", "countRate"], ["Successes", "trade_successes", "countRate"], ["Attempt rate", "tradeAttemptRate", "percent"], ["Success rate", "tradeSuccessRate", "percent"], ["Tradeable D", "tradeable_deaths", "countRate", false], ["D attempted", "attempted_tradeable_deaths", "countRate"], ["D traded", "traded_deaths", "countRate"]],
     utility: [["Utility dmg", "utilityDamage", "damageRate"], ["UD/R", "udr", "decimal"], ["HE dmg", "he_damage", "damageRate"], ["Fire dmg", "fire_damage", "damageRate"], ["HE thrown", "he_grenades_thrown", "countRate"], ["Flashes thrown", "flashbangs_thrown", "countRate"], ["Smokes thrown", "smokes_thrown", "countRate"], ["Fire thrown", "fire_grenades_thrown", "countRate"], ["Decoys thrown", "decoys_thrown", "countRate"], ["Flashed", "enemies_flashed", "countRate"], ["Blind sec", "blindSeconds", "secondsRate"], ["Flash assists", "flash_assists", "countRate"], ["Damage assists", "damage_assisted_kills", "countRate"], ["Teammate-flash K", "teammate_flash_assisted_kills", "countRate"], ["Own-flash K", "own_flash_kills", "countRate"]],
     context: [["Enemy blind", "blinded_kills", "countRate"], ["Player blind", "blind_kills", "countRate"], ["Wallbang kills", "wallbang_kills", "countRate"], ["Smoke kills", "smoke_kills", "countRate"], ["Airborne kills", "airborne_kills", "countRate"], ["Running kills", "running_kills", "countRate"], ["Enemy grenade out", "grenade_out_kills", "countRate"], ["Enemy knife out", "knife_out_kills", "countRate"], ["Paul kills", "equipment_disadvantage_kills", "countRate"], ["Bullshit kills", "unfair_kills", "countRate"]],
@@ -140,6 +140,8 @@
       kast: rounds ? 100 * kastRounds / rounds : 0,
       rating: playerRating(aggregate), kpr: rounds ? kills / rounds : 0, dpr: rounds ? deaths / rounds : 0, apr: rounds ? assists / rounds : 0,
       hs: kills ? 100 * num(stats.headshots) / kills : 0,
+      openingAttempts: num(stats.opening_kills) + num(stats.opening_deaths),
+      openingAttemptRate: rounds ? 100 * (num(stats.opening_kills) + num(stats.opening_deaths)) / rounds : 0,
       openingDiff: num(stats.opening_kills) - num(stats.opening_deaths), openingSuccess: 100 * num(stats.opening_kills) / Math.max(1, num(stats.opening_kills) + num(stats.opening_deaths)),
       tradeAttemptRate: 100 * num(stats.trade_attempts) / Math.max(1, num(stats.trade_opportunities)), tradeSuccessRate: 100 * num(stats.trade_successes) / Math.max(1, num(stats.trade_attempts)),
       utilityDamage: num(stats.he_damage) + num(stats.fire_damage), udr: rounds ? (num(stats.he_damage) + num(stats.fire_damage)) / rounds : 0,
@@ -625,14 +627,15 @@
         decimal(stats.rating, 2),
         percent(stats.kast),
         `${integer(stats.opening_kills)}–${integer(stats.opening_deaths)}`,
+        percent(stats.openingAttemptRate),
         `${integer(clutchWins)} / ${integer(clutchAttempts)}`
       ];
     });
     const sortRows = comparison.map(({ player, stats }) => [
       player.label, stats.n, stats.kills, stats.kd, stats.adr, stats.rating, stats.kast,
-      num(stats.opening_kills) - num(stats.opening_deaths), clutchTotal(stats, "clutch")
+      num(stats.opening_kills) - num(stats.opening_deaths), stats.openingAttemptRate, clutchTotal(stats, "clutch")
     ]);
-    window.NickStatsProfile.renderTable("comboQuickTable", ["Player", "Matches", "K / D / A", "K/D", "ADR", "Rating", "KAST", "Opening K–D", "Clutches W/A"], rows, sortRows);
+    window.NickStatsProfile.renderTable("comboQuickTable", ["Player", "Matches", "K / D / A", "K/D", "ADR", "Rating", "KAST", "Opening K–D", "Opening attempt rate", "Clutches W/A"], rows, sortRows);
     $("comboQuickEmpty").hidden = sampleMatches > 0;
   }
 

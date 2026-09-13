@@ -37,6 +37,7 @@
     ]],
     ["Opening", [
       ["opening_kpr", "Opening kills per round", rate("opening_kills"), 3], ["opening_dpr", "Opening deaths per round", rate("opening_deaths"), 3],
+      ["opening_attempt_rate", "Opening attempt rate", stats => 100 * ratio(number(stats.opening_kills) + number(stats.opening_deaths), stats.rounds), 1, "%"],
       ["opening_diff", "Opening differential", stats => number(stats.opening_kills) - number(stats.opening_deaths), 0],
       ["opening_success", "Opening success", stats => 100 * ratio(stats.opening_kills, number(stats.opening_kills) + number(stats.opening_deaths)), 1, "%"]
     ]],

@@ -58,10 +58,12 @@
     kast: { id: "kast", modes: [{ label: "KAST", value: player => player.kast ?? 0 }] },
     opening: { id: "opening", modes: [
       { label: "K", value: player => player.opening_kills ?? 0 },
-      { label: "D", value: player => player.opening_deaths ?? 0, direction: "asc" }
+      { label: "D", value: player => player.opening_deaths ?? 0, direction: "asc" },
+      { label: "Attempt rate", value: player => 100 * ((player.opening_kills ?? 0) + (player.opening_deaths ?? 0)) / Math.max(1, player.rounds_played ?? 0) }
     ] },
     openingKills: oneMode("openingKills", "K", player => player.opening_kills ?? 0),
     openingDeaths: oneMode("openingDeaths", "D", player => player.opening_deaths ?? 0, "asc"),
+    openingAttempts: oneMode("openingAttempts", "Attempt rate", player => 100 * ((player.opening_kills ?? 0) + (player.opening_deaths ?? 0)) / Math.max(1, player.rounds_played ?? 0)),
     openingDiff: oneMode("openingDiff", "Diff", player => (player.opening_kills ?? 0) - (player.opening_deaths ?? 0)),
     openingSuccess: oneMode("openingSuccess", "Success", player => 100 * (player.opening_kills ?? 0) / Math.max(1, (player.opening_kills ?? 0) + (player.opening_deaths ?? 0))),
     combatKills: oneMode("combatKills", "K", player => player.kills ?? 0),
@@ -1245,10 +1247,11 @@
     if (state.expandedGroups.opening) {
       cell(row, player.opening_kills ?? 0, "demo-group-cell opening-cell");
       cell(row, player.opening_deaths ?? 0, "demo-group-cell opening-cell");
+      cell(row, `${(100 * openingTotal / Math.max(1, player.rounds_played ?? 0)).toFixed(0)}%`, "demo-group-cell opening-cell");
       cell(row, `${openingDiff > 0 ? "+" : ""}${openingDiff}`, "demo-group-cell opening-cell");
       cell(row, `${(100 * (player.opening_kills ?? 0) / Math.max(1, openingTotal)).toFixed(0)}%`, "demo-group-cell opening-cell");
     } else {
-      cell(row, `${player.opening_kills ?? 0}-${player.opening_deaths ?? 0}`, "demo-group-cell opening-cell");
+      cell(row, `${player.opening_kills ?? 0}-${player.opening_deaths ?? 0} · ${(100 * openingTotal / Math.max(1, player.rounds_played ?? 0)).toFixed(0)}%`, "demo-group-cell opening-cell");
     }
     const context = player.kill_context || {};
     const blind = `${context.blinded_enemy_kills ?? 0}-${context.deaths_while_blind ?? 0}`;
@@ -1427,9 +1430,10 @@
         ADR: sortSpecs.adr
       },
       opening: {
-        "K-D": sortSpecs.opening,
+        "K-D · Att%": sortSpecs.opening,
         K: sortSpecs.openingKills,
         D: sortSpecs.openingDeaths,
+        "Attempt rate": sortSpecs.openingAttempts,
         Diff: sortSpecs.openingDiff,
         Success: sortSpecs.openingSuccess
       },
@@ -1600,7 +1604,7 @@
     const widths = [160, 82];
     widths.push(...(state.expandedGroups.combat ? [54, 54, 54, 62, 62, 82, 88, 76, 72] : [90]));
     widths.push(72, 72);
-    widths.push(...(state.expandedGroups.opening ? [58, 58, 68, 76] : [82]));
+    widths.push(...(state.expandedGroups.opening ? [58, 58, 88, 68, 76] : [108]));
     widths.push(...(state.expandedGroups.trades ? [58, 54, 96, 58, 54, 96] : [88]));
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
     widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
@@ -1648,7 +1652,7 @@
     ["Player", "Rounds P/W"].forEach(label => regularHeader(header, label));
     groupHeader(header, detailHeader, "combat", "Combat", ["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A");
     ["KAST", "Rating"].forEach(label => regularHeader(header, label));
-    groupHeader(header, detailHeader, "opening", "Opening", ["K", "D", "Diff", "Success"], "K-D");
+    groupHeader(header, detailHeader, "opening", "Opening", ["K", "D", "Attempt rate", "Diff", "Success"], "K-D · Att%");
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A");
     groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
