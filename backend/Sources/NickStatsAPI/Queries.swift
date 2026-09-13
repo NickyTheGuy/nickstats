@@ -568,6 +568,42 @@ private func comparisonSideData(
         rows[index].stats[name, default: 0] += amount
         result[matchID] = rows
     }
+    let survivorRows = try await sql.raw("""
+        SELECT r.match_id,
+               CASE WHEN r.t_match_team_id = mp.match_team_id THEN 'T' ELSE 'CT' END AS side,
+               r.winner_side, r.pistol_round,
+               CASE WHEN r.t_match_team_id = mp.match_team_id
+                    THEN r.t_equipment_value ELSE r.ct_equipment_value END AS equipment_value,
+               CASE WHEN r.t_match_team_id = mp.match_team_id
+                    THEN r.t_player_count ELSE r.ct_player_count END AS player_count,
+               CASE WHEN r.winner_side = 'T' THEN r.t_alive_end ELSE r.ct_alive_end END AS survivors
+        FROM match_players mp
+        JOIN match_rounds r ON r.match_id = mp.match_id
+          AND mp.match_team_id IN (r.t_match_team_id, r.ct_match_team_id)
+        WHERE mp.player_id = \(bind: playerID)
+          AND r.winner_side IS NOT NULL
+          AND r.t_alive_end IS NOT NULL AND r.ct_alive_end IS NOT NULL
+          AND r.pistol_round IS NOT NULL
+          AND r.t_equipment_value IS NOT NULL AND r.ct_equipment_value IS NOT NULL
+          AND r.t_player_count IS NOT NULL AND r.ct_player_count IS NOT NULL
+        """).all()
+    for row in survivorRows {
+        let id = try int64(row, "match_id"), side = try playerSide(row, "side")
+        let winner = try row.decode(column: "winner_side", as: String.self)
+        let won = winner == side.rawValue
+        let resultName = won ? "win" : "loss"
+        let prefix = won ? "team_win" : "opponent_win"
+        let survivors = Double(try integer(row, "survivors"))
+        let equipmentValue = try integer(row, "equipment_value")
+        let playerCount = max(1, try integer(row, "player_count"))
+        let isPistol = try row.decode(column: "pistol_round", as: Bool.self)
+        let buy = isPistol ? "pistol" : equipmentValue <= playerCount * 1_000 ? "eco" :
+            equipmentValue >= playerCount * 4_000 ? "full" : "force"
+        for (buyScope, resultScope) in [("ALL", "ALL"), (buy, "ALL"), ("ALL", resultName), (buy, resultName)] {
+            addBuyMetric(id, side, buyScope, resultScope, "\(prefix)_survivor_rounds", 1)
+            addBuyMetric(id, side, buyScope, resultScope, "\(prefix)_survivor_total", survivors)
+        }
+    }
     for kind in ["killer", "victim"] {
         let playerColumn = kind == "killer" ? "killer_match_player_id" : "victim_match_player_id"
         let sideColumn = kind == "killer" ? "killer_side" : "victim_side"

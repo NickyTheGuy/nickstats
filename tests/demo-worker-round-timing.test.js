@@ -41,6 +41,13 @@ test("completed rounds preserve both sides' final survivor counts", () => {
   assert.match(source, /ct_alive_end: aliveAtEnd\.CT/);
 });
 
+test("match survivor display compares each winning team separately", () => {
+  assert.match(indexSource, /id="demoSurvivorTeams"/);
+  assert.match(frontendSource, /economyByRound/);
+  assert.match(frontendSource, /String\(row\.teamID\) === String\(team\.id\)/);
+  assert.match(frontendSource, /demo-survivor-team/);
+});
+
 test("freeze end captures authoritative team equipment values", () => {
   assert.match(source, /m_unFreezetimeEndEquipmentValue/);
   assert.match(source, /round\.economySnapshot = \{ values, players \}/);

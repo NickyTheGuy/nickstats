@@ -2051,31 +2051,38 @@
 
   function renderRoundCloseness(result) {
     const section = $("demoRoundCloseness");
-    const rows = (result.round_survivors || []).filter(row =>
-      ["T", "CT"].includes(row.winner_side) && (state.sideFilter === "ALL" || row.winner_side === state.sideFilter)
-    );
+    const economyByRound = new Map((result.round_economy || []).map(row => [numberValue(row.round), row]));
+    const rows = (result.round_survivors || []).map(row => {
+      const economy = economyByRound.get(numberValue(row.round));
+      const teamID = row.winner_side === "T" ? economy?.t_team_id : row.winner_side === "CT" ? economy?.ct_team_id : null;
+      return { ...row, teamID };
+    }).filter(row => row.teamID != null && (state.sideFilter === "ALL" || row.winner_side === state.sideFilter));
     section.hidden = rows.length === 0;
     if (!rows.length) {
-      $("demoSurvivorDistribution").replaceChildren();
+      $("demoSurvivorTeams").replaceChildren();
       return;
     }
-    const values = rows.map(row => row.winner_side === "T" ? numberValue(row.t_alive_end) : numberValue(row.ct_alive_end));
-    const average = values.reduce((sum, value) => sum + value, 0) / values.length;
-    const oneAlive = values.filter(value => value === 1).length;
-    const clean = values.filter(value => value >= 4).length;
-    $("demoRoundClosenessTitle").textContent = state.sideFilter === "ALL" ? "Round closeness" : `${state.sideFilter} round closeness`;
-    $("demoRoundClosenessSummary").textContent = `${average.toFixed(2)} average survivors · ${oneAlive} one-survivor wins · ${clean} clean wins`;
-    const buckets = [0, 1, 2, 3, 4, 5].map(bucket => ({
-      bucket,
-      count: values.filter(value => bucket === 5 ? value >= 5 : value === bucket).length
-    }));
-    $("demoSurvivorDistribution").replaceChildren(...buckets.map(({ bucket, count }) => {
-      const item = document.createElement("div");
-      const strong = document.createElement("strong"); strong.textContent = String(count);
-      const label = document.createElement("span"); label.textContent = `${bucket === 5 ? "5+" : bucket} alive`;
-      const share = document.createElement("small"); share.textContent = `${(100 * count / rows.length).toFixed(0)}% of wins`;
-      item.append(strong, label, share);
-      return item;
+    $("demoRoundClosenessTitle").textContent = state.sideFilter === "ALL" ? "Winning-round survivors" : `${state.sideFilter} winning-round survivors`;
+    $("demoRoundClosenessSummary").textContent = state.sideFilter === "ALL" ? "Team comparison" : `${state.sideFilter} wins only`;
+    $("demoSurvivorTeams").replaceChildren(...(result.teams || []).map(team => {
+      const teamRows = rows.filter(row => String(row.teamID) === String(team.id));
+      const values = teamRows.map(row => row.winner_side === "T" ? numberValue(row.t_alive_end) : numberValue(row.ct_alive_end));
+      const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+      const card = document.createElement("article"); card.className = "demo-survivor-team";
+      const title = document.createElement("h4");
+      const name = document.createElement("strong"); name.textContent = team.name;
+      const summary = document.createElement("span"); summary.textContent = average == null ? "No wins" : `${average.toFixed(2)} avg · ${values.length} win${values.length === 1 ? "" : "s"}`;
+      title.append(name, summary);
+      const distribution = document.createElement("div"); distribution.className = "demo-survivor-distribution";
+      distribution.replaceChildren(...[0, 1, 2, 3, 4, 5].map(bucket => {
+        const count = values.filter(value => bucket === 5 ? value >= 5 : value === bucket).length;
+        const item = document.createElement("div");
+        const strong = document.createElement("strong"); strong.textContent = String(count);
+        const label = document.createElement("span"); label.textContent = `${bucket === 5 ? "5+" : bucket} alive`;
+        const share = document.createElement("small"); share.textContent = values.length ? `${(100 * count / values.length).toFixed(0)}% of wins` : "No rounds";
+        item.append(strong, label, share); return item;
+      }));
+      card.append(title, distribution); return card;
     }));
   }
 

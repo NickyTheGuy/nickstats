@@ -65,6 +65,9 @@ test("graph metric registry calculates per-match rates from matching denominator
   assert.equal(metrics.get("adr").value(stats), 2150 / 21);
   assert.equal(metrics.get("round_win").value(stats), 100 * 13 / 21);
   assert.equal(metrics.get("opening_attempt_rate").value({ rounds: 20, opening_kills: 3, opening_deaths: 2 }), 25);
+  assert.equal(metrics.get("team_win_survivors").value({ team_win_survivor_total: 27, team_win_survivor_rounds: 12 }), 2.25);
+  assert.equal(metrics.get("opponent_win_survivors").value({ opponent_win_survivor_total: 18, opponent_win_survivor_rounds: 10 }), 1.8);
+  assert.equal(Number.isNaN(metrics.get("team_win_survivors").value({})), true);
   assert.ok(metrics.get("rating").value(stats) > 0);
   assert.equal(metrics.get("kd").value({ kills: 5, deaths: 0 }), 5);
 });

@@ -188,20 +188,45 @@ h1 {
 .demo-round-closeness-head strong { color: var(--text); }
 .demo-round-closeness-head small { text-align: right; }
 
+.demo-survivor-teams {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.demo-survivor-team {
+  overflow: hidden;
+  border: 1px solid rgba(155, 168, 186, .16);
+  border-radius: 10px;
+  background: rgba(8, 13, 22, .5);
+}
+
+.demo-survivor-team h4 {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 9px 11px;
+  border-bottom: 1px solid rgba(155, 168, 186, .16);
+  font-size: 13px;
+}
+
+.demo-survivor-team h4 span { color: var(--muted); font-size: 11px; font-weight: 700; }
+
 .demo-survivor-distribution {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 7px;
 }
 
 .demo-survivor-distribution > div {
   display: grid;
   gap: 2px;
-  padding: 9px;
-  border-radius: 9px;
-  background: rgba(8, 13, 22, .5);
+  padding: 9px 5px;
+  border-right: 1px solid rgba(155, 168, 186, .12);
   text-align: center;
 }
+
+.demo-survivor-distribution > div:last-child { border-right: 0; }
 
 .demo-survivor-distribution strong { font-size: 19px; }
 .demo-survivor-distribution span { color: var(--text); font-size: 12px; font-weight: 800; }
@@ -1476,7 +1501,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 @media (max-width: 700px) {
   .demo-round-closeness-head { align-items: flex-start; flex-direction: column; }
   .demo-round-closeness-head small { text-align: left; }
-  .demo-survivor-distribution { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .demo-survivor-teams { grid-template-columns: 1fr; }
   .demo-economy-teams { grid-template-columns: 1fr; }
   .data-tabs {
     display: flex;

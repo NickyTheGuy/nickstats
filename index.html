@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-2">
+  <link rel="stylesheet" href="./styles.css?v=20260914-9">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.14.8</span>
+          <span class="demo-build">Build 2026.09.14.9</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -96,10 +96,10 @@
           <div class="demo-summary" id="demoSummary"></div>
           <section class="demo-round-closeness" id="demoRoundCloseness" hidden>
             <div class="demo-round-closeness-head">
-              <div><strong id="demoRoundClosenessTitle">Round closeness</strong><span id="demoRoundClosenessSummary"></span></div>
-              <small>Players alive on the winning side when each round ended</small>
+              <div><strong id="demoRoundClosenessTitle">Winning-round survivors</strong><span id="demoRoundClosenessSummary"></span></div>
+              <small>Players alive when each team won a round</small>
             </div>
-            <div class="demo-survivor-distribution" id="demoSurvivorDistribution"></div>
+            <div class="demo-survivor-teams" id="demoSurvivorTeams"></div>
           </section>
           <section class="demo-round-economy" id="demoRoundEconomy" hidden>
             <div class="demo-round-closeness-head">
@@ -476,8 +476,8 @@
 
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/filters.js?v=20260912-2"></script>
-  <script defer src="./js/demo.js?v=20260914-5"></script>
-  <script defer src="./js/graphs.js?v=20260913-7"></script>
+  <script defer src="./js/demo.js?v=20260914-9"></script>
+  <script defer src="./js/graphs.js?v=20260914-9"></script>
   <script defer src="./js/profile.js?v=20260914-1"></script>
   <script defer src="./js/players.js?v=20260913-6"></script>
   <script defer src="./js/compare.js?v=20260914-2"></script>

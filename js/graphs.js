@@ -54,6 +54,8 @@
     ]],
     ["Rounds and context", [
       ["round_win", "Round win rate", percentage("round_wins", "rounds"), 1, "%"], ["clutches", "Clutches won", stats => [1, 2, 3, 4, 5].reduce((sum, n) => sum + number(stats[`clutch_1v${n}`]), 0), 0],
+      ["team_win_survivors", "Team survivors in won rounds", stats => number(stats.team_win_survivor_rounds) > 0 ? ratio(stats.team_win_survivor_total, stats.team_win_survivor_rounds) : Number.NaN, 2],
+      ["opponent_win_survivors", "Opponent survivors in lost rounds", stats => number(stats.opponent_win_survivor_rounds) > 0 ? ratio(stats.opponent_win_survivor_total, stats.opponent_win_survivor_rounds) : Number.NaN, 2],
       ["clutch_success", "Clutch success", stats => {
         const wins = [1, 2, 3, 4, 5].reduce((sum, n) => sum + number(stats[`clutch_1v${n}`]), 0);
         const attempts = [1, 2, 3, 4, 5].reduce((sum, n) => sum + number(stats[`clutch_attempt_1v${n}`]), 0);
