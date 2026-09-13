@@ -2404,14 +2404,20 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 .combo-quick-map-tabs .match-browser-tab { flex: 0 0 auto; }
 .combo-quick-table { min-width: 900px; }
-.combo-quick-table th:first-child,
-.combo-quick-table td:first-child {
+.combo-quick-table tbody tr > :first-child {
   position: sticky;
   left: 0;
   z-index: 1;
   background: var(--panel-2);
 }
-.combo-quick-table thead th:first-child { z-index: 2; background: #0d131d; }
+.combo-quick-table thead tr:first-child > th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #0d131d;
+}
+.combo-quick-table :is(th, td).demo-group-start { border-left: 2px solid rgba(238, 243, 251, .24); }
+.combo-quick-table :is(th, td).demo-group-end { border-right: 2px solid rgba(238, 243, 251, .24); }
 .combo-quick-empty {
   margin: 14px 2px 0;
   color: var(--muted);

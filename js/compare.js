@@ -16,6 +16,7 @@
     searchController: null, compareController: null, searchTimer: null,
     side: "ALL", buy: "ALL", roundResult: "ALL", result: "ALL", metricGroup: "core", weapon: "",
     comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile", quickMap: "ALL",
+    quickExpandedGroups: { opening: false, clutches: false }, quickSort: null,
     workspace: location.hash === "#matrix" ? "matrix" : "compare"
   };
 
@@ -594,6 +595,115 @@
     });
   }
 
+  function quickComparisonTable(current, comparison) {
+    const clutchValue = (stats, prefix, size) => num(stats[`${prefix}_1v${size}`]);
+    const clutchTotal = (stats, prefix) => [1, 2, 3, 4, 5].reduce((total, size) => total + clutchValue(stats, prefix, size), 0);
+    const fixedColumns = [
+      { key: "player", label: "Player", value: item => item.player.label, format: item => item.player.label },
+      { key: "matches", label: "Matches", value: item => item.stats.n, format: item => integer(item.stats.n) },
+      { key: "kda", label: "K / D / A", value: item => item.stats.kills, format: item => `${integer(item.stats.kills)} / ${integer(item.stats.deaths)} / ${integer(item.stats.assists)}` },
+      { key: "kd", label: "K/D", value: item => item.stats.kd, format: item => decimal(item.stats.kd, 2) },
+      { key: "adr", label: "ADR", value: item => item.stats.adr, format: item => decimal(item.stats.adr, 1) },
+      { key: "rating", label: "Rating", value: item => item.stats.rating, format: item => decimal(item.stats.rating, 2), className: item => `demo-rating ${item.stats.rating >= 1.10 ? "rating-good" : item.stats.rating <= 0.90 ? "rating-bad" : "rating-average"}` },
+      { key: "kast", label: "KAST", value: item => item.stats.kast, format: item => percent(item.stats.kast) }
+    ];
+    const openingColumns = state.quickExpandedGroups.opening ? [
+      { key: "opening-k", label: "K", value: item => num(item.stats.opening_kills), format: item => integer(item.stats.opening_kills) },
+      { key: "opening-d", label: "D", value: item => num(item.stats.opening_deaths), format: item => integer(item.stats.opening_deaths) },
+      { key: "opening-attempt", label: "Attempt rate", value: item => item.stats.openingAttemptRate, format: item => percent(item.stats.openingAttemptRate) },
+      { key: "opening-diff", label: "Diff", value: item => item.stats.openingDiff, format: item => signed(item.stats.openingDiff, 0) },
+      { key: "opening-success", label: "Success", value: item => item.stats.openingSuccess, format: item => percent(item.stats.openingSuccess) }
+    ] : [{
+      key: "opening", label: "K-D · Att%", value: item => item.stats.openingDiff,
+      format: item => `${integer(item.stats.opening_kills)}-${integer(item.stats.opening_deaths)} · ${percent(item.stats.openingAttemptRate)}`
+    }];
+    const clutchColumns = state.quickExpandedGroups.clutches
+      ? [5, 4, 3, 2, 1].map(size => ({
+          key: `clutch-${size}`, label: `1v${size}`, value: item => clutchValue(item.stats, "clutch", size),
+          format: item => `${integer(clutchValue(item.stats, "clutch", size))}/${integer(clutchValue(item.stats, "clutch_attempt", size))}`
+        }))
+      : [{
+          key: "clutches", label: "Total W/A", value: item => clutchTotal(item.stats, "clutch"),
+          format: item => `${integer(clutchTotal(item.stats, "clutch"))}/${integer(clutchTotal(item.stats, "clutch_attempt"))}`
+        }];
+    const segments = [
+      { columns: fixedColumns },
+      { group: "opening", label: "Opening", columns: openingColumns },
+      { group: "clutches", label: "Clutches", columns: clutchColumns }
+    ];
+    const columns = segments.flatMap(segment => segment.columns.map((column, index) => ({
+      ...column, group: segment.group, groupStart: Boolean(segment.group) && index === 0,
+      groupEnd: Boolean(segment.group) && index === segment.columns.length - 1
+    })));
+    const sort = state.quickSort;
+    const ordered = comparison.map((item, index) => ({ item, index }));
+    if (sort) {
+      const column = columns.find(candidate => candidate.key === sort.key);
+      if (column) ordered.sort((left, right) => {
+        const a = column.value(left.item), b = column.value(right.item);
+        const result = typeof a === "number" && typeof b === "number"
+          ? a - b : String(a ?? "").localeCompare(String(b ?? ""), undefined, { numeric: true, sensitivity: "base" });
+        return (sort.direction === "asc" ? result : -result) || left.index - right.index;
+      });
+    }
+
+    const sortHeader = (cell, column) => {
+      const active = sort?.key === column.key;
+      const button = el("button", column.label, `player-table-sort-button${active ? " active" : ""}`);
+      button.type = "button";
+      if (active) button.dataset.direction = sort.direction;
+      button.addEventListener("click", () => {
+        state.quickSort = { key: column.key, direction: active ? (sort.direction === "asc" ? "desc" : "asc") : column.key === "player" ? "asc" : "desc" };
+        renderQuickComparison(current);
+      });
+      cell.setAttribute("aria-sort", active ? (sort.direction === "asc" ? "ascending" : "descending") : "none");
+      cell.appendChild(button);
+    };
+    const head = document.createElement("thead"), top = document.createElement("tr"), detail = document.createElement("tr");
+    for (const segment of segments) {
+      if (!segment.group) {
+        for (const column of segment.columns) {
+          const cell = document.createElement("th"); cell.rowSpan = 2; cell.scope = "col"; sortHeader(cell, column); top.appendChild(cell);
+        }
+        continue;
+      }
+      const heading = document.createElement("th");
+      heading.colSpan = segment.columns.length;
+      heading.className = `demo-toggle-heading ${segment.group}-heading demo-group-start demo-group-end`;
+      const toggle = el("button", `${segment.label} ${state.quickExpandedGroups[segment.group] ? "▾" : "▸"}`, "demo-column-toggle");
+      toggle.type = "button"; toggle.setAttribute("aria-expanded", String(state.quickExpandedGroups[segment.group]));
+      toggle.addEventListener("click", () => { state.quickExpandedGroups[segment.group] = !state.quickExpandedGroups[segment.group]; state.quickSort = null; renderQuickComparison(current); });
+      heading.appendChild(toggle); top.appendChild(heading);
+      segment.columns.forEach((column, index) => {
+        const cell = document.createElement("th"); cell.scope = "col"; cell.className = `demo-group-detail ${segment.group}-cell`;
+        if (index === 0) cell.classList.add("demo-group-start");
+        if (index === segment.columns.length - 1) cell.classList.add("demo-group-end");
+        sortHeader(cell, column); detail.appendChild(cell);
+      });
+    }
+    head.append(top, detail);
+    const body = document.createElement("tbody");
+    for (const { item } of ordered) {
+      const row = document.createElement("tr");
+      columns.forEach((column, index) => {
+        const cell = document.createElement(index === 0 ? "th" : "td");
+        if (index === 0) cell.scope = "row";
+        cell.textContent = column.format(item);
+        const className = typeof column.className === "function" ? column.className(item) : column.className;
+        if (className) cell.className = className;
+        if (column.group) cell.classList.add("demo-group-cell", `${column.group}-cell`);
+        if (column.groupStart) cell.classList.add("demo-group-start");
+        if (column.groupEnd) cell.classList.add("demo-group-end");
+        row.appendChild(cell);
+      });
+      body.appendChild(row);
+    }
+    const table = $("comboQuickTable");
+    table.className = `player-profile-table combo-quick-table${state.quickExpandedGroups.opening ? " opening-expanded" : ""}${state.quickExpandedGroups.clutches ? " clutches-expanded" : ""}`;
+    table.style.minWidth = `${700 + openingColumns.length * 76 + clutchColumns.length * 62}px`;
+    table.replaceChildren(head, body);
+  }
+
   function renderQuickComparison(current) {
     const maps = quickComparisonMaps(current);
     if (state.quickMap !== "ALL" && !maps.includes(state.quickMap)) state.quickMap = "ALL";
@@ -614,28 +724,7 @@
     const mapLabel = state.quickMap === "ALL" ? "All maps" : titleCase(state.quickMap.replace(/^de_/, ""));
     $("comboQuickMeta").textContent = `${mapLabel} · ${integer(sampleMatches)} qualifying match${sampleMatches === 1 ? "" : "es"} · ${conditionLabel}`;
 
-    const clutchTotal = (stats, prefix) => [1, 2, 3, 4, 5].reduce((total, size) => total + num(stats[`${prefix}_1v${size}`]), 0);
-    const rows = comparison.map(({ player, stats }) => {
-      const clutchWins = clutchTotal(stats, "clutch");
-      const clutchAttempts = clutchTotal(stats, "clutch_attempt");
-      return [
-        player.label,
-        integer(stats.n),
-        `${integer(stats.kills)} / ${integer(stats.deaths)} / ${integer(stats.assists)}`,
-        decimal(stats.kd, 2),
-        decimal(stats.adr, 1),
-        decimal(stats.rating, 2),
-        percent(stats.kast),
-        `${integer(stats.opening_kills)}–${integer(stats.opening_deaths)}`,
-        percent(stats.openingAttemptRate),
-        `${integer(clutchWins)} / ${integer(clutchAttempts)}`
-      ];
-    });
-    const sortRows = comparison.map(({ player, stats }) => [
-      player.label, stats.n, stats.kills, stats.kd, stats.adr, stats.rating, stats.kast,
-      num(stats.opening_kills) - num(stats.opening_deaths), stats.openingAttemptRate, clutchTotal(stats, "clutch")
-    ]);
-    window.NickStatsProfile.renderTable("comboQuickTable", ["Player", "Matches", "K / D / A", "K/D", "ADR", "Rating", "KAST", "Opening K–D", "Opening attempt rate", "Clutches W/A"], rows, sortRows);
+    quickComparisonTable(current, comparison);
     $("comboQuickEmpty").hidden = sampleMatches > 0;
   }
 
@@ -692,6 +781,8 @@
     state.roundResult = "ALL";
     state.comboDisplay = "profile";
     state.quickMap = "ALL";
+    state.quickExpandedGroups = { opening: false, clutches: false };
+    state.quickSort = null;
     comboResultFilter.set("ALL", { notify: false });
     invalidateAnalysis();
     $("compareSearchInput").value = "";
