@@ -74,7 +74,7 @@ const WEAPON_MAX_SPEED = Object.freeze({
   ump45: [230, 230], usp_silencer: [240, 240], xm1014: [215, 215]
 });
 const ADDITIVE_STAT_FIELDS = [
-  "kills", "deaths", "assists", "headshots", "kastRounds", "killRounds",
+  "kills", "deaths", "assists", "headshots", "damage", "kastRounds", "killRounds",
   "assistRounds", "survivalRounds", "tradeRounds", "tradeKills", "tradedDeaths",
   "tradeOpportunities", "tradeAttempts", "tradeSuccesses", "tradeableDeaths",
   "attemptedTradeableDeaths", "tradedTradeableDeaths", "damageAssistedKills",
@@ -2372,7 +2372,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.14.3",
+    nickstats_build: "2026.09.14.4",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
