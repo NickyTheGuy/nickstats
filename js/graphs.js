@@ -137,6 +137,16 @@
     return { min, max };
   }
 
+  function niceDistributionBounds(series, metric, bins) {
+    const bounds = distributionBounds(series);
+    if (!bounds) return null;
+    const displayUnit = 10 ** -metric.digits;
+    const exactWidth = (bounds.max - bounds.min) / bins;
+    const binWidth = Math.max(displayUnit, Math.ceil(exactWidth / displayUnit - 1e-9) * displayUnit);
+    const min = Math.floor(bounds.min / binWidth + 1e-9) * binWidth;
+    return { min, max: min + binWidth * bins, binWidth };
+  }
+
   function setLine(svg, x1, y1, x2, y2, className = "graph-axis") {
     svg.appendChild(svgElement("line", { x1, y1, x2, y2, class: className }));
   }
@@ -152,12 +162,11 @@
   }
 
   function drawDistribution(svg, prepared, domainSeries, metric, bins, displayStyle) {
-    const bounds = distributionBounds(domainSeries.length ? domainSeries : prepared);
+    const bounds = niceDistributionBounds(domainSeries.length ? domainSeries : prepared, metric, bins);
     if (!bounds) return;
-    const { min, max } = bounds;
-    const left = 68, top = 24, width = 796, height = 318, binWidth = (max - min) / bins;
-    const boundaryDigits = Math.max(metric.digits, Math.min(4, Math.max(0, Math.ceil(-Math.log10(Math.abs(binWidth))))));
-    const formatBoundary = value => `${number(value).toFixed(boundaryDigits)}${metric.suffix}`;
+    const { min, max, binWidth } = bounds;
+    const left = 68, top = 24, width = 796, height = 318;
+    const formatBoundary = value => `${number(value).toFixed(metric.digits)}${metric.suffix}`;
     const histogram = series => {
       const counts = Array(bins).fill(0);
       series.values.forEach(point => counts[Math.min(bins - 1, Math.floor((point.value - min) / binWidth))] += 1);
@@ -173,14 +182,17 @@
     }
     setLine(svg, left + width, top, left + width, top + height, "graph-bucket-divider");
     drawAxes(svg, { left, top, width, height, min, max, metric, yMax });
-    for (let index = 0; index < bins; index += 1) {
-      const x = left + groupWidth * (index + .5), y = top + height + 20;
-      const label = `${formatBoundary(min + index * binWidth)}–${formatBoundary(min + (index + 1) * binWidth)}`;
+    for (let index = 0; index <= bins; index += 1) {
+      const x = left + groupWidth * index, y = top + height + 20;
+      const label = formatBoundary(min + index * binWidth);
       const attributes = { x, y, class: "graph-bucket-label", "text-anchor": "middle" };
       if (bins > 10) attributes.transform = `rotate(${bins > 17 ? -55 : -35} ${x} ${y})`;
       svg.appendChild(svgElement("text", attributes, label));
     }
-    const pointTitle = (series, value, index) => `${series.label}: ${value.toFixed(1)}% of matches in ${formatBoundary(min + index * binWidth)}–${formatBoundary(min + (index + 1) * binWidth)}`;
+    const pointTitle = (series, value, index) => {
+      const lower = formatBoundary(min + index * binWidth), upper = formatBoundary(min + (index + 1) * binWidth);
+      return `${series.label}: ${value.toFixed(1)}% of matches · ${lower} ≤ value ${index === bins - 1 ? "≤" : "<"} ${upper}`;
+    };
     if (displayStyle === "line") {
       histograms.forEach((series, seriesIndex) => {
         const colorIndex = series.colorIndex ?? seriesIndex;
@@ -323,5 +335,5 @@
     graphState.set(prefix, { series: series || [], domainSeries: domainSeries || series || [], independent, bucketCount: previous?.bucketCount || DEFAULT_BUCKETS }); draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, render });
 })();

@@ -8,7 +8,7 @@ const source = fs.readFileSync(path.join(__dirname, "../js/graphs.js"), "utf8");
 const context = vm.createContext({ window: {}, document: {} });
 vm.runInContext(source, context);
 
-const { metrics, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds } = context.window.NickStatsGraphs;
+const { metrics, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds } = context.window.NickStatsGraphs;
 
 const match = {
   id: 8,
@@ -66,4 +66,13 @@ test("distribution bounds come from the stable available-player pool", () => {
   const selectedOnly = distributionBounds([available[0]]);
   assert.equal(selectedOnly.min, .8);
   assert.equal(selectedOnly.max, 1.2);
+});
+
+test("distribution boundaries align with the statistic's displayed precision", () => {
+  const series = [{ values: [{ value: .9 }, { value: 1.97 }] }];
+  const bounds = niceDistributionBounds(series, { digits: 2 }, 10);
+
+  assert.equal(Number(bounds.binWidth.toFixed(2)), .11);
+  assert.equal(Number(bounds.min.toFixed(2)), .88);
+  assert.equal(Number(bounds.max.toFixed(2)), 1.98);
 });
