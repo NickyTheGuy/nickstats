@@ -80,3 +80,9 @@ test("round-result migration stores composable side and buy dimensions", () => {
     assert.match(migration, new RegExp(`\\b${column}\\b`));
   }
 });
+
+test("side damage is not counted again when round deltas are allocated", () => {
+  assert.match(source, /ensureSideRow\(row, attackerTeam\)\.damage \+= damage/);
+  assert.match(source, /applyRoundDelta\(target, row, after, before, awardedWin, true\)/);
+  assert.match(source, /skipEventAttributedDamage && field === "damage"/);
+});

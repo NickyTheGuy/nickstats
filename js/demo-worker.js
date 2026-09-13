@@ -730,8 +730,11 @@ async function parseDemo(fileName, buffer) {
     }
   }
 
-  function applyRoundDelta(target, row, after, before, awardedWin) {
-    for (const field of ADDITIVE_STAT_FIELDS) target[field] += after.scalar[field] - before.scalar[field];
+  function applyRoundDelta(target, row, after, before, awardedWin, skipEventAttributedDamage = false) {
+    for (const field of ADDITIVE_STAT_FIELDS) {
+      if (skipEventAttributedDamage && field === "damage") continue;
+      target[field] += after.scalar[field] - before.scalar[field];
+    }
     for (const [name, count] of after.tradedBy) {
       const difference = count - (before.tradedBy.get(name) || 0);
       if (difference) target.tradedBy.set(name, (target.tradedBy.get(name) || 0) + difference);
@@ -787,7 +790,9 @@ async function parseDemo(fileName, buffer) {
       const target = ensureSideRow(row, side);
       const after = playerStatsSnapshot(row);
       const awardedWin = participants.has(row) && side === winningSide;
-      applyRoundDelta(target, row, after, before, awardedWin);
+      // Damage is already attributed to the live side in handleDamage. Avoid
+      // adding the same round delta to the side aggregate a second time.
+      applyRoundDelta(target, row, after, before, awardedWin, true);
       const buyTarget = ensureBuySideRow(row, buys[side], side);
       if (buyTarget) applyRoundDelta(buyTarget, row, after, before, awardedWin);
       if (participated && (winningSide === 2 || winningSide === 3)) {
@@ -2367,7 +2372,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.13.7",
+    nickstats_build: "2026.09.14.2",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
