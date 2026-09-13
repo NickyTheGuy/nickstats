@@ -117,6 +117,14 @@
     }));
     fillStrip(`${prefix}MultikillStats`, [["1 kill", s.kill_rounds_1k], ["2 kills", s.kill_rounds_2k], ["3 kills", s.kill_rounds_3k], ["4 kills", s.kill_rounds_4k], ["5 kills", s.kill_rounds_5k]].map(([label, value]) => [label, integer(value), `${decimal(ratio(value, rounds), 2)}/R`]));
     fillStrip(`${prefix}ObjectiveStats`, [["Bomb plants", s.bomb_plants], ["Bomb defuses", s.bomb_defuses]].map(([label, value]) => [label, integer(value), countPerRound(value, rounds)]));
+    const economyTypes = [["Pistol", "pistol"], ["Eco", "eco"], ["Force buy", "force"], ["Full buy", "full"]];
+    fillStrip(`${prefix}EconomyStats`, economyTypes.map(([label, key]) => {
+      const buyRounds = number(s[`economy_${key}_rounds`]);
+      const wins = number(s[`economy_${key}_wins`]);
+      const equipment = number(s[`economy_${key}_equipment_value`]);
+      return [label, buyRounds ? `${integer(wins)} / ${integer(buyRounds)}` : "—",
+        buyRounds ? `${percent(100 * ratio(wins, buyRounds))} won · $${integer(ratio(equipment, buyRounds))} average team value` : "No reparsed rounds"];
+    }));
     const killTimeSamples = number(s.kill_time_samples), deathTimeSamples = number(s.death_time_samples);
     const postplantKills = number(s.postplant_kills), postplantDeaths = number(s.postplant_deaths);
     const timedRounds = number(s.timed_rounds);

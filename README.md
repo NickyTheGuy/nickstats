@@ -7,7 +7,7 @@ A local-first Counter-Strike 2 analysis application organized around four produc
 - **Matrix** — database-backed teammate matrices and pairwise comparisons.
 - **Groups** — Included/Excluded teammate conditions and With/Without player profiles.
 
-Demo files are processed in the browser and are never uploaded. All four views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/11` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
+Demo files are processed in the browser and are never uploaded. All four views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/12` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
 
 The visible date-based build number in the NickStats header is bumped with parser and interface deployments, making it easy to tell when a published host has received the newest version.
 
@@ -67,11 +67,13 @@ Trade calibration traces remain available while a demo is being parsed but are d
 
 ## Compact match JSON
 
-**Download compact JSON** writes the versioned `nickstats.match/11` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index.
+**Download compact JSON** writes the versioned `nickstats.match/12` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index.
 
 Round timing begins at `round_freeze_end`, not the freeze-time `round_start` event. Version 10 stores exact live-start/end ticks and one row for every player death, including elapsed milliseconds, kill/victim sides, weapon, pre- or post-plant state, alive counts, and existing kill-context flags. Early (0–25 seconds), Mid (25–75), Late (75+ before plant), and Post-plant are derived query labels; changing those labels does not require another demo parse.
 
 Version 11 also records T and CT survivors at each round end. The match scoreboard derives the winning-side survivor count and shows its full 0–5+ distribution, average, one-survivor wins, and clean wins. Both side counts remain stored so objective and timeout rounds—where losing players may still be alive—and zero-survivor bomb wins retain their actual shape.
+
+Version 12 records each side's total equipment value and live player count at `round_freeze_end`, plus stable team identity and the pistol-round flag. Pistol is round one and the first regulation side swap. Non-pistol buys are derived per live player: Eco at $1,000 or less, Full Buy at $4,000 or more, and Force Buy between them. Storing the raw value and roster size lets those display thresholds change without another demo parse.
 
 NickStats also exposes **Download round diagnostics** after every successful parse. This separate JSON traces each completed round's end event, raw or inferred winner side, game-rules and team-score evidence, bomb and alive-state inference, frozen player-side assignments, participant set, awarded round wins, stable team winner, and delayed end events. It is intentionally excluded from match uploads and normal compact downloads.
 
@@ -80,6 +82,7 @@ FACEIT Zstandard (`.zst`) demos are decompressed locally with the pinned `fzstd`
 Each player has a `sides` array in T, CT order. The full-match view is deliberately not stored: every ALL counter and relationship can be reconstructed by merging those two side records, using the maximum rather than the sum for speed maxima. Fixed arrays use these layouts:
 
 - `round_survivors`: round number, T alive at end, CT alive at end
+- `round_economy`: round number, T value, CT value, T players, CT players, pistol flag, T team index, CT team index
 - `rounds`: played, won
 - `kda`: kills, deaths, assists, headshots, damage
 - `opening`: kills, deaths

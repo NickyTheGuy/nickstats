@@ -1,6 +1,6 @@
 # NickStats API
 
-The API imports compact `nickstats.match/11` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 and 10 remain readable for existing stored matches; the browser still parses demos locally and uploads only the compact result.
+The API imports compact `nickstats.match/12` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 through 11 remain readable for existing stored matches; the browser still parses demos locally and uploads only the compact result.
 
 The compact format intentionally uses fixed-position arrays to keep uploads small. Inside the Swift service, those arrays decode into named domain types such as `TradeStats`, `KillContextStats`, `RoundTimingPayload`, and `DeathEventPayload`; database and validation code never rely on unexplained numeric indexes. Encoding those types reconstructs the same versioned wire format.
 

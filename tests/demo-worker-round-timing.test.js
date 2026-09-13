@@ -40,6 +40,13 @@ test("completed rounds preserve both sides' final survivor counts", () => {
   assert.match(source, /ct_alive_end: aliveAtEnd\.CT/);
 });
 
+test("freeze end captures authoritative team equipment values", () => {
+  assert.match(source, /m_unFreezetimeEndEquipmentValue/);
+  assert.match(source, /round\.economySnapshot = \{ values, players \}/);
+  assert.match(source, /roundEconomies\.push\(/);
+  assert.match(source, /pistol_round: pistolRound/);
+});
+
 test("round timing migration stores factual event dimensions", () => {
   const migration = fs.readFileSync(path.join(__dirname, "..", "database", "migrations", "003_round_timing.sql"), "utf8");
   for (const column of ["elapsed_ms", "since_plant_ms", "t_alive_before", "ct_alive_before", "context_flags"]) {
@@ -55,6 +62,14 @@ test("round survivor migration extends round facts without rewriting timing migr
 });
 
 test("schema 11 uploads survivor rows separately from stable timing rows", () => {
-  assert.match(frontendSource, /schema: "nickstats\.match\/11"/);
+  assert.match(frontendSource, /schema: "nickstats\.match\/12"/);
   assert.match(frontendSource, /round_survivors: \(result\.round_timing \|\| \[\]\)\.map/);
+  assert.match(frontendSource, /round_economy: \(result\.round_economy \|\| \[\]\)\.map/);
+});
+
+test("round economy migration stores values, roster sizes, pistol flag, and team identity", () => {
+  const migration = fs.readFileSync(path.join(__dirname, "..", "database", "migrations", "005_round_economy.sql"), "utf8");
+  for (const column of ["t_equipment_value", "ct_equipment_value", "t_player_count", "ct_player_count", "pistol_round", "t_match_team_id", "ct_match_team_id"]) {
+    assert.match(migration, new RegExp(`\\b${column}\\b`));
+  }
 });

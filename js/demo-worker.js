@@ -179,6 +179,7 @@ async function parseDemo(fileName, buffer) {
   const tradeAudit = [];
   const roundSideAudit = [];
   const roundTimings = [];
+  const roundEconomies = [];
   const deathEvents = [];
   const ignoredRoundEndEvents = [];
   const packetCounts = {
@@ -193,6 +194,8 @@ async function parseDemo(fileName, buffer) {
   let mapName = "";
   let tickInterval = 1 / 64;
   let completedRounds = 0;
+  let firstHalfTTeam = null;
+  let regulationHalftimeSeen = false;
   let round = freshRound();
   let resetSeen = false;
   let inventorySamples = 0;
@@ -375,6 +378,35 @@ async function parseDemo(fileName, buffer) {
     }
   }
 
+  function captureRoundEconomy() {
+    let demo;
+    try {
+      demo = parser.getDemo();
+    } catch {
+      return;
+    }
+    const byName = new Map();
+    for (const row of new Set(stats.values())) byName.set(normalizeName(row.name), row);
+    const values = { T: 0, CT: 0 };
+    const players = { T: 0, CT: 0 };
+    for (const pawn of demo.getEntitiesByClassNameIterator("CCSPlayerPawn")) {
+      const controllerHandle = safePawnField(pawn, "m_hController");
+      const controller = Number.isInteger(controllerHandle) ? demo.getEntityByHandle(controllerHandle) : null;
+      if (!controller) continue;
+      const row = byName.get(normalizeName(controller.getField("m_iszPlayerName")));
+      if (!row || !round.participants.has(row.userId)) continue;
+      const side = round.sideAssignments.get(row) || rowSide(row);
+      const key = side === 2 ? "T" : side === 3 ? "CT" : null;
+      if (!key) continue;
+      const equipmentValue = numberOrNull(safePawnField(pawn, "m_unFreezetimeEndEquipmentValue")) ??
+        numberOrNull(safePawnField(pawn, "m_unCurrentEquipmentValue"));
+      if (equipmentValue === null) continue;
+      values[key] += Math.max(0, Math.round(equipmentValue));
+      players[key] += 1;
+    }
+    if (players.T && players.CT) round.economySnapshot = { values, players };
+  }
+
   function resetMatchCounters() {
     completedRounds = 0;
     round = freshRound();
@@ -383,6 +415,7 @@ async function parseDemo(fileName, buffer) {
     tradeAudit.length = 0;
     roundSideAudit.length = 0;
     roundTimings.length = 0;
+    roundEconomies.length = 0;
     deathEvents.length = 0;
     ignoredRoundEndEvents.length = 0;
     blindUntilTick.clear();
@@ -391,6 +424,8 @@ async function parseDemo(fileName, buffer) {
     derivedSpeeds.clear();
     ctPistolChoice.clear();
     ctRifleChoice.clear();
+    firstHalfTTeam = null;
+    regulationHalftimeSeen = false;
     latestInventory.clear();
     inventorySamples = 0;
     resolvedInventoryItems = 0;
@@ -745,6 +780,27 @@ async function parseDemo(fileName, buffer) {
     }
 
     const stableWinner = dominantOriginalTeam(winningSide);
+    const terroristTeam = dominantOriginalTeam(2);
+    const counterTerroristTeam = dominantOriginalTeam(3);
+    let pistolRound = completedRounds === 0;
+    if (firstHalfTTeam === null && terroristTeam !== null) firstHalfTTeam = terroristTeam;
+    if (!regulationHalftimeSeen && completedRounds > 0 && terroristTeam !== null &&
+        firstHalfTTeam !== null && terroristTeam !== firstHalfTTeam) {
+      pistolRound = true;
+      regulationHalftimeSeen = true;
+    }
+    if (round.economySnapshot && terroristTeam !== null && counterTerroristTeam !== null) {
+      roundEconomies.push({
+        round: completedRounds + 1,
+        t_equipment_value: round.economySnapshot.values.T,
+        ct_equipment_value: round.economySnapshot.values.CT,
+        t_players: round.economySnapshot.players.T,
+        ct_players: round.economySnapshot.players.CT,
+        pistol_round: pistolRound,
+        t_team_id: String(terroristTeam),
+        ct_team_id: String(counterTerroristTeam)
+      });
+    }
     if (stableWinner !== null) {
       teamScores.set(stableWinner, (teamScores.get(stableWinner) || 0) + 1);
     }
@@ -1900,6 +1956,7 @@ async function parseDemo(fileName, buffer) {
           for (const userId of row.userIds) round.healthByUser.set(userId, 100);
         }
         refreshRoundSideAssignments();
+        captureRoundEconomy();
         detectClutchCandidates();
         break;
       case "round_officially_ended":
@@ -2072,6 +2129,24 @@ async function parseDemo(fileName, buffer) {
     });
   const orderedOutputPlayers = teams.flatMap(team => team.players || []);
   const outputPlayerIndexes = new Map(orderedOutputPlayers.map((player, index) => [player, index]));
+  const outputTeamByPlayer = new Map();
+  for (const team of teams) for (const player of team.players || []) outputTeamByPlayer.set(player, team.id);
+  const outputTeamByOriginalTeam = new Map();
+  for (const stableTeam of [2, 3]) {
+    const counts = new Map();
+    for (const row of activePlayers) {
+      if (originalTeam.get(row.userId) !== stableTeam) continue;
+      const teamID = outputTeamByPlayer.get(outputPlayerByRow.get(row));
+      if (teamID != null) counts.set(teamID, (counts.get(teamID) || 0) + 1);
+    }
+    const winner = [...counts].sort((left, right) => right[1] - left[1])[0]?.[0];
+    if (winner != null) outputTeamByOriginalTeam.set(stableTeam, String(winner));
+  }
+  const outputRoundEconomies = roundEconomies.map(economy => ({
+    ...economy,
+    t_team_id: outputTeamByOriginalTeam.get(Number(economy.t_team_id)) ?? economy.t_team_id,
+    ct_team_id: outputTeamByOriginalTeam.get(Number(economy.ct_team_id)) ?? economy.ct_team_id
+  }));
   const outputDeathEvents = deathEvents.map(event => ({
     round: event.round,
     sequence: event.sequence,
@@ -2101,6 +2176,7 @@ async function parseDemo(fileName, buffer) {
     map: mapName,
     rounds: completedRounds,
     round_timing: roundTimings,
+    round_economy: outputRoundEconomies,
     death_events: outputDeathEvents,
     side_definition: {
       T: 2,
@@ -2165,7 +2241,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.13.4",
+    nickstats_build: "2026.09.13.5",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2241,6 +2317,7 @@ function freshRound() {
     live: false,
     liveStartTick: null,
     bombPlantTick: null,
+    economySnapshot: null,
     deathSequence: 0,
     hasActivity: false,
     finished: false

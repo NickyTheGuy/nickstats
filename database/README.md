@@ -1,6 +1,6 @@
 # NickStats database
 
-The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/11` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
+The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/12` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
 
 ## Why it is normalized
 
@@ -18,7 +18,7 @@ Derived values are not stored. ALL-side totals are calculated from T + CT; ADR i
 | `players` | Stable human identity keyed by Steam ID |
 | `match_teams` | The two teams, final scores, and side-win totals |
 | `match_players` | Match roster, match-time name, team, slot, and bot status |
-| `match_rounds` | Live-start/end ticks, duration, winner side, bomb timing, and T/CT survivors for each parsed round |
+| `match_rounds` | Live-start/end ticks, winner, bomb timing, survivors, and freeze-end T/CT economy for each parsed round |
 | `death_events` | One factual row per player death, supporting both kill and death timing analysis |
 | `player_side_stats` | Base T/CT counters used to derive scoreboard values |
 | `weapon_side_stats` | Weapon counters by player and side |
@@ -43,6 +43,7 @@ Each compact player has a match-level array index. Importers first create all `m
 | `rules` | Canonical JSON in `parser_configs` |
 | `teams[]` | `match_teams` and its player-index membership |
 | `players[]` | `players` plus `match_players` |
+| `round_economy` | Equipment values, roster sizes, pistol flag, and side-to-team identity on `match_rounds` |
 | `sides[0]`, `sides[1]` | T and CT rows respectively |
 | `rounds`, `kda`, `kast_rounds`, `opening`, `trade_kills`, `trade_d`, `utility`, `damage_received`, `utility_thrown`, `objectives`, `speed`, `clutches`, `clutch_attempts`, `kill_rounds` | Columns in `player_side_stats` |
 | `weapons` | `weapon_side_stats` |
@@ -88,6 +89,8 @@ sudo mysql < database/migrations/002_clutch_attempts.sql
 
 Migration 002 initializes attempt counts to the existing win counts because a win proves an attempt, but historical failed attempts cannot be reconstructed from the database. It also adds raw damage-received, utility-thrown, objective, and weapon-hit counters. Reparse existing matches to populate real values for all of these counters.
 
-Migration 003 adds factual round timing and death-event tables. Apply it before deploying the timing-enabled backend, then reparse matches to populate timing data; older schema-9 matches remain readable. Timing-rate denominators include only schema-10/11 matches with timing rows for every completed round, so old or incomplete data cannot quietly dilute the new rates.
+Migration 003 adds factual round timing and death-event tables. Apply it before deploying the timing-enabled backend, then reparse matches to populate timing data; older schema-9 matches remain readable. Timing-rate denominators include only schema-10/11/12 matches with timing rows for every completed round, so old or incomplete data cannot quietly dilute the new rates.
 
 Migration 004 adds nullable T/CT round-end survivor counts. New schema-11 uploads populate them; existing rows remain null until their demos are reparsed.
+
+Migration 005 adds nullable freeze-time equipment values, live roster sizes, the pistol-round marker, and stable T/CT team references. New schema-12 uploads populate them; existing rows remain readable and show no economy breakdown until reparsed.

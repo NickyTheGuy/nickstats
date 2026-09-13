@@ -172,6 +172,57 @@ struct RoundSurvivorPayload: Codable, Sendable {
     }
 }
 
+struct RoundEconomyPayload: Codable, Sendable {
+    var round: Int
+    var terroristEquipmentValue: Int
+    var counterTerroristEquipmentValue: Int
+    var terroristPlayers: Int
+    var counterTerroristPlayers: Int
+    var pistolRound: Bool
+    var terroristTeamIndex: Int
+    var counterTerroristTeamIndex: Int
+
+    init(
+        round: Int, terroristEquipmentValue: Int, counterTerroristEquipmentValue: Int,
+        terroristPlayers: Int, counterTerroristPlayers: Int, pistolRound: Bool,
+        terroristTeamIndex: Int, counterTerroristTeamIndex: Int
+    ) {
+        self.round = round
+        self.terroristEquipmentValue = terroristEquipmentValue
+        self.counterTerroristEquipmentValue = counterTerroristEquipmentValue
+        self.terroristPlayers = terroristPlayers
+        self.counterTerroristPlayers = counterTerroristPlayers
+        self.pistolRound = pistolRound
+        self.terroristTeamIndex = terroristTeamIndex
+        self.counterTerroristTeamIndex = counterTerroristTeamIndex
+    }
+
+    init(from decoder: any Decoder) throws {
+        var values = try decoder.unkeyedContainer()
+        round = try values.decode(Int.self)
+        terroristEquipmentValue = try values.decode(Int.self)
+        counterTerroristEquipmentValue = try values.decode(Int.self)
+        terroristPlayers = try values.decode(Int.self)
+        counterTerroristPlayers = try values.decode(Int.self)
+        pistolRound = try values.decode(Bool.self)
+        terroristTeamIndex = try values.decode(Int.self)
+        counterTerroristTeamIndex = try values.decode(Int.self)
+        try rejectExtraValues(in: values, description: "Round economy row")
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.unkeyedContainer()
+        try values.encode(round)
+        try values.encode(terroristEquipmentValue)
+        try values.encode(counterTerroristEquipmentValue)
+        try values.encode(terroristPlayers)
+        try values.encode(counterTerroristPlayers)
+        try values.encode(pistolRound)
+        try values.encode(terroristTeamIndex)
+        try values.encode(counterTerroristTeamIndex)
+    }
+}
+
 struct DeathEventPayload: Codable, Sendable {
     var round: Int
     var sequence: Int

@@ -157,6 +157,26 @@ h1 {
 
 .demo-round-closeness[hidden] { display: none; }
 
+.demo-round-economy {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(82, 154, 255, .24);
+  border-radius: 12px;
+  background: rgba(82, 154, 255, .045);
+}
+.demo-round-economy[hidden] { display: none; }
+.demo-economy-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.demo-economy-team { overflow: hidden; border: 1px solid rgba(155, 168, 186, .16); border-radius: 10px; background: rgba(8, 13, 22, .5); }
+.demo-economy-team h4 { margin: 0; padding: 9px 11px; border-bottom: 1px solid rgba(155, 168, 186, .16); font-size: 13px; }
+.demo-economy-team-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.demo-economy-team-grid > div { display: grid; gap: 2px; padding: 9px 6px; border-right: 1px solid rgba(155, 168, 186, .12); text-align: center; }
+.demo-economy-team-grid > div:last-child { border-right: 0; }
+.demo-economy-team-grid strong { font-size: 15px; }
+.demo-economy-team-grid span { color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; }
+.demo-economy-team-grid small { color: var(--muted); font-size: 9px; }
+
 .demo-round-closeness-head {
   display: flex;
   justify-content: space-between;
@@ -1457,6 +1477,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   .demo-round-closeness-head { align-items: flex-start; flex-direction: column; }
   .demo-round-closeness-head small { text-align: left; }
   .demo-survivor-distribution { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .demo-economy-teams { grid-template-columns: 1fr; }
   .data-tabs {
     display: flex;
   }
@@ -2629,6 +2650,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   background: rgba(8, 11, 18, .3);
 }
 .player-timing-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 12px; }
+.player-economy-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 .player-count-item {
   display: grid;
@@ -2970,6 +2992,8 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
     font-size: 9px;
     letter-spacing: 0;
   }
+
+  .player-economy-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   .player-profile-header {
     flex-direction: column;

@@ -88,8 +88,11 @@ extension MatchPayload {
         if timingCompactSchemas.contains(schema), roundTiming == nil || deathEvents == nil {
             try invalid("$", "\(schema) requires round_timing and death_events.")
         }
-        if schema == compactSchema, roundSurvivors == nil {
-            try invalid("$.round_survivors", "\(compactSchema) requires round-end survivor counts.")
+        if ["nickstats.match/11", compactSchema].contains(schema), roundSurvivors == nil {
+            try invalid("$.round_survivors", "\(schema) requires round-end survivor counts.")
+        }
+        if schema == compactSchema, roundEconomy == nil {
+            try invalid("$.round_economy", "\(compactSchema) requires round economy facts.")
         }
         var timingByRound: [Int: RoundTimingPayload] = [:]
         for (index, timing) in (roundTiming ?? []).enumerated() {
@@ -111,8 +114,29 @@ extension MatchPayload {
             try validateCount(survivor.terroristAlive, path: "\(path)[1]", maximum: 16)
             try validateCount(survivor.counterTerroristAlive, path: "\(path)[2]", maximum: 16)
         }
-        if schema == compactSchema, survivorRounds != Set(timingByRound.keys) {
+        if ["nickstats.match/11", compactSchema].contains(schema), survivorRounds != Set(timingByRound.keys) {
             try invalid("$.round_survivors", "Expected exactly one survivor row for every timing row.")
+        }
+        var economyRounds = Set<Int>()
+        for (index, economy) in (roundEconomy ?? []).enumerated() {
+            let path = "$.round_economy[\(index)]"
+            guard timingByRound[economy.round] != nil else { try invalid("\(path)[0]", "Economy row has no matching round timing row.") }
+            guard economyRounds.insert(economy.round).inserted else { try invalid(path, "Duplicate round economy row.") }
+            try validateCount(economy.terroristEquipmentValue, path: "\(path)[1]", maximum: 16_777_215)
+            try validateCount(economy.counterTerroristEquipmentValue, path: "\(path)[2]", maximum: 16_777_215)
+            try validateCount(economy.terroristPlayers, path: "\(path)[3]", maximum: 16)
+            try validateCount(economy.counterTerroristPlayers, path: "\(path)[4]", maximum: 16)
+            guard economy.terroristPlayers > 0, economy.counterTerroristPlayers > 0 else {
+                try invalid(path, "Economy rows require at least one player on each side.")
+            }
+            guard (0..<teams.count).contains(economy.terroristTeamIndex),
+                  (0..<teams.count).contains(economy.counterTerroristTeamIndex),
+                  economy.terroristTeamIndex != economy.counterTerroristTeamIndex else {
+                try invalid(path, "T and CT must reference two distinct valid teams.")
+            }
+        }
+        if schema == compactSchema, economyRounds != Set(timingByRound.keys) {
+            try invalid("$.round_economy", "Expected exactly one economy row for every timing row.")
         }
         var eventKeys = Set<String>()
         for (index, event) in (deathEvents ?? []).enumerated() {

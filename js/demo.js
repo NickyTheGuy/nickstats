@@ -330,7 +330,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260913-4");
+      const worker = new Worker("./js/demo-worker.js?v=20260913-5");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -762,7 +762,7 @@
 
       return {
         ...player, ...timing,
-        timing_available: ["nickstats.match/10", "nickstats.match/11"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
+        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -888,6 +888,14 @@
         round: numberValue(row?.[0]),
         winner_side: (payload.round_timing || []).find(timing => numberValue(timing?.[0]) === numberValue(row?.[0]))?.[4] || null,
         t_alive_end: numberValue(row?.[1]), ct_alive_end: numberValue(row?.[2])
+      })),
+      round_economy: (payload.round_economy || []).map(row => ({
+        round: numberValue(row?.[0]), t_equipment_value: numberValue(row?.[1]),
+        ct_equipment_value: numberValue(row?.[2]), t_players: numberValue(row?.[3]),
+        ct_players: numberValue(row?.[4]), pistol_round: Boolean(row?.[5]),
+        t_team_id: payload.teams[numberValue(row?.[6])]?.id ?? null,
+        ct_team_id: payload.teams[numberValue(row?.[7])]?.id ?? null,
+        winner_side: (payload.round_timing || []).find(timing => numberValue(timing?.[0]) === numberValue(row?.[0]))?.[4] || null
       })),
       played_at: payload.played_at,
       played_at_source: payload.played_at_source,
@@ -1930,6 +1938,7 @@
       summaryCard(state.sideFilter === "ALL" ? "Score" : `${state.sideFilter} wins`, score)
     );
     renderRoundCloseness(result);
+    renderRoundEconomy(result);
     const finiteScores = teams.map(team => team.score).filter(Number.isFinite);
     const highScore = finiteScores.length ? Math.max(...finiteScores) : null;
     const lowScore = finiteScores.length ? Math.min(...finiteScores) : null;
@@ -1973,6 +1982,43 @@
       const share = document.createElement("small"); share.textContent = `${(100 * count / rows.length).toFixed(0)}% of wins`;
       item.append(strong, label, share);
       return item;
+    }));
+  }
+
+  function economyBuyType(value, players, pistolRound) {
+    if (pistolRound) return "pistol";
+    const perPlayer = numberValue(value) / Math.max(1, numberValue(players));
+    return perPlayer <= 1000 ? "eco" : perPlayer >= 4000 ? "full" : "force";
+  }
+
+  function renderRoundEconomy(result) {
+    const section = $("demoRoundEconomy"), rows = result.round_economy || [];
+    section.hidden = rows.length === 0;
+    if (!rows.length) { $("demoEconomyTeams").replaceChildren(); return; }
+    $("demoRoundEconomySummary").textContent = state.sideFilter === "ALL" ? "All sides" : `${state.sideFilter} side`;
+    const labels = { pistol: "Pistol", eco: "Eco", force: "Force buy", full: "Full buy" };
+    $("demoEconomyTeams").replaceChildren(...(result.teams || []).map(team => {
+      const totals = Object.fromEntries(Object.keys(labels).map(key => [key, { rounds: 0, wins: 0, value: 0 }]));
+      for (const row of rows) {
+        const side = String(row.t_team_id) === String(team.id) ? "T" : String(row.ct_team_id) === String(team.id) ? "CT" : null;
+        if (!side || (state.sideFilter !== "ALL" && side !== state.sideFilter)) continue;
+        const value = side === "T" ? row.t_equipment_value : row.ct_equipment_value;
+        const players = side === "T" ? row.t_players : row.ct_players;
+        const type = economyBuyType(value, players, row.pistol_round);
+        totals[type].rounds += 1; totals[type].value += numberValue(value);
+        if (row.winner_side === side) totals[type].wins += 1;
+      }
+      const card = document.createElement("article"); card.className = "demo-economy-team";
+      const title = document.createElement("h4"); title.textContent = team.name;
+      const grid = document.createElement("div"); grid.className = "demo-economy-team-grid";
+      grid.replaceChildren(...Object.entries(labels).map(([key, label]) => {
+        const stat = totals[key], item = document.createElement("div");
+        const strong = document.createElement("strong"); strong.textContent = stat.rounds ? `${stat.wins}/${stat.rounds}` : "—";
+        const name = document.createElement("span"); name.textContent = label;
+        const note = document.createElement("small"); note.textContent = stat.rounds ? `${(100 * stat.wins / stat.rounds).toFixed(0)}% · $${Math.round(stat.value / stat.rounds).toLocaleString()}` : "No rounds";
+        item.append(strong, name, note); return item;
+      }));
+      card.append(title, grid); return card;
     }));
   }
 
@@ -2028,6 +2074,7 @@
 
   function compactMatchResult(result) {
     const sourceTeams = Array.isArray(result.teams) ? result.teams : [];
+    const teamIndexById = new Map(sourceTeams.map((team, index) => [String(team.id), index]));
     const sourcePlayers = sourceTeams.flatMap(team => team.players || []);
     const playerIndex = new Map(sourcePlayers.map((player, index) => [player, index]));
     const steamIndexes = new Map();
@@ -2126,8 +2173,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/11",
-      nickstats_build: "2026.09.13.4",
+      schema: "nickstats.match/12",
+      nickstats_build: "2026.09.13.5",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -2143,6 +2190,11 @@
       ]),
       round_survivors: (result.round_timing || []).map(round => [
         number(round.round), number(round.t_alive_end), number(round.ct_alive_end)
+      ]),
+      round_economy: (result.round_economy || []).map(round => [
+        number(round.round), number(round.t_equipment_value), number(round.ct_equipment_value),
+        number(round.t_players), number(round.ct_players), Boolean(round.pistol_round),
+        teamIndexById.get(String(round.t_team_id)), teamIndexById.get(String(round.ct_team_id))
       ]),
       death_events: (result.death_events || []).map(event => [
         number(event.round), number(event.sequence), number(event.tick), number(event.elapsed_ms),

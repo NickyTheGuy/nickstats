@@ -126,11 +126,26 @@ CREATE TABLE IF NOT EXISTS match_rounds (
   bomb_plant_elapsed_ms INT UNSIGNED NULL,
   t_alive_end TINYINT UNSIGNED NULL,
   ct_alive_end TINYINT UNSIGNED NULL,
+  t_equipment_value MEDIUMINT UNSIGNED NULL,
+  ct_equipment_value MEDIUMINT UNSIGNED NULL,
+  t_player_count TINYINT UNSIGNED NULL,
+  ct_player_count TINYINT UNSIGNED NULL,
+  pistol_round BOOLEAN NULL,
+  t_match_team_id BIGINT UNSIGNED NULL,
+  ct_match_team_id BIGINT UNSIGNED NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_match_rounds_number (match_id, round_number),
   UNIQUE KEY uq_match_rounds_id_match (id, match_id),
+  KEY idx_match_rounds_t_team (t_match_team_id, match_id),
+  KEY idx_match_rounds_ct_team (ct_match_team_id, match_id),
   CONSTRAINT fk_match_rounds_match
     FOREIGN KEY (match_id) REFERENCES matches (id)
+    ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT fk_match_rounds_t_team
+    FOREIGN KEY (t_match_team_id, match_id) REFERENCES match_teams (id, match_id)
+    ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT fk_match_rounds_ct_team
+    FOREIGN KEY (ct_match_team_id, match_id) REFERENCES match_teams (id, match_id)
     ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT chk_match_rounds_ticks CHECK (end_tick >= live_start_tick),
   CONSTRAINT chk_match_rounds_plant CHECK (bomb_plant_elapsed_ms IS NULL OR bomb_plant_elapsed_ms <= duration_ms),
@@ -138,6 +153,15 @@ CREATE TABLE IF NOT EXISTS match_rounds (
     (t_alive_end IS NULL AND ct_alive_end IS NULL) OR
     (t_alive_end IS NOT NULL AND ct_alive_end IS NOT NULL AND
      t_alive_end <= 16 AND ct_alive_end <= 16)
+  ),
+  CONSTRAINT chk_match_rounds_economy CHECK (
+    (t_equipment_value IS NULL AND ct_equipment_value IS NULL AND
+     t_player_count IS NULL AND ct_player_count IS NULL AND pistol_round IS NULL AND
+     t_match_team_id IS NULL AND ct_match_team_id IS NULL) OR
+    (t_equipment_value IS NOT NULL AND ct_equipment_value IS NOT NULL AND
+     t_player_count BETWEEN 1 AND 16 AND ct_player_count BETWEEN 1 AND 16 AND
+     pistol_round IS NOT NULL AND t_match_team_id IS NOT NULL AND
+     ct_match_team_id IS NOT NULL AND t_match_team_id <> ct_match_team_id)
   )
 ) ENGINE = InnoDB;
 
@@ -391,5 +415,6 @@ INSERT INTO schema_migrations (version, description) VALUES
   (1, 'Initial normalized NickStats match schema'),
   (2, 'Add clutch attempts and extended raw counters'),
   (3, 'Round timing and death event facts'),
-  (4, 'Round-end survivor counts')
+  (4, 'Round-end survivor counts'),
+  (5, 'Round freeze-time economy facts')
 ON DUPLICATE KEY UPDATE description = VALUES(description);

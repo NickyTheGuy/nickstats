@@ -182,17 +182,26 @@ func importMatch(
 
     var roundIDs: [Int: Int64] = [:]
     let survivorsByRound = Dictionary(uniqueKeysWithValues: (payload.roundSurvivors ?? []).map { ($0.round, $0) })
+    let economyByRound = Dictionary(uniqueKeysWithValues: (payload.roundEconomy ?? []).map { ($0.round, $0) })
     for timing in payload.roundTiming ?? [] {
         let survivors = survivorsByRound[timing.round]
+        let economy = economyByRound[timing.round]
         try await sql.raw("""
             INSERT INTO match_rounds (
               match_id, round_number, live_start_tick, end_tick, duration_ms,
-              winner_side, bomb_plant_elapsed_ms, t_alive_end, ct_alive_end
+              winner_side, bomb_plant_elapsed_ms, t_alive_end, ct_alive_end,
+              t_equipment_value, ct_equipment_value, t_player_count, ct_player_count,
+              pistol_round, t_match_team_id, ct_match_team_id
             ) VALUES (
               \(bind: matchID), \(bind: timing.round), \(bind: timing.liveStartTick),
               \(bind: timing.endTick), \(bind: timing.durationMilliseconds),
               \(bind: timing.winnerSide?.rawValue), \(bind: timing.bombPlantElapsedMilliseconds),
-              \(bind: survivors?.terroristAlive), \(bind: survivors?.counterTerroristAlive)
+              \(bind: survivors?.terroristAlive), \(bind: survivors?.counterTerroristAlive),
+              \(bind: economy?.terroristEquipmentValue), \(bind: economy?.counterTerroristEquipmentValue),
+              \(bind: economy?.terroristPlayers), \(bind: economy?.counterTerroristPlayers),
+              \(bind: economy?.pistolRound),
+              \(bind: economy.map { teamIDs[$0.terroristTeamIndex] }),
+              \(bind: economy.map { teamIDs[$0.counterTerroristTeamIndex] })
             )
             """).run()
         roundIDs[timing.round] = try await lastInsertID(sql)

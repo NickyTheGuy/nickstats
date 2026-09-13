@@ -13,6 +13,10 @@
   const timedAverage = (total, samples) => stats => number(stats[samples]) > 0 ? ratio(stats[total], stats[samples]) / 1000 : Number.NaN;
   const count = key => stats => number(stats[key]);
   const percentage = (a, b) => stats => 100 * ratio(stats[a], stats[b]);
+  const economyPercentage = key => stats => number(stats[`economy_${key}_rounds`]) > 0
+    ? 100 * ratio(stats[`economy_${key}_wins`], stats[`economy_${key}_rounds`]) : Number.NaN;
+  const economyAverageValue = key => stats => number(stats[`economy_${key}_rounds`]) > 0
+    ? ratio(stats[`economy_${key}_equipment_value`], stats[`economy_${key}_rounds`]) : Number.NaN;
 
   function rating(stats) {
     const rounds = number(stats.rounds);
@@ -57,6 +61,15 @@
       ["bullshit_kr", "Bullshit kills per round", rate("unfair_kills"), 3], ["bullshit_dr", "Bullshit deaths per round", rate("unfair_deaths"), 3],
       ["wallbang_kr", "Wallbang kills per round", rate("wallbang_kills"), 3], ["smoke_kr", "Smoke kills per round", rate("smoke_kills"), 3],
       ["paul_kr", "Paul kills per round", rate("equipment_disadvantage_kills"), 3], ["paul_dr", "Paul deaths per round", rate("equipment_disadvantage_deaths"), 3]
+    ]],
+    ["Economy", [
+      ["pistol_win", "Pistol-round win rate", economyPercentage("pistol"), 1, "%"],
+      ["eco_win", "Eco win rate", economyPercentage("eco"), 1, "%"],
+      ["force_win", "Force-buy win rate", economyPercentage("force"), 1, "%"],
+      ["full_win", "Full-buy win rate", economyPercentage("full"), 1, "%"],
+      ["eco_value", "Average eco team value", economyAverageValue("eco"), 0],
+      ["force_value", "Average force-buy team value", economyAverageValue("force"), 0],
+      ["full_value", "Average full-buy team value", economyAverageValue("full"), 0]
     ]],
     ["Round timing", [
       ["kill_time", "Average kill time", timedAverage("kill_time_total_ms", "kill_time_samples"), 1, "s"],

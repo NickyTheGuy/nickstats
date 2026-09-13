@@ -266,6 +266,34 @@ private func comparisonSideData(
         }
     }
 
+    let economyRows = try await sql.raw("""
+        SELECT r.match_id,
+               CASE WHEN r.t_match_team_id = mp.match_team_id THEN 'T' ELSE 'CT' END AS side,
+               r.winner_side,
+               r.pistol_round,
+               CASE WHEN r.t_match_team_id = mp.match_team_id
+                    THEN r.t_equipment_value ELSE r.ct_equipment_value END AS equipment_value,
+               CASE WHEN r.t_match_team_id = mp.match_team_id
+                    THEN r.t_player_count ELSE r.ct_player_count END AS player_count
+        FROM match_players mp
+        JOIN match_rounds r ON r.match_id = mp.match_id
+          AND mp.match_team_id IN (r.t_match_team_id, r.ct_match_team_id)
+        WHERE mp.player_id = \(bind: playerID) AND r.pistol_round IS NOT NULL
+        """).all()
+    for row in economyRows {
+        let id = try int64(row, "match_id"), side = try playerSide(row, "side")
+        let equipmentValue = try integer(row, "equipment_value")
+        let playerCount = max(1, try integer(row, "player_count"))
+        let isPistol = try row.decode(column: "pistol_round", as: Bool.self)
+        let buy = isPistol ? "pistol" : equipmentValue <= playerCount * 1_000 ? "eco" :
+            equipmentValue >= playerCount * 4_000 ? "full" : "force"
+        add(id, side, "economy_\(buy)_rounds", 1)
+        add(id, side, "economy_\(buy)_equipment_value", Double(equipmentValue))
+        if try optionalString(row, "winner_side") == side.rawValue {
+            add(id, side, "economy_\(buy)_wins", 1)
+        }
+    }
+
     let trades = try await sql.raw("""
         SELECT t.match_id, t.trader_side AS side,
                CAST(SUM(t.opportunities) AS SIGNED) AS opportunities,
@@ -373,7 +401,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID) AND e.enemy_kill = TRUE
@@ -400,7 +428,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID)
@@ -809,6 +837,9 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
         SELECT id, team_slot, source_team_id, display_name, score, t_round_wins, ct_round_wins
         FROM match_teams WHERE match_id = \(bind: matchID) ORDER BY team_slot
         """).all()
+    let teamSlotByID = Dictionary(uniqueKeysWithValues: try teamRows.map {
+        (try int64($0, "id"), try integer($0, "team_slot"))
+    })
     let playerRows = try await sql.raw("""
         SELECT mp.id, mp.match_team_id, mp.player_slot, mp.display_name, mp.is_bot,
                CAST(p.steam_id AS CHAR) AS steam_id
@@ -864,6 +895,26 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
         return RoundSurvivorPayload(
             round: try integer(row, "round_number"), terroristAlive: terroristAlive,
             counterTerroristAlive: counterTerroristAlive
+        )
+    }
+    let roundEconomy = try roundRows.compactMap { row -> RoundEconomyPayload? in
+        guard let terroristValue = try optionalInteger(row, "t_equipment_value"),
+              let counterTerroristValue = try optionalInteger(row, "ct_equipment_value"),
+              let terroristPlayers = try optionalInteger(row, "t_player_count"),
+              let counterTerroristPlayers = try optionalInteger(row, "ct_player_count"),
+              let terroristTeamID = try? int64(row, "t_match_team_id"),
+              let counterTerroristTeamID = try? int64(row, "ct_match_team_id"),
+              let terroristTeamIndex = teamSlotByID[terroristTeamID],
+              let counterTerroristTeamIndex = teamSlotByID[counterTerroristTeamID] else { return nil }
+        return RoundEconomyPayload(
+            round: try integer(row, "round_number"),
+            terroristEquipmentValue: terroristValue,
+            counterTerroristEquipmentValue: counterTerroristValue,
+            terroristPlayers: terroristPlayers,
+            counterTerroristPlayers: counterTerroristPlayers,
+            pistolRound: try row.decode(column: "pistol_round", as: Bool.self),
+            terroristTeamIndex: terroristTeamIndex,
+            counterTerroristTeamIndex: counterTerroristTeamIndex
         )
     }
     let deathRows = try await sql.raw("""
@@ -926,7 +977,8 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
         playedAt: unix(try optionalDate(match, "played_at")),
         playedAtSource: try optionalString(match, "played_at_source"),
         rounds: try integer(match, "rounds"), roundTiming: roundTiming,
-        roundSurvivors: roundSurvivors.isEmpty ? nil : roundSurvivors, deathEvents: deathEvents,
+        roundSurvivors: roundSurvivors.isEmpty ? nil : roundSurvivors,
+        roundEconomy: roundEconomy.isEmpty ? nil : roundEconomy, deathEvents: deathEvents,
         rules: rules, teams: teams, players: players
     )
 }

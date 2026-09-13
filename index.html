@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260913-4">
+  <link rel="stylesheet" href="./styles.css?v=20260913-5">
 </head>
 <body>
   <main class="shell">
@@ -100,6 +100,13 @@
             </div>
             <div class="demo-survivor-distribution" id="demoSurvivorDistribution"></div>
           </section>
+          <section class="demo-round-economy" id="demoRoundEconomy" hidden>
+            <div class="demo-round-closeness-head">
+              <div><strong>Round economy</strong><span id="demoRoundEconomySummary"></span></div>
+              <small>Freeze-time team value · wins / rounds and win rate</small>
+            </div>
+            <div class="demo-economy-teams" id="demoEconomyTeams"></div>
+          </section>
           <div class="warning" id="demoWarning">Rating uses a published HLTV-style approximation and may differ from other statistics services.</div>
           <div class="demo-side-filter" role="group" aria-label="Filter match statistics by player side">
             <span>Player side</span>
@@ -187,7 +194,7 @@
             <select id="compareMetricGroup">
               <option value="core">Core</option><option value="openings">Openings</option>
               <option value="trades">Trades</option><option value="utility">Utility</option>
-              <option value="context">Kill context</option><option value="contextDeaths">Death context</option><option value="rounds">Rounds</option><option value="timing">Round timing</option>
+              <option value="context">Kill context</option><option value="contextDeaths">Death context</option><option value="rounds">Rounds</option><option value="economy">Economy</option><option value="timing">Round timing</option>
               <option value="movement">Movement</option><option value="weapons">Weapons</option>
             </select>
             <select id="compareWeapon" aria-label="Weapon" hidden></select>
@@ -353,7 +360,8 @@
               <section class="player-stat-section player-count-section"><header><span>01</span><div><h3>Clutch performance</h3><p>Wins / attempts at the initial 1vX disadvantage</p></div></header><div class="player-count-strip" id="playerClutchStats"></div></section>
               <section class="player-stat-section player-count-section"><header><span>02</span><div><h3>Multikill rounds</h3><p>Rounds grouped by total kills</p></div></header><div class="player-count-strip" id="playerMultikillStats"></div></section>
               <section class="player-stat-section player-count-section"><header><span>03</span><div><h3>Objectives</h3><p>Bomb plants and defuses</p></div></header><div class="player-count-strip" id="playerObjectiveStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>04</span><div><h3>Round timing</h3><p>Time from freeze end and derived tactical phases</p></div></header><div class="player-detail-grid" id="playerTimingAverageStats"></div><div class="player-count-strip player-timing-strip" id="playerPhaseStats"></div></section>
+              <section class="player-stat-section player-count-section"><header><span>04</span><div><h3>Round economy</h3><p>Team buy type at freeze-time end, with round success</p></div></header><div class="player-count-strip player-economy-strip" id="playerEconomyStats"></div></section>
+              <section class="player-stat-section player-count-section"><header><span>05</span><div><h3>Round timing</h3><p>Time from freeze end and derived tactical phases</p></div></header><div class="player-detail-grid" id="playerTimingAverageStats"></div><div class="player-count-strip player-timing-strip" id="playerPhaseStats"></div></section>
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="movement" hidden>
@@ -418,10 +426,10 @@
 
   <script defer src="./js/navigation.js?v=20260911-2"></script>
   <script defer src="./js/filters.js?v=20260912-2"></script>
-  <script defer src="./js/demo.js?v=20260913-4"></script>
-  <script defer src="./js/graphs.js?v=20260913-3"></script>
-  <script defer src="./js/profile.js?v=20260913-3"></script>
+  <script defer src="./js/demo.js?v=20260913-5"></script>
+  <script defer src="./js/graphs.js?v=20260913-4"></script>
+  <script defer src="./js/profile.js?v=20260913-4"></script>
   <script defer src="./js/players.js?v=20260912-4"></script>
-  <script defer src="./js/compare.js?v=20260913-3"></script>
+  <script defer src="./js/compare.js?v=20260913-4"></script>
 </body>
 </html>
