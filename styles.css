@@ -2404,6 +2404,15 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 .combo-quick-map-tabs .match-browser-tab { flex: 0 0 auto; }
 .combo-quick-table { min-width: 900px; }
+.player-profile-table.combo-quick-table :is(th, td) { text-align: center; }
+.player-profile-table.combo-quick-table th.demo-toggle-heading,
+.player-profile-table.combo-quick-table th.demo-group-detail { padding: 0; }
+.player-profile-table.combo-quick-table .player-table-sort-button {
+  min-height: 38px;
+  padding: 8px 7px;
+  text-align: center;
+  font-weight: 850;
+}
 .combo-quick-table tbody tr > :first-child {
   position: sticky;
   left: 0;

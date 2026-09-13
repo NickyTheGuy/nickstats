@@ -25,4 +25,7 @@ test("quick comparison openings and clutches are expandable scoreboard groups", 
   assert.match(styles, /\.combo-quick-table :is\(th, td\)\.demo-group-start/);
   assert.match(styles, /\.opening-cell \{ background:/);
   assert.match(styles, /\.clutches-cell \{ background:/);
+  assert.match(styles, /\.player-profile-table\.combo-quick-table :is\(th, td\) \{ text-align: center; \}/);
+  assert.match(styles, /th\.demo-toggle-heading,[\s\S]*?th\.demo-group-detail \{ padding: 0; \}/);
+  assert.match(styles, /\.player-profile-table\.combo-quick-table \.player-table-sort-button \{[\s\S]*?min-height: 38px;[\s\S]*?text-align: center;/);
 });
