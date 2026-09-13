@@ -43,6 +43,7 @@ private func validPayload() -> MatchPayload {
             round: 1, liveStartTick: 100, endTick: 200, durationMilliseconds: 1_562,
             winnerSide: .terrorist, bombPlantElapsedMilliseconds: nil
         )],
+        roundSurvivors: [RoundSurvivorPayload(round: 1, terroristAlive: 2, counterTerroristAlive: 0)],
         deathEvents: [],
         rules: ParserRules(
             trade: TradeRules(
@@ -93,6 +94,7 @@ private func validPayload() -> MatchPayload {
     var legacyPayload = validPayload()
     legacyPayload.schema = "nickstats.match/9"
     legacyPayload.roundTiming = nil
+    legacyPayload.roundSurvivors = nil
     legacyPayload.deathEvents = nil
     let data = try JSONEncoder().encode(legacyPayload)
     let decoded = try JSONDecoder().decode(MatchPayload.self, from: data)
@@ -100,9 +102,17 @@ private func validPayload() -> MatchPayload {
     try decoded.validate()
 }
 
+@Test func acceptsSchemaTenTimingWithoutRoundSurvivors() throws {
+    var payload = validPayload()
+    payload.schema = "nickstats.match/10"
+    payload.roundSurvivors = nil
+    try payload.validate()
+}
+
 @Test func rejectsDeathWithoutMatchingRoundTiming() {
     var payload = validPayload()
     payload.roundTiming = []
+    payload.roundSurvivors = []
     payload.deathEvents = [DeathEventPayload(
         round: 1, sequence: 0, tick: 150, elapsedMilliseconds: 781,
         killerPlayerIndex: 0, victimPlayerIndex: 2, killerSide: .terrorist,
@@ -110,6 +120,12 @@ private func validPayload() -> MatchPayload {
         flags: 1, terroristAliveBefore: 2, counterTerroristAliveBefore: 2,
         sincePlantMilliseconds: nil
     )]
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+}
+
+@Test func rejectsMissingRoundSurvivorRow() {
+    var payload = validPayload()
+    payload.roundSurvivors = []
     #expect(throws: MatchValidationError.self) { try payload.validate() }
 }
 
@@ -188,6 +204,7 @@ private func validPayload() -> MatchPayload {
     #expect(sides[0]["trades"] as? [[Int]] == [[1, 4, 3, 2]])
     #expect(sides[0]["clutch_attempts"] as? [Int] == [2, 1, 0, 0, 0])
     #expect(object["round_timing"] as? [[Any]] != nil)
+    #expect(object["round_survivors"] as? [[Int]] == [[1, 2, 0]])
     #expect(object["death_events"] as? [[Any]] != nil)
 
     let decoded = try JSONDecoder().decode(MatchPayload.self, from: data)
@@ -195,6 +212,7 @@ private func validPayload() -> MatchPayload {
     #expect(decoded.players[0].sides.terrorist.trades[0].successes == 2)
     #expect(decoded.players[0].sides.terrorist.clutchAttempts?.oneVersusTwo == 1)
     #expect(decoded.deathEvents?.first?.elapsedMilliseconds == 781)
+    #expect(decoded.roundSurvivors?.first?.terroristAlive == 2)
 }
 
 private func validFaceitDatePayload() -> FaceitDateSyncPayload {

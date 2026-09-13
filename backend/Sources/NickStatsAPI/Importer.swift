@@ -181,15 +181,18 @@ func importMatch(
     }
 
     var roundIDs: [Int: Int64] = [:]
+    let survivorsByRound = Dictionary(uniqueKeysWithValues: (payload.roundSurvivors ?? []).map { ($0.round, $0) })
     for timing in payload.roundTiming ?? [] {
+        let survivors = survivorsByRound[timing.round]
         try await sql.raw("""
             INSERT INTO match_rounds (
               match_id, round_number, live_start_tick, end_tick, duration_ms,
-              winner_side, bomb_plant_elapsed_ms
+              winner_side, bomb_plant_elapsed_ms, t_alive_end, ct_alive_end
             ) VALUES (
               \(bind: matchID), \(bind: timing.round), \(bind: timing.liveStartTick),
               \(bind: timing.endTick), \(bind: timing.durationMilliseconds),
-              \(bind: timing.winnerSide?.rawValue), \(bind: timing.bombPlantElapsedMilliseconds)
+              \(bind: timing.winnerSide?.rawValue), \(bind: timing.bombPlantElapsedMilliseconds),
+              \(bind: survivors?.terroristAlive), \(bind: survivors?.counterTerroristAlive)
             )
             """).run()
         roundIDs[timing.round] = try await lastInsertID(sql)

@@ -70,7 +70,7 @@ private func validateSpeedSummary(_ summary: SpeedSummary, startingAt index: Int
 
 extension MatchPayload {
     func validate() throws {
-        guard acceptedCompactSchemas.contains(schema) else { try invalid("$.schema", "Supported schemas are nickstats.match/9 and \(compactSchema).") }
+        guard acceptedCompactSchemas.contains(schema) else { try invalid("$.schema", "Supported schemas are nickstats.match/9 through \(compactSchema).") }
         try validateText(nickstatsBuild, path: "$.nickstats_build", maximum: 32)
         try validateText(parser.name, path: "$.parser[0]", maximum: 64)
         try validateText(parser.version, path: "$.parser[1]", maximum: 32)
@@ -85,8 +85,11 @@ extension MatchPayload {
         if let playedAtSource { try validateText(playedAtSource, path: "$.played_at_source", maximum: 32) }
         guard rounds > 0, rounds <= 255 else { try invalid("$.rounds", "Expected 1 through 255 rounds.") }
 
-        if schema == compactSchema, roundTiming == nil || deathEvents == nil {
-            try invalid("$", "\(compactSchema) requires round_timing and death_events.")
+        if timingCompactSchemas.contains(schema), roundTiming == nil || deathEvents == nil {
+            try invalid("$", "\(schema) requires round_timing and death_events.")
+        }
+        if schema == compactSchema, roundSurvivors == nil {
+            try invalid("$.round_survivors", "\(compactSchema) requires round-end survivor counts.")
         }
         var timingByRound: [Int: RoundTimingPayload] = [:]
         for (index, timing) in (roundTiming ?? []).enumerated() {
@@ -99,6 +102,17 @@ extension MatchPayload {
                 try validateCount(plant, path: "\(path)[5]", maximum: timing.durationMilliseconds)
             }
             timingByRound[timing.round] = timing
+        }
+        var survivorRounds = Set<Int>()
+        for (index, survivor) in (roundSurvivors ?? []).enumerated() {
+            let path = "$.round_survivors[\(index)]"
+            guard timingByRound[survivor.round] != nil else { try invalid("\(path)[0]", "Survivor row has no matching round timing row.") }
+            guard survivorRounds.insert(survivor.round).inserted else { try invalid(path, "Duplicate round survivor row.") }
+            try validateCount(survivor.terroristAlive, path: "\(path)[1]", maximum: 16)
+            try validateCount(survivor.counterTerroristAlive, path: "\(path)[2]", maximum: 16)
+        }
+        if schema == compactSchema, survivorRounds != Set(timingByRound.keys) {
+            try invalid("$.round_survivors", "Expected exactly one survivor row for every timing row.")
         }
         var eventKeys = Set<String>()
         for (index, event) in (deathEvents ?? []).enumerated() {

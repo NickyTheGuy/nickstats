@@ -145,6 +145,33 @@ struct RoundTimingPayload: Codable, Sendable {
     }
 }
 
+struct RoundSurvivorPayload: Codable, Sendable {
+    var round: Int
+    var terroristAlive: Int
+    var counterTerroristAlive: Int
+
+    init(round: Int, terroristAlive: Int, counterTerroristAlive: Int) {
+        self.round = round
+        self.terroristAlive = terroristAlive
+        self.counterTerroristAlive = counterTerroristAlive
+    }
+
+    init(from decoder: any Decoder) throws {
+        var values = try decoder.unkeyedContainer()
+        round = try values.decode(Int.self)
+        terroristAlive = try values.decode(Int.self)
+        counterTerroristAlive = try values.decode(Int.self)
+        try rejectExtraValues(in: values, description: "Round survivor row")
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.unkeyedContainer()
+        try values.encode(round)
+        try values.encode(terroristAlive)
+        try values.encode(counterTerroristAlive)
+    }
+}
+
 struct DeathEventPayload: Codable, Sendable {
     var round: Int
     var sequence: Int

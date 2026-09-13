@@ -144,6 +144,48 @@ h1 {
 .button[hidden] { display: none; }
 
 .demo-results[hidden] { display: none; }
+
+.demo-round-closeness {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(98, 212, 157, .24);
+  border-radius: 12px;
+  background: rgba(98, 212, 157, .045);
+}
+
+.demo-round-closeness[hidden] { display: none; }
+
+.demo-round-closeness-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted);
+}
+
+.demo-round-closeness-head div { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.demo-round-closeness-head strong { color: var(--text); }
+.demo-round-closeness-head small { text-align: right; }
+
+.demo-survivor-distribution {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.demo-survivor-distribution > div {
+  display: grid;
+  gap: 2px;
+  padding: 9px;
+  border-radius: 9px;
+  background: rgba(8, 13, 22, .5);
+  text-align: center;
+}
+
+.demo-survivor-distribution strong { font-size: 19px; }
+.demo-survivor-distribution span { color: var(--text); font-size: 12px; font-weight: 800; }
+.demo-survivor-distribution small { color: var(--muted); font-size: 10px; }
 .choose { display: inline-block; margin-top: 18px; }
 
 .file-input {
@@ -1412,6 +1454,9 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 }
 
 @media (max-width: 700px) {
+  .demo-round-closeness-head { align-items: flex-start; flex-direction: column; }
+  .demo-round-closeness-head small { text-align: left; }
+  .demo-survivor-distribution { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .data-tabs {
     display: flex;
   }

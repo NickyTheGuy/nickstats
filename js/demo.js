@@ -330,7 +330,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260913-3");
+      const worker = new Worker("./js/demo-worker.js?v=20260913-4");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -762,7 +762,7 @@
 
       return {
         ...player, ...timing,
-        timing_available: payload.schema === "nickstats.match/10" && (payload.round_timing || []).length === numberValue(payload.rounds),
+        timing_available: ["nickstats.match/10", "nickstats.match/11"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -884,6 +884,11 @@
       source_file: `Stored match #${matchID}`,
       map: payload.map,
       rounds: numberValue(payload.rounds),
+      round_survivors: (payload.round_survivors || []).map(row => ({
+        round: numberValue(row?.[0]),
+        winner_side: (payload.round_timing || []).find(timing => numberValue(timing?.[0]) === numberValue(row?.[0]))?.[4] || null,
+        t_alive_end: numberValue(row?.[1]), ct_alive_end: numberValue(row?.[2])
+      })),
       played_at: payload.played_at,
       played_at_source: payload.played_at_source,
       player_count: sourcePlayers.length,
@@ -1924,6 +1929,7 @@
       summaryCard(state.sideFilter === "ALL" ? "Rounds" : `${state.sideFilter} rounds`, String(state.sideFilter === "ALL" ? result.rounds || 0 : sideRounds)),
       summaryCard(state.sideFilter === "ALL" ? "Score" : `${state.sideFilter} wins`, score)
     );
+    renderRoundCloseness(result);
     const finiteScores = teams.map(team => team.score).filter(Number.isFinite);
     const highScore = finiteScores.length ? Math.max(...finiteScores) : null;
     const lowScore = finiteScores.length ? Math.min(...finiteScores) : null;
@@ -1938,6 +1944,36 @@
     $("demoTrades").replaceChildren(renderTradeMatrix(teams));
     $("demoDuels").replaceChildren(renderDuelMatrix(teams));
     $("demoResults").hidden = false;
+  }
+
+  function renderRoundCloseness(result) {
+    const section = $("demoRoundCloseness");
+    const rows = (result.round_survivors || []).filter(row =>
+      ["T", "CT"].includes(row.winner_side) && (state.sideFilter === "ALL" || row.winner_side === state.sideFilter)
+    );
+    section.hidden = rows.length === 0;
+    if (!rows.length) {
+      $("demoSurvivorDistribution").replaceChildren();
+      return;
+    }
+    const values = rows.map(row => row.winner_side === "T" ? numberValue(row.t_alive_end) : numberValue(row.ct_alive_end));
+    const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+    const oneAlive = values.filter(value => value === 1).length;
+    const clean = values.filter(value => value >= 4).length;
+    $("demoRoundClosenessTitle").textContent = state.sideFilter === "ALL" ? "Round closeness" : `${state.sideFilter} round closeness`;
+    $("demoRoundClosenessSummary").textContent = `${average.toFixed(2)} average survivors · ${oneAlive} one-survivor wins · ${clean} clean wins`;
+    const buckets = [0, 1, 2, 3, 4, 5].map(bucket => ({
+      bucket,
+      count: values.filter(value => bucket === 5 ? value >= 5 : value === bucket).length
+    }));
+    $("demoSurvivorDistribution").replaceChildren(...buckets.map(({ bucket, count }) => {
+      const item = document.createElement("div");
+      const strong = document.createElement("strong"); strong.textContent = String(count);
+      const label = document.createElement("span"); label.textContent = `${bucket === 5 ? "5+" : bucket} alive`;
+      const share = document.createElement("small"); share.textContent = `${(100 * count / rows.length).toFixed(0)}% of wins`;
+      item.append(strong, label, share);
+      return item;
+    }));
   }
 
   async function parseDemo() {
@@ -2090,8 +2126,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/10",
-      nickstats_build: "2026.09.13.3",
+      schema: "nickstats.match/11",
+      nickstats_build: "2026.09.13.4",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -2104,6 +2140,9 @@
       round_timing: (result.round_timing || []).map(round => [
         number(round.round), number(round.live_start_tick), number(round.end_tick), number(round.duration_ms),
         round.winner_side || null, round.bomb_plant_elapsed_ms == null ? null : number(round.bomb_plant_elapsed_ms)
+      ]),
+      round_survivors: (result.round_timing || []).map(round => [
+        number(round.round), number(round.t_alive_end), number(round.ct_alive_end)
       ]),
       death_events: (result.death_events || []).map(event => [
         number(event.round), number(event.sequence), number(event.tick), number(event.elapsed_ms),

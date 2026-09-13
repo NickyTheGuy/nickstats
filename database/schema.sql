@@ -124,6 +124,8 @@ CREATE TABLE IF NOT EXISTS match_rounds (
   duration_ms INT UNSIGNED NOT NULL,
   winner_side ENUM('T', 'CT') NULL,
   bomb_plant_elapsed_ms INT UNSIGNED NULL,
+  t_alive_end TINYINT UNSIGNED NULL,
+  ct_alive_end TINYINT UNSIGNED NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_match_rounds_number (match_id, round_number),
   UNIQUE KEY uq_match_rounds_id_match (id, match_id),
@@ -131,7 +133,12 @@ CREATE TABLE IF NOT EXISTS match_rounds (
     FOREIGN KEY (match_id) REFERENCES matches (id)
     ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT chk_match_rounds_ticks CHECK (end_tick >= live_start_tick),
-  CONSTRAINT chk_match_rounds_plant CHECK (bomb_plant_elapsed_ms IS NULL OR bomb_plant_elapsed_ms <= duration_ms)
+  CONSTRAINT chk_match_rounds_plant CHECK (bomb_plant_elapsed_ms IS NULL OR bomb_plant_elapsed_ms <= duration_ms),
+  CONSTRAINT chk_match_rounds_survivors CHECK (
+    (t_alive_end IS NULL AND ct_alive_end IS NULL) OR
+    (t_alive_end IS NOT NULL AND ct_alive_end IS NOT NULL AND
+     t_alive_end <= 16 AND ct_alive_end <= 16)
+  )
 ) ENGINE = InnoDB;
 
 CREATE TABLE IF NOT EXISTS death_events (
@@ -383,5 +390,6 @@ CREATE TABLE IF NOT EXISTS flash_side_stats (
 INSERT INTO schema_migrations (version, description) VALUES
   (1, 'Initial normalized NickStats match schema'),
   (2, 'Add clutch attempts and extended raw counters'),
-  (3, 'Round timing and death event facts')
+  (3, 'Round timing and death event facts'),
+  (4, 'Round-end survivor counts')
 ON DUPLICATE KEY UPDATE description = VALUES(description);

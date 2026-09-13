@@ -248,7 +248,7 @@ private func comparisonSideData(
             ("kill_rounds_5k", "kill_rounds_5k")
         ]
         for (column, name) in integerColumns { add(matchID, side, name, Double(try integer(row, column))) }
-        if try row.decode(column: "payload_schema", as: String.self) == compactSchema,
+        if timingCompactSchemas.contains(try row.decode(column: "payload_schema", as: String.self)),
            try integer(row, "timed_round_count") == integer(row, "match_round_count") {
             add(matchID, side, "timed_rounds", Double(try integer(row, "rounds_played")))
         }
@@ -373,7 +373,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema = \(bind: compactSchema)
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID) AND e.enemy_kill = TRUE
@@ -400,7 +400,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema = \(bind: compactSchema)
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID)
@@ -858,6 +858,14 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
                 bombPlantElapsedMilliseconds: try optionalInteger(row, "bomb_plant_elapsed_ms")
             )
         }
+    let roundSurvivors = try roundRows.compactMap { row -> RoundSurvivorPayload? in
+        guard let terroristAlive = try optionalInteger(row, "t_alive_end"),
+              let counterTerroristAlive = try optionalInteger(row, "ct_alive_end") else { return nil }
+        return RoundSurvivorPayload(
+            round: try integer(row, "round_number"), terroristAlive: terroristAlive,
+            counterTerroristAlive: counterTerroristAlive
+        )
+    }
     let deathRows = try await sql.raw("""
         SELECT e.*, r.round_number FROM death_events e
         JOIN match_rounds r ON r.id = e.match_round_id
@@ -917,7 +925,8 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
         map: try match.decode(column: "map_name", as: String.self),
         playedAt: unix(try optionalDate(match, "played_at")),
         playedAtSource: try optionalString(match, "played_at_source"),
-        rounds: try integer(match, "rounds"), roundTiming: roundTiming, deathEvents: deathEvents,
+        rounds: try integer(match, "rounds"), roundTiming: roundTiming,
+        roundSurvivors: roundSurvivors.isEmpty ? nil : roundSurvivors, deathEvents: deathEvents,
         rules: rules, teams: teams, players: players
     )
 }

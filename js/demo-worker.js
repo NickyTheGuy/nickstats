@@ -736,6 +736,13 @@ async function parseDemo(fileName, buffer) {
     }
 
     const allocations = allocateRoundToSides(participants, winningSide);
+    const aliveAtEnd = { T: 0, CT: 0 };
+    for (const row of participants) {
+      const died = [...row.userIds].some(userId => round.deaths.has(userId));
+      const side = round.sideAssignments.get(row) || rowSide(row);
+      if (!died && side === 2) aliveAtEnd.T += 1;
+      if (!died && side === 3) aliveAtEnd.CT += 1;
+    }
 
     const stableWinner = dominantOriginalTeam(winningSide);
     if (stableWinner !== null) {
@@ -769,6 +776,8 @@ async function parseDemo(fileName, buffer) {
         end_tick: tick,
         duration_ms: Math.max(0, Math.round((tick - round.liveStartTick) * tickInterval * 1000)),
         winner_side: winningSide === 2 ? "T" : winningSide === 3 ? "CT" : null,
+        t_alive_end: aliveAtEnd.T,
+        ct_alive_end: aliveAtEnd.CT,
         bomb_plant_elapsed_ms: Number.isFinite(round.bombPlantTick)
           ? Math.max(0, Math.round((round.bombPlantTick - round.liveStartTick) * tickInterval * 1000))
           : null
@@ -2156,7 +2165,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.13.3",
+    nickstats_build: "2026.09.13.4",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
