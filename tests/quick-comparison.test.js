@@ -36,13 +36,15 @@ test("quick comparison openings and clutches are expandable scoreboard groups", 
   assert.match(styles, /\.player-profile-table\.quick-comparison-table \.player-table-sort-button \{[\s\S]*?min-height: 38px;[\s\S]*?text-align: center;/);
 });
 
-test("one reusable quick-comparison component serves compare and player pages", () => {
+test("quick comparison lives on player profiles without a duplicate group view", () => {
   assert.match(componentSource, /window\.NickStatsQuickComparison = \{ create \}/);
-  assert.match(compareSource, /NickStatsQuickComparison\.create\(\{ prefix: "combo" \}\)/);
   assert.match(playersSource, /NickStatsQuickComparison\.create\(\{ prefix: "player" \}\)/);
+  assert.doesNotMatch(compareSource, /NickStatsQuickComparison/);
   assert.match(html, /data-player-view="quick">Quick comparison/);
   assert.match(html, /id="playerQuickPlayers"/);
   assert.match(html, /id="playerQuickTable"/);
+  assert.doesNotMatch(html, /data-combo-display="quick"/);
+  assert.doesNotMatch(html, /id="comboQuickTable"/);
 });
 
 test("graphs and quick comparison share the same selected open profiles", () => {

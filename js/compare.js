@@ -15,7 +15,7 @@
     selected: new Map(), players: [], choices: new Map(), analysis: null,
     searchController: null, compareController: null, searchTimer: null,
     side: "ALL", buy: "ALL", roundResult: "ALL", result: "ALL", metricGroup: "core", weapon: "",
-    comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile",
+    comboPlayerId: "", comboCondition: "without", comboView: "overview",
     workspace: location.hash === "#matrix" ? "matrix" : "compare"
   };
 
@@ -557,8 +557,6 @@
   const { integer, decimal, percent, ratio, titleCase } = window.NickStatsProfile;
   const { bindSegmentedToggle, matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
   const mapFilter = new window.NickStatsFilters.MultiMapFilter(["compareMapFilter", "matrixMapFilter"], { onChange: () => refreshAnalysis(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
-  const quickComparison = window.NickStatsQuickComparison.create({ prefix: "combo" });
-
   function setComboProfileView(view) {
     state.comboView = view;
     document.querySelectorAll("[data-combo-profile-view]").forEach(button => {
@@ -566,19 +564,6 @@
       button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
     });
     document.querySelectorAll("[data-combo-profile-panel]").forEach(panel => { panel.hidden = panel.dataset.comboProfilePanel !== view; });
-  }
-
-  function setComboDisplay(display) {
-    state.comboDisplay = display === "quick" ? "quick" : "profile";
-    document.querySelectorAll("[data-combo-display]").forEach(button => {
-      const active = button.dataset.comboDisplay === state.comboDisplay;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", String(active));
-      button.tabIndex = active ? 0 : -1;
-    });
-    document.querySelectorAll("[data-combo-display-panel]").forEach(panel => {
-      panel.hidden = panel.dataset.comboDisplayPanel !== state.comboDisplay;
-    });
   }
 
   function renderComboProfile(current) {
@@ -619,13 +604,7 @@
     if (!current) return;
     renderComboWarnings(current);
     renderComboProfile(current);
-    quickComparison.render({
-      players: current.included.map(player => ({ ...player, rows: comboProfileRows(current, player) })),
-      summarize,
-      metaSuffix: state.comboCondition === "with" ? "With excluded players" : "Without excluded players"
-    });
     $("comboResults").hidden = false;
-    setComboDisplay(state.comboDisplay);
   }
 
   function clear() {
@@ -636,8 +615,6 @@
     state.result = "ALL";
     state.buy = "ALL";
     state.roundResult = "ALL";
-    state.comboDisplay = "profile";
-    quickComparison.reset();
     comboResultFilter.set("ALL", { notify: false });
     invalidateAnalysis();
     $("compareSearchInput").value = "";
@@ -656,7 +633,6 @@
   $("compareAnalyzeButton").addEventListener("click", analyze);
   $("compareClearButton").addEventListener("click", clear);
   document.querySelectorAll("[data-combo-profile-view]").forEach(button => button.addEventListener("click", () => setComboProfileView(button.dataset.comboProfileView)));
-  document.querySelectorAll("[data-combo-display]").forEach(button => button.addEventListener("click", () => setComboDisplay(button.dataset.comboDisplay)));
   const comboResultFilter = bindSegmentedToggle({ selector: "[data-combo-result]", valueFor: button => button.dataset.comboResult, onChange: result => { state.result = result; runCombination(); } });
   document.querySelectorAll("[data-combo-condition]").forEach(button => button.addEventListener("click", () => {
     if (button.disabled) return;

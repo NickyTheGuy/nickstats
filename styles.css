@@ -2408,15 +2408,10 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .combo-profile-toolbar .combo-condition-toggle { margin-right: 8px; }
 .combo-profile-footnote { margin: 14px 2px 0; color: var(--muted); font-size: 12px; }
 .combo-player-tabs { margin: 0; }
-.combo-display-tabs {
-  width: fit-content;
-  margin: 0;
-}
-.combo-display-panel[data-combo-display-panel="profile"] {
+.combo-profile-stack {
   display: grid;
   gap: 18px;
 }
-.combo-display-panel[hidden] { display: none; }
 .quick-comparison-panel { min-width: 0; padding: 22px; }
 .player-quick-comparison { margin-top: 16px; padding: 0; }
 .quick-comparison-heading { margin-bottom: 16px; }
