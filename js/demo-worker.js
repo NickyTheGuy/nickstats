@@ -3,6 +3,7 @@
 const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
 const ZSTD_URL = "https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js";
 const MAX_UNCOMPRESSED_DEMO_BYTES = 450 * 1024 * 1024;
+const isRegulationPistolRound = roundNumber => roundNumber === 1 || roundNumber === 13;
 const TRADE_WINDOW_SECONDS = 5;
 const TRADE_PROXIMITY_UNITS = 250;
 const TRADE_ENGAGEMENT_LULL_SECONDS = 2;
@@ -200,8 +201,6 @@ async function parseDemo(fileName, buffer) {
   let mapName = "";
   let tickInterval = 1 / 64;
   let completedRounds = 0;
-  let firstHalfTTeam = null;
-  let regulationHalftimeSeen = false;
   let round = freshRound();
   let resetSeen = false;
   let inventorySamples = 0;
@@ -432,8 +431,6 @@ async function parseDemo(fileName, buffer) {
     derivedSpeeds.clear();
     ctPistolChoice.clear();
     ctRifleChoice.clear();
-    firstHalfTTeam = null;
-    regulationHalftimeSeen = false;
     latestInventory.clear();
     inventorySamples = 0;
     resolvedInventoryItems = 0;
@@ -828,13 +825,7 @@ async function parseDemo(fileName, buffer) {
 
     const terroristTeam = dominantOriginalTeam(2);
     const counterTerroristTeam = dominantOriginalTeam(3);
-    let pistolRound = completedRounds === 0;
-    if (firstHalfTTeam === null && terroristTeam !== null) firstHalfTTeam = terroristTeam;
-    if (!regulationHalftimeSeen && completedRounds > 0 && terroristTeam !== null &&
-        firstHalfTTeam !== null && terroristTeam !== firstHalfTTeam) {
-      pistolRound = true;
-      regulationHalftimeSeen = true;
-    }
+    const pistolRound = isRegulationPistolRound(completedRounds + 1);
     const buyFor = side => {
       if (!round.economySnapshot) return null;
       if (pistolRound) return "pistol";
@@ -2319,7 +2310,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.14.5",
+    nickstats_build: "2026.09.14.10",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,

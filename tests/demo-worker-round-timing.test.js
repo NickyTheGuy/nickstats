@@ -55,6 +55,13 @@ test("freeze end captures authoritative team equipment values", () => {
   assert.match(source, /pistol_round: pistolRound/);
 });
 
+test("only regulation rounds one and thirteen are pistol rounds", () => {
+  const classified = vm.runInContext("Array.from({ length: 30 }, (_, index) => index + 1).filter(isRegulationPistolRound)", workerContext());
+  assert.deepEqual(Array.from(classified), [1, 13]);
+  assert.match(source, /isRegulationPistolRound\(completedRounds \+ 1\)/);
+  assert.doesNotMatch(source, /firstHalfTTeam|regulationHalftimeSeen/);
+});
+
 test("round timing migration stores factual event dimensions", () => {
   const migration = fs.readFileSync(path.join(__dirname, "..", "database", "migrations", "003_round_timing.sql"), "utf8");
   for (const column of ["elapsed_ms", "since_plant_ms", "t_alive_before", "ct_alive_before", "context_flags"]) {

@@ -151,6 +151,12 @@ private func validPayload() -> MatchPayload {
     #expect(throws: MatchValidationError.self) { try payload.validate() }
 }
 
+@Test func rejectsMisclassifiedPistolRound() {
+    var payload = validPayload()
+    payload.roundEconomy?[0].pistolRound = false
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+}
+
 @Test func decodesLegacyAndCurrentWeaponRows() throws {
     let legacy = try JSONDecoder().decode(WeaponPayload.self, from: Data(#"["ak47",3,20,275,8]"#.utf8))
     #expect(legacy.hits == 0)

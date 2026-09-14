@@ -129,6 +129,9 @@ extension MatchPayload {
             guard economy.terroristPlayers > 0, economy.counterTerroristPlayers > 0 else {
                 try invalid(path, "Economy rows require at least one player on each side.")
             }
+            guard economy.pistolRound == [1, 13].contains(economy.round) else {
+                try invalid("\(path)[5]", "Only regulation rounds 1 and 13 are pistol rounds.")
+            }
             guard (0..<teams.count).contains(economy.terroristTeamIndex),
                   (0..<teams.count).contains(economy.counterTerroristTeamIndex),
                   economy.terroristTeamIndex != economy.counterTerroristTeamIndex else {
