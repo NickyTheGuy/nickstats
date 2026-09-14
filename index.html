@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-9">
+  <link rel="stylesheet" href="./styles.css?v=20260914-12">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.14.11</span>
+          <span class="demo-build">Build 2026.09.14.12</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -278,15 +278,15 @@
                 </section>
               </div>
 
-              <section class="panel combo-quick-panel combo-display-panel" data-combo-display-panel="quick" hidden>
-                <header class="section-head combo-quick-heading">
+              <section class="panel quick-comparison-panel combo-display-panel" data-combo-display-panel="quick" hidden>
+                <header class="section-head quick-comparison-heading">
                   <div><div class="eyebrow">Quick comparison</div><h2>Group scoreboard</h2><p id="comboQuickMeta">Compare the included players at a glance.</p></div>
                 </header>
-                <nav class="match-browser-tabs combo-quick-map-tabs" id="comboQuickMaps" role="tablist" aria-label="Quick comparison map"></nav>
+                <nav class="match-browser-tabs quick-comparison-map-tabs" id="comboQuickMaps" role="tablist" aria-label="Quick comparison map"></nav>
                 <div class="player-profile-table-wrap">
-                  <table class="player-profile-table combo-quick-table" id="comboQuickTable"></table>
+                  <table class="player-profile-table quick-comparison-table" id="comboQuickTable"></table>
                 </div>
-                <p class="combo-quick-empty" id="comboQuickEmpty" hidden>No qualifying matches for this map and filter combination.</p>
+                <p class="quick-comparison-empty" id="comboQuickEmpty" hidden>No qualifying matches for this map and filter combination.</p>
               </section>
             </div>
           </div>
@@ -372,6 +372,7 @@
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="utility">Utility</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="weapons">Weapons</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="maps">Maps</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="quick">Quick comparison</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="graphs">Graphs</button>
           </nav>
 
@@ -430,6 +431,22 @@
           <div class="player-profile-view" data-player-profile-view="maps" hidden>
             <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerMapsTable"></table></div>
           </div>
+          <div class="player-profile-view" data-player-profile-view="quick" hidden>
+            <section class="graph-player-picker" data-standalone-profile-only>
+              <div><strong>Players</strong><span id="playerQuickPlayerStatus">Choose open profiles to compare</span></div>
+              <div class="graph-player-choices" id="playerQuickPlayers"></div>
+            </section>
+            <section class="quick-comparison-panel player-quick-comparison">
+              <header class="section-head quick-comparison-heading">
+                <div><div class="eyebrow">Quick comparison</div><h2>Player scoreboard</h2><p id="playerQuickMeta">Compare the selected open profiles at a glance.</p></div>
+              </header>
+              <nav class="match-browser-tabs quick-comparison-map-tabs" id="playerQuickMaps" role="tablist" aria-label="Player quick comparison map"></nav>
+              <div class="player-profile-table-wrap">
+                <table class="player-profile-table quick-comparison-table" id="playerQuickTable"></table>
+              </div>
+              <p class="quick-comparison-empty" id="playerQuickEmpty" hidden>No qualifying matches for this map and filter combination.</p>
+            </section>
+          </div>
           <div class="player-profile-view" data-player-profile-view="graphs" hidden>
             <section class="graph-player-picker" data-standalone-profile-only>
               <div><strong>Players</strong><span id="playerGraphPlayerStatus">Choose open profiles to compare</span></div>
@@ -479,7 +496,8 @@
   <script defer src="./js/demo.js?v=20260914-11"></script>
   <script defer src="./js/graphs.js?v=20260914-9"></script>
   <script defer src="./js/profile.js?v=20260914-1"></script>
-  <script defer src="./js/players.js?v=20260913-6"></script>
-  <script defer src="./js/compare.js?v=20260914-2"></script>
+  <script defer src="./js/quick-comparison.js?v=20260914-12"></script>
+  <script defer src="./js/players.js?v=20260914-12"></script>
+  <script defer src="./js/compare.js?v=20260914-12"></script>
 </body>
 </html>

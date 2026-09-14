@@ -16,7 +16,7 @@
   }
 
   const state = {
-    profiles: new Map(), activeId: null, graphPlayers: new Set(), recent: readRecent(),
+    profiles: new Map(), activeId: null, comparisonPlayers: new Set(), recent: readRecent(),
     searchController: null, profileController: null, searchTimer: null
   };
   const activeProfile = () => state.profiles.get(state.activeId) || null;
@@ -24,6 +24,7 @@
     formatLabel: value => titleCase(value.replace(/^de_/, "")),
     onChange: values => { const profile = activeProfile(); if (profile) { profile.maps = values; renderProfile(); } }
   });
+  const quickComparison = window.NickStatsQuickComparison.create({ prefix: "player" });
 
   async function apiJson(response) {
     const body = await response.json().catch(() => null);
@@ -132,32 +133,60 @@
     const selectedMaps = new Set(profile.maps);
     return (payload.matches || []).filter(match => (!selectedMaps.size || selectedMaps.has(match.map)) && matchResultMatches(match.result, profile.result));
   }
-  function renderGraphPlayers() {
-    const target = $("playerGraphPlayers"); target.replaceChildren();
-    state.profiles.forEach((profile, id) => {
-      const label = document.createElement("label"); label.className = "graph-player-choice";
-      const input = document.createElement("input"); input.type = "checkbox"; input.checked = state.graphPlayers.has(id);
-      const name = document.createElement("span"); name.textContent = profile.payload.player?.name || "Unknown player";
-      input.addEventListener("change", () => {
-        if (input.checked && state.graphPlayers.size >= MAX_GRAPH_PLAYERS) {
-          input.checked = false; $("playerGraphPlayerStatus").textContent = `Choose up to ${MAX_GRAPH_PLAYERS} players.`; return;
-        }
-        input.checked ? state.graphPlayers.add(id) : state.graphPlayers.delete(id);
-        renderGraphs();
+  function renderComparisonPlayers() {
+    [["playerGraphPlayers", "playerGraphPlayerStatus"], ["playerQuickPlayers", "playerQuickPlayerStatus"]].forEach(([targetId, statusId]) => {
+      const target = $(targetId); target.replaceChildren();
+      state.profiles.forEach((profile, id) => {
+        const label = document.createElement("label"); label.className = "graph-player-choice";
+        const input = document.createElement("input"); input.type = "checkbox"; input.checked = state.comparisonPlayers.has(id);
+        const name = document.createElement("span"); name.textContent = profile.payload.player?.name || "Unknown player";
+        input.addEventListener("change", () => {
+          if (input.checked && state.comparisonPlayers.size >= MAX_GRAPH_PLAYERS) {
+            input.checked = false;
+            ["playerGraphPlayerStatus", "playerQuickPlayerStatus"].forEach(id => { $(id).textContent = `Choose up to ${MAX_GRAPH_PLAYERS} players.`; });
+            return;
+          }
+          input.checked ? state.comparisonPlayers.add(id) : state.comparisonPlayers.delete(id);
+          renderComparisonPlayers(); renderGraphs(); renderQuickComparison();
+        });
+        label.append(input, name); target.appendChild(label);
       });
-      label.append(input, name); target.appendChild(label);
+      $(statusId).textContent = `${state.comparisonPlayers.size} of ${MAX_GRAPH_PLAYERS} players selected`;
     });
-    $("playerGraphPlayerStatus").textContent = `${state.graphPlayers.size} of ${MAX_GRAPH_PLAYERS} players selected`;
   }
   function renderGraphs() {
     const profile = activeProfile(); if (!profile) return;
-    renderGraphPlayers();
     const availableSeries = [...state.profiles.entries()].map(([id, candidate], colorIndex) => {
       const matches = matchesFor(candidate.payload, profile);
       return { id, colorIndex, label: candidate.payload.player?.name || "Unknown player", samples: window.NickStatsGraphs.samplesForMatches(matches, profile.side, profile.buy, profile.roundResult) };
     });
-    const series = availableSeries.filter(candidate => state.graphPlayers.has(candidate.id));
+    const series = availableSeries.filter(candidate => state.comparisonPlayers.has(candidate.id));
     window.NickStatsGraphs.render({ prefix: "player", series, domainSeries: availableSeries, independent: true });
+  }
+  function quickSummary(matches, profile) {
+    const summary = aggregate(matches, profile.side, profile.buy, profile.roundResult), stats = summary.stats;
+    const openingKills = number(stats.opening_kills), openingDeaths = number(stats.opening_deaths);
+    return {
+      ...stats,
+      rounds: summary.rounds,
+      kd: summary.kd,
+      adr: summary.adr,
+      rating: summary.rating,
+      kast: summary.kast,
+      openingAttemptRate: 100 * ratio(openingKills + openingDeaths, summary.rounds),
+      openingDiff: openingKills - openingDeaths,
+      openingSuccess: 100 * ratio(openingKills, openingKills + openingDeaths)
+    };
+  }
+  function renderQuickComparison() {
+    const profile = activeProfile(); if (!profile) return;
+    quickComparison.render({
+      players: [...state.profiles.entries()]
+        .filter(([id]) => state.comparisonPlayers.has(id))
+        .map(([id, candidate]) => ({ id, label: candidate.payload.player?.name || "Unknown player", rows: matchesFor(candidate.payload, profile) })),
+      summarize: matches => quickSummary(matches, profile),
+      metaSuffix: resultFilterLabel(profile.result)
+    });
   }
 
   function renderOpenTabs() {
@@ -184,14 +213,14 @@
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
     const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: aggregate(map.rows, profile.side, profile.buy, profile.roundResult) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: profile.side, result: profile.result, roundResult: profile.roundResult, maps: mapRows });
-    renderGraphs();
+    renderComparisonPlayers(); renderGraphs(); renderQuickComparison();
     $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "";
   }
 
   function activateProfile(id) {
     id = String(id); const profile = state.profiles.get(id); if (!profile) return;
     const prior = state.activeId;
-    if (!state.graphPlayers.size || (state.graphPlayers.size === 1 && state.graphPlayers.has(prior))) { state.graphPlayers.clear(); state.graphPlayers.add(id); }
+    if (!state.comparisonPlayers.size || (state.comparisonPlayers.size === 1 && state.comparisonPlayers.has(prior))) { state.comparisonPlayers.clear(); state.comparisonPlayers.add(id); }
     state.activeId = id;
     const availableMaps = [...state.profiles.values()].flatMap(candidate => (candidate.payload.matches || []).map(match => match.map));
     mapFilter.setOptions(availableMaps, { reset: true }); mapFilter.setSelected(profile.maps, { notify: false });
@@ -202,7 +231,7 @@
   }
   function closeProfile(id) {
     id = String(id); const ids = [...state.profiles.keys()], index = ids.indexOf(id);
-    state.profiles.delete(id); state.graphPlayers.delete(id);
+    state.profiles.delete(id); state.comparisonPlayers.delete(id);
     if (state.activeId === id) {
       const next = ids[index + 1] || ids[index - 1]; state.activeId = null;
       if (next && state.profiles.has(next)) activateProfile(next);

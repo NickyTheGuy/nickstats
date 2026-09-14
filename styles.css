@@ -2417,42 +2417,43 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
   gap: 18px;
 }
 .combo-display-panel[hidden] { display: none; }
-.combo-quick-panel { min-width: 0; padding: 22px; }
-.combo-quick-heading { margin-bottom: 16px; }
-.combo-quick-heading h2,
-.combo-quick-heading p { margin: 0; }
-.combo-quick-heading p { margin-top: 5px; color: var(--muted); }
-.combo-quick-map-tabs {
+.quick-comparison-panel { min-width: 0; padding: 22px; }
+.player-quick-comparison { margin-top: 16px; padding: 0; }
+.quick-comparison-heading { margin-bottom: 16px; }
+.quick-comparison-heading h2,
+.quick-comparison-heading p { margin: 0; }
+.quick-comparison-heading p { margin-top: 5px; color: var(--muted); }
+.quick-comparison-map-tabs {
   max-width: 100%;
   margin-bottom: 14px;
   overflow-x: auto;
 }
-.combo-quick-map-tabs .match-browser-tab { flex: 0 0 auto; }
-.combo-quick-table { min-width: 900px; }
-.player-profile-table.combo-quick-table :is(th, td) { text-align: center; }
-.player-profile-table.combo-quick-table th.demo-toggle-heading,
-.player-profile-table.combo-quick-table th.demo-group-detail { padding: 0; }
-.player-profile-table.combo-quick-table .player-table-sort-button {
+.quick-comparison-map-tabs .match-browser-tab { flex: 0 0 auto; }
+.quick-comparison-table { min-width: 900px; }
+.player-profile-table.quick-comparison-table :is(th, td) { text-align: center; }
+.player-profile-table.quick-comparison-table th.demo-toggle-heading,
+.player-profile-table.quick-comparison-table th.demo-group-detail { padding: 0; }
+.player-profile-table.quick-comparison-table .player-table-sort-button {
   min-height: 38px;
   padding: 8px 7px;
   text-align: center;
   font-weight: 850;
 }
-.combo-quick-table tbody tr > :first-child {
+.quick-comparison-table tbody tr > :first-child {
   position: sticky;
   left: 0;
   z-index: 1;
   background: var(--panel-2);
 }
-.combo-quick-table thead tr:first-child > th:first-child {
+.quick-comparison-table thead tr:first-child > th:first-child {
   position: sticky;
   left: 0;
   z-index: 2;
   background: #0d131d;
 }
-.combo-quick-table :is(th, td).demo-group-start { border-left: 2px solid rgba(238, 243, 251, .24); }
-.combo-quick-table :is(th, td).demo-group-end { border-right: 2px solid rgba(238, 243, 251, .24); }
-.combo-quick-empty {
+.quick-comparison-table :is(th, td).demo-group-start { border-left: 2px solid rgba(238, 243, 251, .24); }
+.quick-comparison-table :is(th, td).demo-group-end { border-right: 2px solid rgba(238, 243, 251, .24); }
+.quick-comparison-empty {
   margin: 14px 2px 0;
   color: var(--muted);
   font-size: 13px;
@@ -2533,6 +2534,7 @@ summary { cursor: pointer; color: #dbe4ef; font-weight: 800; }
 .player-profile-tab[data-player-view="context"].active { box-shadow: inset 0 -4px 0 #ff975c, inset 0 0 0 1px #344155; }
 .player-profile-tab[data-player-view="rounds"].active { box-shadow: inset 0 -4px 0 var(--green), inset 0 0 0 1px #344155; }
 .player-profile-tab[data-player-view="movement"].active { box-shadow: inset 0 -4px 0 #be82ff, inset 0 0 0 1px #344155; }
+.player-profile-tab[data-player-view="quick"].active { box-shadow: inset 0 -4px 0 #55d6d2, inset 0 0 0 1px #344155; }
 .player-profile-tab[data-player-view="graphs"].active { box-shadow: inset 0 -4px 0 var(--blue), inset 0 0 0 1px #344155; }
 .player-profile-tab[data-combo-profile-view="utility"].active { box-shadow: inset 0 -4px 0 var(--blue), inset 0 0 0 1px #344155; }
 .player-profile-tab[data-combo-profile-view="trades"].active { box-shadow: inset 0 -4px 0 #55d6d2, inset 0 0 0 1px #344155; }
