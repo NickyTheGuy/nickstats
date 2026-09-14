@@ -3,7 +3,15 @@
 const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
 const ZSTD_URL = "https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js";
 const MAX_UNCOMPRESSED_DEMO_BYTES = 450 * 1024 * 1024;
+const ECO_MAX_EQUIPMENT_PER_PLAYER = 1000;
+const FULL_BUY_MIN_EQUIPMENT_PER_PLAYER = 3500;
 const isRegulationPistolRound = roundNumber => roundNumber === 1 || roundNumber === 13;
+const equipmentBuyType = (value, players, pistolRound = false) => {
+  if (pistolRound) return "pistol";
+  const perPlayer = Number(value) / Math.max(1, Number(players));
+  return perPlayer <= ECO_MAX_EQUIPMENT_PER_PLAYER ? "eco" :
+    perPlayer >= FULL_BUY_MIN_EQUIPMENT_PER_PLAYER ? "full" : "force";
+};
 const TRADE_WINDOW_SECONDS = 5;
 const TRADE_PROXIMITY_UNITS = 250;
 const TRADE_ENGAGEMENT_LULL_SECONDS = 2;
@@ -828,11 +836,8 @@ async function parseDemo(fileName, buffer) {
     const pistolRound = isRegulationPistolRound(completedRounds + 1);
     const buyFor = side => {
       if (!round.economySnapshot) return null;
-      if (pistolRound) return "pistol";
       const key = side === 2 ? "T" : "CT";
-      const players = Math.max(1, round.economySnapshot.players[key]);
-      const value = round.economySnapshot.values[key];
-      return value <= players * 1000 ? "eco" : value >= players * 4000 ? "full" : "force";
+      return equipmentBuyType(round.economySnapshot.values[key], round.economySnapshot.players[key], pistolRound);
     };
     const allocations = allocateRoundToSides(participants, winningSide, { 2: buyFor(2), 3: buyFor(3) });
     const aliveAtEnd = { T: 0, CT: 0 };
@@ -2310,7 +2315,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.14.10",
+    nickstats_build: "2026.09.14.11",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,

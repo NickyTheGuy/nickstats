@@ -344,7 +344,7 @@ private func comparisonSideData(
         let playerCount = max(1, try integer(row, "player_count"))
         let isPistol = try row.decode(column: "pistol_round", as: Bool.self)
         let buy = isPistol ? "pistol" : equipmentValue <= playerCount * 1_000 ? "eco" :
-            equipmentValue >= playerCount * 4_000 ? "full" : "force"
+            equipmentValue >= playerCount * 3_500 ? "full" : "force"
         add(id, side, "economy_\(buy)_rounds", 1)
         add(id, side, "economy_\(buy)_equipment_value", Double(equipmentValue))
         if try optionalString(row, "winner_side") == side.rawValue {
@@ -598,7 +598,7 @@ private func comparisonSideData(
         let playerCount = max(1, try integer(row, "player_count"))
         let isPistol = try row.decode(column: "pistol_round", as: Bool.self)
         let buy = isPistol ? "pistol" : equipmentValue <= playerCount * 1_000 ? "eco" :
-            equipmentValue >= playerCount * 4_000 ? "full" : "force"
+            equipmentValue >= playerCount * 3_500 ? "full" : "force"
         for (buyScope, resultScope) in [("ALL", "ALL"), (buy, "ALL"), ("ALL", resultName), (buy, resultName)] {
             addBuyMetric(id, side, buyScope, resultScope, "\(prefix)_survivor_rounds", 1)
             addBuyMetric(id, side, buyScope, resultScope, "\(prefix)_survivor_total", survivors)
@@ -623,7 +623,7 @@ private func comparisonSideData(
                           WHEN (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_equipment_value ELSE r.ct_equipment_value END)
                                <= (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_player_count ELSE r.ct_player_count END) * 1000 THEN 'eco'
                           WHEN (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_equipment_value ELSE r.ct_equipment_value END)
-                               >= (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_player_count ELSE r.ct_player_count END) * 4000 THEN 'full'
+                               >= (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_player_count ELSE r.ct_player_count END) * 3500 THEN 'full'
                           ELSE 'force' END AS buy_type
               FROM death_events e
               JOIN match_rounds r ON r.id = e.match_round_id

@@ -62,6 +62,16 @@ test("only regulation rounds one and thirteen are pistol rounds", () => {
   assert.doesNotMatch(source, /firstHalfTTeam|regulationHalftimeSeen/);
 });
 
+test("a rifle and armor team loadout counts as a full buy", () => {
+  const classifications = vm.runInContext(`[
+    equipmentBuyType(5 * 3900, 5),
+    equipmentBuyType(5 * 3550, 5),
+    equipmentBuyType(5 * 3400, 5),
+    equipmentBuyType(5 * 1000, 5)
+  ]`, workerContext());
+  assert.deepEqual(Array.from(classifications), ["full", "full", "force", "eco"]);
+});
+
 test("round timing migration stores factual event dimensions", () => {
   const migration = fs.readFileSync(path.join(__dirname, "..", "database", "migrations", "003_round_timing.sql"), "utf8");
   for (const column of ["elapsed_ms", "since_plant_ms", "t_alive_before", "ct_alive_before", "context_flags"]) {

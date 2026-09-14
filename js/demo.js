@@ -334,7 +334,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260914-10");
+      const worker = new Worker("./js/demo-worker.js?v=20260914-11");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -698,8 +698,8 @@
       if (!economy) return null;
       if (economy[5]) return "pistol";
       const value = numberValue(side === "T" ? economy[1] : economy[2]);
-      const players = Math.max(1, numberValue(side === "T" ? economy[3] : economy[4]));
-      return value <= players * 1000 ? "eco" : value >= players * 4000 ? "full" : "force";
+      const players = numberValue(side === "T" ? economy[3] : economy[4]);
+      return economyBuyType(value, players, Boolean(economy[5]));
     };
     const phaseForEvent = event => event?.[13] != null ? "postplant" : numberValue(event?.[3]) < 25000 ? "early" : numberValue(event?.[3]) < 75000 ? "mid" : "late";
     const addTiming = (playerIndex, side, kind, event) => {
@@ -2089,7 +2089,7 @@
   function economyBuyType(value, players, pistolRound) {
     if (pistolRound) return "pistol";
     const perPlayer = numberValue(value) / Math.max(1, numberValue(players));
-    return perPlayer <= 1000 ? "eco" : perPlayer >= 4000 ? "full" : "force";
+    return perPlayer <= 1000 ? "eco" : perPlayer >= 3500 ? "full" : "force";
   }
 
   function renderRoundEconomy(result) {
@@ -2292,7 +2292,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/14",
-      nickstats_build: "2026.09.14.10",
+      nickstats_build: "2026.09.14.11",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
