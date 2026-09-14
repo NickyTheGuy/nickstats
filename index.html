@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.14.14</span>
+          <span class="demo-build">Build 2026.09.14.15</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -356,7 +356,7 @@
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="utility">Utility</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="weapons">Weapons</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="maps">Maps</button>
-            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="quick">Quick comparison</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="quick" data-standalone-profile-only>Quick comparison</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="graphs">Graphs</button>
           </nav>
 
@@ -415,7 +415,7 @@
           <div class="player-profile-view" data-player-profile-view="maps" hidden>
             <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerMapsTable"></table></div>
           </div>
-          <div class="player-profile-view" data-player-profile-view="quick" hidden>
+          <div class="player-profile-view" data-player-profile-view="quick" data-standalone-profile-only hidden>
             <section class="graph-player-picker" data-standalone-profile-only>
               <div><strong>Players</strong><span id="playerQuickPlayerStatus">Choose open profiles to compare</span></div>
               <div class="graph-player-choices" id="playerQuickPlayers"></div>

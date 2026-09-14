@@ -40,7 +40,8 @@ test("quick comparison lives on player profiles without a duplicate group view",
   assert.match(componentSource, /window\.NickStatsQuickComparison = \{ create \}/);
   assert.match(playersSource, /NickStatsQuickComparison\.create\(\{ prefix: "player" \}\)/);
   assert.doesNotMatch(compareSource, /NickStatsQuickComparison/);
-  assert.match(html, /data-player-view="quick">Quick comparison/);
+  assert.match(html, /data-player-view="quick" data-standalone-profile-only>Quick comparison/);
+  assert.match(html, /data-player-profile-view="quick" data-standalone-profile-only hidden/);
   assert.match(html, /id="playerQuickPlayers"/);
   assert.match(html, /id="playerQuickTable"/);
   assert.doesNotMatch(html, /data-combo-display="quick"/);
