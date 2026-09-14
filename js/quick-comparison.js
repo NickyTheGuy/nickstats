@@ -43,6 +43,10 @@
       const openingColumns = state.expandedGroups.opening ? [
         { key: "opening-k", label: "K", value: item => number(item.stats.opening_kills), format: item => integer(item.stats.opening_kills) },
         { key: "opening-d", label: "D", value: item => number(item.stats.opening_deaths), format: item => integer(item.stats.opening_deaths) },
+        { key: "opening-assisted", label: "Assisted K", value: item => number(item.stats.opening_assisted_kills), format: item => integer(item.stats.opening_assisted_kills) },
+        { key: "opening-damage-assisted", label: "Dmg A", value: item => number(item.stats.opening_damage_assisted_kills), format: item => integer(item.stats.opening_damage_assisted_kills) },
+        { key: "opening-flash-assisted", label: "Flash A", value: item => number(item.stats.opening_flash_assisted_kills), format: item => integer(item.stats.opening_flash_assisted_kills) },
+        { key: "opening-assist-rate", label: "Assist %", value: item => item.stats.openingAssistRate, format: item => percent(item.stats.openingAssistRate) },
         { key: "opening-attempt", label: "Attempt rate", value: item => item.stats.openingAttemptRate, format: item => percent(item.stats.openingAttemptRate) },
         { key: "opening-diff", label: "Diff", value: item => item.stats.openingDiff, format: item => signed(item.stats.openingDiff) },
         { key: "opening-success", label: "Success", value: item => item.stats.openingSuccess, format: item => percent(item.stats.openingSuccess) }

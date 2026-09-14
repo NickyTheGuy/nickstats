@@ -23,6 +23,9 @@ test("quick comparison shows filtered rounds instead of redundant match count", 
 test("quick comparison openings and clutches are expandable scoreboard groups", () => {
   assert.match(componentSource, /expandedGroups: \{ opening: false, clutches: false \}/);
   assert.match(componentSource, /group: "opening", label: "Opening"/);
+  assert.match(componentSource, /key: "opening-assisted", label: "Assisted K"/);
+  assert.match(componentSource, /key: "opening-damage-assisted", label: "Dmg A"/);
+  assert.match(componentSource, /key: "opening-flash-assisted", label: "Flash A"/);
   assert.match(componentSource, /group: "clutches", label: "Clutches"/);
   assert.match(componentSource, /demo-toggle-heading.*-heading/);
   assert.match(styles, /\.quick-comparison-table :is\(th, td\)\.demo-group-start/);

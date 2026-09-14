@@ -175,7 +175,8 @@
       kast: summary.kast,
       openingAttemptRate: 100 * ratio(openingKills + openingDeaths, summary.rounds),
       openingDiff: openingKills - openingDeaths,
-      openingSuccess: 100 * ratio(openingKills, openingKills + openingDeaths)
+      openingSuccess: 100 * ratio(openingKills, openingKills + openingDeaths),
+      openingAssistRate: 100 * ratio(stats.opening_assisted_kills, openingKills)
     };
   }
   function renderQuickComparison() {

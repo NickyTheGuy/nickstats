@@ -393,16 +393,25 @@ struct CombatStats: Codable, Sendable {
 struct OpeningStats: Codable, Sendable {
     var kills: Int
     var deaths: Int
+    var assistedKills: Int
+    var damageAssistedKills: Int
+    var flashAssistedKills: Int
 
-    init(kills: Int, deaths: Int) {
+    init(kills: Int, deaths: Int, assistedKills: Int = 0, damageAssistedKills: Int = 0, flashAssistedKills: Int = 0) {
         self.kills = kills
         self.deaths = deaths
+        self.assistedKills = assistedKills
+        self.damageAssistedKills = damageAssistedKills
+        self.flashAssistedKills = flashAssistedKills
     }
 
     init(from decoder: any Decoder) throws {
         var values = try decoder.unkeyedContainer()
         kills = try values.decode(Int.self)
         deaths = try values.decode(Int.self)
+        assistedKills = values.isAtEnd ? 0 : try values.decode(Int.self)
+        damageAssistedKills = values.isAtEnd ? 0 : try values.decode(Int.self)
+        flashAssistedKills = values.isAtEnd ? 0 : try values.decode(Int.self)
         try rejectExtraValues(in: values, description: "Opening statistics")
     }
 
@@ -410,6 +419,9 @@ struct OpeningStats: Codable, Sendable {
         var values = encoder.unkeyedContainer()
         try values.encode(kills)
         try values.encode(deaths)
+        try values.encode(assistedKills)
+        try values.encode(damageAssistedKills)
+        try values.encode(flashAssistedKills)
     }
 }
 

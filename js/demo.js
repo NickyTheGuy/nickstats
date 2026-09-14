@@ -59,13 +59,23 @@
     opening: { id: "opening", modes: [
       { label: "K", value: player => player.opening_kills ?? 0 },
       { label: "D", value: player => player.opening_deaths ?? 0, direction: "asc" },
-      { label: "Attempt rate", value: player => 100 * ((player.opening_kills ?? 0) + (player.opening_deaths ?? 0)) / Math.max(1, player.rounds_played ?? 0) }
+      { label: "Assisted K", value: player => player.opening_assisted_kills ?? 0 },
+      { label: "Dmg A", value: player => player.opening_damage_assisted_kills ?? 0 },
+      { label: "Flash A", value: player => player.opening_flash_assisted_kills ?? 0 },
+      { label: "Attempt rate", value: player => 100 * ((player.opening_kills ?? 0) + (player.opening_deaths ?? 0)) / Math.max(1, player.rounds_played ?? 0) },
+      { label: "Diff", value: player => (player.opening_kills ?? 0) - (player.opening_deaths ?? 0) },
+      { label: "Success", value: player => 100 * (player.opening_kills ?? 0) / Math.max(1, (player.opening_kills ?? 0) + (player.opening_deaths ?? 0)) },
+      { label: "Assist %", value: player => 100 * (player.opening_assisted_kills ?? 0) / Math.max(1, player.opening_kills ?? 0) }
     ] },
     openingKills: oneMode("openingKills", "K", player => player.opening_kills ?? 0),
     openingDeaths: oneMode("openingDeaths", "D", player => player.opening_deaths ?? 0, "asc"),
     openingAttempts: oneMode("openingAttempts", "Attempt rate", player => 100 * ((player.opening_kills ?? 0) + (player.opening_deaths ?? 0)) / Math.max(1, player.rounds_played ?? 0)),
     openingDiff: oneMode("openingDiff", "Diff", player => (player.opening_kills ?? 0) - (player.opening_deaths ?? 0)),
     openingSuccess: oneMode("openingSuccess", "Success", player => 100 * (player.opening_kills ?? 0) / Math.max(1, (player.opening_kills ?? 0) + (player.opening_deaths ?? 0))),
+    openingAssisted: oneMode("openingAssisted", "Assisted K", player => player.opening_assisted_kills ?? 0),
+    openingDamageAssisted: oneMode("openingDamageAssisted", "Dmg A", player => player.opening_damage_assisted_kills ?? 0),
+    openingFlashAssisted: oneMode("openingFlashAssisted", "Flash A", player => player.opening_flash_assisted_kills ?? 0),
+    openingAssistRate: oneMode("openingAssistRate", "Assist %", player => 100 * (player.opening_assisted_kills ?? 0) / Math.max(1, player.opening_kills ?? 0)),
     combatKills: oneMode("combatKills", "K", player => player.kills ?? 0),
     combatDeaths: oneMode("combatDeaths", "D", player => player.deaths ?? 0, "asc"),
     combatAssists: oneMode("combatAssists", "A", player => player.assists ?? 0),
@@ -604,7 +614,7 @@
       rounds: sumArray(left.rounds, right.rounds, 2),
       kda: sumArray(left.kda, right.kda, 5),
       kast_rounds: numberValue(left.kast_rounds) + numberValue(right.kast_rounds),
-      opening: sumArray(left.opening, right.opening, 2),
+      opening: sumArray(left.opening, right.opening, 5),
       trade_kills: numberValue(left.trade_kills) + numberValue(right.trade_kills),
       trade_d: sumArray(left.trade_d, right.trade_d, 3),
       utility: sumArray(left.utility, right.utility, 2),
@@ -813,13 +823,16 @@
 
       return {
         ...player, ...timing,
-        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
+        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
         adr, kast, kast_rounds: kastRounds, rounds_played: rounds, round_wins: wins,
         opening_kills: numberValue(stats.opening?.[0]),
         opening_deaths: numberValue(stats.opening?.[1]),
+        opening_assisted_kills: numberValue(stats.opening?.[2]),
+        opening_damage_assisted_kills: numberValue(stats.opening?.[3]),
+        opening_flash_assisted_kills: numberValue(stats.opening?.[4]),
         trade_kills: tradeKills,
         trade_opportunities: opportunities,
         trade_attempts: attempts,
@@ -1248,9 +1261,13 @@
     if (state.expandedGroups.opening) {
       cell(row, player.opening_kills ?? 0, "demo-group-cell opening-cell");
       cell(row, player.opening_deaths ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_assisted_kills ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_damage_assisted_kills ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_flash_assisted_kills ?? 0, "demo-group-cell opening-cell");
       cell(row, `${(100 * openingTotal / Math.max(1, player.rounds_played ?? 0)).toFixed(0)}%`, "demo-group-cell opening-cell");
       cell(row, `${openingDiff > 0 ? "+" : ""}${openingDiff}`, "demo-group-cell opening-cell");
       cell(row, `${(100 * (player.opening_kills ?? 0) / Math.max(1, openingTotal)).toFixed(0)}%`, "demo-group-cell opening-cell");
+      cell(row, `${(100 * (player.opening_assisted_kills ?? 0) / Math.max(1, player.opening_kills ?? 0)).toFixed(0)}%`, "demo-group-cell opening-cell");
     } else {
       cell(row, `${player.opening_kills ?? 0}-${player.opening_deaths ?? 0} · ${(100 * openingTotal / Math.max(1, player.rounds_played ?? 0)).toFixed(0)}%`, "demo-group-cell opening-cell");
     }
@@ -1434,9 +1451,13 @@
         "K-D · Att%": sortSpecs.opening,
         K: sortSpecs.openingKills,
         D: sortSpecs.openingDeaths,
+        "Assisted K": sortSpecs.openingAssisted,
+        "Dmg A": sortSpecs.openingDamageAssisted,
+        "Flash A": sortSpecs.openingFlashAssisted,
         "Attempt rate": sortSpecs.openingAttempts,
         Diff: sortSpecs.openingDiff,
-        Success: sortSpecs.openingSuccess
+        Success: sortSpecs.openingSuccess,
+        "Assist %": sortSpecs.openingAssistRate
       },
       trades: {
         "K-D": sortSpecs.tradeKD,
@@ -1605,7 +1626,7 @@
     const widths = [160, 82];
     widths.push(...(state.expandedGroups.combat ? [54, 54, 54, 62, 62, 82, 88, 76, 72] : [90]));
     widths.push(72, 72);
-    widths.push(...(state.expandedGroups.opening ? [58, 58, 88, 68, 76] : [108]));
+    widths.push(...(state.expandedGroups.opening ? [58, 58, 82, 68, 72, 88, 68, 76, 76] : [108]));
     widths.push(...(state.expandedGroups.trades ? [58, 54, 96, 58, 54, 96] : [88]));
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
     widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
@@ -1653,7 +1674,7 @@
     ["Player", "Rounds P/W"].forEach(label => regularHeader(header, label));
     groupHeader(header, detailHeader, "combat", "Combat", ["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A");
     ["KAST", "Rating"].forEach(label => regularHeader(header, label));
-    groupHeader(header, detailHeader, "opening", "Opening", ["K", "D", "Attempt rate", "Diff", "Success"], "K-D · Att%");
+    groupHeader(header, detailHeader, "opening", "Opening", ["K", "D", "Assisted K", "Dmg A", "Flash A", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%");
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A");
     groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
@@ -2228,7 +2249,11 @@
         rounds: [number(player.rounds_played), number(player.round_wins)],
         kda: [kills, number(player.deaths), number(player.assists), headshots, number(player.damage)],
         kast_rounds: number(player.kast_rounds),
-        opening: [number(player.opening_kills), number(player.opening_deaths)],
+        opening: [
+          number(player.opening_kills), number(player.opening_deaths),
+          number(player.opening_assisted_kills), number(player.opening_damage_assisted_kills),
+          number(player.opening_flash_assisted_kills)
+        ],
         trade_kills: number(player.trade_kills),
         trade_d: [number(player.tradeable_deaths), number(player.attempted_tradeable_deaths), number(player.traded_deaths ?? player.traded_tradeable_deaths)],
         utility: [
@@ -2291,8 +2316,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/14",
-      nickstats_build: "2026.09.14.11",
+      schema: "nickstats.match/15",
+      nickstats_build: "2026.09.14.13",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

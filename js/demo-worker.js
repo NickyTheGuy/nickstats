@@ -86,7 +86,7 @@ const ADDITIVE_STAT_FIELDS = [
   "assistRounds", "survivalRounds", "tradeRounds", "tradeKills", "tradedDeaths",
   "tradeOpportunities", "tradeAttempts", "tradeSuccesses", "tradeableDeaths",
   "attemptedTradeableDeaths", "tradedTradeableDeaths", "damageAssistedKills",
-  "flashAssistedKills", "ownFlashAssistedKills",
+  "flashAssistedKills", "ownFlashAssistedKills", "assistedKills",
   "enemiesFlashed", "flashAssists", "heDamage", "fireDamage", "damageReceived",
   "heGrenadesThrown", "flashbangsThrown", "smokesThrown", "fireGrenadesThrown", "decoysThrown",
   "bombPlants", "bombDefuses",
@@ -100,7 +100,8 @@ const ADDITIVE_STAT_FIELDS = [
   "speedOnKillTotal", "speedOnKillSamples", "speedOnKillPercentTotal",
   "speedOnKillPercentSamples", "killerSpeedTotal", "killerSpeedSamples",
   "killerSpeedPercentTotal", "killerSpeedPercentSamples", "rounds", "openingKills",
-  "openingDeaths", "multikillRounds"
+  "openingDeaths", "openingAssistedKills", "openingDamageAssistedKills",
+  "openingFlashAssistedKills", "multikillRounds"
 ];
 let libraryError = null;
 
@@ -264,6 +265,7 @@ async function parseDemo(fileName, buffer) {
           damageAssistedKills: 0,
           flashAssistedKills: 0,
           ownFlashAssistedKills: 0,
+          assistedKills: 0,
           enemiesFlashed: 0,
           flashAssists: 0,
           heDamage: 0,
@@ -319,6 +321,9 @@ async function parseDemo(fileName, buffer) {
           rounds: 0,
           openingKills: 0,
           openingDeaths: 0,
+          openingAssistedKills: 0,
+          openingDamageAssistedKills: 0,
+          openingFlashAssistedKills: 0,
           multikillRounds: 0,
           killRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
           clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
@@ -477,6 +482,7 @@ async function parseDemo(fileName, buffer) {
       row.damageAssistedKills = 0;
       row.flashAssistedKills = 0;
       row.ownFlashAssistedKills = 0;
+      row.assistedKills = 0;
       row.enemiesFlashed = 0;
       row.flashAssists = 0;
       row.heDamage = 0;
@@ -532,6 +538,9 @@ async function parseDemo(fileName, buffer) {
       row.rounds = 0;
       row.openingKills = 0;
       row.openingDeaths = 0;
+      row.openingAssistedKills = 0;
+      row.openingDamageAssistedKills = 0;
+      row.openingFlashAssistedKills = 0;
       row.multikillRounds = 0;
       row.killRoundsByCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       row.clutchWins = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -1445,6 +1454,7 @@ async function parseDemo(fileName, buffer) {
       (attackerTeam === 2 || attackerTeam === 3) &&
       (victimTeam === 2 || victimTeam === 3) &&
       attackerTeam !== victimTeam;
+    const openingKill = enemyKill && !round.openingRecorded;
 
     const aliveBefore = { T: 0, CT: 0 };
     for (const row of new Set([...round.participants].map(userId => stats.get(userId)).filter(Boolean))) {
@@ -1628,7 +1638,7 @@ async function parseDemo(fileName, buffer) {
       round.killCounts.set(attackerId, (round.killCounts.get(attackerId) || 0) + 1);
       if (event.headshot) attacker.headshots += 1;
 
-      if (!round.openingRecorded) {
+      if (openingKill) {
         attacker.openingKills += 1;
         victim.openingDeaths += 1;
         round.openingRecorded = true;
@@ -1709,18 +1719,44 @@ async function parseDemo(fileName, buffer) {
       round.pendingDeaths = round.pendingDeaths.filter(item => pendingTradeIsAlive(item, tick));
     }
 
-    if (enemyKill && assisterId !== null && assisterId !== victimId) {
-      const assister = stats.get(assisterId);
-      if (assister && assisterId !== attackerId) {
-        assister.assists += 1;
-        round.assists.add(assisterId);
-        if (event.assistedflash) {
-          assister.flashAssists += 1;
-          attacker.flashAssistedKills += 1;
-          assistedKillMatchupStat(attacker, assister).flash += 1;
-        } else {
-          attacker.damageAssistedKills += 1;
-          assistedKillMatchupStat(attacker, assister).damage += 1;
+    if (enemyKill) {
+      const damageContributors = new Set();
+      const flashContributors = new Set();
+      const officialAssister = assisterId === null ? null : stats.get(assisterId);
+      if (officialAssister && officialAssister !== attacker && officialAssister !== victim) {
+        (event.assistedflash ? flashContributors : damageContributors).add(officialAssister);
+      }
+
+      // The death event exposes only one assister. When a damage assister occupies
+      // that slot, recover every teammate whose flash was still blinding the victim.
+      for (const [thrower, expiry] of blindSources.get(victim) || []) {
+        const throwerTeam = round.sideAssignments.get(thrower) || rowSide(thrower);
+        if (expiry >= tick && thrower !== attacker && thrower !== victim && throwerTeam === attackerTeam) {
+          flashContributors.add(thrower);
+        }
+      }
+
+      for (const contributor of damageContributors) {
+        attacker.damageAssistedKills += 1;
+        assistedKillMatchupStat(attacker, contributor).damage += 1;
+      }
+      for (const contributor of flashContributors) {
+        contributor.flashAssists += 1;
+        attacker.flashAssistedKills += 1;
+        assistedKillMatchupStat(attacker, contributor).flash += 1;
+      }
+
+      const contributors = new Set([...damageContributors, ...flashContributors]);
+      for (const contributor of contributors) {
+        contributor.assists += 1;
+        round.assists.add(contributor.userId);
+      }
+      if (contributors.size) {
+        attacker.assistedKills += 1;
+        if (openingKill) {
+          attacker.openingAssistedKills += 1;
+          attacker.openingDamageAssistedKills += Number(damageContributors.size > 0);
+          attacker.openingFlashAssistedKills += Number(flashContributors.size > 0);
         }
       }
     }
@@ -2267,7 +2303,9 @@ async function parseDemo(fileName, buffer) {
       unfair: "Unique Bullshit Kills/Deaths: killer blind, airborne, or running; wallbang; smoke kill; or victim caught with grenade/knife out; overlapping contexts count once"
     },
     flash_definition: {
-      own_flash: "Killer's own flash is an active blind source on the victim at death"
+      own_flash: "Killer's own flash is an active blind source on the victim at death",
+      teammate_assist: "Every teammate whose flash remains an active blind source on the victim receives assist credit, even when the death event's single assister slot is occupied by a damage assister",
+      deduplication: "A player receives at most one assist per kill; damage and flash attribution may both describe that assist"
     },
     damage_definition: {
       method: "Enemy health removed, reconstructed from each player_hurt event and the victim's tracked before/after health",
@@ -2315,7 +2353,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.14.11",
+    nickstats_build: "2026.09.14.13",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2500,7 +2538,7 @@ function finishPlayer(row) {
       damage: row.damageAssistedKills,
       flash: row.flashAssistedKills,
       own_flash: row.ownFlashAssistedKills,
-      total: row.damageAssistedKills + row.flashAssistedKills
+      total: row.assistedKills
     },
     enemies_flashed: row.enemiesFlashed,
     flash_assists: row.flashAssists,
@@ -2577,6 +2615,9 @@ function finishPlayer(row) {
       .sort((a, b) => (b.kills + b.deaths) - (a.kills + a.deaths) || b.differential - a.differential || a.opponent.localeCompare(b.opponent)),
     opening_kills: row.openingKills,
     opening_deaths: row.openingDeaths,
+    opening_assisted_kills: row.openingAssistedKills,
+    opening_damage_assisted_kills: row.openingDamageAssistedKills,
+    opening_flash_assisted_kills: row.openingFlashAssistedKills,
     multikill_rounds: row.multikillRounds,
     kill_rounds: row.killRoundsByCount,
     clutch_wins: row.clutchWins,

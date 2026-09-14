@@ -97,6 +97,14 @@ private func validPayload() -> MatchPayload {
     try validPayload().validate()
 }
 
+@Test func rejectsOpeningAssistCountsThatExceedOpeningKills() {
+    var payload = validPayload()
+    payload.players[0].sides.terrorist.opening = OpeningStats(
+        kills: 1, deaths: 0, assistedKills: 2, damageAssistedKills: 1, flashAssistedKills: 1
+    )
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+}
+
 @Test func acceptsLegacyPayloadWithoutClutchAttempts() throws {
     var legacyPayload = validPayload()
     legacyPayload.schema = "nickstats.match/9"

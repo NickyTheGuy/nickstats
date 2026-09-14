@@ -213,6 +213,9 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
   kast_rounds SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   opening_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   opening_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_assisted_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_damage_assisted_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_flash_assisted_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   trade_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   tradeable_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   attempted_tradeable_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
@@ -259,6 +262,11 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
     ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT chk_player_side_stats_rounds CHECK (rounds_won <= rounds_played),
   CONSTRAINT chk_player_side_stats_kast CHECK (kast_rounds <= rounds_played),
+  CONSTRAINT chk_player_side_stats_opening_assists CHECK (
+    opening_assisted_kills <= opening_kills AND
+    opening_damage_assisted_kills <= opening_assisted_kills AND
+    opening_flash_assisted_kills <= opening_assisted_kills
+  ),
   CONSTRAINT chk_player_side_stats_trade_deaths CHECK (
     traded_deaths <= attempted_tradeable_deaths AND
     attempted_tradeable_deaths <= tradeable_deaths
@@ -445,5 +453,6 @@ INSERT INTO schema_migrations (version, description) VALUES
   (4, 'Round-end survivor counts'),
   (5, 'Round freeze-time economy facts'),
   (6, 'Player statistics partitioned by own-team buy state'),
-  (7, 'Player statistics partitioned by round result')
+  (7, 'Player statistics partitioned by round result'),
+  (8, 'Unique assisted opening kills with damage and flash attribution')
 ON DUPLICATE KEY UPDATE description = VALUES(description);

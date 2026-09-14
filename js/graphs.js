@@ -39,7 +39,11 @@
       ["opening_kpr", "Opening kills per round", rate("opening_kills"), 3], ["opening_dpr", "Opening deaths per round", rate("opening_deaths"), 3],
       ["opening_attempt_rate", "Opening attempt rate", stats => 100 * ratio(number(stats.opening_kills) + number(stats.opening_deaths), stats.rounds), 1, "%"],
       ["opening_diff", "Opening differential", stats => number(stats.opening_kills) - number(stats.opening_deaths), 0],
-      ["opening_success", "Opening success", stats => 100 * ratio(stats.opening_kills, number(stats.opening_kills) + number(stats.opening_deaths)), 1, "%"]
+      ["opening_success", "Opening success", stats => 100 * ratio(stats.opening_kills, number(stats.opening_kills) + number(stats.opening_deaths)), 1, "%"],
+      ["opening_assisted_kpr", "Assisted opening kills per round", rate("opening_assisted_kills"), 3],
+      ["opening_damage_assisted_kpr", "Damage-assisted openings per round", rate("opening_damage_assisted_kills"), 3],
+      ["opening_flash_assisted_kpr", "Flash-assisted openings per round", rate("opening_flash_assisted_kills"), 3],
+      ["opening_assist_rate", "Opening kills assisted", percentage("opening_assisted_kills", "opening_kills"), 1, "%"]
     ]],
     ["Trades", [
       ["trade_kpr", "Trade kills per round", rate("trade_kills"), 3], ["trade_response", "Trade response rate", percentage("trade_attempts", "trade_opportunities"), 1, "%"],

@@ -1,8 +1,8 @@
 import Vapor
 
-let compactSchema = "nickstats.match/14"
-let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", compactSchema])
-let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", compactSchema])
+let compactSchema = "nickstats.match/15"
+let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", compactSchema])
+let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
@@ -361,6 +361,16 @@ struct PlayerTradeProfileStats: Content {
 struct PlayerOpeningProfileStats: Content {
     var kills: Int
     var deaths: Int
+    var assistedKills: Int
+    var damageAssistedKills: Int
+    var flashAssistedKills: Int
+
+    enum CodingKeys: String, CodingKey {
+        case kills, deaths
+        case assistedKills = "assisted_kills"
+        case damageAssistedKills = "damage_assisted_kills"
+        case flashAssistedKills = "flash_assisted_kills"
+    }
 }
 
 struct PlayerWeaponProfileStats: Content {
