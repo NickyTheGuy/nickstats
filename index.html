@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260914-14">
+  <link rel="stylesheet" href="./styles.css?v=20260915-16">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.14.15</span>
+          <span class="demo-build">Build 2026.09.15.16</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -261,7 +261,12 @@
                 <span>Rounds</span><div class="side-toggle" role="group" aria-label="Profile round result"><button class="active" type="button" aria-pressed="true" data-compare-round-result="ALL">All</button><button type="button" aria-pressed="false" data-compare-round-result="win">Won</button><button type="button" aria-pressed="false" data-compare-round-result="loss">Lost</button></div>
               </div>
 
-              <div class="combo-profile-stack">
+              <nav class="match-browser-tabs combo-display-tabs" role="tablist" aria-label="Group statistics view">
+                <button class="match-browser-tab active" type="button" role="tab" aria-selected="true" data-combo-display="profile">Profiles</button>
+                <button class="match-browser-tab" type="button" role="tab" aria-selected="false" data-combo-display="quick">Quick comparison</button>
+              </nav>
+
+              <div class="combo-display-panel" data-combo-display-panel="profile">
                 <nav class="match-browser-tabs combo-player-tabs" id="comboProfilePlayers" role="tablist" aria-label="Included player profiles"></nav>
 
                 <section class="panel player-profile combo-player-profile" id="comboProfilePanel">
@@ -272,6 +277,17 @@
                   <div id="comboProfileBody"></div>
                 </section>
               </div>
+
+              <section class="panel quick-comparison-panel combo-display-panel" data-combo-display-panel="quick" hidden>
+                <header class="section-head quick-comparison-heading">
+                  <div><div class="eyebrow">Quick comparison</div><h2>Group scoreboard</h2><p id="comboQuickMeta">Compare the included players at a glance.</p></div>
+                </header>
+                <nav class="match-browser-tabs quick-comparison-map-tabs" id="comboQuickMaps" role="tablist" aria-label="Quick comparison map"></nav>
+                <div class="player-profile-table-wrap">
+                  <table class="player-profile-table quick-comparison-table" id="comboQuickTable"></table>
+                </div>
+                <p class="quick-comparison-empty" id="comboQuickEmpty" hidden>No qualifying matches for this map and filter combination.</p>
+              </section>
             </div>
           </div>
         </div>
@@ -482,6 +498,6 @@
   <script defer src="./js/profile.js?v=20260914-1"></script>
   <script defer src="./js/quick-comparison.js?v=20260914-12"></script>
   <script defer src="./js/players.js?v=20260914-12"></script>
-  <script defer src="./js/compare.js?v=20260914-14"></script>
+  <script defer src="./js/compare.js?v=20260915-16"></script>
 </body>
 </html>
