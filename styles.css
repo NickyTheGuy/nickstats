@@ -16,11 +16,18 @@
   --accent-wash: rgba(233, 86, 49, .09);
   --secondary-accent: rgb(228, 182, 82);
   --secondary-wash: rgba(228, 182, 82, .14);
-  --blue: #68a4ff;
-  --blue-2: #347cf0;
-  --green: #62d49d;
-  --red: #ff7a83;
-  --amber: #ffc969;
+  --section-combat: #536f91;
+  --section-positive: #587a5a;
+  --section-negative: #a94f4d;
+  --section-opening: #986b25;
+  --section-trades: #4b776f;
+  --section-context: #a65c38;
+  --section-movement: #80668c;
+  --blue: var(--section-combat);
+  --blue-2: #405f82;
+  --green: var(--section-positive);
+  --red: var(--section-negative);
+  --amber: var(--section-opening);
   --shadow: 0 18px 48px rgba(54, 38, 44, .10);
 }
 
@@ -81,9 +88,9 @@ h1 {
   gap: 9px;
   align-items: center;
   padding: 10px 13px;
-  border: 1px solid rgba(98, 212, 157, .28);
+  border: 1px solid rgba(88, 122, 90, .28);
   border-radius: 999px;
-  background: rgba(98, 212, 157, .08);
+  background: rgba(88, 122, 90, .08);
   color: #276847;
   white-space: nowrap;
 }
@@ -93,7 +100,7 @@ h1 {
   height: 8px;
   border-radius: 50%;
   background: var(--green);
-  box-shadow: 0 0 0 5px rgba(98, 212, 157, .10);
+  box-shadow: 0 0 0 5px rgba(88, 122, 90, .10);
 }
 
 .panel {
@@ -185,9 +192,9 @@ h1 {
   gap: 12px;
   margin: 14px 0;
   padding: 14px 16px;
-  border: 1px solid rgba(98, 212, 157, .24);
+  border: 1px solid rgba(88, 122, 90, .24);
   border-radius: 12px;
-  background: rgba(98, 212, 157, .045);
+  background: rgba(88, 122, 90, .045);
 }
 
 .demo-round-closeness[hidden] { display: none; }
@@ -332,9 +339,9 @@ h1 {
 .warning-list:empty { display: none; }
 .warning {
   padding: 12px 15px;
-  border: 1px solid rgba(255, 201, 105, .32);
+  border: 1px solid rgba(152, 107, 37, .32);
   border-radius: 11px;
-  background: rgba(255, 201, 105, .08);
+  background: rgba(152, 107, 37, .08);
   color: #6d5114;
 }
 
@@ -370,9 +377,9 @@ h1 {
   background: var(--panel-2);
 }
 
-.verdict-card.lifter { border-color: rgba(98,212,157,.36); }
-.verdict-card.dragger { border-color: rgba(255,122,131,.34); }
-.verdict-card.exister { border-color: rgba(255,201,105,.27); }
+.verdict-card.lifter { border-color: rgba(88,122,90,.36); }
+.verdict-card.dragger { border-color: rgba(169,79,77,.34); }
+.verdict-card.exister { border-color: rgba(152,107,37,.27); }
 
 .verdict-top {
   display: flex;
@@ -401,9 +408,9 @@ h1 {
   text-transform: uppercase;
 }
 
-.badge.lifter { background: rgba(98,212,157,.13); color: var(--green); }
-.badge.dragger { background: rgba(255,122,131,.12); color: var(--red); }
-.badge.exister { background: rgba(255,201,105,.11); color: var(--amber); }
+.badge.lifter { background: rgba(88,122,90,.13); color: var(--green); }
+.badge.dragger { background: rgba(169,79,77,.12); color: var(--red); }
+.badge.exister { background: rgba(152,107,37,.11); color: var(--amber); }
 
 .alias { margin: 2px 0 12px; color: var(--muted); font-size: 13px; }
 
@@ -545,9 +552,9 @@ tbody tr:hover { background: rgba(233, 86, 49, .045); }
 
 .matrix-cell strong { display: block; font-size: 12px; }
 .matrix-cell small { display: block; color: currentColor; font-size: 10px; opacity: .78; }
-.matrix-cell.lifter { background: rgba(98,212,157,.13); color: var(--green); }
-.matrix-cell.dragger { background: rgba(255,122,131,.12); color: var(--red); }
-.matrix-cell.exister { background: rgba(255,201,105,.08); color: var(--amber); }
+.matrix-cell.lifter { background: rgba(88,122,90,.13); color: var(--green); }
+.matrix-cell.dragger { background: rgba(169,79,77,.12); color: var(--red); }
+.matrix-cell.exister { background: rgba(152,107,37,.08); color: var(--amber); }
 .diagonal { color: var(--muted); }
 
 details { padding: 18px 22px; }
@@ -619,13 +626,13 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .combo-player-card.is-include {
-  border-color: rgba(98, 212, 157, .55);
-  background: rgba(98, 212, 157, .08);
+  border-color: rgba(88, 122, 90, .55);
+  background: rgba(88, 122, 90, .08);
 }
 
 .combo-player-card.is-exclude {
-  border-color: rgba(255, 122, 131, .55);
-  background: rgba(255, 122, 131, .07);
+  border-color: rgba(169, 79, 77, .55);
+  background: rgba(169, 79, 77, .07);
 }
 
 .combo-player-meta { min-width: 0; }
@@ -657,8 +664,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   font-weight: 820;
 }
 
-.combo-choice button[data-choice="include"][aria-pressed="true"] { background: var(--green); color: #07150f; }
-.combo-choice button[data-choice="exclude"][aria-pressed="true"] { background: var(--red); color: #21080a; }
+.combo-choice button[data-choice="include"][aria-pressed="true"] { background: var(--green); color: #fff; }
+.combo-choice button[data-choice="exclude"][aria-pressed="true"] { background: var(--red); color: #fff; }
 .combo-actions { margin-top: 18px; }
 .combo-results { display: grid; gap: 18px; }
 .combo-results[hidden] { display: none; }
@@ -689,13 +696,13 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   border-top: 3px solid var(--combo-profile-accent);
 }
 
-.combo-profile-panel[data-metric-group="trades"] { --combo-profile-accent: #55d6d2; }
+.combo-profile-panel[data-metric-group="trades"] { --combo-profile-accent: var(--section-trades); }
 .combo-profile-panel[data-metric-group="openings"] { --combo-profile-accent: var(--amber); border-top-style: dashed; }
 .combo-profile-panel[data-metric-group="utility"] { --combo-profile-accent: var(--blue); border-top-style: double; }
 .combo-profile-panel[data-metric-group="context"],
-.combo-profile-panel[data-metric-group="contextDeaths"] { --combo-profile-accent: #ff975c; border-top-style: ridge; }
+.combo-profile-panel[data-metric-group="contextDeaths"] { --combo-profile-accent: var(--section-context); border-top-style: ridge; }
 .combo-profile-panel[data-metric-group="rounds"] { --combo-profile-accent: var(--green); border-top-style: dotted; }
-.combo-profile-panel[data-metric-group="movement"] { --combo-profile-accent: #be82ff; border-top-style: dashed; }
+.combo-profile-panel[data-metric-group="movement"] { --combo-profile-accent: var(--section-movement); border-top-style: dashed; }
 
 .combo-profile-heading {
   display: flex;
@@ -921,10 +928,10 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .demo-local-badge {
   flex: none;
   padding: 7px 11px;
-  border: 1px solid rgba(98, 212, 157, .3);
+  border: 1px solid rgba(88, 122, 90, .3);
   border-radius: 999px;
   color: #276847;
-  background: rgba(98, 212, 157, .08);
+  background: rgba(88, 122, 90, .08);
   font-size: 12px;
   font-weight: 800;
 }
@@ -944,9 +951,9 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .demo-auth-button.authenticated {
-  border-color: rgba(98, 212, 157, .38);
+  border-color: rgba(88, 122, 90, .38);
   color: #276847;
-  background: rgba(98, 212, 157, .08);
+  background: rgba(88, 122, 90, .08);
 }
 
 .demo-auth-dialog {
@@ -1281,13 +1288,13 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .demo-weapon-player[open] {
-  border-color: rgba(104, 164, 255, .48);
-  background: rgba(104, 164, 255, .045);
-  box-shadow: 0 0 0 1px rgba(104, 164, 255, .06);
+  border-color: rgba(83, 111, 145, .48);
+  background: rgba(83, 111, 145, .045);
+  box-shadow: 0 0 0 1px rgba(83, 111, 145, .06);
 }
 
 .demo-weapon-player[open] summary::before { transform: rotate(45deg); }
-.demo-weapon-player summary:hover { background: rgba(104, 164, 255, .07); }
+.demo-weapon-player summary:hover { background: rgba(83, 111, 145, .07); }
 .demo-weapon-player summary:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 
 .demo-weapon-summary-main {
@@ -1298,7 +1305,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .demo-weapon-summary-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.demo-weapon-action { color: #8bb7ff; font-size: 11px; font-weight: 800; }
+.demo-weapon-action { color: #536f91; font-size: 11px; font-weight: 800; }
 .demo-weapon-action::after { content: "View weapons"; }
 .demo-weapon-player[open] .demo-weapon-action::after { content: "Hide weapons"; }
 .demo-weapon-totals { color: var(--muted); font-size: 12px; white-space: nowrap; }
@@ -1331,23 +1338,23 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .demo-duel-matrix .duel-team-row-start > * { border-top: 3px solid rgba(65, 55, 60, .38); }
 .demo-duel-matrix .duel-unavailable { color: var(--muted); background: rgba(32, 26, 29, .03); }
 
-.duel-positive { color: var(--green); background: rgba(98, 212, 157, .08); font-weight: 900; }
-.duel-negative { color: var(--red); background: rgba(255, 122, 131, .08); font-weight: 900; }
-.duel-even { color: var(--amber); background: rgba(255, 201, 105, .055); font-weight: 900; }
+.duel-positive { color: var(--green); background: rgba(88, 122, 90, .08); font-weight: 900; }
+.duel-negative { color: var(--red); background: rgba(169, 79, 77, .08); font-weight: 900; }
+.duel-even { color: var(--amber); background: rgba(152, 107, 37, .055); font-weight: 900; }
 
 .demo-trade-matrix .trade-success {
   color: var(--green);
-  background: rgba(98, 212, 157, .1);
+  background: rgba(88, 122, 90, .1);
   font-weight: 900;
 }
 
 .demo-trade-matrix .trade-attempt {
   color: var(--amber);
-  background: rgba(255, 201, 105, .07);
+  background: rgba(152, 107, 37, .07);
   font-weight: 850;
 }
 
-.demo-trade-matrix .trade-opportunity { color: #a9c9ff; }
+.demo-trade-matrix .trade-opportunity { color: #536f91; }
 .demo-trade-matrix .trade-none { color: var(--muted); }
 
 .demo-team .table-wrap {
@@ -1433,27 +1440,27 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   box-shadow: inset 0 -3px currentColor;
 }
 
-.combat-cell { background: rgba(104, 164, 255, .05); }
-.opening-cell { background: rgba(255, 201, 105, .05); }
-.trades-cell { background: rgba(85, 214, 210, .045); }
-.killContext-cell { background: rgba(255, 151, 92, .13); }
-.movement-cell { background: rgba(190, 130, 255, .08); }
-.utility-cell { background: rgba(104, 164, 255, .05); }
-.clutches-cell { background: rgba(98, 212, 157, .12); }
+.combat-cell { background: rgba(83, 111, 145, .05); }
+.opening-cell { background: rgba(152, 107, 37, .05); }
+.trades-cell { background: rgba(75, 119, 111, .045); }
+.killContext-cell { background: rgba(166, 92, 56, .13); }
+.movement-cell { background: rgba(128, 102, 140, .08); }
+.utility-cell { background: rgba(83, 111, 145, .05); }
+.clutches-cell { background: rgba(88, 122, 90, .12); }
 .multikills-cell,
 .objectives-cell,
-.timing-cell { background: rgba(98, 212, 157, .07); }
+.timing-cell { background: rgba(88, 122, 90, .07); }
 
-.combat-heading { background: rgba(104, 164, 255, .10); }
-.opening-heading { background: rgba(255, 201, 105, .10); }
-.trades-heading { background: rgba(85, 214, 210, .09); }
-.killContext-heading { background: rgba(255, 151, 92, .18); }
-.movement-heading { background: rgba(190, 130, 255, .13); }
-.utility-heading { background: rgba(104, 164, 255, .10); }
-.clutches-heading { background: rgba(98, 212, 157, .17); }
+.combat-heading { background: rgba(83, 111, 145, .10); }
+.opening-heading { background: rgba(152, 107, 37, .10); }
+.trades-heading { background: rgba(75, 119, 111, .09); }
+.killContext-heading { background: rgba(166, 92, 56, .18); }
+.movement-heading { background: rgba(128, 102, 140, .13); }
+.utility-heading { background: rgba(83, 111, 145, .10); }
+.clutches-heading { background: rgba(88, 122, 90, .17); }
 .multikills-heading,
 .objectives-heading,
-.timing-heading { background: rgba(98, 212, 157, .11); }
+.timing-heading { background: rgba(88, 122, 90, .11); }
 
 .demo-toggle-heading {
   border-top-width: 3px;
@@ -1463,9 +1470,9 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .demo-toggle-heading.combat-heading { border-top: 3px solid var(--blue); }
 .demo-toggle-heading.opening-heading { border-top: 3px dashed var(--amber); }
-.demo-toggle-heading.trades-heading { border-top: 3px solid #55d6d2; }
-.demo-toggle-heading.killContext-heading { border-top: 3px ridge #ff975c; }
-.demo-toggle-heading.movement-heading { border-top: 3px dashed #be82ff; }
+.demo-toggle-heading.trades-heading { border-top: 3px solid var(--section-trades); }
+.demo-toggle-heading.killContext-heading { border-top: 3px ridge var(--section-context); }
+.demo-toggle-heading.movement-heading { border-top: 3px dashed var(--section-movement); }
 .demo-toggle-heading.utility-heading { border-top: 3px double var(--blue); }
 .demo-toggle-heading.clutches-heading { border-top: 3px dotted var(--green); }
 .demo-toggle-heading.multikills-heading,
@@ -1500,7 +1507,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   display: inline-block;
   margin-left: 7px;
   padding: 1px 5px;
-  border: 1px solid rgba(255, 201, 105, .45);
+  border: 1px solid rgba(152, 107, 37, .45);
   border-radius: 5px;
   color: var(--amber);
   font-size: 9px;
@@ -1811,11 +1818,11 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .match-list-team.winner .match-list-team-name {
-  color: #276847;
+  color: var(--green);
 }
 
 .match-list-team.loser .match-list-team-name {
-  color: #8f3943;
+  color: var(--red);
 }
 
 .match-list-score {
@@ -1835,14 +1842,14 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .match-list-team.winner .match-list-score {
-  border-color: rgba(69, 209, 139, .45);
-  background: rgba(69, 209, 139, .12);
+  border-color: rgba(88, 122, 90, .45);
+  background: rgba(88, 122, 90, .12);
   color: var(--green);
 }
 
 .match-list-team.loser .match-list-score {
-  border-color: rgba(242, 112, 125, .38);
-  background: rgba(242, 112, 125, .1);
+  border-color: rgba(169, 79, 77, .38);
+  background: rgba(169, 79, 77, .1);
   color: var(--red);
 }
 
@@ -2074,8 +2081,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   background: var(--panel-2);
   transition: border-color .16s ease, background .16s ease;
 }
-.compare-selected-player.is-include { border-color: rgba(98, 212, 157, .55); background: rgba(98, 212, 157, .08); }
-.compare-selected-player.is-exclude { border-color: rgba(255, 122, 131, .55); background: rgba(255, 122, 131, .07); }
+.compare-selected-player.is-include { border-color: rgba(88, 122, 90, .55); background: rgba(88, 122, 90, .08); }
+.compare-selected-player.is-exclude { border-color: rgba(169, 79, 77, .55); background: rgba(169, 79, 77, .07); }
 
 .compare-selected-player > span { display: grid; }
 .compare-selected-player small { color: var(--muted); }
@@ -2097,8 +2104,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   font-size: 10px;
   font-weight: 850;
 }
-.compare-roster-role button[data-choice="include"].active { background: var(--green); color: #07150f; }
-.compare-roster-role button[data-choice="exclude"].active { background: var(--red); color: #21080a; }
+.compare-roster-role button[data-choice="include"].active { background: var(--green); color: #fff; }
+.compare-roster-role button[data-choice="exclude"].active { background: var(--red); color: #fff; }
 .compare-selected-player > .compare-player-remove {
   display: grid;
   flex: 0 0 27px;
@@ -2115,7 +2122,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   place-items: center;
 }
 .compare-selected-player > .compare-player-remove:hover,
-.compare-selected-player > .compare-player-remove:focus-visible { background: rgba(255, 122, 131, .16); color: var(--red); }
+.compare-selected-player > .compare-player-remove:focus-visible { background: rgba(169, 79, 77, .16); color: var(--red); }
 
 .compare-builder-actions { margin-top: 16px; }
 .compare-mode-tabs { justify-self: start; box-shadow: none; }
@@ -2276,7 +2283,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-open-tab-close { width: 30px; padding: 0 7px 2px; font-size: 18px; line-height: 1; }
 .player-open-tab.active .player-open-tab-label { color: var(--text); }
 .player-open-tab-close:hover,
-.player-open-tab-close:focus-visible { background: rgba(255, 122, 131, .14); color: var(--red); }
+.player-open-tab-close:focus-visible { background: rgba(169, 79, 77, .14); color: var(--red); }
 
 .player-profile[hidden],
 .player-profile-view[hidden] {
@@ -2560,19 +2567,19 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .player-profile-tab[data-player-view="utility"].active { --tab-active-accent: var(--blue); }
-.player-profile-tab[data-player-view="trades"].active { --tab-active-accent: #55d6d2; }
+.player-profile-tab[data-player-view="trades"].active { --tab-active-accent: var(--section-trades); }
 .player-profile-tab[data-player-view="openings"].active { --tab-active-accent: var(--amber); }
-.player-profile-tab[data-player-view="context"].active { --tab-active-accent: #ff975c; }
+.player-profile-tab[data-player-view="context"].active { --tab-active-accent: var(--section-context); }
 .player-profile-tab[data-player-view="rounds"].active { --tab-active-accent: var(--green); }
-.player-profile-tab[data-player-view="movement"].active { --tab-active-accent: #be82ff; }
-.player-profile-tab[data-player-view="quick"].active { --tab-active-accent: #55d6d2; }
+.player-profile-tab[data-player-view="movement"].active { --tab-active-accent: var(--section-movement); }
+.player-profile-tab[data-player-view="quick"].active { --tab-active-accent: var(--section-trades); }
 .player-profile-tab[data-player-view="graphs"].active { --tab-active-accent: var(--blue); }
 .player-profile-tab[data-combo-profile-view="utility"].active { --tab-active-accent: var(--blue); }
-.player-profile-tab[data-combo-profile-view="trades"].active { --tab-active-accent: #55d6d2; }
+.player-profile-tab[data-combo-profile-view="trades"].active { --tab-active-accent: var(--section-trades); }
 .player-profile-tab[data-combo-profile-view="openings"].active { --tab-active-accent: var(--amber); }
-.player-profile-tab[data-combo-profile-view="context"].active { --tab-active-accent: #ff975c; }
+.player-profile-tab[data-combo-profile-view="context"].active { --tab-active-accent: var(--section-context); }
 .player-profile-tab[data-combo-profile-view="rounds"].active { --tab-active-accent: var(--green); }
-.player-profile-tab[data-combo-profile-view="movement"].active { --tab-active-accent: #be82ff; }
+.player-profile-tab[data-combo-profile-view="movement"].active { --tab-active-accent: var(--section-movement); }
 .player-profile-tab[data-combo-profile-view="graphs"].active { --tab-active-accent: var(--blue); }
 
 /* One interaction model for every true tab list. */
@@ -2638,9 +2645,9 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-context-note {
   margin: 0 0 12px;
   padding: 10px 12px;
-  border-left: 3px solid #ff975c;
+  border-left: 3px solid var(--section-context);
   border-radius: 0 9px 9px 0;
-  background: rgba(255, 151, 92, .07);
+  background: rgba(166, 92, 56, .07);
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
@@ -2649,9 +2656,9 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-movement-note {
   margin: 0 0 12px;
   padding: 10px 12px;
-  border-left: 3px solid #be82ff;
+  border-left: 3px solid var(--section-movement);
   border-radius: 0 9px 9px 0;
-  background: rgba(190, 130, 255, .07);
+  background: rgba(128, 102, 140, .07);
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
@@ -2675,7 +2682,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .player-stat-section {
   --profile-accent: var(--blue);
-  --profile-accent-rgb: 104, 164, 255;
+  --profile-accent-rgb: 83, 111, 145;
   min-width: 0;
   padding: 15px;
   border: 1px solid var(--line);
@@ -2687,41 +2694,41 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 [data-player-profile-view="utility"] .player-stat-section,
 [data-combo-profile-panel="utility"] .player-stat-section {
   --profile-accent: var(--blue);
-  --profile-accent-rgb: 104, 164, 255;
+  --profile-accent-rgb: 83, 111, 145;
   border-top-style: double;
 }
 
 [data-player-profile-view="trades"] .player-stat-section,
 [data-combo-profile-panel="trades"] .player-stat-section {
-  --profile-accent: #55d6d2;
-  --profile-accent-rgb: 85, 214, 210;
+  --profile-accent: var(--section-trades);
+  --profile-accent-rgb: 75, 119, 111;
 }
 
 [data-player-profile-view="openings"] .player-stat-section,
 [data-combo-profile-panel="openings"] .player-stat-section {
   --profile-accent: var(--amber);
-  --profile-accent-rgb: 255, 201, 105;
+  --profile-accent-rgb: 152, 107, 37;
   border-top-style: dashed;
 }
 
 [data-player-profile-view="context"] .player-stat-section,
 [data-combo-profile-panel="context"] .player-stat-section {
-  --profile-accent: #ff975c;
-  --profile-accent-rgb: 255, 151, 92;
+  --profile-accent: var(--section-context);
+  --profile-accent-rgb: 166, 92, 56;
   border-top-style: ridge;
 }
 
 [data-player-profile-view="rounds"] .player-stat-section,
 [data-combo-profile-panel="rounds"] .player-stat-section {
   --profile-accent: var(--green);
-  --profile-accent-rgb: 98, 212, 157;
+  --profile-accent-rgb: 88, 122, 90;
   border-top-style: dotted;
 }
 
 [data-player-profile-view="movement"] .player-stat-section,
 [data-combo-profile-panel="movement"] .player-stat-section {
-  --profile-accent: #be82ff;
-  --profile-accent-rgb: 190, 130, 255;
+  --profile-accent: var(--section-movement);
+  --profile-accent-rgb: 128, 102, 140;
   border-top-style: dashed;
 }
 
