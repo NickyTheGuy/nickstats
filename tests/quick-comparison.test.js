@@ -69,6 +69,11 @@ test("player and group quick-comparison switches sit above shared filters", () =
   assert.match(compareSource, /quickButton\.addEventListener\("click", \(\) => setComboDisplay\("quick"\)\)/);
 });
 
+test("quick comparison is the first tab in player and group views", () => {
+  assert.match(playersSource, /tabs\.replaceChildren\(\)[\s\S]*?quickItem\.appendChild\(quick\); tabs\.appendChild\(quickItem\);[\s\S]*?state\.profiles\.forEach/);
+  assert.match(compareSource, /profileTabs\.replaceChildren\(\)[\s\S]*?quickItem\.appendChild\(quickButton\); profileTabs\.appendChild\(quickItem\);[\s\S]*?current\.included\.forEach/);
+});
+
 test("quick comparison uses every open profile while graphs auto-select new profiles", () => {
   assert.match(playersSource, /graphPlayers: new Set\(\)/);
   assert.match(playersSource, /players: \[\.\.\.state\.profiles\.entries\(\)\][\s\S]*?\.map\(\(\[id, candidate\]\)/);

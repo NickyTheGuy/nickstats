@@ -197,6 +197,12 @@
 
   function renderOpenTabs() {
     const tabs = $("playerOpenProfiles"); tabs.replaceChildren(); tabs.hidden = !state.profiles.size;
+    const quickActive = state.display === "quick";
+    const quickItem = document.createElement("div"); quickItem.className = `player-open-tab single${quickActive ? " active" : ""}`;
+    const quick = document.createElement("button"); quick.type = "button"; quick.className = "player-open-tab-label"; quick.setAttribute("role", "tab");
+    quick.setAttribute("aria-selected", String(quickActive)); quick.tabIndex = quickActive ? 0 : -1; quick.textContent = "Quick comparison";
+    quick.addEventListener("click", () => setPlayerDisplay("quick"));
+    quickItem.appendChild(quick); tabs.appendChild(quickItem);
     state.profiles.forEach((profile, id) => {
       const active = state.display === "profile" && id === state.activeId;
       const item = document.createElement("div"); item.className = `player-open-tab${active ? " active" : ""}`;
@@ -207,12 +213,6 @@
       close.setAttribute("aria-label", `Close ${profile.payload.player?.name || "player"} profile`); close.addEventListener("click", () => closeProfile(id));
       item.append(open, close); tabs.appendChild(item);
     });
-    const quickActive = state.display === "quick";
-    const quickItem = document.createElement("div"); quickItem.className = `player-open-tab single${quickActive ? " active" : ""}`;
-    const quick = document.createElement("button"); quick.type = "button"; quick.className = "player-open-tab-label"; quick.setAttribute("role", "tab");
-    quick.setAttribute("aria-selected", String(quickActive)); quick.tabIndex = quickActive ? 0 : -1; quick.textContent = "Quick comparison";
-    quick.addEventListener("click", () => setPlayerDisplay("quick"));
-    quickItem.appendChild(quick); tabs.appendChild(quickItem);
   }
 
   function renderProfile() {

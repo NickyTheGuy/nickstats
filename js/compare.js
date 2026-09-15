@@ -594,6 +594,13 @@
     });
 
     const profileTabs = $("comboProfilePlayers"); profileTabs.replaceChildren();
+    const quickActive = state.comboDisplay === "quick";
+    const quickItem = el("div", "", `player-open-tab single${quickActive ? " active" : ""}`);
+    const quickButton = el("button", "Quick comparison", "player-open-tab-label");
+    quickButton.type = "button"; quickButton.setAttribute("role", "tab"); quickButton.dataset.comboDisplay = "quick";
+    quickButton.setAttribute("aria-selected", String(quickActive)); quickButton.tabIndex = quickActive ? 0 : -1;
+    quickButton.addEventListener("click", () => setComboDisplay("quick"));
+    quickItem.appendChild(quickButton); profileTabs.appendChild(quickItem);
     current.included.forEach(player => {
       const active = state.comboDisplay === "profile" && player.profileId === state.comboPlayerId;
       const item = el("div", "", `player-open-tab single${active ? " active" : ""}`);
@@ -603,13 +610,6 @@
       button.addEventListener("click", () => { state.comboPlayerId = player.profileId; renderComboProfile(current); setComboDisplay("profile"); });
       item.appendChild(button); profileTabs.appendChild(item);
     });
-    const quickActive = state.comboDisplay === "quick";
-    const quickItem = el("div", "", `player-open-tab single${quickActive ? " active" : ""}`);
-    const quickButton = el("button", "Quick comparison", "player-open-tab-label");
-    quickButton.type = "button"; quickButton.setAttribute("role", "tab"); quickButton.dataset.comboDisplay = "quick";
-    quickButton.setAttribute("aria-selected", String(quickActive)); quickButton.tabIndex = quickActive ? 0 : -1;
-    quickButton.addEventListener("click", () => setComboDisplay("quick"));
-    quickItem.appendChild(quickButton); profileTabs.appendChild(quickItem);
     const player = current.included.find(item => item.profileId === state.comboPlayerId);
     const rows = comboProfileRows(current, player), stats = summarize(rows);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
