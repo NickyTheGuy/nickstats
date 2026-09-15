@@ -17,16 +17,17 @@ test("site chrome uses the cold-white orange and gold palette", () => {
   assert.match(styles, /\.tab-button\[aria-selected="true"\] \{[\s\S]*?background: var\(--accent\)/);
 });
 
-test("statistic highlights use the muted warm semantic palette", () => {
-  assert.match(styles, /--section-positive: #587a5a/);
-  assert.match(styles, /--section-negative: #a94f4d/);
-  assert.match(styles, /--section-opening: #986b25/);
-  assert.match(styles, /--section-trades: #4b776f/);
-  assert.match(styles, /--section-context: #a65c38/);
-  assert.match(styles, /--section-movement: #80668c/);
-  assert.match(styles, /\.killContext-cell \{ background: rgba\(166, 92, 56, \.13\); \}/);
-  assert.match(styles, /\.clutches-cell \{ background: rgba\(88, 122, 90, \.12\); \}/);
-  assert.match(graphs, /\["#536f91", "#986b25", "#4b776f", "#80668c", "#a94f4d"\]/);
+test("statistic highlights use the warm high-differentiation semantic palette", () => {
+  assert.match(styles, /--section-positive: #4f7729/);
+  assert.match(styles, /--section-negative: #ad343b/);
+  assert.match(styles, /--section-opening: #925d00/);
+  assert.match(styles, /--section-trades: #17796b/);
+  assert.match(styles, /--section-context: #b64719/);
+  assert.match(styles, /--section-movement: #784292/);
+  assert.match(styles, /\.opening-cell \{ background: rgba\(225, 153, 24, \.18\); \}/);
+  assert.match(styles, /\.killContext-cell \{ background: rgba\(225, 82, 30, \.18\); \}/);
+  assert.match(styles, /\.clutches-cell \{ background: rgba\(112, 155, 52, \.10\); \}/);
+  assert.match(graphs, /\["#455f97", "#d18c00", "#168a77", "#9d51ba", "#bd343e"\]/);
 });
 
 test("all tab families share one surface and active-state treatment", () => {

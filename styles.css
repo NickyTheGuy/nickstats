@@ -16,15 +16,15 @@
   --accent-wash: rgba(233, 86, 49, .09);
   --secondary-accent: rgb(228, 182, 82);
   --secondary-wash: rgba(228, 182, 82, .14);
-  --section-combat: #536f91;
-  --section-positive: #587a5a;
-  --section-negative: #a94f4d;
-  --section-opening: #986b25;
-  --section-trades: #4b776f;
-  --section-context: #a65c38;
-  --section-movement: #80668c;
+  --section-combat: #455f97;
+  --section-positive: #4f7729;
+  --section-negative: #ad343b;
+  --section-opening: #925d00;
+  --section-trades: #17796b;
+  --section-context: #b64719;
+  --section-movement: #784292;
   --blue: var(--section-combat);
-  --blue-2: #405f82;
+  --blue-2: #314a7d;
   --green: var(--section-positive);
   --red: var(--section-negative);
   --amber: var(--section-opening);
@@ -88,9 +88,9 @@ h1 {
   gap: 9px;
   align-items: center;
   padding: 10px 13px;
-  border: 1px solid rgba(88, 122, 90, .28);
+  border: 1px solid rgba(112, 155, 52, .28);
   border-radius: 999px;
-  background: rgba(88, 122, 90, .08);
+  background: rgba(112, 155, 52, .08);
   color: #276847;
   white-space: nowrap;
 }
@@ -100,7 +100,7 @@ h1 {
   height: 8px;
   border-radius: 50%;
   background: var(--green);
-  box-shadow: 0 0 0 5px rgba(88, 122, 90, .10);
+  box-shadow: 0 0 0 5px rgba(112, 155, 52, .10);
 }
 
 .panel {
@@ -192,9 +192,9 @@ h1 {
   gap: 12px;
   margin: 14px 0;
   padding: 14px 16px;
-  border: 1px solid rgba(88, 122, 90, .24);
+  border: 1px solid rgba(112, 155, 52, .24);
   border-radius: 12px;
-  background: rgba(88, 122, 90, .045);
+  background: rgba(112, 155, 52, .045);
 }
 
 .demo-round-closeness[hidden] { display: none; }
@@ -339,9 +339,9 @@ h1 {
 .warning-list:empty { display: none; }
 .warning {
   padding: 12px 15px;
-  border: 1px solid rgba(152, 107, 37, .32);
+  border: 1px solid rgba(225, 153, 24, .32);
   border-radius: 11px;
-  background: rgba(152, 107, 37, .08);
+  background: rgba(225, 153, 24, .08);
   color: #6d5114;
 }
 
@@ -377,9 +377,9 @@ h1 {
   background: var(--panel-2);
 }
 
-.verdict-card.lifter { border-color: rgba(88,122,90,.36); }
-.verdict-card.dragger { border-color: rgba(169,79,77,.34); }
-.verdict-card.exister { border-color: rgba(152,107,37,.27); }
+.verdict-card.lifter { border-color: rgba(112, 155, 52,.36); }
+.verdict-card.dragger { border-color: rgba(210, 62, 69,.34); }
+.verdict-card.exister { border-color: rgba(225, 153, 24,.27); }
 
 .verdict-top {
   display: flex;
@@ -408,9 +408,9 @@ h1 {
   text-transform: uppercase;
 }
 
-.badge.lifter { background: rgba(88,122,90,.13); color: var(--green); }
-.badge.dragger { background: rgba(169,79,77,.12); color: var(--red); }
-.badge.exister { background: rgba(152,107,37,.11); color: var(--amber); }
+.badge.lifter { background: rgba(112, 155, 52,.13); color: var(--green); }
+.badge.dragger { background: rgba(210, 62, 69,.12); color: var(--red); }
+.badge.exister { background: rgba(225, 153, 24,.11); color: var(--amber); }
 
 .alias { margin: 2px 0 12px; color: var(--muted); font-size: 13px; }
 
@@ -552,9 +552,9 @@ tbody tr:hover { background: rgba(233, 86, 49, .045); }
 
 .matrix-cell strong { display: block; font-size: 12px; }
 .matrix-cell small { display: block; color: currentColor; font-size: 10px; opacity: .78; }
-.matrix-cell.lifter { background: rgba(88,122,90,.13); color: var(--green); }
-.matrix-cell.dragger { background: rgba(169,79,77,.12); color: var(--red); }
-.matrix-cell.exister { background: rgba(152,107,37,.08); color: var(--amber); }
+.matrix-cell.lifter { background: rgba(112, 155, 52,.13); color: var(--green); }
+.matrix-cell.dragger { background: rgba(210, 62, 69,.12); color: var(--red); }
+.matrix-cell.exister { background: rgba(225, 153, 24,.08); color: var(--amber); }
 .diagonal { color: var(--muted); }
 
 details { padding: 18px 22px; }
@@ -626,13 +626,13 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .combo-player-card.is-include {
-  border-color: rgba(88, 122, 90, .55);
-  background: rgba(88, 122, 90, .08);
+  border-color: rgba(112, 155, 52, .55);
+  background: rgba(112, 155, 52, .08);
 }
 
 .combo-player-card.is-exclude {
-  border-color: rgba(169, 79, 77, .55);
-  background: rgba(169, 79, 77, .07);
+  border-color: rgba(210, 62, 69, .55);
+  background: rgba(210, 62, 69, .07);
 }
 
 .combo-player-meta { min-width: 0; }
@@ -928,10 +928,10 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .demo-local-badge {
   flex: none;
   padding: 7px 11px;
-  border: 1px solid rgba(88, 122, 90, .3);
+  border: 1px solid rgba(112, 155, 52, .3);
   border-radius: 999px;
   color: #276847;
-  background: rgba(88, 122, 90, .08);
+  background: rgba(112, 155, 52, .08);
   font-size: 12px;
   font-weight: 800;
 }
@@ -951,9 +951,9 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .demo-auth-button.authenticated {
-  border-color: rgba(88, 122, 90, .38);
+  border-color: rgba(112, 155, 52, .38);
   color: #276847;
-  background: rgba(88, 122, 90, .08);
+  background: rgba(112, 155, 52, .08);
 }
 
 .demo-auth-dialog {
@@ -1288,13 +1288,13 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .demo-weapon-player[open] {
-  border-color: rgba(83, 111, 145, .48);
-  background: rgba(83, 111, 145, .045);
-  box-shadow: 0 0 0 1px rgba(83, 111, 145, .06);
+  border-color: rgba(91, 128, 210, .48);
+  background: rgba(91, 128, 210, .045);
+  box-shadow: 0 0 0 1px rgba(91, 128, 210, .06);
 }
 
 .demo-weapon-player[open] summary::before { transform: rotate(45deg); }
-.demo-weapon-player summary:hover { background: rgba(83, 111, 145, .07); }
+.demo-weapon-player summary:hover { background: rgba(91, 128, 210, .07); }
 .demo-weapon-player summary:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 
 .demo-weapon-summary-main {
@@ -1305,7 +1305,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .demo-weapon-summary-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.demo-weapon-action { color: #536f91; font-size: 11px; font-weight: 800; }
+.demo-weapon-action { color: var(--section-combat); font-size: 11px; font-weight: 800; }
 .demo-weapon-action::after { content: "View weapons"; }
 .demo-weapon-player[open] .demo-weapon-action::after { content: "Hide weapons"; }
 .demo-weapon-totals { color: var(--muted); font-size: 12px; white-space: nowrap; }
@@ -1338,23 +1338,23 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .demo-duel-matrix .duel-team-row-start > * { border-top: 3px solid rgba(65, 55, 60, .38); }
 .demo-duel-matrix .duel-unavailable { color: var(--muted); background: rgba(32, 26, 29, .03); }
 
-.duel-positive { color: var(--green); background: rgba(88, 122, 90, .08); font-weight: 900; }
-.duel-negative { color: var(--red); background: rgba(169, 79, 77, .08); font-weight: 900; }
-.duel-even { color: var(--amber); background: rgba(152, 107, 37, .055); font-weight: 900; }
+.duel-positive { color: var(--green); background: rgba(112, 155, 52, .08); font-weight: 900; }
+.duel-negative { color: var(--red); background: rgba(210, 62, 69, .08); font-weight: 900; }
+.duel-even { color: var(--amber); background: rgba(225, 153, 24, .055); font-weight: 900; }
 
 .demo-trade-matrix .trade-success {
   color: var(--green);
-  background: rgba(88, 122, 90, .1);
+  background: rgba(112, 155, 52, .1);
   font-weight: 900;
 }
 
 .demo-trade-matrix .trade-attempt {
   color: var(--amber);
-  background: rgba(152, 107, 37, .07);
+  background: rgba(225, 153, 24, .07);
   font-weight: 850;
 }
 
-.demo-trade-matrix .trade-opportunity { color: #536f91; }
+.demo-trade-matrix .trade-opportunity { color: var(--section-combat); }
 .demo-trade-matrix .trade-none { color: var(--muted); }
 
 .demo-team .table-wrap {
@@ -1440,27 +1440,27 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   box-shadow: inset 0 -3px currentColor;
 }
 
-.combat-cell { background: rgba(83, 111, 145, .05); }
-.opening-cell { background: rgba(152, 107, 37, .05); }
-.trades-cell { background: rgba(75, 119, 111, .045); }
-.killContext-cell { background: rgba(166, 92, 56, .13); }
-.movement-cell { background: rgba(128, 102, 140, .08); }
-.utility-cell { background: rgba(83, 111, 145, .05); }
-.clutches-cell { background: rgba(88, 122, 90, .12); }
+.combat-cell { background: rgba(91, 128, 210, .10); }
+.opening-cell { background: rgba(225, 153, 24, .18); }
+.trades-cell { background: rgba(35, 154, 133, .12); }
+.killContext-cell { background: rgba(225, 82, 30, .18); }
+.movement-cell { background: rgba(145, 71, 177, .16); }
+.utility-cell { background: rgba(91, 128, 210, .10); }
+.clutches-cell { background: rgba(112, 155, 52, .10); }
 .multikills-cell,
 .objectives-cell,
-.timing-cell { background: rgba(88, 122, 90, .07); }
+.timing-cell { background: rgba(112, 155, 52, .07); }
 
-.combat-heading { background: rgba(83, 111, 145, .10); }
-.opening-heading { background: rgba(152, 107, 37, .10); }
-.trades-heading { background: rgba(75, 119, 111, .09); }
-.killContext-heading { background: rgba(166, 92, 56, .18); }
-.movement-heading { background: rgba(128, 102, 140, .13); }
-.utility-heading { background: rgba(83, 111, 145, .10); }
-.clutches-heading { background: rgba(88, 122, 90, .17); }
+.combat-heading { background: rgba(91, 128, 210, .18); }
+.opening-heading { background: rgba(225, 153, 24, .26); }
+.trades-heading { background: rgba(35, 154, 133, .20); }
+.killContext-heading { background: rgba(225, 82, 30, .24); }
+.movement-heading { background: rgba(145, 71, 177, .22); }
+.utility-heading { background: rgba(91, 128, 210, .18); }
+.clutches-heading { background: rgba(112, 155, 52, .15); }
 .multikills-heading,
 .objectives-heading,
-.timing-heading { background: rgba(88, 122, 90, .11); }
+.timing-heading { background: rgba(112, 155, 52, .11); }
 
 .demo-toggle-heading {
   border-top-width: 3px;
@@ -1507,7 +1507,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   display: inline-block;
   margin-left: 7px;
   padding: 1px 5px;
-  border: 1px solid rgba(152, 107, 37, .45);
+  border: 1px solid rgba(225, 153, 24, .45);
   border-radius: 5px;
   color: var(--amber);
   font-size: 9px;
@@ -1842,14 +1842,14 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .match-list-team.winner .match-list-score {
-  border-color: rgba(88, 122, 90, .45);
-  background: rgba(88, 122, 90, .12);
+  border-color: rgba(112, 155, 52, .45);
+  background: rgba(112, 155, 52, .12);
   color: var(--green);
 }
 
 .match-list-team.loser .match-list-score {
-  border-color: rgba(169, 79, 77, .38);
-  background: rgba(169, 79, 77, .1);
+  border-color: rgba(210, 62, 69, .38);
+  background: rgba(210, 62, 69, .1);
   color: var(--red);
 }
 
@@ -2081,8 +2081,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   background: var(--panel-2);
   transition: border-color .16s ease, background .16s ease;
 }
-.compare-selected-player.is-include { border-color: rgba(88, 122, 90, .55); background: rgba(88, 122, 90, .08); }
-.compare-selected-player.is-exclude { border-color: rgba(169, 79, 77, .55); background: rgba(169, 79, 77, .07); }
+.compare-selected-player.is-include { border-color: rgba(112, 155, 52, .55); background: rgba(112, 155, 52, .08); }
+.compare-selected-player.is-exclude { border-color: rgba(210, 62, 69, .55); background: rgba(210, 62, 69, .07); }
 
 .compare-selected-player > span { display: grid; }
 .compare-selected-player small { color: var(--muted); }
@@ -2122,7 +2122,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   place-items: center;
 }
 .compare-selected-player > .compare-player-remove:hover,
-.compare-selected-player > .compare-player-remove:focus-visible { background: rgba(169, 79, 77, .16); color: var(--red); }
+.compare-selected-player > .compare-player-remove:focus-visible { background: rgba(210, 62, 69, .16); color: var(--red); }
 
 .compare-builder-actions { margin-top: 16px; }
 .compare-mode-tabs { justify-self: start; box-shadow: none; }
@@ -2283,7 +2283,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-open-tab-close { width: 30px; padding: 0 7px 2px; font-size: 18px; line-height: 1; }
 .player-open-tab.active .player-open-tab-label { color: var(--text); }
 .player-open-tab-close:hover,
-.player-open-tab-close:focus-visible { background: rgba(169, 79, 77, .14); color: var(--red); }
+.player-open-tab-close:focus-visible { background: rgba(210, 62, 69, .14); color: var(--red); }
 
 .player-profile[hidden],
 .player-profile-view[hidden] {
@@ -2647,7 +2647,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   padding: 10px 12px;
   border-left: 3px solid var(--section-context);
   border-radius: 0 9px 9px 0;
-  background: rgba(166, 92, 56, .07);
+  background: rgba(225, 82, 30, .12);
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
@@ -2658,7 +2658,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   padding: 10px 12px;
   border-left: 3px solid var(--section-movement);
   border-radius: 0 9px 9px 0;
-  background: rgba(128, 102, 140, .07);
+  background: rgba(145, 71, 177, .11);
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
@@ -2682,53 +2682,53 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .player-stat-section {
   --profile-accent: var(--blue);
-  --profile-accent-rgb: 83, 111, 145;
+  --profile-accent-rgb: 91, 128, 210;
   min-width: 0;
   padding: 15px;
   border: 1px solid var(--line);
   border-top: 3px solid var(--profile-accent);
   border-radius: 14px;
-  background: linear-gradient(145deg, rgba(var(--profile-accent-rgb), .075), rgba(255, 255, 255, .76) 52%);
+  background: linear-gradient(145deg, rgba(var(--profile-accent-rgb), .13), rgba(255, 255, 255, .76) 56%);
 }
 
 [data-player-profile-view="utility"] .player-stat-section,
 [data-combo-profile-panel="utility"] .player-stat-section {
   --profile-accent: var(--blue);
-  --profile-accent-rgb: 83, 111, 145;
+  --profile-accent-rgb: 91, 128, 210;
   border-top-style: double;
 }
 
 [data-player-profile-view="trades"] .player-stat-section,
 [data-combo-profile-panel="trades"] .player-stat-section {
   --profile-accent: var(--section-trades);
-  --profile-accent-rgb: 75, 119, 111;
+  --profile-accent-rgb: 35, 154, 133;
 }
 
 [data-player-profile-view="openings"] .player-stat-section,
 [data-combo-profile-panel="openings"] .player-stat-section {
   --profile-accent: var(--amber);
-  --profile-accent-rgb: 152, 107, 37;
+  --profile-accent-rgb: 225, 153, 24;
   border-top-style: dashed;
 }
 
 [data-player-profile-view="context"] .player-stat-section,
 [data-combo-profile-panel="context"] .player-stat-section {
   --profile-accent: var(--section-context);
-  --profile-accent-rgb: 166, 92, 56;
+  --profile-accent-rgb: 225, 82, 30;
   border-top-style: ridge;
 }
 
 [data-player-profile-view="rounds"] .player-stat-section,
 [data-combo-profile-panel="rounds"] .player-stat-section {
   --profile-accent: var(--green);
-  --profile-accent-rgb: 88, 122, 90;
+  --profile-accent-rgb: 112, 155, 52;
   border-top-style: dotted;
 }
 
 [data-player-profile-view="movement"] .player-stat-section,
 [data-combo-profile-panel="movement"] .player-stat-section {
   --profile-accent: var(--section-movement);
-  --profile-accent-rgb: 128, 102, 140;
+  --profile-accent-rgb: 145, 71, 177;
   border-top-style: dashed;
 }
 

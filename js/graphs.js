@@ -2,7 +2,7 @@
   "use strict";
 
   const SVG_NS = "http://www.w3.org/2000/svg";
-  const colors = ["#536f91", "#986b25", "#4b776f", "#80668c", "#a94f4d"];
+  const colors = ["#455f97", "#d18c00", "#168a77", "#9d51ba", "#bd343e"];
   const MIN_BUCKETS = 4;
   const MAX_BUCKETS = 24;
   const DEFAULT_BUCKETS = 10;
