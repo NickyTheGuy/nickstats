@@ -2579,8 +2579,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-profile-tab[data-player-view="context"].active { --tab-active-accent: var(--section-context); }
 .player-profile-tab[data-player-view="rounds"].active { --tab-active-accent: var(--green); }
 .player-profile-tab[data-player-view="movement"].active { --tab-active-accent: var(--section-movement); }
-.player-profile-tab[data-player-view="objectives"].active { --tab-active-accent: var(--section-objectives); }
-.player-profile-tab[data-player-view="timing"].active { --tab-active-accent: var(--section-timing); }
 .player-profile-tab[data-player-view="quick"].active { --tab-active-accent: var(--section-trades); }
 .player-profile-tab[data-player-view="graphs"].active { --tab-active-accent: var(--blue); }
 .player-profile-tab[data-combo-profile-view="utility"].active { --tab-active-accent: var(--blue); }
@@ -2589,8 +2587,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-profile-tab[data-combo-profile-view="context"].active { --tab-active-accent: var(--section-context); }
 .player-profile-tab[data-combo-profile-view="rounds"].active { --tab-active-accent: var(--green); }
 .player-profile-tab[data-combo-profile-view="movement"].active { --tab-active-accent: var(--section-movement); }
-.player-profile-tab[data-combo-profile-view="objectives"].active { --tab-active-accent: var(--section-objectives); }
-.player-profile-tab[data-combo-profile-view="timing"].active { --tab-active-accent: var(--section-timing); }
 .player-profile-tab[data-combo-profile-view="graphs"].active { --tab-active-accent: var(--blue); }
 
 /* One interaction model for every true tab list. */
@@ -2734,27 +2730,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   --profile-accent: var(--green);
   --profile-accent-rgb: 112, 155, 52;
   border-top-style: dotted;
-}
-
-[data-player-profile-view="rounds"] .player-multikill-section,
-[data-combo-profile-panel="rounds"] .player-multikill-section {
-  --profile-accent: var(--section-multikills);
-  --profile-accent-rgb: 220, 65, 121;
-  border-top-style: solid;
-}
-
-[data-player-profile-view="objectives"] .player-stat-section,
-[data-combo-profile-panel="objectives"] .player-stat-section {
-  --profile-accent: var(--section-objectives);
-  --profile-accent-rgb: 194, 143, 28;
-  border-top-style: dashed;
-}
-
-[data-player-profile-view="timing"] .player-stat-section,
-[data-combo-profile-panel="timing"] .player-stat-section {
-  --profile-accent: var(--section-timing);
-  --profile-accent-rgb: 181, 101, 61;
-  border-top-style: double;
 }
 
 [data-player-profile-view="movement"] .player-stat-section,
