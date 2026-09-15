@@ -42,14 +42,17 @@ test("quick comparison serves the group scoreboard and standalone player profile
   assert.match(compareSource, /NickStatsQuickComparison\.create\(\{ prefix: "combo" \}\)/);
   assert.match(html, /data-player-view="quick" data-standalone-profile-only>Quick comparison/);
   assert.match(html, /data-player-profile-view="quick" data-standalone-profile-only hidden/);
-  assert.match(html, /id="playerQuickPlayers"/);
+  assert.doesNotMatch(html, /id="playerQuickPlayers"/);
+  assert.doesNotMatch(html, /id="playerQuickPlayerStatus"/);
   assert.match(html, /id="playerQuickTable"/);
   assert.match(html, /data-combo-display="quick">Quick comparison/);
   assert.match(html, /id="comboQuickTable"/);
 });
 
-test("graphs and quick comparison share the same selected open profiles", () => {
-  assert.match(playersSource, /comparisonPlayers: new Set\(\)/);
-  assert.match(playersSource, /\[\["playerGraphPlayers", "playerGraphPlayerStatus"\], \["playerQuickPlayers", "playerQuickPlayerStatus"\]\]/);
-  assert.match(playersSource, /renderComparisonPlayers\(\); renderGraphs\(\); renderQuickComparison\(\);/);
+test("quick comparison uses every open profile while graphs auto-select new profiles", () => {
+  assert.match(playersSource, /graphPlayers: new Set\(\)/);
+  assert.match(playersSource, /players: \[\.\.\.state\.profiles\.entries\(\)\][\s\S]*?\.map\(\(\[id, candidate\]\)/);
+  assert.doesNotMatch(playersSource, /playerQuickPlayers|playerQuickPlayerStatus/);
+  assert.match(playersSource, /if \(state\.graphPlayers\.size < MAX_GRAPH_PLAYERS\) state\.graphPlayers\.add\(key\)/);
+  assert.match(playersSource, /renderGraphPlayers\(\); renderGraphs\(\); renderQuickComparison\(\);/);
 });
