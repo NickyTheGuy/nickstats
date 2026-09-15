@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260915-25">
+  <link rel="stylesheet" href="./styles.css?v=20260915-26">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.15.25</span>
+          <span class="demo-build">Build 2026.09.15.26</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -370,6 +370,8 @@
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="context">Context</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="movement">Movement</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="utility">Utility</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="objectives">Objectives</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="timing">Round timing</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="weapons">Weapons</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="maps">Maps</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="quick" data-standalone-profile-only>Quick comparison</button>
@@ -409,10 +411,8 @@
           <div class="player-profile-view" data-player-profile-view="rounds" hidden>
             <div class="player-round-sections">
               <section class="player-stat-section player-count-section"><header><span>01</span><div><h3>Clutch performance</h3><p>Wins / attempts at the initial 1vX disadvantage</p></div></header><div class="player-count-strip" id="playerClutchStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>02</span><div><h3>Multikill rounds</h3><p>Rounds grouped by total kills</p></div></header><div class="player-count-strip" id="playerMultikillStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>03</span><div><h3>Objectives</h3><p>Bomb plants and defuses</p></div></header><div class="player-count-strip" id="playerObjectiveStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>04</span><div><h3>Round economy</h3><p>Team buy type at freeze-time end, with round success</p></div></header><div class="player-count-strip player-economy-strip" id="playerEconomyStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>05</span><div><h3>Round timing</h3><p>Time from freeze end and derived tactical phases</p></div></header><div class="player-detail-grid" id="playerTimingAverageStats"></div><div class="player-count-strip player-timing-strip" id="playerPhaseStats"></div></section>
+              <section class="player-stat-section player-count-section player-multikill-section"><header><span>02</span><div><h3>Multikill rounds</h3><p>Rounds grouped by total kills</p></div></header><div class="player-count-strip" id="playerMultikillStats"></div></section>
+              <section class="player-stat-section player-count-section"><header><span>03</span><div><h3>Round economy</h3><p>Team buy type at freeze-time end, with round success</p></div></header><div class="player-count-strip player-economy-strip" id="playerEconomyStats"></div></section>
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="movement" hidden>
@@ -422,6 +422,15 @@
               <section class="player-stat-section"><header><span>02</span><div><h3>Enemy speed on deaths</h3><p>Average and peak killer movement speed</p></div></header><div class="player-detail-grid" id="playerDeathSpeedStats"></div></section>
               <section class="player-stat-section"><header><span>03</span><div><h3>Player movement on kills</h3><p>Movement state when this player got the kill</p></div></header><div class="player-metric-list" id="playerMovementStateStats"></div></section>
               <section class="player-stat-section"><header><span>04</span><div><h3>Enemy movement on deaths</h3><p>Killer movement state when this player died</p></div></header><div class="player-metric-list" id="playerDeathMovementStateStats"></div></section>
+            </div>
+          </div>
+          <div class="player-profile-view" data-player-profile-view="objectives" hidden>
+            <section class="player-stat-section player-count-section player-stat-section-single"><header><span>01</span><div><h3>Objectives</h3><p>Bomb plants and defuses</p></div></header><div class="player-count-strip" id="playerObjectiveStats"></div></section>
+          </div>
+          <div class="player-profile-view" data-player-profile-view="timing" hidden>
+            <div class="player-section-grid">
+              <section class="player-stat-section"><header><span>01</span><div><h3>Event timing</h3><p>Average time from freeze end and after the bomb plant</p></div></header><div class="player-detail-grid" id="playerTimingAverageStats"></div></section>
+              <section class="player-stat-section player-count-section"><header><span>02</span><div><h3>Tactical phases</h3><p>Kills and deaths across each phase of the round</p></div></header><div class="player-count-strip player-timing-strip" id="playerPhaseStats"></div></section>
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="weapons" hidden>
