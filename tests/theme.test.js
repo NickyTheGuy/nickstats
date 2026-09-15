@@ -37,3 +37,7 @@ test("primary and secondary buttons have visible interaction feedback", () => {
   assert.match(styles, /\.button:focus-visible \{[\s\S]*?outline: 2px solid rgba\(233, 86, 49, \.30\)/);
   assert.match(styles, /\.button:active:not\(:disabled\) \{[\s\S]*?transform: translateY\(0\)/);
 });
+
+test("empty open-profile tabs remain fully hidden", () => {
+  assert.match(styles, /\.player-open-profiles\[hidden\] \{ display: none; \}/);
+});

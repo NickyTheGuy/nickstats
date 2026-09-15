@@ -2629,6 +2629,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   box-shadow: inset 0 -3px 0 var(--tab-active-accent), 0 1px 3px rgba(54, 38, 44, .10);
 }
 
+.player-open-profiles[hidden] { display: none; }
+
 .player-profile-view {
   padding-top: 16px;
 }
