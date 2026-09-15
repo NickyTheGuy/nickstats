@@ -17,7 +17,7 @@
 
   const state = {
     profiles: new Map(), activeId: null, graphPlayers: new Set(), recent: readRecent(),
-    searchController: null, profileController: null, searchTimer: null
+    display: "profile", searchController: null, profileController: null, searchTimer: null
   };
   const activeProfile = () => state.profiles.get(state.activeId) || null;
   const mapFilter = new window.NickStatsFilters.MultiMapFilter("playerMapFilter", {
@@ -42,6 +42,16 @@
       button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
     });
     document.querySelectorAll("[data-player-profile-view]").forEach(panel => { panel.hidden = panel.dataset.playerProfileView !== view; });
+  }
+  function setPlayerDisplay(display) {
+    state.display = display === "quick" ? "quick" : "profile";
+    document.querySelectorAll("[data-player-display]").forEach(button => {
+      const active = button.dataset.playerDisplay === state.display;
+      button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
+    });
+    document.querySelectorAll("[data-player-display-panel]").forEach(panel => {
+      panel.hidden = panel.dataset.playerDisplayPanel !== state.display;
+    });
   }
 
   function rememberPlayer(player) {
@@ -223,7 +233,7 @@
     playerSideFilter.set(profile.side, { notify: false }); playerResultFilter.set(profile.result, { notify: false });
     playerBuyFilter.set(profile.buy, { notify: false });
     playerRoundResultFilter.set(profile.roundResult, { notify: false });
-    renderOpenTabs(); renderProfile(); setPlayerView(profile.view, { remember: false });
+    renderOpenTabs(); renderProfile(); setPlayerView(profile.view, { remember: false }); setPlayerDisplay(state.display);
   }
   function closeProfile(id) {
     id = String(id); const ids = [...state.profiles.keys()], index = ids.indexOf(id);
@@ -258,6 +268,7 @@
     if (query.length >= 2) state.searchTimer = setTimeout(searchPlayers, 250);
   });
   $("playerRecentClear").addEventListener("click", () => { state.recent = []; try { localStorage.removeItem(RECENT_KEY); } catch (_) {} renderRecent(); });
+  document.querySelectorAll("[data-player-display]").forEach(button => button.addEventListener("click", () => setPlayerDisplay(button.dataset.playerDisplay)));
   document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
   const playerSideFilter = window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { const profile = activeProfile(); if (profile) { profile.side = side; renderProfile(); } } });
   const playerBuyFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-buy]", valueFor: button => button.dataset.playerBuy, onChange: buy => { const profile = activeProfile(); if (profile) { profile.buy = buy; renderProfile(); } } });

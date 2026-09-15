@@ -47,13 +47,22 @@ test("quick comparison serves the group scoreboard and standalone player profile
   assert.match(componentSource, /window\.NickStatsQuickComparison = \{ create \}/);
   assert.match(playersSource, /NickStatsQuickComparison\.create\(\{ prefix: "player" \}\)/);
   assert.match(compareSource, /NickStatsQuickComparison\.create\(\{ prefix: "combo" \}\)/);
-  assert.match(html, /data-player-view="quick" data-standalone-profile-only>Quick comparison/);
-  assert.match(html, /data-player-profile-view="quick" data-standalone-profile-only hidden/);
+  assert.match(html, /data-player-display="profile">Profiles<\/button>/);
+  assert.match(html, /data-player-display="quick">Quick comparison<\/button>/);
+  assert.match(html, /data-player-display-panel="profile"/);
+  assert.match(html, /data-player-display-panel="quick" hidden/);
   assert.doesNotMatch(html, /id="playerQuickPlayers"/);
   assert.doesNotMatch(html, /id="playerQuickPlayerStatus"/);
   assert.match(html, /id="playerQuickTable"/);
   assert.match(html, /data-combo-display="quick">Quick comparison/);
   assert.match(html, /id="comboQuickTable"/);
+});
+
+test("player and group quick-comparison switches sit above shared filters", () => {
+  assert.match(html, /class="match-browser-tabs combo-display-tabs"[\s\S]*?data-combo-display="quick"[\s\S]*?class="stats-toolbar combo-profile-toolbar"/);
+  assert.match(html, /class="match-browser-tabs player-display-tabs"[\s\S]*?data-player-display="quick"[\s\S]*?class="stats-toolbar"/);
+  assert.match(playersSource, /function setPlayerDisplay\(display\)[\s\S]*?data-player-display-panel/);
+  assert.match(playersSource, /\[data-player-display\][\s\S]*?setPlayerDisplay\(button\.dataset\.playerDisplay\)/);
 });
 
 test("quick comparison uses every open profile while graphs auto-select new profiles", () => {

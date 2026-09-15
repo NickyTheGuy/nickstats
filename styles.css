@@ -2453,17 +2453,20 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .combo-profile-toolbar .combo-condition-toggle { margin-right: 8px; }
 .combo-profile-footnote { margin: 14px 2px 0; color: var(--muted); font-size: 12px; }
 .combo-player-tabs { margin: 0; }
+.player-display-tabs,
 .combo-display-tabs {
   width: fit-content;
   margin: 0;
 }
+.player-display-tabs { margin-top: 12px; }
 .combo-display-panel[data-combo-display-panel="profile"] {
   display: grid;
   gap: 18px;
 }
+.player-display-panel[hidden],
 .combo-display-panel[hidden] { display: none; }
 .quick-comparison-panel { min-width: 0; padding: 22px; }
-.player-quick-comparison { margin-top: 0; padding: 0; }
+.player-quick-comparison { margin-top: 18px; padding: 0; }
 .quick-comparison-heading { margin-bottom: 16px; }
 .quick-comparison-heading h2,
 .quick-comparison-heading p { margin: 0; }
@@ -2579,7 +2582,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-profile-tab[data-player-view="context"].active { --tab-active-accent: var(--section-context); }
 .player-profile-tab[data-player-view="rounds"].active { --tab-active-accent: var(--green); }
 .player-profile-tab[data-player-view="movement"].active { --tab-active-accent: var(--section-movement); }
-.player-profile-tab[data-player-view="quick"].active { --tab-active-accent: var(--section-trades); }
 .player-profile-tab[data-player-view="graphs"].active { --tab-active-accent: var(--blue); }
 .player-profile-tab[data-combo-profile-view="utility"].active { --tab-active-accent: var(--blue); }
 .player-profile-tab[data-combo-profile-view="trades"].active { --tab-active-accent: var(--section-trades); }
