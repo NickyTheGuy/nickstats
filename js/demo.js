@@ -1238,7 +1238,10 @@
       nameCell.appendChild(badge);
     }
     row.appendChild(nameCell);
+    const ratingClass = player.rating >= 1.10 ? "rating-good" : player.rating <= 0.90 ? "rating-bad" : "rating-average";
+    cell(row, player.rating.toFixed(2), `demo-rating ${ratingClass}`);
     cell(row, `${player.rounds_played ?? 0}/${player.round_wins ?? 0}`);
+    cell(row, `${player.kast.toFixed(1)}%`);
     const damageDiff = (player.damage ?? 0) - (player.damage_received ?? 0);
     if (state.expandedGroups.combat) {
       cell(row, player.kills ?? 0, "demo-group-cell combat-cell");
@@ -1253,9 +1256,6 @@
     } else {
       cell(row, `${player.kills}-${player.deaths}-${player.assists}`, "demo-group-cell combat-cell");
     }
-    cell(row, `${player.kast.toFixed(1)}%`);
-    const ratingClass = player.rating >= 1.10 ? "rating-good" : player.rating <= 0.90 ? "rating-bad" : "rating-average";
-    cell(row, player.rating.toFixed(2), `demo-rating ${ratingClass}`);
     const openingTotal = (player.opening_kills ?? 0) + (player.opening_deaths ?? 0);
     const openingDiff = (player.opening_kills ?? 0) - (player.opening_deaths ?? 0);
     if (state.expandedGroups.opening) {
@@ -1303,19 +1303,6 @@
       const attempts = [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_attempts?.[opponents] ?? 0), 0);
       cell(row, `${wins}/${attempts}`, "demo-group-cell clutches-cell");
     }
-    if (state.expandedGroups.multikills) {
-      for (let kills = 5; kills >= 1; kills -= 1) {
-        cell(row, player.kill_rounds?.[kills] ?? 0, "demo-group-cell multikills-cell");
-      }
-    } else {
-      cell(row, [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0), "demo-group-cell multikills-cell");
-    }
-    if (state.expandedGroups.objectives) {
-      cell(row, player.objectives?.plants ?? 0, "demo-group-cell objectives-cell");
-      cell(row, player.objectives?.defuses ?? 0, "demo-group-cell objectives-cell");
-    } else {
-      cell(row, `${player.objectives?.plants ?? 0}/${player.objectives?.defuses ?? 0}`, "demo-group-cell objectives-cell");
-    }
     const timingAverage = kind => {
       if (!player.timing_available) return "—";
       const samples = numberValue(player[`${kind}_time_samples`]);
@@ -1324,13 +1311,6 @@
     const timingPair = phase => player.timing_available
       ? `${player[`${phase}_kills`] ?? 0}-${player[`${phase}_deaths`] ?? 0}`
       : "—";
-    if (state.expandedGroups.timing) {
-      [timingAverage("kill"), timingAverage("death"),
-        timingPair("early"), timingPair("mid"), timingPair("late"), timingPair("postplant")]
-        .forEach(value => cell(row, value, "demo-group-cell timing-cell"));
-    } else {
-      cell(row, player.timing_available ? `${timingAverage("kill")}/${timingAverage("death")}` : "Not parsed", "demo-group-cell timing-cell");
-    }
     if (state.expandedGroups.killContext) {
       [blind, blindKiller, wall, smoke, air, grenade, knife, equipment, running]
         .forEach(value => cell(row, value, "demo-group-cell killContext-cell"));
@@ -1358,12 +1338,32 @@
     } else {
       cell(row, `${player.grenade_damage?.total ?? 0} dmg · ${totalThrown} thrown`, "demo-group-cell utility-cell");
     }
+    if (state.expandedGroups.multikills) {
+      for (let kills = 5; kills >= 1; kills -= 1) {
+        cell(row, player.kill_rounds?.[kills] ?? 0, "demo-group-cell multikills-cell");
+      }
+    } else {
+      cell(row, [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0), "demo-group-cell multikills-cell");
+    }
+    if (state.expandedGroups.objectives) {
+      cell(row, player.objectives?.plants ?? 0, "demo-group-cell objectives-cell");
+      cell(row, player.objectives?.defuses ?? 0, "demo-group-cell objectives-cell");
+    } else {
+      cell(row, `${player.objectives?.plants ?? 0}/${player.objectives?.defuses ?? 0}`, "demo-group-cell objectives-cell");
+    }
+    if (state.expandedGroups.timing) {
+      [timingAverage("kill"), timingAverage("death"),
+        timingPair("early"), timingPair("mid"), timingPair("late"), timingPair("postplant")]
+        .forEach(value => cell(row, value, "demo-group-cell timing-cell"));
+    } else {
+      cell(row, player.timing_available ? `${timingAverage("kill")}/${timingAverage("death")}` : "Not parsed", "demo-group-cell timing-cell");
+    }
     markGroupBoundaries(row);
     return row;
   }
 
   function markGroupBoundaries(row) {
-    for (const group of ["combat", "opening", "trades", "clutches", "multikills", "objectives", "timing", "killContext", "movement", "utility"]) {
+    for (const group of ["combat", "opening", "trades", "clutches", "killContext", "movement", "utility", "multikills", "objectives", "timing"]) {
       const cells = [...row.cells].filter(item => item.classList.contains(`${group}-cell`));
       cells[0]?.classList.add("demo-group-start");
       cells.at(-1)?.classList.add("demo-group-end");
@@ -1623,18 +1623,17 @@
   }
 
   function scoreboardColumnWidths() {
-    const widths = [160, 82];
+    const widths = [160, 72, 82, 72];
     widths.push(...(state.expandedGroups.combat ? [54, 54, 54, 62, 62, 82, 88, 76, 72] : [90]));
-    widths.push(72, 72);
     widths.push(...(state.expandedGroups.opening ? [58, 58, 82, 68, 72, 88, 68, 76, 76] : [108]));
     widths.push(...(state.expandedGroups.trades ? [58, 54, 96, 58, 54, 96] : [88]));
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
-    widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
-    widths.push(...(state.expandedGroups.objectives ? [74, 74] : [128]));
-    widths.push(...(state.expandedGroups.timing ? [82, 82, 84, 84, 84, 112] : [110]));
     widths.push(...(state.expandedGroups.killContext ? [104, 104, 98, 88, 88, 112, 104, 88, 88] : [112]));
     widths.push(...(state.expandedGroups.movement ? [88, 88, 88, 88, 116, 132, 126, 142] : [112]));
     widths.push(...(state.expandedGroups.utility ? [82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90] : [176]));
+    widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
+    widths.push(...(state.expandedGroups.objectives ? [74, 74] : [128]));
+    widths.push(...(state.expandedGroups.timing ? [82, 82, 84, 84, 84, 112] : [110]));
     return widths;
   }
 
@@ -1671,18 +1670,17 @@
     const thead = document.createElement("thead");
     const header = document.createElement("tr");
     const detailHeader = document.createElement("tr");
-    ["Player", "Rounds P/W"].forEach(label => regularHeader(header, label));
+    ["Player", "Rating", "Rounds P/W", "KAST"].forEach(label => regularHeader(header, label));
     groupHeader(header, detailHeader, "combat", "Combat", ["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A");
-    ["KAST", "Rating"].forEach(label => regularHeader(header, label));
     groupHeader(header, detailHeader, "opening", "Opening", ["K", "D", "Assisted K", "Dmg A", "Flash A", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%");
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A");
-    groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
-    groupHeader(header, detailHeader, "objectives", "Objectives", ["Plants", "Defuses"], "Plants/defuses");
-    groupHeader(header, detailHeader, "timing", "Round timing", ["Avg kill", "Avg death", "Early K-D", "Mid K-D", "Late K-D", "Post-plant K-D"], "Avg K/D time");
     groupHeader(header, detailHeader, "killContext", "Context", ["Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D");
     groupHeader(header, detailHeader, "movement", "Movement", ["Move K-D", "Still K-D", "Run K-D", "Air K-D", "Kill speed avg/max", "Kill speed avg/peak %", "Enemy speed avg/max", "Enemy speed avg/peak %"], "Move/run/air");
     groupHeader(header, detailHeader, "utility", "Utility", ["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Blind sec", "FA", "Damage assist", "Teammate flash", "Own flash"], "Damage · thrown");
+    groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
+    groupHeader(header, detailHeader, "objectives", "Objectives", ["Plants", "Defuses"], "Plants/defuses");
+    groupHeader(header, detailHeader, "timing", "Round timing", ["Avg kill", "Avg death", "Early K-D", "Mid K-D", "Late K-D", "Post-plant K-D"], "Avg K/D time");
     thead.append(header, detailHeader);
     const body = document.createElement("tbody");
     sortedPlayers(team.players).forEach(player => body.appendChild(playerRow(player)));

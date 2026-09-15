@@ -16,7 +16,7 @@
   function create({ prefix }) {
     const state = {
       map: "ALL",
-      expandedGroups: { opening: false, clutches: false },
+      expandedGroups: { combat: false, opening: false, clutches: false },
       sort: null,
       input: null
     };
@@ -33,13 +33,20 @@
       const clutchTotal = (stats, statPrefix) => [1, 2, 3, 4, 5].reduce((total, size) => total + clutchValue(stats, statPrefix, size), 0);
       const fixedColumns = [
         { key: "player", label: "Player", value: item => item.player.label, format: item => item.player.label },
-        { key: "rounds", label: "Rounds", value: item => number(item.stats.rounds), format: item => integer(item.stats.rounds) },
-        { key: "kda", label: "K / D / A", value: item => item.stats.kills, format: item => `${integer(item.stats.kills)} / ${integer(item.stats.deaths)} / ${integer(item.stats.assists)}` },
-        { key: "kd", label: "K/D", value: item => item.stats.kd, format: item => decimal(item.stats.kd, 2) },
-        { key: "adr", label: "ADR", value: item => item.stats.adr, format: item => decimal(item.stats.adr, 1) },
         { key: "rating", label: "Rating", value: item => item.stats.rating, format: item => decimal(item.stats.rating, 2), className: item => `demo-rating ${item.stats.rating >= 1.10 ? "rating-good" : item.stats.rating <= 0.90 ? "rating-bad" : "rating-average"}` },
+        { key: "rounds", label: "Rounds", value: item => number(item.stats.rounds), format: item => integer(item.stats.rounds) },
         { key: "kast", label: "KAST", value: item => item.stats.kast, format: item => percent(item.stats.kast) }
       ];
+      const combatColumns = state.expandedGroups.combat ? [
+        { key: "combat-k", label: "K", value: item => number(item.stats.kills), format: item => integer(item.stats.kills) },
+        { key: "combat-d", label: "D", value: item => number(item.stats.deaths), format: item => integer(item.stats.deaths) },
+        { key: "combat-a", label: "A", value: item => number(item.stats.assists), format: item => integer(item.stats.assists) },
+        { key: "combat-kd", label: "K/D", value: item => item.stats.kd, format: item => decimal(item.stats.kd, 2) },
+        { key: "combat-adr", label: "ADR", value: item => item.stats.adr, format: item => decimal(item.stats.adr, 1) }
+      ] : [{
+        key: "combat", label: "K-D-A", value: item => number(item.stats.kills),
+        format: item => `${integer(item.stats.kills)}-${integer(item.stats.deaths)}-${integer(item.stats.assists)}`
+      }];
       const openingColumns = state.expandedGroups.opening ? [
         { key: "opening-k", label: "K", value: item => number(item.stats.opening_kills), format: item => integer(item.stats.opening_kills) },
         { key: "opening-d", label: "D", value: item => number(item.stats.opening_deaths), format: item => integer(item.stats.opening_deaths) },
@@ -65,6 +72,7 @@
           }];
       const segments = [
         { columns: fixedColumns },
+        { group: "combat", label: "Combat", columns: combatColumns },
         { group: "opening", label: "Opening", columns: openingColumns },
         { group: "clutches", label: "Clutches", columns: clutchColumns }
       ];
@@ -136,8 +144,8 @@
         body.appendChild(row);
       }
       const table = byId("Table");
-      table.className = `player-profile-table quick-comparison-table${state.expandedGroups.opening ? " opening-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}`;
-      table.style.minWidth = `${700 + openingColumns.length * 76 + clutchColumns.length * 62}px`;
+      table.className = `player-profile-table quick-comparison-table${state.expandedGroups.combat ? " combat-expanded" : ""}${state.expandedGroups.opening ? " opening-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}`;
+      table.style.minWidth = `${500 + combatColumns.length * 68 + openingColumns.length * 76 + clutchColumns.length * 62}px`;
       table.replaceChildren(head, body);
     }
 
@@ -172,7 +180,7 @@
 
     function reset() {
       state.map = "ALL";
-      state.expandedGroups = { opening: false, clutches: false };
+      state.expandedGroups = { combat: false, opening: false, clutches: false };
       state.sort = null;
       state.input = null;
     }

@@ -21,7 +21,9 @@ test("quick comparison shows filtered rounds instead of redundant match count", 
 });
 
 test("quick comparison openings and clutches are expandable scoreboard groups", () => {
-  assert.match(componentSource, /expandedGroups: \{ opening: false, clutches: false \}/);
+  assert.match(componentSource, /expandedGroups: \{ combat: false, opening: false, clutches: false \}/);
+  assert.match(componentSource, /group: "combat", label: "Combat"/);
+  assert.match(componentSource, /key: "combat", label: "K-D-A"/);
   assert.match(componentSource, /group: "opening", label: "Opening"/);
   assert.match(componentSource, /key: "opening-assisted", label: "Assisted K"/);
   assert.match(componentSource, /key: "opening-damage-assisted", label: "Dmg A"/);
@@ -34,6 +36,11 @@ test("quick comparison openings and clutches are expandable scoreboard groups", 
   assert.match(styles, /\.player-profile-table\.quick-comparison-table :is\(th, td\) \{ text-align: center; \}/);
   assert.match(styles, /th\.demo-toggle-heading,[\s\S]*?th\.demo-group-detail \{ padding: 0; \}/);
   assert.match(styles, /\.player-profile-table\.quick-comparison-table \.player-table-sort-button \{[\s\S]*?min-height: 38px;[\s\S]*?text-align: center;/);
+});
+
+test("quick comparison puts summary columns before collapsible combat", () => {
+  assert.match(componentSource, /key: "player", label: "Player"[\s\S]*?key: "rating", label: "Rating"[\s\S]*?key: "rounds", label: "Rounds"[\s\S]*?key: "kast", label: "KAST"/);
+  assert.match(componentSource, /\{ columns: fixedColumns \},\s*\{ group: "combat", label: "Combat", columns: combatColumns \},\s*\{ group: "opening"/);
 });
 
 test("quick comparison serves the group scoreboard and standalone player profiles", () => {

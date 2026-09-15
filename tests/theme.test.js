@@ -25,10 +25,21 @@ test("statistic highlights use the warm high-differentiation semantic palette", 
   assert.match(styles, /--section-trades: #17796b/);
   assert.match(styles, /--section-context: #b64719/);
   assert.match(styles, /--section-movement: #784292/);
+  assert.match(styles, /--section-multikills: #9e305c/);
+  assert.match(styles, /--section-objectives: #785400/);
+  assert.match(styles, /--section-timing: #794a32/);
   assert.match(styles, /\.opening-cell \{ background: rgba\(225, 153, 24, \.18\); \}/);
   assert.match(styles, /\.killContext-cell \{ background: rgba\(225, 82, 30, \.18\); \}/);
   assert.match(styles, /\.clutches-cell \{ background: rgba\(112, 155, 52, \.10\); \}/);
   assert.match(graphs, /\["#455f97", "#d18c00", "#168a77", "#9d51ba", "#bd343e"\]/);
+});
+
+test("match scoreboard leads with summaries and ends with round detail groups", () => {
+  assert.match(demo, /\["Player", "Rating", "Rounds P\/W", "KAST"\][\s\S]*?groupHeader\(header, detailHeader, "combat"/);
+  assert.match(demo, /groupHeader\(header, detailHeader, "utility"[\s\S]*?groupHeader\(header, detailHeader, "multikills"[\s\S]*?groupHeader\(header, detailHeader, "objectives"[\s\S]*?groupHeader\(header, detailHeader, "timing"/);
+  assert.match(styles, /\.multikills-heading \{ background: rgba\(220, 65, 121, \.21\); \}/);
+  assert.match(styles, /\.objectives-heading \{ background: rgba\(194, 143, 28, \.20\); \}/);
+  assert.match(styles, /\.timing-heading \{ background: rgba\(181, 101, 61, \.21\); \}/);
 });
 
 test("all tab families share one surface and active-state treatment", () => {
