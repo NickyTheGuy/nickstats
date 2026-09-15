@@ -22,3 +22,11 @@ test("existing statistic section highlight colors remain intact", () => {
   assert.match(styles, /\.movement-cell \{ background: rgba\(190, 130, 255, \.08\); \}/);
   assert.match(styles, /\.trades-cell \{ background: rgba\(85, 214, 210, \.045\); \}/);
 });
+
+test("all tab families share one surface and active-state treatment", () => {
+  assert.match(styles, /:is\(\.data-tabs, \.mode-tabs, \.demo-result-tabs, \.match-browser-tabs, \.player-open-profiles, \.player-profile-tabs\)/);
+  assert.match(styles, /:is\(\.data-tab\[aria-selected="true"\], \.tab-button\[aria-selected="true"\], \.demo-result-tab\.active, \.match-browser-tab\.active, \.player-profile-tab\.active\)/);
+  assert.match(styles, /\.player-profile-tab\.active\) \{[\s\S]*?background: var\(--panel\)/);
+  assert.match(styles, /box-shadow: inset 0 -3px 0 var\(--tab-active-accent\), 0 1px 3px rgba\(54, 38, 44, \.10\)/);
+  assert.match(styles, /\.player-profile-tab\[data-player-view="context"\]\.active \{ --tab-active-accent: #ff975c; \}/);
+});
