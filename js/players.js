@@ -45,13 +45,10 @@
   }
   function setPlayerDisplay(display) {
     state.display = display === "quick" ? "quick" : "profile";
-    document.querySelectorAll("[data-player-display]").forEach(button => {
-      const active = button.dataset.playerDisplay === state.display;
-      button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
-    });
     document.querySelectorAll("[data-player-display-panel]").forEach(panel => {
       panel.hidden = panel.dataset.playerDisplayPanel !== state.display;
     });
+    renderOpenTabs();
   }
 
   function rememberPlayer(player) {
@@ -200,14 +197,21 @@
   function renderOpenTabs() {
     const tabs = $("playerOpenProfiles"); tabs.replaceChildren(); tabs.hidden = !state.profiles.size;
     state.profiles.forEach((profile, id) => {
-      const item = document.createElement("div"); item.className = `player-open-tab${id === state.activeId ? " active" : ""}`;
+      const active = state.display === "profile" && id === state.activeId;
+      const item = document.createElement("div"); item.className = `player-open-tab${active ? " active" : ""}`;
       const open = document.createElement("button"); open.type = "button"; open.className = "player-open-tab-label"; open.setAttribute("role", "tab");
-      open.setAttribute("aria-selected", String(id === state.activeId)); open.textContent = profile.payload.player?.name || "Unknown player";
-      open.addEventListener("click", () => activateProfile(id));
+      open.setAttribute("aria-selected", String(active)); open.tabIndex = active ? 0 : -1; open.textContent = profile.payload.player?.name || "Unknown player";
+      open.addEventListener("click", () => { state.display = "profile"; activateProfile(id); });
       const close = document.createElement("button"); close.type = "button"; close.className = "player-open-tab-close"; close.textContent = "×";
       close.setAttribute("aria-label", `Close ${profile.payload.player?.name || "player"} profile`); close.addEventListener("click", () => closeProfile(id));
       item.append(open, close); tabs.appendChild(item);
     });
+    const quickActive = state.display === "quick";
+    const quickItem = document.createElement("div"); quickItem.className = `player-open-tab single${quickActive ? " active" : ""}`;
+    const quick = document.createElement("button"); quick.type = "button"; quick.className = "player-open-tab-label"; quick.setAttribute("role", "tab");
+    quick.setAttribute("aria-selected", String(quickActive)); quick.tabIndex = quickActive ? 0 : -1; quick.textContent = "Quick comparison";
+    quick.addEventListener("click", () => setPlayerDisplay("quick"));
+    quickItem.appendChild(quick); tabs.appendChild(quickItem);
   }
 
   function renderProfile() {
@@ -233,7 +237,7 @@
     playerSideFilter.set(profile.side, { notify: false }); playerResultFilter.set(profile.result, { notify: false });
     playerBuyFilter.set(profile.buy, { notify: false });
     playerRoundResultFilter.set(profile.roundResult, { notify: false });
-    renderOpenTabs(); renderProfile(); setPlayerView(profile.view, { remember: false }); setPlayerDisplay(state.display);
+    renderProfile(); setPlayerView(profile.view, { remember: false }); setPlayerDisplay(state.display);
   }
   function closeProfile(id) {
     id = String(id); const ids = [...state.profiles.keys()], index = ids.indexOf(id);
@@ -268,7 +272,6 @@
     if (query.length >= 2) state.searchTimer = setTimeout(searchPlayers, 250);
   });
   $("playerRecentClear").addEventListener("click", () => { state.recent = []; try { localStorage.removeItem(RECENT_KEY); } catch (_) {} renderRecent(); });
-  document.querySelectorAll("[data-player-display]").forEach(button => button.addEventListener("click", () => setPlayerDisplay(button.dataset.playerDisplay)));
   document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
   const playerSideFilter = window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { const profile = activeProfile(); if (profile) { profile.side = side; renderProfile(); } } });
   const playerBuyFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-buy]", valueFor: button => button.dataset.playerBuy, onChange: buy => { const profile = activeProfile(); if (profile) { profile.buy = buy; renderProfile(); } } });

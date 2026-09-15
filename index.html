@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260915-28">
+  <link rel="stylesheet" href="./styles.css?v=20260915-29">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.15.28</span>
+          <span class="demo-build">Build 2026.09.15.29</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -252,10 +252,7 @@
           <div class="mode-view" data-compare-view="combination">
             <div class="warning-list" id="comboWarnings"></div>
             <div class="combo-results" id="comboResults" hidden>
-              <nav class="match-browser-tabs combo-display-tabs" role="tablist" aria-label="Group statistics view">
-                <button class="match-browser-tab active" type="button" role="tab" aria-selected="true" data-combo-display="profile">Profiles</button>
-                <button class="match-browser-tab" type="button" role="tab" aria-selected="false" data-combo-display="quick">Quick comparison</button>
-              </nav>
+              <nav class="player-open-profiles unified-profile-tabs" id="comboProfilePlayers" role="tablist" aria-label="Included player profiles and quick comparison"></nav>
 
               <div class="stats-toolbar combo-profile-toolbar">
                 <span>Map</span><div class="map-multiselect" id="compareMapFilter"></div>
@@ -267,8 +264,6 @@
               </div>
 
               <div class="combo-display-panel" data-combo-display-panel="profile">
-                <nav class="match-browser-tabs combo-player-tabs" id="comboProfilePlayers" role="tablist" aria-label="Included player profiles"></nav>
-
                 <section class="panel player-profile combo-player-profile" id="comboProfilePanel">
                   <header class="player-profile-header">
                     <div><div class="eyebrow">Player profile</div><h2 id="comboProfileTitle">Included player</h2><p id="comboProfileMeta"></p></div>
@@ -317,22 +312,8 @@
           </section>
         </section>
 
-        <nav class="player-open-profiles" id="playerOpenProfiles" role="tablist" aria-label="Open player profiles" hidden></nav>
-
-        <section class="panel player-profile" id="playerProfile" hidden>
-          <header class="player-profile-header">
-            <div>
-              <div class="eyebrow">Career profile</div>
-              <h2 id="playerProfileName">Player</h2>
-              <p id="playerProfileMeta"></p>
-            </div>
-          </header>
-
-          <div class="player-profile-status" id="playerProfileStatus" role="status" aria-live="polite"></div>
-          <nav class="match-browser-tabs player-display-tabs" role="tablist" aria-label="Player statistics view">
-            <button class="match-browser-tab active" type="button" role="tab" aria-selected="true" data-player-display="profile">Profiles</button>
-            <button class="match-browser-tab" type="button" role="tab" aria-selected="false" data-player-display="quick">Quick comparison</button>
-          </nav>
+        <section class="player-profile-results" id="playerProfile" hidden>
+          <nav class="player-open-profiles unified-profile-tabs" id="playerOpenProfiles" role="tablist" aria-label="Open player profiles and quick comparison" hidden></nav>
 
           <div class="stats-toolbar">
             <span>Map</span>
@@ -364,7 +345,16 @@
               <button type="button" aria-pressed="false" data-player-round-result="loss">Lost</button>
             </div>
           </div>
-          <div class="player-display-panel" data-player-display-panel="profile">
+          <div class="panel player-profile player-display-panel" data-player-display-panel="profile">
+          <header class="player-profile-header">
+            <div>
+              <div class="eyebrow">Career profile</div>
+              <h2 id="playerProfileName">Player</h2>
+              <p id="playerProfileMeta"></p>
+            </div>
+          </header>
+
+          <div class="player-profile-status" id="playerProfileStatus" role="status" aria-live="polite"></div>
           <div class="player-headline-stats" id="playerHeadlineStats"></div>
 
           <div id="playerProfileBody">
@@ -498,7 +488,7 @@
   <script defer src="./js/graphs.js?v=20260915-23"></script>
   <script defer src="./js/profile.js?v=20260914-1"></script>
   <script defer src="./js/quick-comparison.js?v=20260915-25"></script>
-  <script defer src="./js/players.js?v=20260915-28"></script>
-  <script defer src="./js/compare.js?v=20260915-16"></script>
+  <script defer src="./js/players.js?v=20260915-29"></script>
+  <script defer src="./js/compare.js?v=20260915-29"></script>
 </body>
 </html>

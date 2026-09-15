@@ -570,9 +570,11 @@
 
   function setComboDisplay(display) {
     state.comboDisplay = display === "quick" ? "quick" : "profile";
-    document.querySelectorAll("[data-combo-display]").forEach(button => {
-      const active = button.dataset.comboDisplay === state.comboDisplay;
-      button.classList.toggle("active", active);
+    document.querySelectorAll("[data-combo-player-id], [data-combo-display]").forEach(button => {
+      const active = button.dataset.comboDisplay === "quick"
+        ? state.comboDisplay === "quick"
+        : state.comboDisplay === "profile" && button.dataset.comboPlayerId === state.comboPlayerId;
+      button.closest(".player-open-tab")?.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
       button.tabIndex = active ? 0 : -1;
     });
@@ -593,12 +595,21 @@
 
     const profileTabs = $("comboProfilePlayers"); profileTabs.replaceChildren();
     current.included.forEach(player => {
-      const active = player.profileId === state.comboPlayerId;
-      const button = el("button", player.label, `match-browser-tab${active ? " active" : ""}`);
-      button.type = "button"; button.setAttribute("role", "tab"); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
-      button.addEventListener("click", () => { state.comboPlayerId = player.profileId; renderComboProfile(current); });
-      profileTabs.appendChild(button);
+      const active = state.comboDisplay === "profile" && player.profileId === state.comboPlayerId;
+      const item = el("div", "", `player-open-tab single${active ? " active" : ""}`);
+      const button = el("button", player.label, "player-open-tab-label");
+      button.type = "button"; button.setAttribute("role", "tab"); button.dataset.comboPlayerId = player.profileId;
+      button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
+      button.addEventListener("click", () => { state.comboPlayerId = player.profileId; renderComboProfile(current); setComboDisplay("profile"); });
+      item.appendChild(button); profileTabs.appendChild(item);
     });
+    const quickActive = state.comboDisplay === "quick";
+    const quickItem = el("div", "", `player-open-tab single${quickActive ? " active" : ""}`);
+    const quickButton = el("button", "Quick comparison", "player-open-tab-label");
+    quickButton.type = "button"; quickButton.setAttribute("role", "tab"); quickButton.dataset.comboDisplay = "quick";
+    quickButton.setAttribute("aria-selected", String(quickActive)); quickButton.tabIndex = quickActive ? 0 : -1;
+    quickButton.addEventListener("click", () => setComboDisplay("quick"));
+    quickItem.appendChild(quickButton); profileTabs.appendChild(quickItem);
     const player = current.included.find(item => item.profileId === state.comboPlayerId);
     const rows = comboProfileRows(current, player), stats = summarize(rows);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
@@ -656,7 +667,6 @@
   $("compareAnalyzeButton").addEventListener("click", analyze);
   $("compareClearButton").addEventListener("click", clear);
   document.querySelectorAll("[data-combo-profile-view]").forEach(button => button.addEventListener("click", () => setComboProfileView(button.dataset.comboProfileView)));
-  document.querySelectorAll("[data-combo-display]").forEach(button => button.addEventListener("click", () => setComboDisplay(button.dataset.comboDisplay)));
   const comboResultFilter = bindSegmentedToggle({ selector: "[data-combo-result]", valueFor: button => button.dataset.comboResult, onChange: result => { state.result = result; runCombination(); } });
   document.querySelectorAll("[data-combo-condition]").forEach(button => button.addEventListener("click", () => {
     if (button.disabled) return;

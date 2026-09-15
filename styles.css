@@ -2140,6 +2140,12 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   gap: 20px;
 }
 
+.player-profile-results {
+  display: grid;
+  gap: 18px;
+}
+.player-profile-results[hidden] { display: none; }
+
 .player-search-panel,
 .player-profile {
   padding: 22px;
@@ -2287,6 +2293,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-open-tab-label,
 .player-open-tab-close { min-height: 34px; border: 0; background: transparent; color: var(--muted); font-weight: 800; }
 .player-open-tab-label { padding: 6px 8px 6px 11px; }
+.player-open-tab.single .player-open-tab-label { padding-right: 11px; }
 .player-open-tab-close { width: 30px; padding: 0 7px 2px; font-size: 18px; line-height: 1; }
 .player-open-tab.active .player-open-tab-label { color: var(--text); }
 .player-open-tab-close:hover,
@@ -2452,13 +2459,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 .combo-profile-toolbar .combo-condition-toggle { margin-right: 8px; }
 .combo-profile-footnote { margin: 14px 2px 0; color: var(--muted); font-size: 12px; }
-.combo-player-tabs { margin: 0; }
-.player-display-tabs,
-.combo-display-tabs {
-  width: fit-content;
-  margin: 0;
-}
-.player-display-tabs { margin-top: 12px; }
+.unified-profile-tabs { width: fit-content; max-width: 100%; margin: 0; }
 .combo-display-panel[data-combo-display-panel="profile"] {
   display: grid;
   gap: 18px;
