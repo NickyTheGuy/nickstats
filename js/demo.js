@@ -1630,11 +1630,11 @@
     widths.push(...(state.expandedGroups.trades ? [58, 54, 96, 58, 54, 96] : [88]));
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
     widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
-    widths.push(...(state.expandedGroups.objectives ? [74, 74] : [92]));
+    widths.push(...(state.expandedGroups.objectives ? [74, 74] : [128]));
     widths.push(...(state.expandedGroups.timing ? [82, 82, 84, 84, 84, 112] : [110]));
     widths.push(...(state.expandedGroups.killContext ? [104, 104, 98, 88, 88, 112, 104, 88, 88] : [112]));
     widths.push(...(state.expandedGroups.movement ? [88, 88, 88, 88, 116, 132, 126, 142] : [112]));
-    widths.push(...(state.expandedGroups.utility ? [82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90] : [144]));
+    widths.push(...(state.expandedGroups.utility ? [82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90] : [176]));
     return widths;
   }
 

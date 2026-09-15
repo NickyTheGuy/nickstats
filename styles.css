@@ -1382,7 +1382,9 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .demo-score-table th,
 .demo-score-table td {
+  overflow: hidden;
   text-align: center;
+  text-overflow: ellipsis;
 }
 
 .demo-toggle-heading {
@@ -1415,12 +1417,14 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .demo-sort-button {
   width: 100%;
   min-height: 38px;
+  overflow: hidden;
   padding: 8px 7px;
   border: 0;
   color: inherit;
   background: transparent;
   font: inherit;
   font-weight: 850;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 

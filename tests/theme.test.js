@@ -7,6 +7,7 @@ const test = require("node:test");
 
 const styles = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
 const graphs = fs.readFileSync(path.join(__dirname, "..", "js", "graphs.js"), "utf8");
+const demo = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), "utf8");
 
 test("site chrome uses the cold-white orange and gold palette", () => {
   assert.match(styles, /color-scheme: light/);
@@ -43,6 +44,12 @@ test("primary and secondary buttons have visible interaction feedback", () => {
   assert.match(styles, /\.button-secondary:hover:not\(:disabled\) \{[\s\S]*?border-color: var\(--accent\);[\s\S]*?background: var\(--accent-wash\)/);
   assert.match(styles, /\.button:focus-visible \{[\s\S]*?outline: 2px solid rgba\(233, 86, 49, \.30\)/);
   assert.match(styles, /\.button:active:not\(:disabled\) \{[\s\S]*?transform: translateY\(0\)/);
+});
+
+test("collapsed scoreboard summaries stay within their columns", () => {
+  assert.match(demo, /expandedGroups\.objectives \? \[74, 74\] : \[128\]/);
+  assert.match(demo, /expandedGroups\.utility \? \[82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90\] : \[176\]/);
+  assert.match(styles, /\.demo-score-table th,[\s\S]*?\.demo-score-table td \{[\s\S]*?overflow: hidden;[\s\S]*?text-overflow: ellipsis;/);
 });
 
 test("empty open-profile tabs remain fully hidden", () => {
