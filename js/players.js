@@ -177,6 +177,7 @@
       kd: summary.kd,
       adr: summary.adr,
       rating: summary.rating,
+      winRate: summary.winRate,
       kast: summary.kast,
       openingAttemptRate: 100 * ratio(openingKills + openingDeaths, summary.rounds),
       openingDiff: openingKills - openingDeaths,
