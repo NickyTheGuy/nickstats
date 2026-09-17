@@ -29,3 +29,9 @@ test("schema 15 persists all opening-assist counters", () => {
   assert.match(frontendSource, /opening: sumArray\(left\.opening, right\.opening, 5\)/);
   assert.match(frontendSource, /schema: "nickstats\.match\/15"/);
 });
+
+test("stored match flash assists are rebuilt from teammate-flash relationships", () => {
+  assert.match(frontendSource, /flash_assists: flashAssists/);
+  assert.doesNotMatch(frontendSource, /flash_assists: stats\.profile\?\.length/);
+  assert.match(frontendSource, /numberValue\(row\[0\]\) === playerIndex\) flashAssists \+= numberValue\(row\[2\]\)/);
+});

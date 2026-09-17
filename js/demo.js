@@ -852,7 +852,7 @@
         },
         enemies_flashed: stats.profile?.length ? numberValue(stats.profile[13]) : enemyFlashRows.reduce((sum, row) => sum + numberValue(row[1]), 0),
         enemy_blind_duration: stats.profile?.length ? numberValue(stats.profile[14]) / 1000 : enemyFlashRows.reduce((sum, row) => sum + numberValue(row[2]), 0) / 1000,
-        flash_assists: stats.profile?.length ? numberValue(stats.profile[15]) : flashAssists,
+        flash_assists: flashAssists,
         grenade_damage: {
           high_explosive: numberValue(stats.utility?.[0]),
           fire: numberValue(stats.utility?.[1]),
