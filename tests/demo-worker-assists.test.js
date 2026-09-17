@@ -35,3 +35,7 @@ test("stored match flash assists are rebuilt from teammate-flash relationships",
   assert.doesNotMatch(frontendSource, /flash_assists: stats\.profile\?\.length/);
   assert.match(frontendSource, /numberValue\(row\[0\]\) === playerIndex\) flashAssists \+= numberValue\(row\[2\]\)/);
 });
+
+test("all-side stored matches preserve a missing profile for relationship reconstruction", () => {
+  assert.match(frontendSource, /profile: \(left\.profile\?\.length \|\| right\.profile\?\.length\)[\s\S]*?\? sumArray\(left\.profile, right\.profile, 16\)[\s\S]*?: undefined/);
+});

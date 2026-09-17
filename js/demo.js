@@ -631,7 +631,9 @@
       contexts: mergeCompactRows(left.contexts, right.contexts),
       assisted_by: mergeCompactRows(left.assisted_by, right.assisted_by),
       flashes: mergeCompactRows(left.flashes, right.flashes),
-      profile: sumArray(left.profile, right.profile, 16)
+      profile: (left.profile?.length || right.profile?.length)
+        ? sumArray(left.profile, right.profile, 16)
+        : undefined
     };
   }
 
