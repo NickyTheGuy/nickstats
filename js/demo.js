@@ -4,6 +4,7 @@
   const $ = id => document.getElementById(id);
   const MATCH_UPLOAD_ENDPOINT = "/nickstats/api/matches";
   const MATCH_LIST_LIMIT = 25;
+  const MAX_UNCOMPRESSED_DEMO_BYTES = 768 * 1024 * 1024;
   const state = {
     file: null,
     parsedResult: null,
@@ -327,6 +328,10 @@
     return `${value.toFixed(index ? 1 : 0)} ${units[index]}`;
   }
 
+  function demoSizeLimitError(bytes) {
+    return new Error(`The uncompressed demo is ${formatBytes(bytes)}, above the ${formatBytes(MAX_UNCOMPRESSED_DEMO_BYTES)} browser safety limit. Very large demos can exhaust browser memory.`);
+  }
+
   function resetWorker(error) {
     state.worker?.terminate();
     state.worker = null;
@@ -344,7 +349,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260914-11");
+      const worker = new Worker("./js/demo-worker.js?v=20260917-3");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -540,9 +545,7 @@
     const entry = await findZipDemo(file);
     if (entry.flags & 1) throw new Error("Password-protected ZIP archives are not supported.");
     if (![0, 8].includes(entry.method)) throw new Error(`Unsupported ZIP compression method ${entry.method}.`);
-    if (entry.uncompressedSize > 450 * 1024 * 1024) {
-      throw new Error("The uncompressed demo exceeds the 450 MB browser prototype limit.");
-    }
+    if (entry.uncompressedSize > MAX_UNCOMPRESSED_DEMO_BYTES) throw demoSizeLimitError(entry.uncompressedSize);
     const localHeader = await file.slice(entry.localOffset, entry.localOffset + 30).arrayBuffer();
     const localView = new DataView(localHeader);
     if (localView.getUint32(0, true) !== 0x04034b50) throw new Error("The ZIP demo entry has an invalid local header.");
@@ -2159,9 +2162,7 @@
       await ensureWorker();
       const demo = await readDemo(state.file);
       const data = demo.data;
-      if (data.byteLength > 450 * 1024 * 1024) {
-        throw new Error("The uncompressed demo exceeds the 450 MB browser prototype limit.");
-      }
+      if (data.byteLength > MAX_UNCOMPRESSED_DEMO_BYTES) throw demoSizeLimitError(data.byteLength);
       setStatus("Fingerprinting and parsing the demo locally…");
       const result = await parseWithWorker(demo.name, data, demo.compression);
       if (!result || result.error) throw new Error(result?.error || "The parser returned no match data.");

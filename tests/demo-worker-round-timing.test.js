@@ -72,6 +72,15 @@ test("a rifle and armor team loadout counts as a full buy", () => {
   assert.deepEqual(Array.from(classifications), ["full", "full", "force", "eco"]);
 });
 
+test("large overtime demos use the expanded browser safety limit", () => {
+  assert.match(source, /MAX_UNCOMPRESSED_DEMO_BYTES = 768 \* 1024 \* 1024/);
+  assert.match(frontendSource, /MAX_UNCOMPRESSED_DEMO_BYTES = 768 \* 1024 \* 1024/);
+  assert.match(source, /demoSizeLimitMessage\(output\.byteLength\)/);
+  assert.match(frontendSource, /demoSizeLimitError\(entry\.uncompressedSize\)/);
+  assert.match(frontendSource, /demoSizeLimitError\(data\.byteLength\)/);
+  assert.doesNotMatch(`${source}\n${frontendSource}`, /browser prototype limit/);
+});
+
 test("round timing migration stores factual event dimensions", () => {
   const migration = fs.readFileSync(path.join(__dirname, "..", "database", "migrations", "003_round_timing.sql"), "utf8");
   for (const column of ["elapsed_ms", "since_plant_ms", "t_alive_before", "ct_alive_before", "context_flags"]) {

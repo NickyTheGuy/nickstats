@@ -2,7 +2,12 @@
 
 const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
 const ZSTD_URL = "https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js";
-const MAX_UNCOMPRESSED_DEMO_BYTES = 450 * 1024 * 1024;
+const MAX_UNCOMPRESSED_DEMO_BYTES = 768 * 1024 * 1024;
+const demoSizeLimitMessage = bytes => {
+  const size = `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  const limit = `${MAX_UNCOMPRESSED_DEMO_BYTES / (1024 * 1024)} MB`;
+  return `The uncompressed demo is ${size}, above the ${limit} browser safety limit. Very large demos can exhaust browser memory.`;
+};
 const ECO_MAX_EQUIPMENT_PER_PLAYER = 1000;
 const FULL_BUY_MIN_EQUIPMENT_PER_PLAYER = 3500;
 const isRegulationPistolRound = roundNumber => roundNumber === 1 || roundNumber === 13;
@@ -137,7 +142,7 @@ self.addEventListener("message", async event => {
         throw new Error(`This .zst file could not be decompressed in the browser. Extract the .dem manually and select it instead. (${error.message || error})`);
       }
       if (output.byteLength > MAX_UNCOMPRESSED_DEMO_BYTES) {
-        throw new Error("The uncompressed demo exceeds the 450 MB browser prototype limit.");
+        throw new Error(demoSizeLimitMessage(output.byteLength));
       }
       buffer = output.byteOffset === 0 && output.byteLength === output.buffer.byteLength
         ? output.buffer
