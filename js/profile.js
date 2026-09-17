@@ -14,6 +14,9 @@
     return weaponNames[normalized] || normalized.replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase());
   };
   const countPerRound = (value, rounds, places = 2) => `${decimal(ratio(value, rounds), places)} per round`;
+  const perGrenade = (value, grenades, label, places = 2, unit = "") => number(grenades) > 0
+    ? `${decimal(number(value) / number(grenades), places)}${unit} per ${label}`
+    : `— per ${label}`;
   const elapsed = milliseconds => {
     if (!Number.isFinite(Number(milliseconds))) return "—";
     const seconds = Math.max(0, number(milliseconds) / 1000), minutes = Math.floor(seconds / 60);
@@ -91,6 +94,12 @@
     const statPerRound = (key, places = 2) => statAvailable(key)
       ? availabilityNote(key, countPerRound(s[key], availability.rounds(rawStats, key), places))
       : "Not available in these demos";
+    const statPerGrenadeAndRound = (key, grenadeKey, label, places = 2) => {
+      const scoped = availability.scope(rawStats, key);
+      if (!scoped || !number(scoped.rounds)) return "Not available in these demos";
+      const note = `${perGrenade(scoped[key], scoped[grenadeKey], label, places)} · ${countPerRound(scoped[key], scoped.rounds)}`;
+      return availabilityNote(key, note);
+    };
     const metric = (label, value) => [label, integer(value), countPerRound(value, rounds)];
     const ratingClass = summary.rating >= 1.1 ? "rating-good" : summary.rating <= .9 ? "rating-bad" : "rating-average";
     const recordHeadline = roundResult === "ALL"
@@ -118,10 +127,20 @@
     const killRateLabel = roundResult === "win" ? "KPRW" : roundResult === "loss" ? "KPRL" : "per round";
     fillCards(`${prefix}CombatStats`, [["Kills", integer(s.kills), `${decimal(ratio(s.kills, rounds), 2)} ${killRateLabel}`], ["Deaths", integer(s.deaths), countPerRound(s.deaths, rounds)], ["Assists", integer(s.assists), countPerRound(s.assists, rounds)], ["Headshot rate", percent(100 * ratio(s.headshots, s.kills)), `${integer(s.headshots)} headshots`], ["Damage received", integer(s.damage_received), countPerRound(s.damage_received, rounds, 1)], ["Damage differential", `${damageDifferential >= 0 ? "+" : ""}${integer(damageDifferential)}`, `${damageDifferential >= 0 ? "+" : ""}${decimal(ratio(damageDifferential, rounds), 1)} per round`]]);
     const utilityDamage = number(s.he_damage) + number(s.fire_damage);
-    fillCards(`${prefix}UtilityDamageStats`, [["Total damage", integer(utilityDamage), countPerRound(utilityDamage, rounds, 1)], ["HE", integer(s.he_damage), countPerRound(s.he_damage, rounds, 1)], ["Fire", integer(s.fire_damage), countPerRound(s.fire_damage, rounds, 1)]]);
+    const damagingGrenades = number(s.he_grenades_thrown) + number(s.fire_grenades_thrown);
+    fillCards(`${prefix}UtilityDamageStats`, [
+      ["Total damage", integer(utilityDamage), `${perGrenade(utilityDamage, damagingGrenades, "damaging grenade", 1)} · ${countPerRound(utilityDamage, rounds, 1)}`],
+      ["HE", integer(s.he_damage), `${perGrenade(s.he_damage, s.he_grenades_thrown, "HE", 1)} · ${countPerRound(s.he_damage, rounds, 1)}`],
+      ["Fire", integer(s.fire_damage), `${perGrenade(s.fire_damage, s.fire_grenades_thrown, "fire grenade", 1)} · ${countPerRound(s.fire_damage, rounds, 1)}`]
+    ]);
     fillCards(`${prefix}UtilityThrownStats`, [["HE", integer(s.he_grenades_thrown), countPerRound(s.he_grenades_thrown, rounds)], ["Flashes", integer(s.flashbangs_thrown), countPerRound(s.flashbangs_thrown, rounds)], ["Smokes", integer(s.smokes_thrown), countPerRound(s.smokes_thrown, rounds)], ["Fire", integer(s.fire_grenades_thrown), countPerRound(s.fire_grenades_thrown, rounds)], ["Decoys", integer(s.decoys_thrown), countPerRound(s.decoys_thrown, rounds)]]);
-    fillCards(`${prefix}FlashStats`, [["Enemies flashed", integer(s.enemies_flashed), countPerRound(s.enemies_flashed, rounds)], ["Enemy blind time", `${decimal(number(s.blind_duration_ms) / 1000, 1)}s`, `${decimal(ratio(number(s.blind_duration_ms) / 1000, rounds), 2)}s per round`], ["Flash assists", statInteger("flash_assists"), statPerRound("flash_assists")]]);
-    fillCards(`${prefix}AssistStats`, [["Damage", integer(s.damage_assisted_kills), countPerRound(s.damage_assisted_kills, rounds)], ["Teammate flash", statInteger("teammate_flash_assisted_kills"), statPerRound("teammate_flash_assisted_kills")], ["Own flash", integer(s.own_flash_kills), countPerRound(s.own_flash_kills, rounds)]]);
+    const blindSeconds = number(s.blind_duration_ms) / 1000;
+    fillCards(`${prefix}FlashStats`, [
+      ["Enemies flashed", integer(s.enemies_flashed), `${perGrenade(s.enemies_flashed, s.flashbangs_thrown, "flash")} · ${countPerRound(s.enemies_flashed, rounds)}`],
+      ["Enemy blind time", `${decimal(blindSeconds, 1)}s`, `${perGrenade(blindSeconds, s.flashbangs_thrown, "flash", 2, "s")} · ${decimal(ratio(blindSeconds, rounds), 2)}s per round`],
+      ["Flash assists", statInteger("flash_assists"), statPerGrenadeAndRound("flash_assists", "flashbangs_thrown", "flash")]
+    ]);
+    fillCards(`${prefix}AssistStats`, [["Damage", integer(s.damage_assisted_kills), countPerRound(s.damage_assisted_kills, rounds)], ["Teammate flash", statInteger("teammate_flash_assisted_kills"), statPerRound("teammate_flash_assisted_kills")], ["Own flash", integer(s.own_flash_kills), `${perGrenade(s.own_flash_kills, s.flashbangs_thrown, "flash")} · ${countPerRound(s.own_flash_kills, rounds)}`]]);
     fillCards(`${prefix}TradeAttackStats`, [["Opportunities", integer(s.trade_opportunities), countPerRound(s.trade_opportunities, rounds)], ["Attempts", integer(s.trade_attempts), `${countPerRound(s.trade_attempts, rounds)} · ${percent(100 * ratio(s.trade_attempts, s.trade_opportunities))} response`], ["Trade kills", integer(s.trade_kills), `${countPerRound(s.trade_kills, rounds)} · ${integer(s.trade_successes)} successful responses · ${percent(100 * ratio(s.trade_successes, s.trade_attempts))} success`]]);
     fillCards(`${prefix}TradeDeathStats`, [["Tradeable deaths", integer(s.tradeable_deaths), countPerRound(s.tradeable_deaths, rounds)], ["Teammates attempted", integer(s.attempted_tradeable_deaths), `${countPerRound(s.attempted_tradeable_deaths, rounds)} · ${percent(100 * ratio(s.attempted_tradeable_deaths, s.tradeable_deaths))} response`], ["Deaths traded", integer(s.traded_deaths), `${countPerRound(s.traded_deaths, rounds)} · ${percent(100 * ratio(s.traded_deaths, s.attempted_tradeable_deaths))} conversion`]]);
     const openingTotal = number(s.opening_kills) + number(s.opening_deaths), openingDiff = number(s.opening_kills) - number(s.opening_deaths);
@@ -217,6 +236,6 @@
     target.replaceChildren(...component.childNodes);
   }
 
-  window.NickStatsProfile = Object.freeze({ render, renderTable, number, integer, decimal, percent, ratio, titleCase, countPerRound });
+  window.NickStatsProfile = Object.freeze({ render, renderTable, number, integer, decimal, percent, ratio, titleCase, countPerRound, perGrenade });
   mountComparisonProfile();
 })();
