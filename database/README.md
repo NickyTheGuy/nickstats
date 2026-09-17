@@ -1,6 +1,6 @@
 # NickStats database
 
-The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/16` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
+The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/17` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
 
 ## Why it is normalized
 
@@ -98,3 +98,5 @@ Migration 005 adds nullable freeze-time equipment values, live roster sizes, the
 Migration 008 adds unique assisted-opening counts and their overlapping damage/flash attribution. Existing rows initialize to zero; reparse their demos to populate the new metrics and recover flash assists hidden by CS2's single-assister death event.
 
 Migration 009 adds traded opening deaths, opening trade kills, and opening assists credited to the teammate who supplied damage or a flash. Existing rows initialize to zero; reparse their demos to populate schema-16 attribution.
+
+Migration 010 adds opening kill/death blind context and enemy-assisted opening-death attribution. Existing rows initialize to zero but remain excluded from these schema-17 metrics until their demos are reparsed.

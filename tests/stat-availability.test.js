@@ -36,6 +36,17 @@ test("unavailable values remain distinct from real zeroes", () => {
   assert.equal(availability.value(reparsed, "opening_assists"), 0);
 });
 
+test("opening context excludes schema 16 matches and preserves schema 17 zeroes", () => {
+  const mixed = {};
+  availability.add(mixed, { rounds: 20, opening_deaths: 4, opening_enemy_assisted_deaths: 0 }, "nickstats.match/16");
+  availability.add(mixed, { rounds: 10, opening_deaths: 2, opening_enemy_assisted_deaths: 0 }, "nickstats.match/17");
+
+  assert.equal(availability.available(mixed, "opening_enemy_assisted_deaths"), true);
+  assert.equal(availability.rounds(mixed, "opening_enemy_assisted_deaths"), 10);
+  assert.equal(availability.value(mixed, "opening_enemy_assisted_deaths"), 0);
+  assert.equal(availability.scope(mixed, "opening_enemy_assisted_deaths").opening_deaths, 2);
+});
+
 test("comparison matches expose the compact schema used for availability", () => {
   assert.match(modelsSource, /struct ComparisonMatch:[\s\S]*?var schema: String/);
   assert.match(queriesSource, /SELECT m\.id, m\.payload_schema/);

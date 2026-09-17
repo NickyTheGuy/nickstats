@@ -70,6 +70,8 @@ test("graph metric registry calculates per-match rates from matching denominator
   assert.equal(metrics.get("opening_attempt_rate").value({ rounds: 20, opening_kills: 3, opening_deaths: 2 }), 25);
   assert.equal(metrics.get("opening_assist_rate").value({ __schema: "nickstats.match/15", rounds: 20, opening_kills: 5, opening_assisted_kills: 3 }), 60);
   assert.equal(Number.isNaN(metrics.get("opening_assist_rate").value({ __schema: "nickstats.match/14", rounds: 20, opening_kills: 5, opening_assisted_kills: 0 })), true);
+  assert.equal(metrics.get("opening_enemy_assisted_dpr").value({ __schema: "nickstats.match/17", rounds: 20, opening_enemy_assisted_deaths: 2 }), .1);
+  assert.equal(Number.isNaN(metrics.get("opening_enemy_assisted_dpr").value({ __schema: "nickstats.match/16", rounds: 20, opening_enemy_assisted_deaths: 0 })), true);
   assert.equal(metrics.get("team_win_survivors").value({ team_win_survivor_total: 27, team_win_survivor_rounds: 12 }), 2.25);
   assert.equal(metrics.get("opponent_win_survivors").value({ opponent_win_survivor_total: 18, opponent_win_survivor_rounds: 10 }), 1.8);
   assert.equal(Number.isNaN(metrics.get("team_win_survivors").value({})), true);

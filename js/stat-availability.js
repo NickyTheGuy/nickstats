@@ -14,7 +14,14 @@
     opening_trade_kills: 16,
     opening_assists: 16,
     opening_damage_assists: 16,
-    opening_flash_assists: 16
+    opening_flash_assists: 16,
+    opening_blinded_enemy_kills: 17,
+    opening_blind_kills: 17,
+    opening_deaths_while_blind: 17,
+    opening_deaths_to_blind_killer: 17,
+    opening_enemy_assisted_deaths: 17,
+    opening_enemy_damage_assisted_deaths: 17,
+    opening_enemy_flash_assisted_deaths: 17
   });
   const thresholds = [...new Set(Object.values(minimumSchema))].sort((left, right) => left - right);
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;

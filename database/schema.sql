@@ -221,6 +221,13 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
   opening_assists SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   opening_damage_assists SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   opening_flash_assists SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_blinded_enemy_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_blind_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_deaths_while_blind SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_deaths_to_blind_killer SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_enemy_assisted_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_enemy_damage_assisted_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_enemy_flash_assisted_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   trade_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   tradeable_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   attempted_tradeable_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
@@ -277,6 +284,15 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
     opening_trade_kills <= trade_kills AND
     opening_damage_assists <= opening_assists AND
     opening_flash_assists <= opening_assists
+  ),
+  CONSTRAINT chk_player_side_stats_opening_context CHECK (
+    opening_blinded_enemy_kills <= opening_kills AND
+    opening_blind_kills <= opening_kills AND
+    opening_deaths_while_blind <= opening_deaths AND
+    opening_deaths_to_blind_killer <= opening_deaths AND
+    opening_enemy_assisted_deaths <= opening_deaths AND
+    opening_enemy_damage_assisted_deaths <= opening_enemy_assisted_deaths AND
+    opening_enemy_flash_assisted_deaths <= opening_enemy_assisted_deaths
   ),
   CONSTRAINT chk_player_side_stats_trade_deaths CHECK (
     traded_deaths <= attempted_tradeable_deaths AND
@@ -473,5 +489,6 @@ INSERT INTO schema_migrations (version, description) VALUES
   (6, 'Player statistics partitioned by own-team buy state'),
   (7, 'Player statistics partitioned by round result'),
   (8, 'Unique assisted opening kills with damage and flash attribution'),
-  (9, 'Opening-death trades and opening-assist attribution')
+  (9, 'Opening-death trades and opening-assist attribution'),
+  (10, 'Opening kill and death context')
 ON DUPLICATE KEY UPDATE description = VALUES(description);

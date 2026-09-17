@@ -401,8 +401,15 @@ struct OpeningStats: Codable, Sendable {
     var assists: Int
     var damageAssists: Int
     var flashAssists: Int
+    var blindedEnemyKills: Int
+    var blindKills: Int
+    var deathsWhileBlind: Int
+    var deathsToBlindKiller: Int
+    var enemyAssistedDeaths: Int
+    var enemyDamageAssistedDeaths: Int
+    var enemyFlashAssistedDeaths: Int
 
-    init(kills: Int, deaths: Int, assistedKills: Int = 0, damageAssistedKills: Int = 0, flashAssistedKills: Int = 0, tradedDeaths: Int = 0, tradeKills: Int = 0, assists: Int = 0, damageAssists: Int = 0, flashAssists: Int = 0) {
+    init(kills: Int, deaths: Int, assistedKills: Int = 0, damageAssistedKills: Int = 0, flashAssistedKills: Int = 0, tradedDeaths: Int = 0, tradeKills: Int = 0, assists: Int = 0, damageAssists: Int = 0, flashAssists: Int = 0, blindedEnemyKills: Int = 0, blindKills: Int = 0, deathsWhileBlind: Int = 0, deathsToBlindKiller: Int = 0, enemyAssistedDeaths: Int = 0, enemyDamageAssistedDeaths: Int = 0, enemyFlashAssistedDeaths: Int = 0) {
         self.kills = kills
         self.deaths = deaths
         self.assistedKills = assistedKills
@@ -413,6 +420,13 @@ struct OpeningStats: Codable, Sendable {
         self.assists = assists
         self.damageAssists = damageAssists
         self.flashAssists = flashAssists
+        self.blindedEnemyKills = blindedEnemyKills
+        self.blindKills = blindKills
+        self.deathsWhileBlind = deathsWhileBlind
+        self.deathsToBlindKiller = deathsToBlindKiller
+        self.enemyAssistedDeaths = enemyAssistedDeaths
+        self.enemyDamageAssistedDeaths = enemyDamageAssistedDeaths
+        self.enemyFlashAssistedDeaths = enemyFlashAssistedDeaths
     }
 
     init(from decoder: any Decoder) throws {
@@ -427,6 +441,13 @@ struct OpeningStats: Codable, Sendable {
         assists = values.isAtEnd ? 0 : try values.decode(Int.self)
         damageAssists = values.isAtEnd ? 0 : try values.decode(Int.self)
         flashAssists = values.isAtEnd ? 0 : try values.decode(Int.self)
+        blindedEnemyKills = values.isAtEnd ? 0 : try values.decode(Int.self)
+        blindKills = values.isAtEnd ? 0 : try values.decode(Int.self)
+        deathsWhileBlind = values.isAtEnd ? 0 : try values.decode(Int.self)
+        deathsToBlindKiller = values.isAtEnd ? 0 : try values.decode(Int.self)
+        enemyAssistedDeaths = values.isAtEnd ? 0 : try values.decode(Int.self)
+        enemyDamageAssistedDeaths = values.isAtEnd ? 0 : try values.decode(Int.self)
+        enemyFlashAssistedDeaths = values.isAtEnd ? 0 : try values.decode(Int.self)
         try rejectExtraValues(in: values, description: "Opening statistics")
     }
 
@@ -442,6 +463,13 @@ struct OpeningStats: Codable, Sendable {
         try values.encode(assists)
         try values.encode(damageAssists)
         try values.encode(flashAssists)
+        try values.encode(blindedEnemyKills)
+        try values.encode(blindKills)
+        try values.encode(deathsWhileBlind)
+        try values.encode(deathsToBlindKiller)
+        try values.encode(enemyAssistedDeaths)
+        try values.encode(enemyDamageAssistedDeaths)
+        try values.encode(enemyFlashAssistedDeaths)
     }
 }
 

@@ -95,8 +95,8 @@ test("round survivor migration extends round facts without rewriting timing migr
   assert.match(migration, /\bct_alive_end\b/);
 });
 
-test("schema 16 uploads survivor rows separately from stable timing rows", () => {
-  assert.match(frontendSource, /schema: "nickstats\.match\/16"/);
+test("schema 17 uploads survivor rows separately from stable timing rows", () => {
+  assert.match(frontendSource, /schema: "nickstats\.match\/17"/);
   assert.match(frontendSource, /round_survivors: \(result\.round_timing \|\| \[\]\)\.map/);
   assert.match(frontendSource, /round_economy: \(result\.round_economy \|\| \[\]\)\.map/);
 });

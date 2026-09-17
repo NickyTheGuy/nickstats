@@ -59,6 +59,13 @@
       ["opening_assists_pr", "Opening assists per round", rate("opening_assists"), 3],
       ["opening_damage_assists_pr", "Damage opening assists per round", rate("opening_damage_assists"), 3],
       ["opening_flash_assists_pr", "Flash opening assists per round", rate("opening_flash_assists"), 3],
+      ["opening_blinded_enemy_kpr", "Opening kills on blinded enemies per round", rate("opening_blinded_enemy_kills"), 3],
+      ["opening_blind_kpr", "Opening kills while blind per round", rate("opening_blind_kills"), 3],
+      ["opening_blind_dpr", "Opening deaths while blind per round", rate("opening_deaths_while_blind"), 3],
+      ["opening_blind_killer_dpr", "Opening deaths to blind killers per round", rate("opening_deaths_to_blind_killer"), 3],
+      ["opening_enemy_assisted_dpr", "Enemy-assisted opening deaths per round", rate("opening_enemy_assisted_deaths"), 3],
+      ["opening_enemy_damage_assisted_dpr", "Enemy damage-assisted opening deaths per round", rate("opening_enemy_damage_assisted_deaths"), 3],
+      ["opening_enemy_flash_assisted_dpr", "Enemy flash-assisted opening deaths per round", rate("opening_enemy_flash_assisted_deaths"), 3],
       ["opening_assist_rate", "Opening kills assisted", percentage("opening_assisted_kills", "opening_kills"), 1, "%"]
     ]],
     ["Trades", [

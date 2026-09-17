@@ -1,8 +1,8 @@
 import Vapor
 
-let compactSchema = "nickstats.match/16"
-let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", compactSchema])
-let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", compactSchema])
+let compactSchema = "nickstats.match/17"
+let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", compactSchema])
+let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
@@ -369,6 +369,13 @@ struct PlayerOpeningProfileStats: Content {
     var assists: Int
     var damageAssists: Int
     var flashAssists: Int
+    var blindedEnemyKills: Int
+    var blindKills: Int
+    var deathsWhileBlind: Int
+    var deathsToBlindKiller: Int
+    var enemyAssistedDeaths: Int
+    var enemyDamageAssistedDeaths: Int
+    var enemyFlashAssistedDeaths: Int
 
     enum CodingKeys: String, CodingKey {
         case kills, deaths
@@ -380,6 +387,13 @@ struct PlayerOpeningProfileStats: Content {
         case assists
         case damageAssists = "damage_assists"
         case flashAssists = "flash_assists"
+        case blindedEnemyKills = "blinded_enemy_kills"
+        case blindKills = "blind_kills"
+        case deathsWhileBlind = "deaths_while_blind"
+        case deathsToBlindKiller = "deaths_to_blind_killer"
+        case enemyAssistedDeaths = "enemy_assisted_deaths"
+        case enemyDamageAssistedDeaths = "enemy_damage_assisted_deaths"
+        case enemyFlashAssistedDeaths = "enemy_flash_assisted_deaths"
     }
 }
 

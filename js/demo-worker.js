@@ -107,7 +107,10 @@ const ADDITIVE_STAT_FIELDS = [
   "killerSpeedPercentTotal", "killerSpeedPercentSamples", "rounds", "openingKills",
   "openingDeaths", "openingAssistedKills", "openingDamageAssistedKills",
   "openingFlashAssistedKills", "openingTradedDeaths", "openingTradeKills",
-  "openingAssists", "openingDamageAssists", "openingFlashAssists", "multikillRounds"
+  "openingAssists", "openingDamageAssists", "openingFlashAssists",
+  "openingBlindedEnemyKills", "openingBlindKills", "openingDeathsWhileBlind",
+  "openingDeathsToBlindKiller", "openingEnemyAssistedDeaths",
+  "openingEnemyDamageAssistedDeaths", "openingEnemyFlashAssistedDeaths", "multikillRounds"
 ];
 let libraryError = null;
 
@@ -335,6 +338,13 @@ async function parseDemo(fileName, buffer) {
           openingAssists: 0,
           openingDamageAssists: 0,
           openingFlashAssists: 0,
+          openingBlindedEnemyKills: 0,
+          openingBlindKills: 0,
+          openingDeathsWhileBlind: 0,
+          openingDeathsToBlindKiller: 0,
+          openingEnemyAssistedDeaths: 0,
+          openingEnemyDamageAssistedDeaths: 0,
+          openingEnemyFlashAssistedDeaths: 0,
           multikillRounds: 0,
           killRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
           clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
@@ -557,6 +567,13 @@ async function parseDemo(fileName, buffer) {
       row.openingAssists = 0;
       row.openingDamageAssists = 0;
       row.openingFlashAssists = 0;
+      row.openingBlindedEnemyKills = 0;
+      row.openingBlindKills = 0;
+      row.openingDeathsWhileBlind = 0;
+      row.openingDeathsToBlindKiller = 0;
+      row.openingEnemyAssistedDeaths = 0;
+      row.openingEnemyDamageAssistedDeaths = 0;
+      row.openingEnemyFlashAssistedDeaths = 0;
       row.multikillRounds = 0;
       row.killRoundsByCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       row.clutchWins = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -1657,6 +1674,10 @@ async function parseDemo(fileName, buffer) {
       if (openingKill) {
         attacker.openingKills += 1;
         victim.openingDeaths += 1;
+        attacker.openingBlindedEnemyKills += Number(victimWasBlind);
+        attacker.openingBlindKills += Number(attackerWasBlind);
+        victim.openingDeathsWhileBlind += Number(victimWasBlind);
+        victim.openingDeathsToBlindKiller += Number(attackerWasBlind);
         round.openingRecorded = true;
       }
 
@@ -1780,6 +1801,9 @@ async function parseDemo(fileName, buffer) {
           attacker.openingAssistedKills += 1;
           attacker.openingDamageAssistedKills += Number(damageContributors.size > 0);
           attacker.openingFlashAssistedKills += Number(flashContributors.size > 0);
+          victim.openingEnemyAssistedDeaths += 1;
+          victim.openingEnemyDamageAssistedDeaths += Number(damageContributors.size > 0);
+          victim.openingEnemyFlashAssistedDeaths += Number(flashContributors.size > 0);
           for (const contributor of contributors) {
             contributor.openingAssists += 1;
             assistedKillMatchupStat(attacker, contributor).opening += 1;
@@ -2388,7 +2412,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.17.5",
+    nickstats_build: "2026.09.17.6",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2662,6 +2686,13 @@ function finishPlayer(row) {
     opening_assists: row.openingAssists,
     opening_damage_assists: row.openingDamageAssists,
     opening_flash_assists: row.openingFlashAssists,
+    opening_blinded_enemy_kills: row.openingBlindedEnemyKills,
+    opening_blind_kills: row.openingBlindKills,
+    opening_deaths_while_blind: row.openingDeathsWhileBlind,
+    opening_deaths_to_blind_killer: row.openingDeathsToBlindKiller,
+    opening_enemy_assisted_deaths: row.openingEnemyAssistedDeaths,
+    opening_enemy_damage_assisted_deaths: row.openingEnemyDamageAssistedDeaths,
+    opening_enemy_flash_assisted_deaths: row.openingEnemyFlashAssistedDeaths,
     multikill_rounds: row.multikillRounds,
     kill_rounds: row.killRoundsByCount,
     clutch_wins: row.clutchWins,

@@ -216,6 +216,13 @@ func flattenedBuyStats(_ value: SideStatsPayload) -> [String: Double] {
         "opening_assists": Double(value.opening.assists),
         "opening_damage_assists": Double(value.opening.damageAssists),
         "opening_flash_assists": Double(value.opening.flashAssists),
+        "opening_blinded_enemy_kills": Double(value.opening.blindedEnemyKills),
+        "opening_blind_kills": Double(value.opening.blindKills),
+        "opening_deaths_while_blind": Double(value.opening.deathsWhileBlind),
+        "opening_deaths_to_blind_killer": Double(value.opening.deathsToBlindKiller),
+        "opening_enemy_assisted_deaths": Double(value.opening.enemyAssistedDeaths),
+        "opening_enemy_damage_assisted_deaths": Double(value.opening.enemyDamageAssistedDeaths),
+        "opening_enemy_flash_assisted_deaths": Double(value.opening.enemyFlashAssistedDeaths),
         "trade_kills": Double(value.tradeKills),
         "tradeable_deaths": Double(value.tradeDeaths.tradeable),
         "attempted_tradeable_deaths": Double(value.tradeDeaths.attempted), "traded_deaths": Double(value.tradeDeaths.traded),
@@ -304,6 +311,13 @@ private func comparisonSideData(
             ("opening_assists", "opening_assists"),
             ("opening_damage_assists", "opening_damage_assists"),
             ("opening_flash_assists", "opening_flash_assists"),
+            ("opening_blinded_enemy_kills", "opening_blinded_enemy_kills"),
+            ("opening_blind_kills", "opening_blind_kills"),
+            ("opening_deaths_while_blind", "opening_deaths_while_blind"),
+            ("opening_deaths_to_blind_killer", "opening_deaths_to_blind_killer"),
+            ("opening_enemy_assisted_deaths", "opening_enemy_assisted_deaths"),
+            ("opening_enemy_damage_assisted_deaths", "opening_enemy_damage_assisted_deaths"),
+            ("opening_enemy_flash_assisted_deaths", "opening_enemy_flash_assisted_deaths"),
             ("trade_kills", "trade_kills"), ("tradeable_deaths", "tradeable_deaths"),
             ("attempted_tradeable_deaths", "attempted_tradeable_deaths"), ("traded_deaths", "traded_deaths"),
             ("he_damage", "he_damage"), ("fire_damage", "fire_damage"),
@@ -476,7 +490,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID) AND e.enemy_kill = TRUE
@@ -503,7 +517,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID)
@@ -779,6 +793,13 @@ private struct ProfileAccumulator {
     var openingAssists = 0
     var openingDamageAssists = 0
     var openingFlashAssists = 0
+    var openingBlindedEnemyKills = 0
+    var openingBlindKills = 0
+    var openingDeathsWhileBlind = 0
+    var openingDeathsToBlindKiller = 0
+    var openingEnemyAssistedDeaths = 0
+    var openingEnemyDamageAssistedDeaths = 0
+    var openingEnemyFlashAssistedDeaths = 0
     var tradeKills = 0
     var tradeableDeaths = 0
     var attemptedTradeableDeaths = 0
@@ -817,6 +838,13 @@ private struct ProfileAccumulator {
         openingAssists += other.openingAssists
         openingDamageAssists += other.openingDamageAssists
         openingFlashAssists += other.openingFlashAssists
+        openingBlindedEnemyKills += other.openingBlindedEnemyKills
+        openingBlindKills += other.openingBlindKills
+        openingDeathsWhileBlind += other.openingDeathsWhileBlind
+        openingDeathsToBlindKiller += other.openingDeathsToBlindKiller
+        openingEnemyAssistedDeaths += other.openingEnemyAssistedDeaths
+        openingEnemyDamageAssistedDeaths += other.openingEnemyDamageAssistedDeaths
+        openingEnemyFlashAssistedDeaths += other.openingEnemyFlashAssistedDeaths
         tradeKills += other.tradeKills
         tradeableDeaths += other.tradeableDeaths
         attemptedTradeableDeaths += other.attemptedTradeableDeaths
@@ -879,6 +907,13 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
                CAST(SUM(s.opening_assists) AS SIGNED) AS opening_assists,
                CAST(SUM(s.opening_damage_assists) AS SIGNED) AS opening_damage_assists,
                CAST(SUM(s.opening_flash_assists) AS SIGNED) AS opening_flash_assists,
+               CAST(SUM(s.opening_blinded_enemy_kills) AS SIGNED) AS opening_blinded_enemy_kills,
+               CAST(SUM(s.opening_blind_kills) AS SIGNED) AS opening_blind_kills,
+               CAST(SUM(s.opening_deaths_while_blind) AS SIGNED) AS opening_deaths_while_blind,
+               CAST(SUM(s.opening_deaths_to_blind_killer) AS SIGNED) AS opening_deaths_to_blind_killer,
+               CAST(SUM(s.opening_enemy_assisted_deaths) AS SIGNED) AS opening_enemy_assisted_deaths,
+               CAST(SUM(s.opening_enemy_damage_assisted_deaths) AS SIGNED) AS opening_enemy_damage_assisted_deaths,
+               CAST(SUM(s.opening_enemy_flash_assisted_deaths) AS SIGNED) AS opening_enemy_flash_assisted_deaths,
                CAST(SUM(s.trade_kills) AS SIGNED) AS trade_kills,
                CAST(SUM(s.tradeable_deaths) AS SIGNED) AS tradeable_deaths,
                CAST(SUM(s.attempted_tradeable_deaths) AS SIGNED) AS attempted_tradeable_deaths,
@@ -935,6 +970,13 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
         match.openingAssists = try integer(row, "opening_assists")
         match.openingDamageAssists = try integer(row, "opening_damage_assists")
         match.openingFlashAssists = try integer(row, "opening_flash_assists")
+        match.openingBlindedEnemyKills = try integer(row, "opening_blinded_enemy_kills")
+        match.openingBlindKills = try integer(row, "opening_blind_kills")
+        match.openingDeathsWhileBlind = try integer(row, "opening_deaths_while_blind")
+        match.openingDeathsToBlindKiller = try integer(row, "opening_deaths_to_blind_killer")
+        match.openingEnemyAssistedDeaths = try integer(row, "opening_enemy_assisted_deaths")
+        match.openingEnemyDamageAssistedDeaths = try integer(row, "opening_enemy_damage_assisted_deaths")
+        match.openingEnemyFlashAssistedDeaths = try integer(row, "opening_enemy_flash_assisted_deaths")
         match.tradeKills = try integer(row, "trade_kills")
         match.tradeableDeaths = try integer(row, "tradeable_deaths")
         match.attemptedTradeableDeaths = try integer(row, "attempted_tradeable_deaths")
@@ -1047,7 +1089,14 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
             flashAssistedKills: totals.openingFlashAssistedKills,
             tradedDeaths: totals.openingTradedDeaths, tradeKills: totals.openingTradeKills,
             assists: totals.openingAssists, damageAssists: totals.openingDamageAssists,
-            flashAssists: totals.openingFlashAssists
+            flashAssists: totals.openingFlashAssists,
+            blindedEnemyKills: totals.openingBlindedEnemyKills,
+            blindKills: totals.openingBlindKills,
+            deathsWhileBlind: totals.openingDeathsWhileBlind,
+            deathsToBlindKiller: totals.openingDeathsToBlindKiller,
+            enemyAssistedDeaths: totals.openingEnemyAssistedDeaths,
+            enemyDamageAssistedDeaths: totals.openingEnemyDamageAssistedDeaths,
+            enemyFlashAssistedDeaths: totals.openingEnemyFlashAssistedDeaths
         ),
         weapons: try weaponRows.map { row in
             PlayerWeaponProfileStats(
@@ -1303,7 +1352,14 @@ private func decodeSide(_ row: any SQLRow) throws -> SideStatsPayload {
             tradeKills: try integer(row, "opening_trade_kills"),
             assists: try integer(row, "opening_assists"),
             damageAssists: try integer(row, "opening_damage_assists"),
-            flashAssists: try integer(row, "opening_flash_assists")
+            flashAssists: try integer(row, "opening_flash_assists"),
+            blindedEnemyKills: try integer(row, "opening_blinded_enemy_kills"),
+            blindKills: try integer(row, "opening_blind_kills"),
+            deathsWhileBlind: try integer(row, "opening_deaths_while_blind"),
+            deathsToBlindKiller: try integer(row, "opening_deaths_to_blind_killer"),
+            enemyAssistedDeaths: try integer(row, "opening_enemy_assisted_deaths"),
+            enemyDamageAssistedDeaths: try integer(row, "opening_enemy_damage_assisted_deaths"),
+            enemyFlashAssistedDeaths: try integer(row, "opening_enemy_flash_assisted_deaths")
         ),
         tradeKills: try integer(row, "trade_kills"),
         tradeDeaths: TradeDeathStats(

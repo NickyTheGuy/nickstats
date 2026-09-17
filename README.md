@@ -7,7 +7,7 @@ A local-first Counter-Strike 2 analysis application organized around four produc
 - **Matrix** — database-backed teammate matrices and pairwise comparisons.
 - **Groups** — Included/Excluded teammate conditions and With/Without player profiles.
 
-Demo files are processed in the browser and are never uploaded. All four views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/16` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
+Demo files are processed in the browser and are never uploaded. All four views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/17` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
 
 The visible date-based build number in the NickStats header is bumped with parser and interface deployments, making it easy to tell when a published host has received the newest version.
 
@@ -67,7 +67,7 @@ Trade calibration traces remain available while a demo is being parsed but are d
 
 ## Compact match JSON
 
-**Download compact JSON** writes the versioned `nickstats.match/16` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index.
+**Download compact JSON** writes the versioned `nickstats.match/17` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index.
 
 Profile, group, quick-comparison, and graph aggregations retain each match's compact schema. Statistics introduced by a newer schema use only compatible matches and rounds; older demos show those fields as unavailable rather than contributing false zeroes. Register future parser-derived fields in `js/stat-availability.js` when their schema ships.
 

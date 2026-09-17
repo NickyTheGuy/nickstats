@@ -68,6 +68,13 @@
       { label: "A earned", value: player => player.opening_assists ?? 0 },
       { label: "Dmg A earned", value: player => player.opening_damage_assists ?? 0 },
       { label: "Flash A earned", value: player => player.opening_flash_assists ?? 0 },
+      { label: "Enemy blind K", value: player => player.opening_blinded_enemy_kills ?? 0 },
+      { label: "Blind K", value: player => player.opening_blind_kills ?? 0 },
+      { label: "Blind D", value: player => player.opening_deaths_while_blind ?? 0 },
+      { label: "Blind killer D", value: player => player.opening_deaths_to_blind_killer ?? 0 },
+      { label: "Enemy assisted D", value: player => player.opening_enemy_assisted_deaths ?? 0 },
+      { label: "Enemy dmg A D", value: player => player.opening_enemy_damage_assisted_deaths ?? 0 },
+      { label: "Enemy flash A D", value: player => player.opening_enemy_flash_assisted_deaths ?? 0 },
       { label: "Attempt rate", value: player => 100 * ((player.opening_kills ?? 0) + (player.opening_deaths ?? 0)) / Math.max(1, player.rounds_played ?? 0) },
       { label: "Diff", value: player => (player.opening_kills ?? 0) - (player.opening_deaths ?? 0) },
       { label: "Success", value: player => 100 * (player.opening_kills ?? 0) / Math.max(1, (player.opening_kills ?? 0) + (player.opening_deaths ?? 0)) },
@@ -86,6 +93,13 @@
     openingAssists: oneMode("openingAssists", "A earned", player => player.opening_assists ?? 0),
     openingDamageAssists: oneMode("openingDamageAssists", "Dmg A earned", player => player.opening_damage_assists ?? 0),
     openingFlashAssists: oneMode("openingFlashAssists", "Flash A earned", player => player.opening_flash_assists ?? 0),
+    openingBlindedEnemyKills: oneMode("openingBlindedEnemyKills", "Enemy blind K", player => player.opening_blinded_enemy_kills ?? 0),
+    openingBlindKills: oneMode("openingBlindKills", "Blind K", player => player.opening_blind_kills ?? 0),
+    openingDeathsWhileBlind: oneMode("openingDeathsWhileBlind", "Blind D", player => player.opening_deaths_while_blind ?? 0),
+    openingDeathsToBlindKiller: oneMode("openingDeathsToBlindKiller", "Blind killer D", player => player.opening_deaths_to_blind_killer ?? 0),
+    openingEnemyAssistedDeaths: oneMode("openingEnemyAssistedDeaths", "Enemy assisted D", player => player.opening_enemy_assisted_deaths ?? 0),
+    openingEnemyDamageAssistedDeaths: oneMode("openingEnemyDamageAssistedDeaths", "Enemy dmg A D", player => player.opening_enemy_damage_assisted_deaths ?? 0),
+    openingEnemyFlashAssistedDeaths: oneMode("openingEnemyFlashAssistedDeaths", "Enemy flash A D", player => player.opening_enemy_flash_assisted_deaths ?? 0),
     openingAssistRate: oneMode("openingAssistRate", "Assist %", player => 100 * (player.opening_assisted_kills ?? 0) / Math.max(1, player.opening_kills ?? 0)),
     combatKills: oneMode("combatKills", "K", player => player.kills ?? 0),
     combatDeaths: oneMode("combatDeaths", "D", player => player.deaths ?? 0, "asc"),
@@ -359,7 +373,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260917-5");
+      const worker = new Worker("./js/demo-worker.js?v=20260917-6");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -627,7 +641,7 @@
       rounds: sumArray(left.rounds, right.rounds, 2),
       kda: sumArray(left.kda, right.kda, 5),
       kast_rounds: numberValue(left.kast_rounds) + numberValue(right.kast_rounds),
-      opening: sumArray(left.opening, right.opening, 10),
+      opening: sumArray(left.opening, right.opening, 17),
       trade_kills: numberValue(left.trade_kills) + numberValue(right.trade_kills),
       trade_d: sumArray(left.trade_d, right.trade_d, 3),
       utility: sumArray(left.utility, right.utility, 2),
@@ -838,7 +852,7 @@
 
       return {
         ...player, ...timing,
-        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
+        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -853,6 +867,13 @@
         opening_assists: numberValue(stats.opening?.[7]),
         opening_damage_assists: numberValue(stats.opening?.[8]),
         opening_flash_assists: numberValue(stats.opening?.[9]),
+        opening_blinded_enemy_kills: numberValue(stats.opening?.[10]),
+        opening_blind_kills: numberValue(stats.opening?.[11]),
+        opening_deaths_while_blind: numberValue(stats.opening?.[12]),
+        opening_deaths_to_blind_killer: numberValue(stats.opening?.[13]),
+        opening_enemy_assisted_deaths: numberValue(stats.opening?.[14]),
+        opening_enemy_damage_assisted_deaths: numberValue(stats.opening?.[15]),
+        opening_enemy_flash_assisted_deaths: numberValue(stats.opening?.[16]),
         trade_kills: tradeKills,
         trade_opportunities: opportunities,
         trade_attempts: attempts,
@@ -1289,6 +1310,13 @@
       cell(row, player.opening_assists ?? 0, "demo-group-cell opening-cell");
       cell(row, player.opening_damage_assists ?? 0, "demo-group-cell opening-cell");
       cell(row, player.opening_flash_assists ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_blinded_enemy_kills ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_blind_kills ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_deaths_while_blind ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_deaths_to_blind_killer ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_enemy_assisted_deaths ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_enemy_damage_assisted_deaths ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_enemy_flash_assisted_deaths ?? 0, "demo-group-cell opening-cell");
       cell(row, `${(100 * openingTotal / Math.max(1, player.rounds_played ?? 0)).toFixed(0)}%`, "demo-group-cell opening-cell");
       cell(row, `${openingDiff > 0 ? "+" : ""}${openingDiff}`, "demo-group-cell opening-cell");
       cell(row, `${(100 * (player.opening_kills ?? 0) / Math.max(1, openingTotal)).toFixed(0)}%`, "demo-group-cell opening-cell");
@@ -2275,7 +2303,12 @@
           number(player.opening_assisted_kills), number(player.opening_damage_assisted_kills),
           number(player.opening_flash_assisted_kills), number(player.opening_traded_deaths),
           number(player.opening_trade_kills), number(player.opening_assists),
-          number(player.opening_damage_assists), number(player.opening_flash_assists)
+          number(player.opening_damage_assists), number(player.opening_flash_assists),
+          number(player.opening_blinded_enemy_kills), number(player.opening_blind_kills),
+          number(player.opening_deaths_while_blind), number(player.opening_deaths_to_blind_killer),
+          number(player.opening_enemy_assisted_deaths),
+          number(player.opening_enemy_damage_assisted_deaths),
+          number(player.opening_enemy_flash_assisted_deaths)
         ],
         trade_kills: number(player.trade_kills),
         trade_d: [number(player.tradeable_deaths), number(player.attempted_tradeable_deaths), number(player.traded_deaths ?? player.traded_tradeable_deaths)],
@@ -2341,8 +2374,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/16",
-      nickstats_build: "2026.09.17.5",
+      schema: "nickstats.match/17",
+      nickstats_build: "2026.09.17.6",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
