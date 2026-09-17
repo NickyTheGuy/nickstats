@@ -396,13 +396,23 @@ struct OpeningStats: Codable, Sendable {
     var assistedKills: Int
     var damageAssistedKills: Int
     var flashAssistedKills: Int
+    var tradedDeaths: Int
+    var tradeKills: Int
+    var assists: Int
+    var damageAssists: Int
+    var flashAssists: Int
 
-    init(kills: Int, deaths: Int, assistedKills: Int = 0, damageAssistedKills: Int = 0, flashAssistedKills: Int = 0) {
+    init(kills: Int, deaths: Int, assistedKills: Int = 0, damageAssistedKills: Int = 0, flashAssistedKills: Int = 0, tradedDeaths: Int = 0, tradeKills: Int = 0, assists: Int = 0, damageAssists: Int = 0, flashAssists: Int = 0) {
         self.kills = kills
         self.deaths = deaths
         self.assistedKills = assistedKills
         self.damageAssistedKills = damageAssistedKills
         self.flashAssistedKills = flashAssistedKills
+        self.tradedDeaths = tradedDeaths
+        self.tradeKills = tradeKills
+        self.assists = assists
+        self.damageAssists = damageAssists
+        self.flashAssists = flashAssists
     }
 
     init(from decoder: any Decoder) throws {
@@ -412,6 +422,11 @@ struct OpeningStats: Codable, Sendable {
         assistedKills = values.isAtEnd ? 0 : try values.decode(Int.self)
         damageAssistedKills = values.isAtEnd ? 0 : try values.decode(Int.self)
         flashAssistedKills = values.isAtEnd ? 0 : try values.decode(Int.self)
+        tradedDeaths = values.isAtEnd ? 0 : try values.decode(Int.self)
+        tradeKills = values.isAtEnd ? 0 : try values.decode(Int.self)
+        assists = values.isAtEnd ? 0 : try values.decode(Int.self)
+        damageAssists = values.isAtEnd ? 0 : try values.decode(Int.self)
+        flashAssists = values.isAtEnd ? 0 : try values.decode(Int.self)
         try rejectExtraValues(in: values, description: "Opening statistics")
     }
 
@@ -422,6 +437,11 @@ struct OpeningStats: Codable, Sendable {
         try values.encode(assistedKills)
         try values.encode(damageAssistedKills)
         try values.encode(flashAssistedKills)
+        try values.encode(tradedDeaths)
+        try values.encode(tradeKills)
+        try values.encode(assists)
+        try values.encode(damageAssists)
+        try values.encode(flashAssists)
     }
 }
 
@@ -685,12 +705,14 @@ struct TradeStats: Codable, Sendable {
     var opportunities: Int
     var attempts: Int
     var successes: Int
+    var openingSuccesses: Int
 
-    init(teammatePlayerIndex: Int, opportunities: Int, attempts: Int, successes: Int) {
+    init(teammatePlayerIndex: Int, opportunities: Int, attempts: Int, successes: Int, openingSuccesses: Int = 0) {
         self.teammatePlayerIndex = teammatePlayerIndex
         self.opportunities = opportunities
         self.attempts = attempts
         self.successes = successes
+        self.openingSuccesses = openingSuccesses
     }
 
     init(from decoder: any Decoder) throws {
@@ -699,6 +721,7 @@ struct TradeStats: Codable, Sendable {
         opportunities = try values.decode(Int.self)
         attempts = try values.decode(Int.self)
         successes = try values.decode(Int.self)
+        openingSuccesses = values.isAtEnd ? 0 : try values.decode(Int.self)
         try rejectExtraValues(in: values, description: "Trade statistics")
     }
 
@@ -708,6 +731,7 @@ struct TradeStats: Codable, Sendable {
         try values.encode(opportunities)
         try values.encode(attempts)
         try values.encode(successes)
+        try values.encode(openingSuccesses)
     }
 }
 
@@ -802,12 +826,18 @@ struct AssistedKillStats: Codable, Sendable {
     var damageAssistedKills: Int
     var teammateFlashAssistedKills: Int
     var ownFlashKills: Int
+    var openingAssists: Int
+    var openingDamageAssists: Int
+    var openingFlashAssists: Int
 
-    init(assisterPlayerIndex: Int, damageAssistedKills: Int, teammateFlashAssistedKills: Int, ownFlashKills: Int) {
+    init(assisterPlayerIndex: Int, damageAssistedKills: Int, teammateFlashAssistedKills: Int, ownFlashKills: Int, openingAssists: Int = 0, openingDamageAssists: Int = 0, openingFlashAssists: Int = 0) {
         self.assisterPlayerIndex = assisterPlayerIndex
         self.damageAssistedKills = damageAssistedKills
         self.teammateFlashAssistedKills = teammateFlashAssistedKills
         self.ownFlashKills = ownFlashKills
+        self.openingAssists = openingAssists
+        self.openingDamageAssists = openingDamageAssists
+        self.openingFlashAssists = openingFlashAssists
     }
 
     init(from decoder: any Decoder) throws {
@@ -816,6 +846,9 @@ struct AssistedKillStats: Codable, Sendable {
         damageAssistedKills = try values.decode(Int.self)
         teammateFlashAssistedKills = try values.decode(Int.self)
         ownFlashKills = try values.decode(Int.self)
+        openingAssists = values.isAtEnd ? 0 : try values.decode(Int.self)
+        openingDamageAssists = values.isAtEnd ? 0 : try values.decode(Int.self)
+        openingFlashAssists = values.isAtEnd ? 0 : try values.decode(Int.self)
         try rejectExtraValues(in: values, description: "Assisted-kill statistics")
     }
 
@@ -825,6 +858,9 @@ struct AssistedKillStats: Codable, Sendable {
         try values.encode(damageAssistedKills)
         try values.encode(teammateFlashAssistedKills)
         try values.encode(ownFlashKills)
+        try values.encode(openingAssists)
+        try values.encode(openingDamageAssists)
+        try values.encode(openingFlashAssists)
     }
 }
 

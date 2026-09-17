@@ -43,6 +43,11 @@
       ["opening_assisted_kpr", "Assisted opening kills per round", rate("opening_assisted_kills"), 3],
       ["opening_damage_assisted_kpr", "Damage-assisted openings per round", rate("opening_damage_assisted_kills"), 3],
       ["opening_flash_assisted_kpr", "Flash-assisted openings per round", rate("opening_flash_assisted_kills"), 3],
+      ["opening_traded_death_rate", "Opening deaths traded", percentage("opening_traded_deaths", "opening_deaths"), 1, "%"],
+      ["opening_trade_kpr", "Opening trade kills per round", rate("opening_trade_kills"), 3],
+      ["opening_assists_pr", "Opening assists per round", rate("opening_assists"), 3],
+      ["opening_damage_assists_pr", "Damage opening assists per round", rate("opening_damage_assists"), 3],
+      ["opening_flash_assists_pr", "Flash opening assists per round", rate("opening_flash_assists"), 3],
       ["opening_assist_rate", "Opening kills assisted", percentage("opening_assisted_kills", "opening_kills"), 1, "%"]
     ]],
     ["Trades", [

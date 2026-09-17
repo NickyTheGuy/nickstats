@@ -293,7 +293,9 @@ private func insertSideStats(
           match_player_id, side, rounds_played, rounds_won,
           kills, deaths, assists, headshots, damage, damage_received, kast_rounds,
           opening_kills, opening_deaths, opening_assisted_kills,
-          opening_damage_assisted_kills, opening_flash_assisted_kills, trade_kills,
+          opening_damage_assisted_kills, opening_flash_assisted_kills,
+          opening_traded_deaths, opening_trade_kills, opening_assists,
+          opening_damage_assists, opening_flash_assists, trade_kills,
           tradeable_deaths, attempted_tradeable_deaths, traded_deaths,
           he_damage, fire_damage,
           he_grenades_thrown, flashbangs_thrown, smokes_thrown, fire_grenades_thrown, decoys_thrown,
@@ -310,7 +312,9 @@ private func insertSideStats(
           \(bind: stats.combat.kills), \(bind: stats.combat.deaths), \(bind: stats.combat.assists),
           \(bind: stats.combat.headshots), \(bind: stats.combat.damage), \(bind: stats.damageReceived ?? 0), \(bind: stats.kastRounds),
           \(bind: stats.opening.kills), \(bind: stats.opening.deaths), \(bind: stats.opening.assistedKills),
-          \(bind: stats.opening.damageAssistedKills), \(bind: stats.opening.flashAssistedKills), \(bind: stats.tradeKills),
+          \(bind: stats.opening.damageAssistedKills), \(bind: stats.opening.flashAssistedKills),
+          \(bind: stats.opening.tradedDeaths), \(bind: stats.opening.tradeKills), \(bind: stats.opening.assists),
+          \(bind: stats.opening.damageAssists), \(bind: stats.opening.flashAssists), \(bind: stats.tradeKills),
           \(bind: stats.tradeDeaths.tradeable), \(bind: stats.tradeDeaths.attempted), \(bind: stats.tradeDeaths.traded),
           \(bind: stats.utility.highExplosive), \(bind: stats.utility.fire),
           \(bind: utilityThrown.highExplosive), \(bind: utilityThrown.flashbang), \(bind: utilityThrown.smoke),
@@ -353,10 +357,10 @@ private func insertSideStats(
         try await sql.raw("""
             INSERT INTO trade_side_stats
               (match_id, trader_match_player_id, teammate_match_player_id, trader_side,
-               opportunities, attempts, successes)
+               opportunities, attempts, successes, opening_successes)
             VALUES (
               \(bind: matchID), \(bind: actorID), \(bind: playerIDs[row.teammatePlayerIndex]), \(bind: side.rawValue),
-              \(bind: row.opportunities), \(bind: row.attempts), \(bind: row.successes)
+              \(bind: row.opportunities), \(bind: row.attempts), \(bind: row.successes), \(bind: row.openingSuccesses)
             )
             """).run()
     }
@@ -382,10 +386,12 @@ private func insertSideStats(
         try await sql.raw("""
             INSERT INTO assisted_kill_side_stats (
               match_id, beneficiary_match_player_id, assister_match_player_id, beneficiary_side,
-              damage_assisted_kills, teammate_flash_assisted_kills, own_flash_kills
+              damage_assisted_kills, teammate_flash_assisted_kills, own_flash_kills,
+              opening_assists, opening_damage_assists, opening_flash_assists
             ) VALUES (
               \(bind: matchID), \(bind: actorID), \(bind: playerIDs[row.assisterPlayerIndex]), \(bind: side.rawValue),
-              \(bind: row.damageAssistedKills), \(bind: row.teammateFlashAssistedKills), \(bind: row.ownFlashKills)
+              \(bind: row.damageAssistedKills), \(bind: row.teammateFlashAssistedKills), \(bind: row.ownFlashKills),
+              \(bind: row.openingAssists), \(bind: row.openingDamageAssists), \(bind: row.openingFlashAssists)
             )
             """).run()
     }

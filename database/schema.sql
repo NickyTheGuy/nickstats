@@ -216,6 +216,11 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
   opening_assisted_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   opening_damage_assisted_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   opening_flash_assisted_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_traded_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_trade_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_assists SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_damage_assists SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_flash_assists SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   trade_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   tradeable_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   attempted_tradeable_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
@@ -266,6 +271,12 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
     opening_assisted_kills <= opening_kills AND
     opening_damage_assisted_kills <= opening_assisted_kills AND
     opening_flash_assisted_kills <= opening_assisted_kills
+  ),
+  CONSTRAINT chk_player_side_stats_opening_attribution CHECK (
+    opening_traded_deaths <= opening_deaths AND
+    opening_trade_kills <= trade_kills AND
+    opening_damage_assists <= opening_assists AND
+    opening_flash_assists <= opening_assists
   ),
   CONSTRAINT chk_player_side_stats_trade_deaths CHECK (
     traded_deaths <= attempted_tradeable_deaths AND
@@ -352,6 +363,7 @@ CREATE TABLE IF NOT EXISTS trade_side_stats (
   opportunities SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   attempts SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   successes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_successes SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (trader_match_player_id, teammate_match_player_id, trader_side),
   KEY idx_trade_side_stats_match (match_id),
   KEY idx_trade_side_stats_teammate (teammate_match_player_id, trader_side),
@@ -366,7 +378,7 @@ CREATE TABLE IF NOT EXISTS trade_side_stats (
     ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT chk_trade_side_stats_people CHECK (trader_match_player_id <> teammate_match_player_id),
   CONSTRAINT chk_trade_side_stats_counts CHECK (
-    successes <= attempts AND attempts <= opportunities
+    successes <= attempts AND attempts <= opportunities AND opening_successes <= successes
   )
 ) ENGINE = InnoDB;
 
@@ -410,6 +422,9 @@ CREATE TABLE IF NOT EXISTS assisted_kill_side_stats (
   damage_assisted_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   teammate_flash_assisted_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   own_flash_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_assists SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_damage_assists SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_flash_assists SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (beneficiary_match_player_id, assister_match_player_id, beneficiary_side),
   KEY idx_assisted_kill_side_stats_match (match_id),
   KEY idx_assisted_kill_side_stats_assister (assister_match_player_id, beneficiary_side),
@@ -421,7 +436,10 @@ CREATE TABLE IF NOT EXISTS assisted_kill_side_stats (
     ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT fk_assisted_kill_side_stats_assister
     FOREIGN KEY (assister_match_player_id, match_id) REFERENCES match_players (id, match_id)
-    ON DELETE RESTRICT ON UPDATE RESTRICT
+    ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT chk_assisted_kill_side_stats_opening CHECK (
+    opening_damage_assists <= opening_assists AND opening_flash_assists <= opening_assists
+  )
 ) ENGINE = InnoDB;
 
 CREATE TABLE IF NOT EXISTS flash_side_stats (
@@ -454,5 +472,6 @@ INSERT INTO schema_migrations (version, description) VALUES
   (5, 'Round freeze-time economy facts'),
   (6, 'Player statistics partitioned by own-team buy state'),
   (7, 'Player statistics partitioned by round result'),
-  (8, 'Unique assisted opening kills with damage and flash attribution')
+  (8, 'Unique assisted opening kills with damage and flash attribution'),
+  (9, 'Opening-death trades and opening-assist attribution')
 ON DUPLICATE KEY UPDATE description = VALUES(description);

@@ -106,7 +106,8 @@ const ADDITIVE_STAT_FIELDS = [
   "speedOnKillPercentSamples", "killerSpeedTotal", "killerSpeedSamples",
   "killerSpeedPercentTotal", "killerSpeedPercentSamples", "rounds", "openingKills",
   "openingDeaths", "openingAssistedKills", "openingDamageAssistedKills",
-  "openingFlashAssistedKills", "multikillRounds"
+  "openingFlashAssistedKills", "openingTradedDeaths", "openingTradeKills",
+  "openingAssists", "openingDamageAssists", "openingFlashAssists", "multikillRounds"
 ];
 let libraryError = null;
 
@@ -329,6 +330,11 @@ async function parseDemo(fileName, buffer) {
           openingAssistedKills: 0,
           openingDamageAssistedKills: 0,
           openingFlashAssistedKills: 0,
+          openingTradedDeaths: 0,
+          openingTradeKills: 0,
+          openingAssists: 0,
+          openingDamageAssists: 0,
+          openingFlashAssists: 0,
           multikillRounds: 0,
           killRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
           clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
@@ -546,6 +552,11 @@ async function parseDemo(fileName, buffer) {
       row.openingAssistedKills = 0;
       row.openingDamageAssistedKills = 0;
       row.openingFlashAssistedKills = 0;
+      row.openingTradedDeaths = 0;
+      row.openingTradeKills = 0;
+      row.openingAssists = 0;
+      row.openingDamageAssists = 0;
+      row.openingFlashAssists = 0;
       row.multikillRounds = 0;
       row.killRoundsByCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       row.clutchWins = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -716,12 +727,12 @@ async function parseDemo(fileName, buffer) {
     }
     addMapDeltas(target.weaponStats, after.weapons, before.weapons, ["weapon", "kills", "shots", "hits", "damage", "roundsUsed"]);
     addMapDeltas(target.duelStats, after.duels, before.duels, ["kills", "deaths"]);
-    addMapDeltas(target.tradeMatchups, after.tradeMatchups, before.tradeMatchups, ["opportunities", "attempts", "successes"]);
+    addMapDeltas(target.tradeMatchups, after.tradeMatchups, before.tradeMatchups, ["opportunities", "attempts", "successes", "openingSuccesses"]);
     addMapDeltas(target.killContextMatchups, after.killContextMatchups, before.killContextMatchups,
       ["blinded", "attackerBlind", "wallbang", "penetrations", "smoke", "airborne", "moving", "still", "running",
         "grenadeOut", "knifeOut", "equipmentDisadvantage", "unfair"]);
     addMapDeltas(target.assistedKillMatchups, after.assistedKillMatchups, before.assistedKillMatchups,
-      ["damage", "flash", "ownFlash"]);
+      ["damage", "flash", "ownFlash", "opening", "openingDamage", "openingFlash"]);
     addMapDeltas(target.flashMatchups, after.flashMatchups, before.flashMatchups, ["flashes", "blindDuration"]);
     for (const value of row.speedOnKillValues.slice(before.speedValueLength)) {
       target.maxSpeedOnKill = Math.max(target.maxSpeedOnKill, value.speed);
@@ -1283,7 +1294,7 @@ async function parseDemo(fileName, buffer) {
     if (!trader || !teammate) return null;
     let stat = trader.tradeMatchups.get(teammate);
     if (!stat) {
-      stat = { opportunities: 0, attempts: 0, successes: 0 };
+      stat = { opportunities: 0, attempts: 0, successes: 0, openingSuccesses: 0 };
       trader.tradeMatchups.set(teammate, stat);
     }
     return stat;
@@ -1317,7 +1328,7 @@ async function parseDemo(fileName, buffer) {
     if (!killer || !assister) return null;
     let stat = killer.assistedKillMatchups.get(assister);
     if (!stat) {
-      stat = { damage: 0, flash: 0, ownFlash: 0 };
+      stat = { damage: 0, flash: 0, ownFlash: 0, opening: 0, openingDamage: 0, openingFlash: 0 };
       killer.assistedKillMatchups.set(assister, stat);
     }
     return stat;
@@ -1668,13 +1679,19 @@ async function parseDemo(fileName, buffer) {
             if (tradedVictim && !prior.tradeRecorded) {
               prior.tradeRecorded = true;
               tradedVictim.tradedDeaths += 1;
+              if (prior.opening) tradedVictim.openingTradedDeaths += 1;
               tradedVictim.tradedBy.set(attacker.name, (tradedVictim.tradedBy.get(attacker.name) || 0) + 1);
               tradedVictim.tradedTradeableDeaths += 1;
             }
             if (!prior.successfulTraders.has(attacker.userId)) {
               prior.successfulTraders.add(attacker.userId);
               attacker.tradeSuccesses += 1;
-              if (tradedVictim) tradeMatchupStat(attacker, tradedVictim).successes += 1;
+              if (tradedVictim) {
+                const matchup = tradeMatchupStat(attacker, tradedVictim);
+                matchup.successes += 1;
+                if (prior.opening) matchup.openingSuccesses += 1;
+              }
+              if (prior.opening) attacker.openingTradeKills += 1;
               const auditCandidate = prior.audit.candidates.find(candidate => candidate.player === attacker.name);
               if (auditCandidate) auditCandidate.success = true;
             }
@@ -1712,7 +1729,8 @@ async function parseDemo(fileName, buffer) {
         teammateDistances,
         audit,
         deathAttempted: false,
-        tradeRecorded: false
+        tradeRecorded: false,
+        opening: openingKill
       });
       for (const traderId of nearbyTraders) {
         const trader = stats.get(traderId);
@@ -1762,6 +1780,18 @@ async function parseDemo(fileName, buffer) {
           attacker.openingAssistedKills += 1;
           attacker.openingDamageAssistedKills += Number(damageContributors.size > 0);
           attacker.openingFlashAssistedKills += Number(flashContributors.size > 0);
+          for (const contributor of contributors) {
+            contributor.openingAssists += 1;
+            assistedKillMatchupStat(attacker, contributor).opening += 1;
+          }
+          for (const contributor of damageContributors) {
+            contributor.openingDamageAssists += 1;
+            assistedKillMatchupStat(attacker, contributor).openingDamage += 1;
+          }
+          for (const contributor of flashContributors) {
+            contributor.openingFlashAssists += 1;
+            assistedKillMatchupStat(attacker, contributor).openingFlash += 1;
+          }
         }
       }
     }
@@ -2358,7 +2388,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.14.13",
+    nickstats_build: "2026.09.17.4",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2494,9 +2524,10 @@ function finishPlayer(row) {
         teammate_is_bot: teammate.isBot,
         opportunities: stat.opportunities,
         attempts: stat.attempts,
-        successes: stat.successes
+        successes: stat.successes,
+        opening_successes: stat.openingSuccesses
       }))
-      .filter(stat => stat.opportunities || stat.attempts || stat.successes)
+      .filter(stat => stat.opportunities || stat.attempts || stat.successes || stat.opening_successes)
       .sort((a, b) => b.opportunities - a.opportunities || b.attempts - a.attempts || b.successes - a.successes || a.teammate.localeCompare(b.teammate)),
     kill_context_matchups: [...row.killContextMatchups.entries()]
       .map(([victim, stat]) => ({
@@ -2516,9 +2547,12 @@ function finishPlayer(row) {
         assister_is_bot: assister.isBot,
         damage: stat.damage,
         flash: stat.flash,
-        own_flash: stat.ownFlash
+        own_flash: stat.ownFlash,
+        opening: stat.opening,
+        opening_damage: stat.openingDamage,
+        opening_flash: stat.openingFlash
       }))
-      .filter(stat => stat.damage || stat.flash || stat.own_flash)
+      .filter(stat => stat.damage || stat.flash || stat.own_flash || stat.opening)
       .sort((a, b) => (b.damage + b.flash + b.own_flash) -
         (a.damage + a.flash + a.own_flash) || a.assister.localeCompare(b.assister)),
     flash_matchups: [...row.flashMatchups.entries()]
@@ -2623,6 +2657,11 @@ function finishPlayer(row) {
     opening_assisted_kills: row.openingAssistedKills,
     opening_damage_assisted_kills: row.openingDamageAssistedKills,
     opening_flash_assisted_kills: row.openingFlashAssistedKills,
+    opening_traded_deaths: row.openingTradedDeaths,
+    opening_trade_kills: row.openingTradeKills,
+    opening_assists: row.openingAssists,
+    opening_damage_assists: row.openingDamageAssists,
+    opening_flash_assists: row.openingFlashAssists,
     multikill_rounds: row.multikillRounds,
     kill_rounds: row.killRoundsByCount,
     clutch_wins: row.clutchWins,

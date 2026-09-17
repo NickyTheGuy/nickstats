@@ -211,6 +211,11 @@ func flattenedBuyStats(_ value: SideStatsPayload) -> [String: Double] {
         "opening_assisted_kills": Double(value.opening.assistedKills),
         "opening_damage_assisted_kills": Double(value.opening.damageAssistedKills),
         "opening_flash_assisted_kills": Double(value.opening.flashAssistedKills),
+        "opening_traded_deaths": Double(value.opening.tradedDeaths),
+        "opening_trade_kills": Double(value.opening.tradeKills),
+        "opening_assists": Double(value.opening.assists),
+        "opening_damage_assists": Double(value.opening.damageAssists),
+        "opening_flash_assists": Double(value.opening.flashAssists),
         "trade_kills": Double(value.tradeKills),
         "tradeable_deaths": Double(value.tradeDeaths.tradeable),
         "attempted_tradeable_deaths": Double(value.tradeDeaths.attempted), "traded_deaths": Double(value.tradeDeaths.traded),
@@ -294,6 +299,11 @@ private func comparisonSideData(
             ("opening_assisted_kills", "opening_assisted_kills"),
             ("opening_damage_assisted_kills", "opening_damage_assisted_kills"),
             ("opening_flash_assisted_kills", "opening_flash_assisted_kills"),
+            ("opening_traded_deaths", "opening_traded_deaths"),
+            ("opening_trade_kills", "opening_trade_kills"),
+            ("opening_assists", "opening_assists"),
+            ("opening_damage_assists", "opening_damage_assists"),
+            ("opening_flash_assists", "opening_flash_assists"),
             ("trade_kills", "trade_kills"), ("tradeable_deaths", "tradeable_deaths"),
             ("attempted_tradeable_deaths", "attempted_tradeable_deaths"), ("traded_deaths", "traded_deaths"),
             ("he_damage", "he_damage"), ("fire_damage", "fire_damage"),
@@ -466,7 +476,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID) AND e.enemy_kill = TRUE
@@ -493,7 +503,7 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID)
@@ -763,6 +773,11 @@ private struct ProfileAccumulator {
     var openingAssistedKills = 0
     var openingDamageAssistedKills = 0
     var openingFlashAssistedKills = 0
+    var openingTradedDeaths = 0
+    var openingTradeKills = 0
+    var openingAssists = 0
+    var openingDamageAssists = 0
+    var openingFlashAssists = 0
     var tradeKills = 0
     var tradeableDeaths = 0
     var attemptedTradeableDeaths = 0
@@ -796,6 +811,11 @@ private struct ProfileAccumulator {
         openingAssistedKills += other.openingAssistedKills
         openingDamageAssistedKills += other.openingDamageAssistedKills
         openingFlashAssistedKills += other.openingFlashAssistedKills
+        openingTradedDeaths += other.openingTradedDeaths
+        openingTradeKills += other.openingTradeKills
+        openingAssists += other.openingAssists
+        openingDamageAssists += other.openingDamageAssists
+        openingFlashAssists += other.openingFlashAssists
         tradeKills += other.tradeKills
         tradeableDeaths += other.tradeableDeaths
         attemptedTradeableDeaths += other.attemptedTradeableDeaths
@@ -853,6 +873,11 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
                CAST(SUM(s.opening_assisted_kills) AS SIGNED) AS opening_assisted_kills,
                CAST(SUM(s.opening_damage_assisted_kills) AS SIGNED) AS opening_damage_assisted_kills,
                CAST(SUM(s.opening_flash_assisted_kills) AS SIGNED) AS opening_flash_assisted_kills,
+               CAST(SUM(s.opening_traded_deaths) AS SIGNED) AS opening_traded_deaths,
+               CAST(SUM(s.opening_trade_kills) AS SIGNED) AS opening_trade_kills,
+               CAST(SUM(s.opening_assists) AS SIGNED) AS opening_assists,
+               CAST(SUM(s.opening_damage_assists) AS SIGNED) AS opening_damage_assists,
+               CAST(SUM(s.opening_flash_assists) AS SIGNED) AS opening_flash_assists,
                CAST(SUM(s.trade_kills) AS SIGNED) AS trade_kills,
                CAST(SUM(s.tradeable_deaths) AS SIGNED) AS tradeable_deaths,
                CAST(SUM(s.attempted_tradeable_deaths) AS SIGNED) AS attempted_tradeable_deaths,
@@ -904,6 +929,11 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
         match.openingAssistedKills = try integer(row, "opening_assisted_kills")
         match.openingDamageAssistedKills = try integer(row, "opening_damage_assisted_kills")
         match.openingFlashAssistedKills = try integer(row, "opening_flash_assisted_kills")
+        match.openingTradedDeaths = try integer(row, "opening_traded_deaths")
+        match.openingTradeKills = try integer(row, "opening_trade_kills")
+        match.openingAssists = try integer(row, "opening_assists")
+        match.openingDamageAssists = try integer(row, "opening_damage_assists")
+        match.openingFlashAssists = try integer(row, "opening_flash_assists")
         match.tradeKills = try integer(row, "trade_kills")
         match.tradeableDeaths = try integer(row, "tradeable_deaths")
         match.attemptedTradeableDeaths = try integer(row, "attempted_tradeable_deaths")
@@ -1013,7 +1043,10 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
             kills: totals.openingKills, deaths: totals.openingDeaths,
             assistedKills: totals.openingAssistedKills,
             damageAssistedKills: totals.openingDamageAssistedKills,
-            flashAssistedKills: totals.openingFlashAssistedKills
+            flashAssistedKills: totals.openingFlashAssistedKills,
+            tradedDeaths: totals.openingTradedDeaths, tradeKills: totals.openingTradeKills,
+            assists: totals.openingAssists, damageAssists: totals.openingDamageAssists,
+            flashAssists: totals.openingFlashAssists
         ),
         weapons: try weaponRows.map { row in
             PlayerWeaponProfileStats(
@@ -1264,7 +1297,12 @@ private func decodeSide(_ row: any SQLRow) throws -> SideStatsPayload {
             kills: try integer(row, "opening_kills"), deaths: try integer(row, "opening_deaths"),
             assistedKills: try integer(row, "opening_assisted_kills"),
             damageAssistedKills: try integer(row, "opening_damage_assisted_kills"),
-            flashAssistedKills: try integer(row, "opening_flash_assisted_kills")
+            flashAssistedKills: try integer(row, "opening_flash_assisted_kills"),
+            tradedDeaths: try integer(row, "opening_traded_deaths"),
+            tradeKills: try integer(row, "opening_trade_kills"),
+            assists: try integer(row, "opening_assists"),
+            damageAssists: try integer(row, "opening_damage_assists"),
+            flashAssists: try integer(row, "opening_flash_assists")
         ),
         tradeKills: try integer(row, "trade_kills"),
         tradeDeaths: TradeDeathStats(
@@ -1368,7 +1406,8 @@ private func attachRelations(
             teammatePlayerIndex: target,
             opportunities: try integer(row, "opportunities"),
             attempts: try integer(row, "attempts"),
-            successes: try integer(row, "successes")
+            successes: try integer(row, "successes"),
+            openingSuccesses: try integer(row, "opening_successes")
         ))
     }
     let contexts = try await sql.raw("SELECT * FROM kill_context_side_stats WHERE match_id = \(bind: matchID)").all()
@@ -1402,7 +1441,10 @@ private func attachRelations(
             assisterPlayerIndex: target,
             damageAssistedKills: try integer(row, "damage_assisted_kills"),
             teammateFlashAssistedKills: try integer(row, "teammate_flash_assisted_kills"),
-            ownFlashKills: try integer(row, "own_flash_kills")
+            ownFlashKills: try integer(row, "own_flash_kills"),
+            openingAssists: try integer(row, "opening_assists"),
+            openingDamageAssists: try integer(row, "opening_damage_assists"),
+            openingFlashAssists: try integer(row, "opening_flash_assists")
         ))
     }
     let flashes = try await sql.raw("SELECT * FROM flash_side_stats WHERE match_id = \(bind: matchID)").all()
