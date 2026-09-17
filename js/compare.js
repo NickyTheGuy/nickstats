@@ -11,6 +11,7 @@
     shrinkage: 10, lifterThreshold: 0.25, draggerThreshold: -0.25
   };
   const $ = id => document.getElementById(id);
+  const availability = window.NickStatsAvailability;
   const state = {
     selected: new Map(), players: [], choices: new Map(), analysis: null,
     searchController: null, compareController: null, searchTimer: null,
@@ -105,7 +106,7 @@
       label: player.name || "Unknown player",
       steamId: player.steam_id,
       rows: (player.matches || []).map(match => ({
-        id: String(match.id), date: num(match.played_at), map: match.map || "Unknown",
+        id: String(match.id), schema: match.schema, date: num(match.played_at), map: match.map || "Unknown",
         result: ["w", "l", "n"].includes(match.result) ? match.result : "n",
         score: [match.score_for, match.score_against],
         teammateIds: (match.teammate_ids || []).map(String),
@@ -118,15 +119,17 @@
   function summarize(rows) {
     const n = rows.length;
     const stats = {}, weapons = new Map();
-    rows.forEach(row => { const view = selectedView(row); mergeStats(stats, view.stats); view.weapons.forEach((weapon, name) => { const current = weapons.get(name) || { kills: 0, damage: 0, shots: 0, hits: 0, rounds_used: 0 }; Object.keys(current).forEach(key => current[key] += num(weapon[key])); weapons.set(name, current); }); });
+    rows.forEach(row => { const view = selectedView(row); availability.add(stats, view.stats, row.schema); view.weapons.forEach((weapon, name) => { const current = weapons.get(name) || { kills: 0, damage: 0, shots: 0, hits: 0, rounds_used: 0 }; Object.keys(current).forEach(key => current[key] += num(weapon[key])); weapons.set(name, current); }); });
     const kills = num(stats.kills), deaths = num(stats.deaths), assists = num(stats.assists);
     const rounds = num(stats.rounds), damage = num(stats.damage), kastRounds = num(stats.kast_rounds);
     const wins = rows.filter(row => row.result === "w").length;
     const losses = rows.filter(row => row.result === "l").length;
     const ties = rows.filter(row => row.result === "n").length;
     const aggregate = { rounds, kills, deaths, assists, damage, kast_rounds: kastRounds };
+    const materialized = availability.materialize(stats);
+    const assistedOpenings = availability.scope(stats, "opening_assisted_kills");
     const result = {
-      ...stats,
+      ...materialized,
       n, wins, losses, ties,
       scores: scoreBreakdown(rows, { scoreFor: row => row.score?.[0], scoreAgainst: row => row.score?.[1] }),
       winRate: state.side === "ALL" && state.buy === "ALL" ? (n ? 100 * wins / n : 0) : (rounds ? 100 * num(stats.round_wins) / rounds : 0),
@@ -143,7 +146,9 @@
       openingAttempts: num(stats.opening_kills) + num(stats.opening_deaths),
       openingAttemptRate: rounds ? 100 * (num(stats.opening_kills) + num(stats.opening_deaths)) / rounds : 0,
       openingDiff: num(stats.opening_kills) - num(stats.opening_deaths), openingSuccess: 100 * num(stats.opening_kills) / Math.max(1, num(stats.opening_kills) + num(stats.opening_deaths)),
-      openingAssistRate: 100 * num(stats.opening_assisted_kills) / Math.max(1, num(stats.opening_kills)),
+      openingAssistRate: assistedOpenings
+        ? 100 * num(assistedOpenings.opening_assisted_kills) / Math.max(1, num(assistedOpenings.opening_kills))
+        : Number.NaN,
       tradeAttemptRate: 100 * num(stats.trade_attempts) / Math.max(1, num(stats.trade_opportunities)), tradeSuccessRate: 100 * num(stats.trade_successes) / Math.max(1, num(stats.trade_attempts)),
       utilityDamage: num(stats.he_damage) + num(stats.fire_damage), udr: rounds ? (num(stats.he_damage) + num(stats.fire_damage)) / rounds : 0,
       blindSeconds: num(stats.blind_duration_ms) / 1000, killSpeed: num(stats.kill_speed_total) / Math.max(1, num(stats.kill_speed_samples)),
@@ -169,10 +174,11 @@
         ? [state.roundResult === "win" ? "KPRW" : "KPRL", ...field.slice(1)]
         : field);
   }
-  function formatMetric(value, type, stats = {}) {
+  function formatMetric(value, type, stats = {}, key = "") {
+    if (!availability.available(stats, key)) return "—";
     const perRound = digits => {
       const total = type === "signedRate" ? signed(value, 0) : Math.round(num(value)).toLocaleString();
-      const rate = num(value) / Math.max(1, num(stats.rounds));
+      const rate = num(value) / Math.max(1, availability.rounds(stats, key));
       return `${total} · ${type === "signedRate" && rate > 0 ? "+" : ""}${rate.toFixed(digits)}/R`;
     };
     if (type === "countRate" || type === "signedRate") return perRound(2);
@@ -190,8 +196,8 @@
       const buy = type.split(":")[1], buyRounds = num(stats[`economy_${buy}_rounds`]);
       return `${Math.round(num(value))}/${Math.round(buyRounds)} · ${(100 * num(value) / Math.max(1, buyRounds)).toFixed(1)}%`;
     }
-    if (type === "damageRate") return `${Math.round(num(value)).toLocaleString()} · ${(num(value) / Math.max(1, num(stats.rounds))).toFixed(1)}/R`;
-    if (type === "secondsRate") return `${num(value).toFixed(1)}s · ${(num(value) / Math.max(1, num(stats.rounds))).toFixed(2)}s/R`;
+    if (type === "damageRate") return `${Math.round(num(value)).toLocaleString()} · ${(num(value) / Math.max(1, availability.rounds(stats, key))).toFixed(1)}/R`;
+    if (type === "secondsRate") return `${num(value).toFixed(1)}s · ${(num(value) / Math.max(1, availability.rounds(stats, key))).toFixed(2)}s/R`;
     if (type === "seconds") return Number.isFinite(value) ? `${value.toFixed(1)}s` : "—";
     if (type === "percent") return `${num(value).toFixed(1)}%`;
     if (type === "rating") return num(value).toFixed(2);
@@ -328,7 +334,7 @@
         const row = document.createElement("tr");
         if (!index) { const target = td(pair.target.label); target.rowSpan = 2; row.appendChild(target); const actor = td(pair.actor.label); actor.rowSpan = 2; row.appendChild(actor); }
         row.append(td(label), td(sample));
-        metricFields().forEach(([, key, type]) => row.appendChild(td(formatMetric(stats[key], type, stats))));
+        metricFields().forEach(([, key, type]) => row.appendChild(td(formatMetric(stats[key], type, stats, key))));
         if (!index) { const confidence = td(pair.confidence); confidence.rowSpan = 2; row.appendChild(confidence); }
         body.appendChild(row);
       });

@@ -69,6 +69,8 @@ Trade calibration traces remain available while a demo is being parsed but are d
 
 **Download compact JSON** writes the versioned `nickstats.match/16` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index.
 
+Profile, group, quick-comparison, and graph aggregations retain each match's compact schema. Statistics introduced by a newer schema use only compatible matches and rounds; older demos show those fields as unavailable rather than contributing false zeroes. Register future parser-derived fields in `js/stat-availability.js` when their schema ships.
+
 Round timing begins at `round_freeze_end`, not the freeze-time `round_start` event. Version 10 stores exact live-start/end ticks and one row for every player death, including elapsed milliseconds, kill/victim sides, weapon, pre- or post-plant state, alive counts, and existing kill-context flags. Early (0–25 seconds), Mid (25–75), Late (75+ before plant), and Post-plant are derived query labels; changing those labels does not require another demo parse.
 
 Version 11 also records T and CT survivors at each round end. The match scoreboard derives the winning-side survivor count and shows its full 0–5+ distribution, average, one-survivor wins, and clean wins. Both side counts remain stored so objective and timeout rounds—where losing players may still be alive—and zero-survivor bomb wins retain their actual shape.

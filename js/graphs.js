@@ -7,12 +7,23 @@
   const MAX_BUCKETS = 24;
   const DEFAULT_BUCKETS = 10;
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+  const availability = window.NickStatsAvailability;
   const ratio = (a, b) => number(b) > 0 ? number(a) / number(b) : number(a);
-  const rate = key => stats => ratio(stats[key], stats.rounds);
+  const availableStats = (stats, key) => availability.scope(stats, key);
+  const rate = key => stats => {
+    const scoped = availableStats(stats, key);
+    return scoped ? ratio(scoped[key], scoped.rounds) : Number.NaN;
+  };
   const timingRate = key => stats => number(stats.timed_rounds) > 0 ? ratio(stats[key], stats.timed_rounds) : Number.NaN;
   const timedAverage = (total, samples) => stats => number(stats[samples]) > 0 ? ratio(stats[total], stats[samples]) / 1000 : Number.NaN;
-  const count = key => stats => number(stats[key]);
-  const percentage = (a, b) => stats => 100 * ratio(stats[a], stats[b]);
+  const count = key => stats => {
+    const scoped = availableStats(stats, key);
+    return scoped ? number(scoped[key]) : Number.NaN;
+  };
+  const percentage = (a, b) => stats => {
+    const scoped = availableStats(stats, a);
+    return scoped ? 100 * ratio(scoped[a], scoped[b]) : Number.NaN;
+  };
   const economyPercentage = key => stats => number(stats[`economy_${key}_rounds`]) > 0
     ? 100 * ratio(stats[`economy_${key}_wins`], stats[`economy_${key}_rounds`]) : Number.NaN;
   const economyAverageValue = key => stats => number(stats[`economy_${key}_rounds`]) > 0
@@ -110,6 +121,7 @@
       (side === "ALL" || row.side === side));
     selected.forEach(row => mergeStats(stats, row.stats));
     if (!selected.length && side === "ALL" && buy === "ALL" && roundResult === "ALL") mergeStats(stats, match.legacy || match);
+    stats.__schema = match.schema;
     return stats;
   }
 

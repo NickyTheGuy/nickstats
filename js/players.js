@@ -7,6 +7,7 @@
   const $ = id => document.getElementById(id);
   const { number, integer, ratio, titleCase } = window.NickStatsProfile;
   const { matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
+  const availability = window.NickStatsAvailability;
 
   function readRecent() {
     try {
@@ -117,7 +118,7 @@
   function aggregate(matches, side, buy = "ALL", roundResult = "ALL") {
     const stats = {}, weapons = new Map();
     for (const view of matches.map(match => matchView(match, side, buy, roundResult))) {
-      mergeStats(stats, view.stats);
+      availability.add(stats, view.stats, view.match.schema);
       for (const weapon of view.weapons) {
         const current = weapons.get(weapon.weapon) || { ...weapon, kills: 0, shots: 0, hits: 0, damage: 0, rounds_used: 0 };
         for (const key of ["kills", "shots", "hits", "damage", "rounds_used"]) current[key] += number(weapon[key]);
@@ -130,7 +131,7 @@
     const impact = 2.13 * kpr + .42 * apr - .41;
     const rating = rounds ? Math.max(0, .0073 * kast + .3591 * kpr - .5329 * dpr + .2372 * impact + .0032 * adr + .1587) : 0;
     return {
-      stats, weapons: [...weapons.values()].sort((a, b) => b.kills - a.kills || b.damage - a.damage),
+      stats: availability.materialize(stats), weapons: [...weapons.values()].sort((a, b) => b.kills - a.kills || b.damage - a.damage),
       matches: matches.length, wins, losses, draws, rounds, rating, kd: ratio(kills, deaths), adr, kast,
       winRate: side === "ALL" && buy === "ALL" ? 100 * ratio(wins, matches.length) : 100 * ratio(stats.round_wins, rounds), scores: scoreBreakdown(matches)
     };
@@ -171,6 +172,7 @@
   function quickSummary(matches, profile) {
     const summary = aggregate(matches, profile.side, profile.buy, profile.roundResult), stats = summary.stats;
     const openingKills = number(stats.opening_kills), openingDeaths = number(stats.opening_deaths);
+    const assistedOpenings = availability.scope(stats, "opening_assisted_kills");
     return {
       ...stats,
       rounds: summary.rounds,
@@ -182,7 +184,9 @@
       openingAttemptRate: 100 * ratio(openingKills + openingDeaths, summary.rounds),
       openingDiff: openingKills - openingDeaths,
       openingSuccess: 100 * ratio(openingKills, openingKills + openingDeaths),
-      openingAssistRate: 100 * ratio(stats.opening_assisted_kills, openingKills)
+      openingAssistRate: assistedOpenings
+        ? 100 * ratio(assistedOpenings.opening_assisted_kills, assistedOpenings.opening_kills)
+        : Number.NaN
     };
   }
   function renderQuickComparison() {

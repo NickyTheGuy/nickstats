@@ -5,6 +5,7 @@
     const result = Number(value);
     return Number.isFinite(result) ? result : 0;
   };
+  const availability = window.NickStatsAvailability;
   const element = (tag, text, className) => {
     const node = document.createElement(tag);
     if (text != null) node.textContent = text;
@@ -51,15 +52,15 @@
       const openingColumns = state.expandedGroups.opening ? [
         { key: "opening-k", label: "K", value: item => number(item.stats.opening_kills), format: item => integer(item.stats.opening_kills) },
         { key: "opening-d", label: "D", value: item => number(item.stats.opening_deaths), format: item => integer(item.stats.opening_deaths) },
-        { key: "opening-assisted", label: "Assisted K", value: item => number(item.stats.opening_assisted_kills), format: item => integer(item.stats.opening_assisted_kills) },
-        { key: "opening-damage-assisted", label: "Dmg A", value: item => number(item.stats.opening_damage_assisted_kills), format: item => integer(item.stats.opening_damage_assisted_kills) },
-        { key: "opening-flash-assisted", label: "Flash A", value: item => number(item.stats.opening_flash_assisted_kills), format: item => integer(item.stats.opening_flash_assisted_kills) },
-        { key: "opening-traded-deaths", label: "Traded D", value: item => number(item.stats.opening_traded_deaths), format: item => integer(item.stats.opening_traded_deaths) },
-        { key: "opening-trade-kills", label: "Trade K", value: item => number(item.stats.opening_trade_kills), format: item => integer(item.stats.opening_trade_kills) },
-        { key: "opening-assists", label: "A earned", value: item => number(item.stats.opening_assists), format: item => integer(item.stats.opening_assists) },
-        { key: "opening-damage-assists", label: "Dmg A earned", value: item => number(item.stats.opening_damage_assists), format: item => integer(item.stats.opening_damage_assists) },
-        { key: "opening-flash-assists", label: "Flash A earned", value: item => number(item.stats.opening_flash_assists), format: item => integer(item.stats.opening_flash_assists) },
-        { key: "opening-assist-rate", label: "Assist %", value: item => item.stats.openingAssistRate, format: item => percent(item.stats.openingAssistRate) },
+        { key: "opening-assisted", label: "Assisted K", value: item => item.stats.opening_assisted_kills, format: item => availability.available(item.stats, "opening_assisted_kills") ? integer(item.stats.opening_assisted_kills) : "—" },
+        { key: "opening-damage-assisted", label: "Dmg A", value: item => item.stats.opening_damage_assisted_kills, format: item => availability.available(item.stats, "opening_damage_assisted_kills") ? integer(item.stats.opening_damage_assisted_kills) : "—" },
+        { key: "opening-flash-assisted", label: "Flash A", value: item => item.stats.opening_flash_assisted_kills, format: item => availability.available(item.stats, "opening_flash_assisted_kills") ? integer(item.stats.opening_flash_assisted_kills) : "—" },
+        { key: "opening-traded-deaths", label: "Traded D", value: item => item.stats.opening_traded_deaths, format: item => availability.available(item.stats, "opening_traded_deaths") ? integer(item.stats.opening_traded_deaths) : "—" },
+        { key: "opening-trade-kills", label: "Trade K", value: item => item.stats.opening_trade_kills, format: item => availability.available(item.stats, "opening_trade_kills") ? integer(item.stats.opening_trade_kills) : "—" },
+        { key: "opening-assists", label: "A earned", value: item => item.stats.opening_assists, format: item => availability.available(item.stats, "opening_assists") ? integer(item.stats.opening_assists) : "—" },
+        { key: "opening-damage-assists", label: "Dmg A earned", value: item => item.stats.opening_damage_assists, format: item => availability.available(item.stats, "opening_damage_assists") ? integer(item.stats.opening_damage_assists) : "—" },
+        { key: "opening-flash-assists", label: "Flash A earned", value: item => item.stats.opening_flash_assists, format: item => availability.available(item.stats, "opening_flash_assists") ? integer(item.stats.opening_flash_assists) : "—" },
+        { key: "opening-assist-rate", label: "Assist %", value: item => item.stats.openingAssistRate, format: item => availability.available(item.stats, "openingAssistRate") ? percent(item.stats.openingAssistRate) : "—" },
         { key: "opening-attempt", label: "Attempt rate", value: item => item.stats.openingAttemptRate, format: item => percent(item.stats.openingAttemptRate) },
         { key: "opening-diff", label: "Diff", value: item => item.stats.openingDiff, format: item => signed(item.stats.openingDiff) },
         { key: "opening-success", label: "Success", value: item => item.stats.openingSuccess, format: item => percent(item.stats.openingSuccess) }

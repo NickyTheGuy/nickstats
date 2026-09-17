@@ -437,6 +437,7 @@ struct ComparisonPlayer: Content {
 
 struct ComparisonMatch: Content {
     var id: Int64
+    var schema: String
     var playedAt: Int64?
     var map: String
     var result: String
@@ -453,7 +454,7 @@ struct ComparisonMatch: Content {
     var sides: [ComparisonSideStats]
 
     enum CodingKeys: String, CodingKey {
-        case id, map, result, rounds, kills, deaths, assists, headshots, damage
+        case id, schema, map, result, rounds, kills, deaths, assists, headshots, damage
         case playedAt = "played_at"
         case scoreFor = "score_for"
         case scoreAgainst = "score_against"

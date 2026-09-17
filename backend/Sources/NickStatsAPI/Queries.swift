@@ -674,7 +674,7 @@ private func comparisonSideData(
 private func comparisonMatches(playerID: Int64, sql: any SQLDatabase) async throws -> [ComparisonMatch] {
     let sideData = try await comparisonSideData(playerID: playerID, sql: sql)
     let rows = try await sql.raw("""
-            SELECT m.id, m.played_at, m.map_name,
+            SELECT m.id, m.payload_schema, m.played_at, m.map_name,
                    own_team.score AS score_for, other_team.score AS score_against,
                    (
                      SELECT GROUP_CONCAT(CAST(teammate.player_id AS CHAR) ORDER BY teammate.player_id)
@@ -696,7 +696,7 @@ private func comparisonMatches(playerID: Int64, sql: any SQLDatabase) async thro
               ON other_team.match_id = mp.match_id AND other_team.id <> mp.match_team_id
             JOIN player_side_stats s ON s.match_player_id = mp.id
             WHERE mp.player_id = \(bind: playerID)
-            GROUP BY m.id, m.played_at, m.map_name, mp.id, mp.match_team_id,
+            GROUP BY m.id, m.payload_schema, m.played_at, m.map_name, mp.id, mp.match_team_id,
                      own_team.score, other_team.score
             ORDER BY m.played_at IS NULL, m.played_at DESC, m.id DESC
             """).all()
@@ -713,7 +713,8 @@ private func comparisonMatches(playerID: Int64, sql: any SQLDatabase) async thro
                 .split(separator: ",").compactMap { Int64($0) } ?? []
             let matchID = try int64(row, "id")
             return ComparisonMatch(
-                id: matchID, playedAt: unix(try optionalDate(row, "played_at")),
+                id: matchID, schema: try row.decode(column: "payload_schema", as: String.self),
+                playedAt: unix(try optionalDate(row, "played_at")),
                 map: try row.decode(column: "map_name", as: String.self), result: result,
                 scoreFor: scoreFor, scoreAgainst: scoreAgainst, teammateIDs: teammateIDs,
                 rounds: try integer(row, "rounds"), kills: try integer(row, "kills"),
