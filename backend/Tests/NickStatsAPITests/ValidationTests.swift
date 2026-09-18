@@ -258,7 +258,7 @@ private func validPayload() -> MatchPayload {
     let players = try #require(object["players"] as? [[String: Any]])
     let sides = try #require(players[0]["sides"] as? [[String: Any]])
     #expect(sides[0]["duels"] as? [[Int]] == [[2, 3]])
-    #expect(sides[0]["trades"] as? [[Int]] == [[1, 4, 3, 2]])
+    #expect(sides[0]["trades"] as? [[Int]] == [[1, 4, 3, 2, 0]])
     #expect(sides[0]["clutch_attempts"] as? [Int] == [2, 1, 0, 0, 0])
     #expect(object["round_timing"] as? [[Any]] != nil)
     #expect(object["round_survivors"] as? [[Int]] == [[1, 2, 0]])
