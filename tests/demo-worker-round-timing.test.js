@@ -95,8 +95,8 @@ test("round survivor migration extends round facts without rewriting timing migr
   assert.match(migration, /\bct_alive_end\b/);
 });
 
-test("schema 17 uploads survivor rows separately from stable timing rows", () => {
-  assert.match(frontendSource, /schema: "nickstats\.match\/17"/);
+test("schema 18 uploads survivor rows separately from stable timing rows", () => {
+  assert.match(frontendSource, /schema: "nickstats\.match\/18"/);
   assert.match(frontendSource, /round_survivors: \(result\.round_timing \|\| \[\]\)\.map/);
   assert.match(frontendSource, /round_economy: \(result\.round_economy \|\| \[\]\)\.map/);
 });
@@ -111,6 +111,16 @@ test("round economy migration stores values, roster sizes, pistol flag, and team
 test("round-result migration stores composable side and buy dimensions", () => {
   const migration = fs.readFileSync(path.join(__dirname, "..", "database", "migrations", "007_player_round_result_stats.sql"), "utf8");
   for (const column of ["match_player_id", "side", "buy_type", "round_result", "stats_json"]) {
+    assert.match(migration, new RegExp(`\\b${column}\\b`));
+  }
+});
+
+test("opponent-economy slices retain both teams' buy types", () => {
+  const migration = fs.readFileSync(path.join(__dirname, "..", "database", "migrations", "011_opponent_economy_stats.sql"), "utf8");
+  assert.match(source, /ensureEconomyMatchupRow\(row, buys\[side\], buys\[side === 2 \? 3 : 2\], side, result\)/);
+  assert.match(frontendSource, /economy_matchups: \["pistol", "eco", "force", "full"\]\.flatMap\(\(ownBuy, ownIndex\)/);
+  assert.match(frontendSource, /\.filter\(entry => number\(entry\[4\]\?\.rounds\?\.\[0\]\) > 0\)/);
+  for (const column of ["buy_type", "opponent_buy_type", "round_result", "stats_json"]) {
     assert.match(migration, new RegExp(`\\b${column}\\b`));
   }
 });

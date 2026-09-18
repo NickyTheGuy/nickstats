@@ -61,6 +61,21 @@ test("graph samples compose buy and round-result slices", () => {
   assert.equal(sample.stats.kills / sample.stats.rounds, 2);
 });
 
+test("graph samples compose own and opponent economy filters", () => {
+  const source = [{ id: 11, schema: "nickstats.match/18", sides: [
+    { side: "T", buy_type: "full", opponent_buy_type: "eco", round_result: "win", stats: { rounds: 3, kills: 7 } },
+    { side: "T", buy_type: "force", opponent_buy_type: "eco", round_result: "loss", stats: { rounds: 2, kills: 2 } },
+    { side: "T", buy_type: "full", opponent_buy_type: "full", round_result: "win", stats: { rounds: 4, kills: 4 } }
+  ] }];
+  const [fullVsEco] = samplesForMatches(source, "T", "full", "ALL", "eco");
+  const [allVsEco] = samplesForMatches(source, "T", "ALL", "ALL", "eco");
+
+  assert.equal(fullVsEco.stats.rounds, 3);
+  assert.equal(fullVsEco.stats.kills, 7);
+  assert.equal(allVsEco.stats.rounds, 5);
+  assert.equal(allVsEco.stats.kills, 9);
+});
+
 test("graph metric registry calculates per-match rates from matching denominators", () => {
   const stats = statsForMatch(match, "ALL");
 

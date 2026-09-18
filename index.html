@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260915-29">
+  <link rel="stylesheet" href="./styles.css?v=20260918-1">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.17.7</span>
+          <span class="demo-build">Build 2026.09.18.1</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -116,13 +116,22 @@
               <button class="demo-side-button" type="button" data-demo-side="CT" aria-pressed="false">CT</button>
               <button class="demo-side-button" type="button" data-demo-side="T" aria-pressed="false">T</button>
             </div>
-            <span>Buy</span>
-            <div class="demo-side-buttons">
-              <button class="demo-side-button active" type="button" data-demo-buy="ALL" aria-pressed="true">ALL</button>
-              <button class="demo-side-button" type="button" data-demo-buy="full" aria-pressed="false">Full</button>
-              <button class="demo-side-button" type="button" data-demo-buy="force" aria-pressed="false">Force</button>
-              <button class="demo-side-button" type="button" data-demo-buy="eco" aria-pressed="false">Eco</button>
-              <button class="demo-side-button" type="button" data-demo-buy="pistol" aria-pressed="false">Pistol</button>
+            <div class="economy-matchup-filter demo-economy-matchup-filter">
+              <span class="economy-matchup-title">Economy matchup</span>
+              <div class="economy-matchup-row"><span>Your buy</span><div class="demo-side-buttons">
+                <button class="demo-side-button active" type="button" data-demo-buy="ALL" aria-pressed="true">ALL</button>
+                <button class="demo-side-button" type="button" data-demo-buy="full" aria-pressed="false">Full</button>
+                <button class="demo-side-button" type="button" data-demo-buy="force" aria-pressed="false">Force</button>
+                <button class="demo-side-button" type="button" data-demo-buy="eco" aria-pressed="false">Eco</button>
+                <button class="demo-side-button" type="button" data-demo-buy="pistol" aria-pressed="false">Pistol</button>
+              </div></div>
+              <div class="economy-matchup-row"><span>Enemy buy</span><div class="demo-side-buttons">
+                <button class="demo-side-button active" type="button" data-demo-enemy-buy="ALL" aria-pressed="true">ALL</button>
+                <button class="demo-side-button" type="button" data-demo-enemy-buy="full" aria-pressed="false">Full</button>
+                <button class="demo-side-button" type="button" data-demo-enemy-buy="force" aria-pressed="false">Force</button>
+                <button class="demo-side-button" type="button" data-demo-enemy-buy="eco" aria-pressed="false">Eco</button>
+                <button class="demo-side-button" type="button" data-demo-enemy-buy="pistol" aria-pressed="false">Pistol</button>
+              </div></div>
             </div>
             <span>Rounds</span>
             <div class="demo-side-buttons">
@@ -259,7 +268,7 @@
                 <span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div>
                 <span>Result</span><div class="side-toggle" role="group" aria-label="Profile match result"><button class="active" type="button" aria-pressed="true" data-combo-result="ALL">All</button><button type="button" aria-pressed="false" data-combo-result="w">Wins</button><button type="button" aria-pressed="false" data-combo-result="l">Losses</button></div>
                 <span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-compare-side="ALL">All</button><button type="button" aria-pressed="false" data-compare-side="T">T</button><button type="button" aria-pressed="false" data-compare-side="CT">CT</button></div>
-                <span>Buy</span><div class="side-toggle" role="group" aria-label="Profile buy"><button class="active" type="button" aria-pressed="true" data-compare-buy="ALL">All</button><button type="button" aria-pressed="false" data-compare-buy="full">Full</button><button type="button" aria-pressed="false" data-compare-buy="force">Force</button><button type="button" aria-pressed="false" data-compare-buy="eco">Eco</button><button type="button" aria-pressed="false" data-compare-buy="pistol">Pistol</button></div>
+                <div class="economy-matchup-filter"><span class="economy-matchup-title">Economy matchup</span><div class="economy-matchup-row"><span>Your buy</span><div class="side-toggle" role="group" aria-label="Profile own buy"><button class="active" type="button" aria-pressed="true" data-compare-buy="ALL">All</button><button type="button" aria-pressed="false" data-compare-buy="full">Full</button><button type="button" aria-pressed="false" data-compare-buy="force">Force</button><button type="button" aria-pressed="false" data-compare-buy="eco">Eco</button><button type="button" aria-pressed="false" data-compare-buy="pistol">Pistol</button></div></div><div class="economy-matchup-row"><span>Enemy buy</span><div class="side-toggle" role="group" aria-label="Profile enemy buy"><button class="active" type="button" aria-pressed="true" data-compare-enemy-buy="ALL">All</button><button type="button" aria-pressed="false" data-compare-enemy-buy="full">Full</button><button type="button" aria-pressed="false" data-compare-enemy-buy="force">Force</button><button type="button" aria-pressed="false" data-compare-enemy-buy="eco">Eco</button><button type="button" aria-pressed="false" data-compare-enemy-buy="pistol">Pistol</button></div></div></div>
                 <span>Rounds</span><div class="side-toggle" role="group" aria-label="Profile round result"><button class="active" type="button" aria-pressed="true" data-compare-round-result="ALL">All</button><button type="button" aria-pressed="false" data-compare-round-result="win">Won</button><button type="button" aria-pressed="false" data-compare-round-result="loss">Lost</button></div>
               </div>
 
@@ -330,13 +339,22 @@
               <button type="button" aria-pressed="false" data-player-side="T">T</button>
               <button type="button" aria-pressed="false" data-player-side="CT">CT</button>
             </div>
-            <span>Buy</span>
-            <div class="side-toggle" role="group" aria-label="Player buy">
-              <button class="active" type="button" aria-pressed="true" data-player-buy="ALL">All</button>
-              <button type="button" aria-pressed="false" data-player-buy="full">Full</button>
-              <button type="button" aria-pressed="false" data-player-buy="force">Force</button>
-              <button type="button" aria-pressed="false" data-player-buy="eco">Eco</button>
-              <button type="button" aria-pressed="false" data-player-buy="pistol">Pistol</button>
+            <div class="economy-matchup-filter">
+              <span class="economy-matchup-title">Economy matchup</span>
+              <div class="economy-matchup-row"><span>Your buy</span><div class="side-toggle" role="group" aria-label="Player own buy">
+                <button class="active" type="button" aria-pressed="true" data-player-buy="ALL">All</button>
+                <button type="button" aria-pressed="false" data-player-buy="full">Full</button>
+                <button type="button" aria-pressed="false" data-player-buy="force">Force</button>
+                <button type="button" aria-pressed="false" data-player-buy="eco">Eco</button>
+                <button type="button" aria-pressed="false" data-player-buy="pistol">Pistol</button>
+              </div></div>
+              <div class="economy-matchup-row"><span>Enemy buy</span><div class="side-toggle" role="group" aria-label="Player enemy buy">
+                <button class="active" type="button" aria-pressed="true" data-player-enemy-buy="ALL">All</button>
+                <button type="button" aria-pressed="false" data-player-enemy-buy="full">Full</button>
+                <button type="button" aria-pressed="false" data-player-enemy-buy="force">Force</button>
+                <button type="button" aria-pressed="false" data-player-enemy-buy="eco">Eco</button>
+                <button type="button" aria-pressed="false" data-player-enemy-buy="pistol">Pistol</button>
+              </div></div>
             </div>
             <span>Rounds</span>
             <div class="side-toggle" role="group" aria-label="Player round result">
@@ -482,14 +500,14 @@
     </form>
   </dialog>
 
-  <script defer src="./js/navigation.js?v=20260911-2"></script>
-  <script defer src="./js/filters.js?v=20260912-2"></script>
-  <script defer src="./js/stat-availability.js?v=20260917-7"></script>
-  <script defer src="./js/demo.js?v=20260917-7"></script>
-  <script defer src="./js/graphs.js?v=20260917-7"></script>
-  <script defer src="./js/profile.js?v=20260917-7"></script>
-  <script defer src="./js/quick-comparison.js?v=20260917-7"></script>
-  <script defer src="./js/players.js?v=20260917-7"></script>
-  <script defer src="./js/compare.js?v=20260917-7"></script>
+  <script defer src="./js/navigation.js?v=20260918-1"></script>
+  <script defer src="./js/filters.js?v=20260918-1"></script>
+  <script defer src="./js/stat-availability.js?v=20260918-1"></script>
+  <script defer src="./js/demo.js?v=20260918-1"></script>
+  <script defer src="./js/graphs.js?v=20260918-1"></script>
+  <script defer src="./js/profile.js?v=20260918-1"></script>
+  <script defer src="./js/quick-comparison.js?v=20260918-1"></script>
+  <script defer src="./js/players.js?v=20260918-1"></script>
+  <script defer src="./js/compare.js?v=20260918-1"></script>
 </body>
 </html>

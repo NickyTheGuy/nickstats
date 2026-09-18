@@ -88,10 +88,10 @@ extension MatchPayload {
         if timingCompactSchemas.contains(schema), roundTiming == nil || deathEvents == nil {
             try invalid("$", "\(schema) requires round_timing and death_events.")
         }
-        if ["nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", compactSchema].contains(schema), roundSurvivors == nil {
+        if ["nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", compactSchema].contains(schema), roundSurvivors == nil {
             try invalid("$.round_survivors", "\(schema) requires round-end survivor counts.")
         }
-        if ["nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", compactSchema].contains(schema), roundEconomy == nil {
+        if ["nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", compactSchema].contains(schema), roundEconomy == nil {
             try invalid("$.round_economy", "\(compactSchema) requires round economy facts.")
         }
         var timingByRound: [Int: RoundTimingPayload] = [:]
@@ -114,7 +114,7 @@ extension MatchPayload {
             try validateCount(survivor.terroristAlive, path: "\(path)[1]", maximum: 16)
             try validateCount(survivor.counterTerroristAlive, path: "\(path)[2]", maximum: 16)
         }
-        if ["nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", compactSchema].contains(schema), survivorRounds != Set(timingByRound.keys) {
+        if ["nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", compactSchema].contains(schema), survivorRounds != Set(timingByRound.keys) {
             try invalid("$.round_survivors", "Expected exactly one survivor row for every timing row.")
         }
         var economyRounds = Set<Int>()
@@ -138,7 +138,7 @@ extension MatchPayload {
                 try invalid(path, "T and CT must reference two distinct valid teams.")
             }
         }
-        if ["nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", compactSchema].contains(schema), economyRounds != Set(timingByRound.keys) {
+        if ["nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", compactSchema].contains(schema), economyRounds != Set(timingByRound.keys) {
             try invalid("$.round_economy", "Expected exactly one economy row for every timing row.")
         }
         var eventKeys = Set<String>()
@@ -228,7 +228,7 @@ extension MatchPayload {
             guard player.sides.terrorist.rounds.played + player.sides.counterTerrorist.rounds.played <= rounds else {
                 try invalid("\(path).sides", "A player cannot play more rounds than the match contains.")
             }
-            if ["nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", compactSchema].contains(schema) {
+            if ["nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", compactSchema].contains(schema) {
                 guard let buys = player.buys, buys.count == 8 else {
                     try invalid("\(path).buys", "Schema 13 requires eight side/buy statistic slices.")
                 }
@@ -244,7 +244,7 @@ extension MatchPayload {
                     }
                 }
             }
-            if ["nickstats.match/14", "nickstats.match/15", "nickstats.match/16", compactSchema].contains(schema) {
+            if ["nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", compactSchema].contains(schema) {
                 guard let resultStats = player.roundResults, resultStats.count == 20 else {
                     try invalid("\(path).round_results", "Schema 14 requires twenty side/buy/round-result statistic slices.")
                 }
@@ -273,6 +273,51 @@ extension MatchPayload {
                               won.combat.deaths + lost.combat.deaths == source.combat.deaths,
                               won.combat.damage + lost.combat.damage == source.combat.damage else {
                             try invalid("\(path).round_results", "Round-result slices must add up to their corresponding aggregate.")
+                        }
+                    }
+                }
+            }
+            if schema == compactSchema {
+                guard let matchups = player.economyMatchups, matchups.count <= 64 else {
+                    try invalid("\(path).economy_matchups", "Schema 18 requires at most 64 sparse own-buy/enemy-buy/result/side statistic slices.")
+                }
+                var matchupKeys = Set<String>()
+                for (matchupIndex, matchup) in matchups.enumerated() {
+                    guard (0..<4).contains(matchup.ownBuyIndex), (0..<4).contains(matchup.opponentBuyIndex),
+                          (0..<2).contains(matchup.resultIndex), (0..<2).contains(matchup.sideIndex) else {
+                        try invalid("\(path).economy_matchups[\(matchupIndex)]", "Economy-matchup indexes are out of range.")
+                    }
+                    let key = "\(matchup.ownBuyIndex):\(matchup.opponentBuyIndex):\(matchup.resultIndex):\(matchup.sideIndex)"
+                    guard matchupKeys.insert(key).inserted else {
+                        try invalid("\(path).economy_matchups[\(matchupIndex)]", "Duplicate economy-matchup slice.")
+                    }
+                    let stats = matchup.stats
+                    guard let profile = stats.profile, profile.count == 16 else {
+                        try invalid("\(path).economy_matchups[\(matchupIndex)][4].profile", "Expected exactly 16 profile counters.")
+                    }
+                    try validateCounts(profile, count: 16, path: "\(path).economy_matchups[\(matchupIndex)][4].profile", maximum: Int(UInt32.max))
+                    try validateCount(stats.rounds.played, path: "\(path).economy_matchups[\(matchupIndex)][4].rounds[0]")
+                    try validateCount(stats.rounds.won, path: "\(path).economy_matchups[\(matchupIndex)][4].rounds[1]")
+                    guard stats.rounds.played > 0 else {
+                        try invalid("\(path).economy_matchups[\(matchupIndex)][4].rounds", "Sparse economy-matchup slices cannot be empty.")
+                    }
+                    guard stats.rounds.won == (matchup.resultIndex == 0 ? stats.rounds.played : 0) else {
+                        try invalid("\(path).economy_matchups[\(matchupIndex)][4].rounds", "Winning slices must contain only wins and losing slices only losses.")
+                    }
+                }
+                for ownBuy in 0..<4 {
+                    for resultIndex in 0..<2 {
+                        for sideIndex in 0..<2 {
+                            let slices = matchups.filter {
+                                $0.ownBuyIndex == ownBuy && $0.resultIndex == resultIndex && $0.sideIndex == sideIndex
+                            }.map(\.stats)
+                            let source = player.roundResults![((ownBuy + 1) * 4) + resultIndex * 2 + sideIndex]
+                            guard slices.reduce(0, { $0 + $1.rounds.played }) == source.rounds.played,
+                                  slices.reduce(0, { $0 + $1.combat.kills }) == source.combat.kills,
+                                  slices.reduce(0, { $0 + $1.combat.deaths }) == source.combat.deaths,
+                                  slices.reduce(0, { $0 + $1.combat.damage }) == source.combat.damage else {
+                                try invalid("\(path).economy_matchups", "Enemy-buy slices must add up to their own-buy result slice.")
+                            }
                         }
                     }
                 }

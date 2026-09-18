@@ -275,6 +275,25 @@ func importMatch(
                 }
             }
         }
+        if let matchups = player.economyMatchups {
+            let buyTypes = ["pistol", "eco", "force", "full"]
+            let results = ["win", "loss"]
+            for matchup in matchups {
+                let data = try JSONEncoder().encode(matchup.stats)
+                guard let json = String(data: data, encoding: .utf8) else {
+                    throw Abort(.internalServerError, reason: "Could not encode economy-matchup statistics.")
+                }
+                try await sql.raw("""
+                    INSERT INTO player_economy_matchup_stats
+                      (match_id, match_player_id, side, buy_type, opponent_buy_type, round_result, stats_json)
+                    VALUES (
+                      \(bind: matchID), \(bind: matchPlayerIDs[playerSlot]), \(bind: PlayerSide.allCases[matchup.sideIndex].rawValue),
+                      \(bind: buyTypes[matchup.ownBuyIndex]), \(bind: buyTypes[matchup.opponentBuyIndex]),
+                      \(bind: results[matchup.resultIndex]), CAST(\(bind: json) AS JSON)
+                    )
+                    """).run()
+            }
+        }
     }
     return ImportResult(id: matchID, created: existingMatchID == nil, replaced: existingMatchID != nil)
 }

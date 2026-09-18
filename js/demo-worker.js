@@ -243,6 +243,7 @@ async function parseDemo(fileName, buffer) {
           sideStats: new Map(),
           buySideStats: new Map(),
           roundResultStats: new Map(),
+          economyMatchupStats: new Map(),
           weaponStats: new Map(),
           duelStats: new Map(),
           tradeMatchups: new Map(),
@@ -473,6 +474,7 @@ async function parseDemo(fileName, buffer) {
       row.sideStats = new Map();
       row.buySideStats = new Map();
       row.roundResultStats = new Map();
+      row.economyMatchupStats = new Map();
       row.weaponStats = new Map();
       row.duelStats = new Map();
       row.tradeMatchups = new Map();
@@ -655,6 +657,21 @@ async function parseDemo(fileName, buffer) {
     return output;
   }
 
+  function ensureEconomyMatchupRow(row, ownBuy, enemyBuy, side, result) {
+    if (!ownBuy || !enemyBuy || (side !== 2 && side !== 3) || !["win", "loss"].includes(result)) return null;
+    const key = `${ownBuy}:${enemyBuy}:${side}:${result}`;
+    let output = row.economyMatchupStats.get(key);
+    if (!output) {
+      output = emptySideRow(row);
+      row.economyMatchupStats.set(key, output);
+    }
+    output.name = row.name;
+    output.steamId = row.steamId;
+    output.isBot = row.isBot;
+    output.userIds = new Set(row.userIds);
+    return output;
+  }
+
   function playerStatsSnapshot(row) {
     const snapshot = {
       scalar: {},
@@ -794,6 +811,8 @@ async function parseDemo(fileName, buffer) {
         applyRoundDelta(ensureRoundResultRow(row, "ALL", side, result), row, after, before, awardedWin);
         const buyResultTarget = ensureRoundResultRow(row, buys[side], side, result);
         if (buyResultTarget) applyRoundDelta(buyResultTarget, row, after, before, awardedWin);
+        const matchupTarget = ensureEconomyMatchupRow(row, buys[side], buys[side === 2 ? 3 : 2], side, result);
+        if (matchupTarget) applyRoundDelta(matchupTarget, row, after, before, awardedWin);
       }
     }
     return allocations;
@@ -2281,6 +2300,14 @@ async function parseDemo(fileName, buffer) {
             CT: finishPlayer(ensureRoundResultRow(row, buy, 3, result))
           }]))
         ]));
+        output.by_economy_matchup_result = Object.fromEntries(["pistol", "eco", "force", "full"].map(ownBuy => [ownBuy,
+          Object.fromEntries(["pistol", "eco", "force", "full"].map(enemyBuy => [enemyBuy,
+            Object.fromEntries(["win", "loss"].map(result => [result, {
+              T: finishPlayer(ensureEconomyMatchupRow(row, ownBuy, enemyBuy, 2, result)),
+              CT: finishPlayer(ensureEconomyMatchupRow(row, ownBuy, enemyBuy, 3, result))
+            }]))
+          ]))
+        ]));
         outputPlayerByRow.set(row, output);
         return output;
       });
@@ -2412,7 +2439,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.17.6",
+    nickstats_build: "2026.09.18.1",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,

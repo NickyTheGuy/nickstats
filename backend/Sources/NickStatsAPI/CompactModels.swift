@@ -390,6 +390,41 @@ struct CombatStats: Codable, Sendable {
     }
 }
 
+struct EconomyMatchupStats: Codable, Sendable {
+    var ownBuyIndex: Int
+    var opponentBuyIndex: Int
+    var resultIndex: Int
+    var sideIndex: Int
+    var stats: SideStatsPayload
+
+    init(ownBuyIndex: Int, opponentBuyIndex: Int, resultIndex: Int, sideIndex: Int, stats: SideStatsPayload) {
+        self.ownBuyIndex = ownBuyIndex
+        self.opponentBuyIndex = opponentBuyIndex
+        self.resultIndex = resultIndex
+        self.sideIndex = sideIndex
+        self.stats = stats
+    }
+
+    init(from decoder: any Decoder) throws {
+        var values = try decoder.unkeyedContainer()
+        ownBuyIndex = try values.decode(Int.self)
+        opponentBuyIndex = try values.decode(Int.self)
+        resultIndex = try values.decode(Int.self)
+        sideIndex = try values.decode(Int.self)
+        stats = try values.decode(SideStatsPayload.self)
+        try rejectExtraValues(in: values, description: "Economy matchup statistics")
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var values = encoder.unkeyedContainer()
+        try values.encode(ownBuyIndex)
+        try values.encode(opponentBuyIndex)
+        try values.encode(resultIndex)
+        try values.encode(sideIndex)
+        try values.encode(stats)
+    }
+}
+
 struct OpeningStats: Codable, Sendable {
     var kills: Int
     var deaths: Int

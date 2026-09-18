@@ -33,7 +33,7 @@ func routes(_ app: Application) throws {
         return HealthResponse(status: "ok")
     }
 
-    app.on(.POST, "matches", body: .collect(maxSize: "2mb")) { request async throws -> Response in
+    app.on(.POST, "matches", body: .collect(maxSize: "8mb")) { request async throws -> Response in
         try requireToken(
             request,
             environmentName: "NICKSTATS_UPLOAD_TOKEN",

@@ -120,25 +120,31 @@
     }
   }
 
-  function statsForMatch(match, side = "ALL", buy = "ALL", roundResult = "ALL") {
+  function statsForMatch(match, side = "ALL", buy = "ALL", roundResult = "ALL", opponentBuy = "ALL") {
     const stats = {}, sides = match.sides || match.sideRows || [];
-    const selected = sides.filter(row =>
-      (buy === "ALL" ? (row.buy_type || "ALL") === "ALL" : row.buy_type === buy) &&
-      (roundResult === "ALL" ? (row.round_result || "ALL") === "ALL" : row.round_result === roundResult) &&
-      (side === "ALL" || row.side === side));
+    const selected = sides.filter(row => {
+      const rowOpponentBuy = row.opponent_buy_type || "ALL";
+      const economyMatches = opponentBuy !== "ALL"
+        ? rowOpponentBuy === opponentBuy && (buy === "ALL" || row.buy_type === buy) &&
+          (roundResult === "ALL" || row.round_result === roundResult)
+        : rowOpponentBuy === "ALL" &&
+          (buy === "ALL" ? (row.buy_type || "ALL") === "ALL" : row.buy_type === buy) &&
+          (roundResult === "ALL" ? (row.round_result || "ALL") === "ALL" : row.round_result === roundResult);
+      return economyMatches && (side === "ALL" || row.side === side);
+    });
     selected.forEach(row => mergeStats(stats, row.stats));
-    if (!selected.length && side === "ALL" && buy === "ALL" && roundResult === "ALL") mergeStats(stats, match.legacy || match);
+    if (!selected.length && side === "ALL" && buy === "ALL" && opponentBuy === "ALL" && roundResult === "ALL") mergeStats(stats, match.legacy || match);
     stats.__schema = match.schema;
     return stats;
   }
 
-  function samplesForMatches(matches, side = "ALL", buy = "ALL", roundResult = "ALL") {
+  function samplesForMatches(matches, side = "ALL", buy = "ALL", roundResult = "ALL", opponentBuy = "ALL") {
     return (matches || []).map((match, index) => ({
       id: String(match.id ?? index),
       date: number(match.played_at ?? match.date),
       result: match.result,
       map: match.map,
-      stats: statsForMatch(match, side, buy, roundResult)
+      stats: statsForMatch(match, side, buy, roundResult, opponentBuy)
     })).filter(sample => number(sample.stats.rounds) > 0);
   }
 

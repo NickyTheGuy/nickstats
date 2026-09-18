@@ -27,13 +27,13 @@ test("damage and flash overlap increments one unique assisted kill", () => {
   assert.match(workerSource, /total: row\.assistedKills/);
 });
 
-test("schema 17 persists opening beneficiary, assister, and context counters", () => {
+test("current schema persists opening beneficiary, assister, and context counters", () => {
   assert.match(frontendSource, /opening: \[[\s\S]*?player\.opening_assisted_kills[\s\S]*?player\.opening_damage_assisted_kills[\s\S]*?player\.opening_flash_assisted_kills/);
   assert.match(frontendSource, /player\.opening_traded_deaths[\s\S]*?player\.opening_trade_kills[\s\S]*?player\.opening_assists[\s\S]*?player\.opening_damage_assists[\s\S]*?player\.opening_flash_assists/);
   assert.match(frontendSource, /player\.opening_blinded_enemy_kills[\s\S]*?player\.opening_blind_kills[\s\S]*?player\.opening_deaths_while_blind[\s\S]*?player\.opening_deaths_to_blind_killer/);
   assert.match(frontendSource, /player\.opening_enemy_assisted_deaths[\s\S]*?player\.opening_enemy_damage_assisted_deaths[\s\S]*?player\.opening_enemy_flash_assisted_deaths/);
   assert.match(frontendSource, /opening: sumArray\(left\.opening, right\.opening, 17\)/);
-  assert.match(frontendSource, /schema: "nickstats\.match\/17"/);
+  assert.match(frontendSource, /schema: "nickstats\.match\/18"/);
 });
 
 test("opening context records blind state and enemy assistance for both duelists", () => {
@@ -75,8 +75,7 @@ test("opening context has normalized schema-17 storage", () => {
 });
 
 test("stored match flash assists are rebuilt from teammate-flash relationships", () => {
-  assert.match(frontendSource, /flash_assists: flashAssists/);
-  assert.doesNotMatch(frontendSource, /flash_assists: stats\.profile\?\.length/);
+  assert.match(frontendSource, /flash_assists: stats\.profile\?\.length \? numberValue\(stats\.profile\[15\]\) : flashAssists/);
   assert.match(frontendSource, /numberValue\(row\[0\]\) === playerIndex\) flashAssists \+= numberValue\(row\[2\]\)/);
 });
 

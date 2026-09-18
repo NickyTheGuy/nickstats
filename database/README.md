@@ -1,6 +1,6 @@
 # NickStats database
 
-The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/17` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
+The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/18` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
 
 ## Why it is normalized
 
@@ -21,6 +21,7 @@ Derived values are not stored. ALL-side totals are calculated from T + CT; ADR i
 | `match_rounds` | Live-start/end ticks, winner, bomb timing, survivors, and freeze-end T/CT economy for each parsed round |
 | `death_events` | One factual row per player death, supporting both kill and death timing analysis |
 | `player_side_stats` | Base T/CT counters used to derive scoreboard values |
+| `player_economy_matchup_stats` | Sparse player counters by own buy, opponent buy, round result, and side |
 | `weapon_side_stats` | Weapon counters by player and side |
 | `duel_side_stats` | Directional killer-to-victim counts |
 | `trade_side_stats` | Directional trader-to-fallen-teammate opportunities, attempts, and successes |
@@ -45,6 +46,7 @@ Each compact player has a match-level array index. Importers first create all `m
 | `players[]` | `players` plus `match_players` |
 | `round_economy` | Equipment values, roster sizes, pistol flag, and side-to-team identity on `match_rounds` |
 | `sides[0]`, `sides[1]` | T and CT rows respectively |
+| `economy_matchups` | `player_economy_matchup_stats` |
 | `rounds`, `kda`, `kast_rounds`, `opening`, `trade_kills`, `trade_d`, `utility`, `damage_received`, `utility_thrown`, `objectives`, `speed`, `clutches`, `clutch_attempts`, `kill_rounds` | Columns in `player_side_stats` |
 | `weapons` | `weapon_side_stats` |
 | `duels` | `duel_side_stats` |
@@ -100,3 +102,5 @@ Migration 008 adds unique assisted-opening counts and their overlapping damage/f
 Migration 009 adds traded opening deaths, opening trade kills, and opening assists credited to the teammate who supplied damage or a flash. Existing rows initialize to zero; reparse their demos to populate schema-16 attribution.
 
 Migration 010 adds opening kill/death blind context and enemy-assisted opening-death attribution. Existing rows initialize to zero but remain excluded from these schema-17 metrics until their demos are reparsed.
+
+Migration 011 adds sparse player statistics keyed by both teams' buy types, round result, and side. Existing matches remain readable but are excluded whenever an enemy-buy filter is active; reparse them to populate schema-18 matchup data.

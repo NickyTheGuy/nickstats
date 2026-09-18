@@ -69,6 +69,18 @@ test("player and group quick-comparison switches sit above shared filters", () =
   assert.match(compareSource, /quickButton\.addEventListener\("click", \(\) => setComboDisplay\("quick"\)\)/);
 });
 
+test("player, group, and match views share a two-row economy matchup control", () => {
+  for (const attribute of ["data-player-buy", "data-player-enemy-buy", "data-compare-buy", "data-compare-enemy-buy", "data-demo-buy", "data-demo-enemy-buy"]) {
+    assert.match(html, new RegExp(attribute));
+  }
+  assert.match(html, /economy-matchup-title">Economy matchup/);
+  assert.match(html, />Your buy</);
+  assert.match(html, />Enemy buy</);
+  assert.match(styles, /\.economy-matchup-filter \{/);
+  assert.match(playersSource, /opponent_buy_type/);
+  assert.match(compareSource, /opponent_buy_type/);
+});
+
 test("quick comparison is the first tab in player and group views", () => {
   assert.match(playersSource, /tabs\.replaceChildren\(\)[\s\S]*?quickItem\.appendChild\(quick\); tabs\.appendChild\(quickItem\);[\s\S]*?state\.profiles\.forEach/);
   assert.match(compareSource, /profileTabs\.replaceChildren\(\)[\s\S]*?quickItem\.appendChild\(quickButton\); profileTabs\.appendChild\(quickItem\);[\s\S]*?current\.included\.forEach/);
