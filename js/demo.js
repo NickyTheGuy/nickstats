@@ -28,7 +28,7 @@
     rejectReady: null,
     resolveParse: null,
     rejectParse: null,
-    expandedGroups: { combat: false, opening: false, trades: false, clutches: false, multikills: false, objectives: false, timing: false, killContext: false, movement: false, utility: false },
+    expandedGroups: { combat: false, opening: false, trades: false, clutches: false, multikills: false, objectives: false, timing: false, killContext: false, killStage: false, movement: false, utility: false },
     scoreboardSort: null,
     sideFilter: "ALL",
     buyFilter: "ALL",
@@ -161,6 +161,28 @@
       { label: "Clawback K", value: player => player.kill_context?.clawback_kills ?? 0 },
       { label: "Bozo D", value: player => player.kill_context?.bozo_deaths ?? 0, direction: "asc" }
     ] },
+    evenContext: { id: "evenContext", modes: [
+      { label: "K", value: player => player.kill_context?.even_kills ?? 0 },
+      { label: "D", value: player => player.kill_context?.even_deaths ?? 0, direction: "asc" }
+    ] },
+    advantageContext: { id: "advantageContext", modes: [
+      { label: "Advantage K", value: player => player.kill_context?.advantage_kills ?? 0 },
+      { label: "Outnumbered D", value: player => player.kill_context?.disadvantage_deaths ?? 0, direction: "asc" }
+    ] },
+    cleanupContext: { id: "cleanupContext", modes: [
+      { label: "K", value: player => player.kill_context?.cleanup_kills ?? 0 },
+      { label: "D", value: player => player.kill_context?.cleanup_deaths ?? 0, direction: "asc" }
+    ] },
+    killStageSummary: { id: "killStageSummary", modes: [
+      { label: "5 alive K", value: player => player.kill_stage?.enemy_alive?.[5]?.kills ?? 0 },
+      { label: "1 alive K", value: player => player.kill_stage?.enemy_alive?.[1]?.kills ?? 0 }
+    ] },
+    ...Object.fromEntries([5, 4, 3, 2, 1].map(alive => [`enemyAlive${alive}`, {
+      id: `enemyAlive${alive}`, modes: [
+        { label: "K", value: player => player.kill_stage?.enemy_alive?.[alive]?.kills ?? 0 },
+        { label: "D", value: player => player.kill_stage?.enemy_alive?.[alive]?.deaths ?? 0, direction: "asc" }
+      ]
+    }])),
     tradeKD: { id: "tradeKD", modes: [
       { label: "K", value: player => player.trade_kills ?? 0 },
       { label: "D", value: player => player.traded_deaths ?? 0 }
@@ -378,7 +400,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260919-1");
+      const worker = new Worker("./js/demo-worker.js?v=20260919-2");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -747,7 +769,11 @@
       kill_time_samples: 0, kill_time_total_ms: 0, death_time_samples: 0, death_time_total_ms: 0,
       early_kills: 0, early_deaths: 0, mid_kills: 0, mid_deaths: 0,
       late_kills: 0, late_deaths: 0, postplant_kills: 0, postplant_deaths: 0,
-      clawback_kills: 0, bozo_deaths: 0
+      clawback_kills: 0, bozo_deaths: 0, even_kills: 0, even_deaths: 0,
+      advantage_kills: 0, disadvantage_deaths: 0, cleanup_kills: 0, cleanup_deaths: 0,
+      ...Object.fromEntries([5, 4, 3, 2, 1].flatMap(alive => [
+        [`enemy_alive_${alive}_kills`, 0], [`enemy_alive_${alive}_deaths`, 0]
+      ]))
     });
     const timingByPlayer = sourcePlayers.map(() => ({ T: emptyTiming(), CT: emptyTiming() }));
     const timingByPlayerBuy = sourcePlayers.map(() => Object.fromEntries(["pistol", "eco", "force", "full"].map(buy => [buy, { T: emptyTiming(), CT: emptyTiming() }])));
@@ -772,38 +798,42 @@
     const addTiming = (playerIndex, side, kind, event) => {
       const timing = timingByPlayer[playerIndex]?.[side];
       if (!timing) return;
-      timing[`${kind}_time_samples`] += 1;
-      timing[`${kind}_time_total_ms`] += numberValue(event[3]);
-      timing[`${phaseForEvent(event)}_${kind === "kill" ? "kills" : "deaths"}`] += 1;
       const terroristAlive = numberValue(event[11]), counterTerroristAlive = numberValue(event[12]);
-      const manCountContext = Boolean(event[9]) && (kind === "kill"
-        ? (side === "T" ? terroristAlive < counterTerroristAlive : counterTerroristAlive < terroristAlive)
-        : (side === "T" ? terroristAlive > counterTerroristAlive : counterTerroristAlive > terroristAlive));
-      const manCountKey = kind === "kill" ? "clawback_kills" : "bozo_deaths";
-      timing[manCountKey] += Number(manCountContext);
-      const buy = buyForEvent(event, side), buyTiming = buy && timingByPlayerBuy[playerIndex]?.[buy]?.[side];
-      if (buyTiming) {
-        buyTiming[`${kind}_time_samples`] += 1;
-        buyTiming[`${kind}_time_total_ms`] += numberValue(event[3]);
-        buyTiming[`${phaseForEvent(event)}_${kind === "kill" ? "kills" : "deaths"}`] += 1;
-        buyTiming[manCountKey] += Number(manCountContext);
+      const ownAlive = side === "T" ? terroristAlive : counterTerroristAlive;
+      const enemyAlive = side === "T" ? counterTerroristAlive : terroristAlive;
+      const stateMetrics = {};
+      if (Boolean(event[9])) {
+        if (kind === "kill") {
+          stateMetrics.clawback_kills = Number(ownAlive < enemyAlive);
+          stateMetrics.even_kills = Number(ownAlive === enemyAlive);
+          stateMetrics.advantage_kills = Number(ownAlive > enemyAlive);
+          stateMetrics.cleanup_kills = Number(enemyAlive === 1 && ownAlive >= 3);
+        } else {
+          stateMetrics.bozo_deaths = Number(ownAlive > enemyAlive);
+          stateMetrics.even_deaths = Number(ownAlive === enemyAlive);
+          stateMetrics.disadvantage_deaths = Number(ownAlive < enemyAlive);
+          stateMetrics.cleanup_deaths = Number(ownAlive === 1 && enemyAlive >= 3);
+        }
+        if (enemyAlive >= 1 && enemyAlive <= 5) stateMetrics[`enemy_alive_${enemyAlive}_${kind === "kill" ? "kills" : "deaths"}`] = 1;
       }
+      const addEvent = target => {
+        if (!target) return;
+        target[`${kind}_time_samples`] += 1;
+        target[`${kind}_time_total_ms`] += numberValue(event[3]);
+        target[`${phaseForEvent(event)}_${kind === "kill" ? "kills" : "deaths"}`] += 1;
+        for (const [key, amount] of Object.entries(stateMetrics)) target[key] += amount;
+      };
+      addEvent(timing);
+      const buy = buyForEvent(event, side), buyTiming = buy && timingByPlayerBuy[playerIndex]?.[buy]?.[side];
+      addEvent(buyTiming);
       const result = winnerByRound.get(numberValue(event?.[0])) === side ? "win" : "loss";
       const enemyBuy = buyForEvent(event, side === "T" ? "CT" : "T");
       const matchupTiming = buy && enemyBuy && timingByPlayerMatchup[playerIndex]?.[`${buy}:${enemyBuy}`]?.[result]?.[side];
-      if (matchupTiming) {
-        matchupTiming[`${kind}_time_samples`] += 1;
-        matchupTiming[`${kind}_time_total_ms`] += numberValue(event[3]);
-        matchupTiming[`${phaseForEvent(event)}_${kind === "kill" ? "kills" : "deaths"}`] += 1;
-        matchupTiming[manCountKey] += Number(manCountContext);
-      }
+      addEvent(matchupTiming);
       for (const scope of ["ALL", buy].filter(Boolean)) {
         const resultTiming = timingByPlayerRoundResult[playerIndex]?.[scope]?.[result]?.[side];
         if (!resultTiming) continue;
-        resultTiming[`${kind}_time_samples`] += 1;
-        resultTiming[`${kind}_time_total_ms`] += numberValue(event[3]);
-        resultTiming[`${phaseForEvent(event)}_${kind === "kill" ? "kills" : "deaths"}`] += 1;
-        resultTiming[manCountKey] += Number(manCountContext);
+        addEvent(resultTiming);
       }
     };
     for (const event of payload.death_events || []) {
@@ -909,6 +939,7 @@
         ...player, ...timing,
         timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
         man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18"].includes(payload.schema),
+        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18"].includes(payload.schema),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -981,8 +1012,17 @@
           equipment_disadvantage_kills: outgoingContext[11], equipment_disadvantage_deaths: incomingContext[11],
           unfair_kills: outgoingContext[12], unfair_deaths: incomingContext[12],
           clawback_kills: numberValue(timing.clawback_kills), bozo_deaths: numberValue(timing.bozo_deaths),
+          even_kills: numberValue(timing.even_kills), even_deaths: numberValue(timing.even_deaths),
+          advantage_kills: numberValue(timing.advantage_kills), disadvantage_deaths: numberValue(timing.disadvantage_deaths),
+          cleanup_kills: numberValue(timing.cleanup_kills), cleanup_deaths: numberValue(timing.cleanup_deaths),
           speed_on_kill: speedSummaryFromCompact(stats.speed, 0),
           killer_speed_on_death: speedSummaryFromCompact(stats.speed, 6)
+        },
+        kill_stage: {
+          enemy_alive: Object.fromEntries([5, 4, 3, 2, 1].map(alive => [alive, {
+            kills: numberValue(timing[`enemy_alive_${alive}_kills`]),
+            deaths: numberValue(timing[`enemy_alive_${alive}_deaths`])
+          }]))
         },
         weapon_stats: (stats.weapons || []).map(row => ({
           weapon: row[0], kills: numberValue(row[1]), shots: numberValue(row[2]),
@@ -1091,7 +1131,7 @@
         still_speed_tolerance_units_per_second: movementRules[0],
         running_threshold_percent_of_weapon_max: movementRules[1],
         equipment_disadvantage_lookback_seconds: payload.rules?.equipment_disadvantage_seconds,
-        man_count: "Clawback Kills occur when the killer's team has fewer living players immediately before the kill; Bozo Deaths occur when the victim's team has more living players immediately before the death"
+        man_count: "Round-state stats use both teams' living-player counts immediately before an enemy kill. Cleanup means the victim was the last opponent while the killer's team had at least three players alive"
       },
       teams
     };
@@ -1405,6 +1445,9 @@
     const running = `${context.running_kills ?? 0}-${context.deaths_to_running_killer ?? 0}`;
     const unfair = `${context.unfair_kills ?? 0}-${context.unfair_deaths ?? 0}`;
     const manCount = player.man_count_available ? `${context.clawback_kills ?? 0}-${context.bozo_deaths ?? 0}` : "—";
+    const evenCount = player.round_state_available ? `${context.even_kills ?? 0}-${context.even_deaths ?? 0}` : "—";
+    const advantageCount = player.round_state_available ? `${context.advantage_kills ?? 0}-${context.disadvantage_deaths ?? 0}` : "—";
+    const cleanupCount = player.round_state_available ? `${context.cleanup_kills ?? 0}-${context.cleanup_deaths ?? 0}` : "—";
     if (state.expandedGroups.trades) {
       cell(row, player.trade_opportunities ?? 0, "demo-group-cell trades-cell");
       cell(row, player.trade_attempts ?? 0, "demo-group-cell trades-cell");
@@ -1433,10 +1476,19 @@
       ? `${player[`${phase}_kills`] ?? 0}-${player[`${phase}_deaths`] ?? 0}`
       : "—";
     if (state.expandedGroups.killContext) {
-      [manCount, blind, blindKiller, wall, smoke, air, grenade, knife, equipment, running]
+      [manCount, evenCount, advantageCount, cleanupCount, blind, blindKiller, wall, smoke, air, grenade, knife, equipment, running]
         .forEach(value => cell(row, value, "demo-group-cell killContext-cell"));
     } else {
       cell(row, unfair, "demo-group-cell killContext-cell");
+    }
+    const stagePair = alive => player.round_state_available
+      ? `${player.kill_stage?.enemy_alive?.[alive]?.kills ?? 0}-${player.kill_stage?.enemy_alive?.[alive]?.deaths ?? 0}`
+      : "—";
+    if (state.expandedGroups.killStage) {
+      [5, 4, 3, 2, 1].forEach(alive => cell(row, stagePair(alive), "demo-group-cell killStage-cell"));
+    } else {
+      cell(row, player.round_state_available
+        ? `${player.kill_stage?.enemy_alive?.[5]?.kills ?? 0}/${player.kill_stage?.enemy_alive?.[1]?.kills ?? 0}` : "—", "demo-group-cell killStage-cell");
     }
     const speedPair = summary => `${Number.isFinite(summary?.average) ? summary.average.toFixed(1) : "—"}/${Number.isFinite(summary?.maximum) ? summary.maximum.toFixed(1) : "—"}`;
     const speedPercentPair = summary => `${speedValue(summary?.average_percent_of_max)}/${speedValue(summary?.maximum_percent_of_max)}`;
@@ -1484,7 +1536,7 @@
   }
 
   function markGroupBoundaries(row) {
-    for (const group of ["combat", "opening", "trades", "clutches", "killContext", "movement", "utility", "multikills", "objectives", "timing"]) {
+    for (const group of ["combat", "opening", "trades", "clutches", "killContext", "killStage", "movement", "utility", "multikills", "objectives", "timing"]) {
       const cells = [...row.cells].filter(item => item.classList.contains(`${group}-cell`));
       cells[0]?.classList.add("demo-group-start");
       cells.at(-1)?.classList.add("demo-group-end");
@@ -1592,6 +1644,9 @@
       killContext: {
         "Bullshit K-D": sortSpecs.killContextSummary,
         "Clawback-Bozo K-D": sortSpecs.manCountContext,
+        "Even K-D": sortSpecs.evenContext,
+        "Advantage K / Outnumbered D": sortSpecs.advantageContext,
+        "Cleanup K-D": sortSpecs.cleanupContext,
         "Enemy blind K-D": sortSpecs.blindContext,
         "Killer blind K-D": sortSpecs.blindKillerContext,
         "Wallbang K-D": sortSpecs.wallContext,
@@ -1603,6 +1658,10 @@
         "Move K-D": sortSpecs.movingContext,
         "Still K-D": sortSpecs.stillContext,
         "Run K-D": sortSpecs.runningContext
+      },
+      killStage: {
+        "5/1 alive K": sortSpecs.killStageSummary,
+        ...Object.fromEntries([5, 4, 3, 2, 1].map(alive => [`${alive} alive K-D`, sortSpecs[`enemyAlive${alive}`]]))
       },
       utility: {
         "Damage · thrown": sortSpecs.utilitySummary,
@@ -1750,7 +1809,8 @@
     widths.push(...(state.expandedGroups.opening ? [58, 58, 82, 68, 72, 88, 68, 76, 76] : [108]));
     widths.push(...(state.expandedGroups.trades ? [58, 54, 96, 58, 54, 96] : [88]));
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
-    widths.push(...(state.expandedGroups.killContext ? [128, 104, 104, 98, 88, 88, 112, 104, 88, 88] : [112]));
+    widths.push(...(state.expandedGroups.killContext ? [128, 88, 168, 104, 104, 104, 98, 88, 88, 112, 104, 88, 88] : [112]));
+    widths.push(...(state.expandedGroups.killStage ? [92, 92, 92, 92, 92] : [104]));
     widths.push(...(state.expandedGroups.movement ? [88, 88, 88, 88, 116, 132, 126, 142] : [112]));
     widths.push(...(state.expandedGroups.utility ? [82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90] : [176]));
     widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
@@ -1797,7 +1857,8 @@
     groupHeader(header, detailHeader, "opening", "Opening", ["K", "D", "Assisted K", "Dmg A", "Flash A", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%");
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A");
-    groupHeader(header, detailHeader, "killContext", "Context", ["Clawback-Bozo K-D", "Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D");
+    groupHeader(header, detailHeader, "killContext", "Context", ["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D", "Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D");
+    groupHeader(header, detailHeader, "killStage", "Kill stage", ["5 alive K-D", "4 alive K-D", "3 alive K-D", "2 alive K-D", "1 alive K-D"], "5/1 alive K");
     groupHeader(header, detailHeader, "movement", "Movement", ["Move K-D", "Still K-D", "Run K-D", "Air K-D", "Kill speed avg/max", "Kill speed avg/peak %", "Enemy speed avg/max", "Enemy speed avg/peak %"], "Move/run/air");
     groupHeader(header, detailHeader, "utility", "Utility", ["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Blind sec", "FA", "Damage assist", "Teammate flash", "Own flash"], "Damage · thrown");
     groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
@@ -2460,7 +2521,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/18",
-      nickstats_build: "2026.09.19.1",
+      nickstats_build: "2026.09.19.2",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

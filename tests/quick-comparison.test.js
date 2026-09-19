@@ -20,8 +20,8 @@ test("quick comparison shows filtered rounds instead of redundant match count", 
   assert.doesNotMatch(componentSource, /key: "matches", label: "Matches"/);
 });
 
-test("quick comparison openings, clutches, and context are expandable scoreboard groups", () => {
-  assert.match(componentSource, /expandedGroups: \{ combat: false, opening: false, clutches: false, killContext: false \}/);
+test("quick comparison openings, clutches, context, and kill stage are expandable scoreboard groups", () => {
+  assert.match(componentSource, /expandedGroups: \{ combat: false, opening: false, clutches: false, killContext: false, killStage: false \}/);
   assert.match(componentSource, /group: "combat", label: "Combat"/);
   assert.match(componentSource, /key: "combat", label: "K-D-A"/);
   assert.match(componentSource, /group: "opening", label: "Opening"/);
@@ -32,10 +32,14 @@ test("quick comparison openings, clutches, and context are expandable scoreboard
   assert.match(componentSource, /group: "killContext", label: "Context"/);
   assert.match(componentSource, /key: "clawback-kills", label: "Clawback K"/);
   assert.match(componentSource, /key: "bozo-deaths", label: "Bozo D"/);
+  assert.match(componentSource, /key: "cleanup-kills", label: "Cleanup K"/);
+  assert.match(componentSource, /group: "killStage", label: "Kill stage"/);
+  assert.match(componentSource, /label: `\$\{alive\} alive K-D`/);
   assert.match(componentSource, /demo-toggle-heading.*-heading/);
   assert.match(styles, /\.quick-comparison-table :is\(th, td\)\.demo-group-start/);
   assert.match(styles, /\.opening-cell \{ background:/);
   assert.match(styles, /\.clutches-cell \{ background:/);
+  assert.match(styles, /\.killStage-cell \{ background:/);
   assert.match(styles, /\.player-profile-table\.quick-comparison-table :is\(th, td\) \{ text-align: center; \}/);
   assert.match(styles, /th\.demo-toggle-heading,[\s\S]*?th\.demo-group-detail \{ padding: 0; \}/);
   assert.match(styles, /\.player-profile-table\.quick-comparison-table \.player-table-sort-button \{[\s\S]*?min-height: 38px;[\s\S]*?text-align: center;/);

@@ -90,9 +90,16 @@
       }, 1, "%"],
       ["bullshit_kr", "Bullshit kills per round", rate("unfair_kills"), 3], ["bullshit_dr", "Bullshit deaths per round", rate("unfair_deaths"), 3],
       ["clawback_kr", "Clawback kills per round", rate("clawback_kills"), 3], ["bozo_dr", "Bozo deaths per round", rate("bozo_deaths"), 3],
+      ["even_kr", "Even-state kills per round", rate("even_kills"), 3], ["even_dr", "Even-state deaths per round", rate("even_deaths"), 3],
+      ["advantage_kr", "Advantage kills per round", rate("advantage_kills"), 3], ["outnumbered_dr", "Outnumbered deaths per round", rate("disadvantage_deaths"), 3],
+      ["cleanup_kr", "Cleanup kills per round", rate("cleanup_kills"), 3], ["cleanup_dr", "Cleanup deaths per round", rate("cleanup_deaths"), 3],
       ["wallbang_kr", "Wallbang kills per round", rate("wallbang_kills"), 3], ["smoke_kr", "Smoke kills per round", rate("smoke_kills"), 3],
       ["paul_kr", "Paul kills per round", rate("equipment_disadvantage_kills"), 3], ["paul_dr", "Paul deaths per round", rate("equipment_disadvantage_deaths"), 3]
     ]],
+    ["Kill stage", [5, 4, 3, 2, 1].flatMap(alive => [
+      [`enemy_${alive}_kr`, `Kills vs ${alive} alive per round`, rate(`enemy_alive_${alive}_kills`), 3],
+      [`enemy_${alive}_dr`, `Deaths vs ${alive} alive per round`, rate(`enemy_alive_${alive}_deaths`), 3]
+    ])],
     ["Economy", [
       ["pistol_win", "Pistol-round win rate", economyPercentage("pistol"), 1, "%"],
       ["eco_win", "Eco win rate", economyPercentage("eco"), 1, "%"],

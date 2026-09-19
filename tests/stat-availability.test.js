@@ -60,6 +60,19 @@ test("man-count context reuses schema 10 death events without reparsing", () => 
   assert.match(queriesSource, /AS man_count_context/);
 });
 
+test("kill stage and cleanup context reuse schema 10 death events", () => {
+  const mixed = {};
+  availability.add(mixed, { rounds: 12, enemy_alive_5_kills: 9, cleanup_kills: 4 }, "nickstats.match/9");
+  availability.add(mixed, { rounds: 20, enemy_alive_5_kills: 3, cleanup_kills: 1 }, "nickstats.match/10");
+
+  assert.equal(availability.rounds(mixed, "enemy_alive_5_kills"), 20);
+  assert.equal(availability.value(mixed, "enemy_alive_5_kills"), 3);
+  assert.equal(availability.value(mixed, "cleanup_kills"), 1);
+  assert.match(queriesSource, /AS enemy_alive_5/);
+  assert.match(queriesSource, /AS cleanup_count/);
+  assert.match(queriesSource, /AS cleanup_context/);
+});
+
 test("comparison matches expose the compact schema used for availability", () => {
   assert.match(modelsSource, /struct ComparisonMatch:[\s\S]*?var schema: String/);
   assert.match(queriesSource, /SELECT m\.id, m\.payload_schema/);

@@ -42,7 +42,14 @@ test("man-count context distinguishes clawbacks, bozos, and even fights", () => 
     hasManDisadvantage(2, 3, 3), hasManAdvantage(2, 3, 3)
   ]`, workerContext());
   assert.deepEqual(Array.from(values), [true, true, true, true, false, false]);
-  assert.match(frontendSource, /kind === "kill" \? "clawback_kills" : "bozo_deaths"/);
+  const states = vm.runInContext(`[
+    livingPlayersForSide(2, 5, 1), livingPlayersForSide(3, 5, 1),
+    livingPlayersForSide(2, 3, 3)
+  ].map(value => [value.own, value.enemy])`, workerContext());
+  assert.deepEqual(Array.from(states, value => Array.from(value)), [[5, 1], [1, 5], [3, 3]]);
+  assert.match(frontendSource, /stateMetrics\.clawback_kills = Number\(ownAlive < enemyAlive\)/);
+  assert.match(frontendSource, /stateMetrics\.cleanup_kills = Number\(enemyAlive === 1 && ownAlive >= 3\)/);
+  assert.match(frontendSource, /enemy_alive_\$\{enemyAlive\}/);
   assert.match(frontendSource, /Boolean\(event\[9\]\)/);
 });
 

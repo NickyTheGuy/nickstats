@@ -100,7 +100,11 @@ const ADDITIVE_STAT_FIELDS = [
   "smokeKills", "smokeDeaths", "airborneKills", "deathsToAirborneKiller",
   "movingKills", "deathsToMovingKiller", "stillKills", "deathsToStillKiller",
   "runningKills", "deathsToRunningKiller", "unfairKills", "unfairDeaths",
-  "clawbackKills", "bozoDeaths",
+  "clawbackKills", "bozoDeaths", "evenKills", "evenDeaths",
+  "advantageKills", "disadvantageDeaths", "cleanupKills", "cleanupDeaths",
+  "enemyAlive5Kills", "enemyAlive5Deaths", "enemyAlive4Kills", "enemyAlive4Deaths",
+  "enemyAlive3Kills", "enemyAlive3Deaths", "enemyAlive2Kills", "enemyAlive2Deaths",
+  "enemyAlive1Kills", "enemyAlive1Deaths",
   "equipmentDisadvantageKills", "equipmentDisadvantageDeaths", "grenadeOutKills",
   "grenadeOutDeaths", "knifeOutKills", "knifeOutDeaths",
   "speedOnKillTotal", "speedOnKillSamples", "speedOnKillPercentTotal",
@@ -310,6 +314,22 @@ async function parseDemo(fileName, buffer) {
           unfairDeaths: 0,
           clawbackKills: 0,
           bozoDeaths: 0,
+          evenKills: 0,
+          evenDeaths: 0,
+          advantageKills: 0,
+          disadvantageDeaths: 0,
+          cleanupKills: 0,
+          cleanupDeaths: 0,
+          enemyAlive5Kills: 0,
+          enemyAlive5Deaths: 0,
+          enemyAlive4Kills: 0,
+          enemyAlive4Deaths: 0,
+          enemyAlive3Kills: 0,
+          enemyAlive3Deaths: 0,
+          enemyAlive2Kills: 0,
+          enemyAlive2Deaths: 0,
+          enemyAlive1Kills: 0,
+          enemyAlive1Deaths: 0,
           equipmentDisadvantageKills: 0,
           equipmentDisadvantageDeaths: 0,
           grenadeOutKills: 0,
@@ -542,6 +562,16 @@ async function parseDemo(fileName, buffer) {
       row.unfairDeaths = 0;
       row.clawbackKills = 0;
       row.bozoDeaths = 0;
+      row.evenKills = 0;
+      row.evenDeaths = 0;
+      row.advantageKills = 0;
+      row.disadvantageDeaths = 0;
+      row.cleanupKills = 0;
+      row.cleanupDeaths = 0;
+      for (let alive = 1; alive <= 5; alive += 1) {
+        row[`enemyAlive${alive}Kills`] = 0;
+        row[`enemyAlive${alive}Deaths`] = 0;
+      }
       row.equipmentDisadvantageKills = 0;
       row.equipmentDisadvantageDeaths = 0;
       row.grenadeOutKills = 0;
@@ -1572,8 +1602,18 @@ async function parseDemo(fileName, buffer) {
       attacker.kills += 1;
       const clawbackKill = hasManDisadvantage(attackerTeam, aliveBefore.T, aliveBefore.CT);
       const bozoDeath = hasManAdvantage(victimTeam, aliveBefore.T, aliveBefore.CT);
+      const attackerState = livingPlayersForSide(attackerTeam, aliveBefore.T, aliveBefore.CT);
+      const victimState = livingPlayersForSide(victimTeam, aliveBefore.T, aliveBefore.CT);
       attacker.clawbackKills += Number(clawbackKill);
       victim.bozoDeaths += Number(bozoDeath);
+      attacker.evenKills += Number(attackerState.own === attackerState.enemy);
+      victim.evenDeaths += Number(victimState.own === victimState.enemy);
+      attacker.advantageKills += Number(attackerState.own > attackerState.enemy);
+      victim.disadvantageDeaths += Number(victimState.own < victimState.enemy);
+      attacker.cleanupKills += Number(attackerState.enemy === 1 && attackerState.own >= 3);
+      victim.cleanupDeaths += Number(victimState.own === 1 && victimState.enemy >= 3);
+      if (attackerState.enemy >= 1 && attackerState.enemy <= 5) attacker[`enemyAlive${attackerState.enemy}Kills`] += 1;
+      if (victimState.enemy >= 1 && victimState.enemy <= 5) victim[`enemyAlive${victimState.enemy}Deaths`] += 1;
       const resolvedWeapon = combatEventWeapon(attacker, event.weapon);
       const killWeapon = weaponStat(attacker, resolvedWeapon);
       if (killWeapon) killWeapon.kills += 1;
@@ -2395,7 +2435,7 @@ async function parseDemo(fileName, buffer) {
       running: "Killer horizontal speed above 34% of the current weapon's maximum movement speed; non-weapon kills are excluded",
       equipment_disadvantage_lookback_seconds: EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS,
       equipment_disadvantage: "Victim had a grenade or knife active at death or during the preceding 1.4 seconds",
-      man_count: "Clawback Kills occur when the killer's team has fewer living players immediately before the kill; Bozo Deaths occur when the victim's team has more living players immediately before the death",
+      man_count: "Round-state stats use both teams' living-player counts immediately before an enemy kill. Cleanup means the victim was the last opponent while the killer's team had at least three players alive",
       unfair: "Unique Bullshit Kills/Deaths: killer blind, airborne, or running; wallbang; smoke kill; or victim caught with grenade/knife out; overlapping contexts count once"
     },
     flash_definition: {
@@ -2449,7 +2489,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.19.1",
+    nickstats_build: "2026.09.19.2",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2561,6 +2601,7 @@ function finishPlayer(row) {
     rounds_played: roundsPlayed,
     round_wins: row.roundWins || 0,
     man_count_available: true,
+    round_state_available: true,
     kast_components: {
       kill_rounds: row.killRounds,
       assist_rounds: row.assistRounds,
@@ -2689,10 +2730,21 @@ function finishPlayer(row) {
       unfair_deaths: row.unfairDeaths,
       clawback_kills: row.clawbackKills,
       bozo_deaths: row.bozoDeaths,
+      even_kills: row.evenKills,
+      even_deaths: row.evenDeaths,
+      advantage_kills: row.advantageKills,
+      disadvantage_deaths: row.disadvantageDeaths,
+      cleanup_kills: row.cleanupKills,
+      cleanup_deaths: row.cleanupDeaths,
       speed_on_kill: speedSummary(row.speedOnKillTotal, row.speedOnKillSamples, row.maxSpeedOnKill,
         row.speedOnKillPercentTotal, row.speedOnKillPercentSamples, row.maxSpeedOnKillPercent),
       killer_speed_on_death: speedSummary(row.killerSpeedTotal, row.killerSpeedSamples, row.maxKillerSpeed,
         row.killerSpeedPercentTotal, row.killerSpeedPercentSamples, row.maxKillerSpeedPercent)
+    },
+    kill_stage: {
+      enemy_alive: Object.fromEntries([5, 4, 3, 2, 1].map(alive => [alive, {
+        kills: row[`enemyAlive${alive}Kills`], deaths: row[`enemyAlive${alive}Deaths`]
+      }]))
     },
     weapon_stats: [...row.weaponStats.values()]
       .map(stat => ({
@@ -2808,6 +2860,12 @@ function hasManDisadvantage(side, terroristAlive, counterTerroristAlive) {
 
 function hasManAdvantage(side, terroristAlive, counterTerroristAlive) {
   return side === 2 ? terroristAlive > counterTerroristAlive : side === 3 ? counterTerroristAlive > terroristAlive : false;
+}
+
+function livingPlayersForSide(side, terroristAlive, counterTerroristAlive) {
+  return side === 2
+    ? { own: terroristAlive, enemy: counterTerroristAlive }
+    : side === 3 ? { own: counterTerroristAlive, enemy: terroristAlive } : { own: 0, enemy: 0 };
 }
 
 function itemEventWeapon(pistolChoices, rifleChoices, row, event) {

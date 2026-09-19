@@ -489,7 +489,17 @@ private func comparisonSideData(
                CAST(SUM(e.since_plant_ms IS NOT NULL) AS SIGNED) AS postplant_count,
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total,
                CAST(SUM((e.killer_side = 'T' AND e.t_alive_before < e.ct_alive_before) OR
-                        (e.killer_side = 'CT' AND e.ct_alive_before < e.t_alive_before)) AS SIGNED) AS clawback_count
+                        (e.killer_side = 'CT' AND e.ct_alive_before < e.t_alive_before)) AS SIGNED) AS clawback_count,
+               CAST(SUM(e.t_alive_before = e.ct_alive_before) AS SIGNED) AS even_count,
+               CAST(SUM((e.killer_side = 'T' AND e.t_alive_before > e.ct_alive_before) OR
+                        (e.killer_side = 'CT' AND e.ct_alive_before > e.t_alive_before)) AS SIGNED) AS advantage_count,
+               CAST(SUM((e.killer_side = 'T' AND e.ct_alive_before = 1 AND e.t_alive_before >= 3) OR
+                        (e.killer_side = 'CT' AND e.t_alive_before = 1 AND e.ct_alive_before >= 3)) AS SIGNED) AS cleanup_count,
+               CAST(SUM((CASE WHEN e.killer_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 5) AS SIGNED) AS enemy_alive_5,
+               CAST(SUM((CASE WHEN e.killer_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 4) AS SIGNED) AS enemy_alive_4,
+               CAST(SUM((CASE WHEN e.killer_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 3) AS SIGNED) AS enemy_alive_3,
+               CAST(SUM((CASE WHEN e.killer_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 2) AS SIGNED) AS enemy_alive_2,
+               CAST(SUM((CASE WHEN e.killer_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 1) AS SIGNED) AS enemy_alive_1
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
         JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18')
@@ -505,7 +515,11 @@ private func comparisonSideData(
             ("early_count", "early_kills"), ("mid_count", "mid_kills"),
             ("late_count", "late_kills"), ("postplant_count", "postplant_kills"),
             ("postplant_elapsed_total", "postplant_kill_time_total_ms"),
-            ("clawback_count", "clawback_kills")
+            ("clawback_count", "clawback_kills"), ("even_count", "even_kills"),
+            ("advantage_count", "advantage_kills"), ("cleanup_count", "cleanup_kills"),
+            ("enemy_alive_5", "enemy_alive_5_kills"), ("enemy_alive_4", "enemy_alive_4_kills"),
+            ("enemy_alive_3", "enemy_alive_3_kills"), ("enemy_alive_2", "enemy_alive_2_kills"),
+            ("enemy_alive_1", "enemy_alive_1_kills")
         ] { add(id, side, name, Double(try integer(row, column))) }
     }
 
@@ -520,7 +534,19 @@ private func comparisonSideData(
                CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total,
                CAST(SUM(e.enemy_kill = TRUE AND
                         ((e.victim_side = 'T' AND e.t_alive_before > e.ct_alive_before) OR
-                         (e.victim_side = 'CT' AND e.ct_alive_before > e.t_alive_before))) AS SIGNED) AS bozo_count
+                         (e.victim_side = 'CT' AND e.ct_alive_before > e.t_alive_before))) AS SIGNED) AS bozo_count,
+               CAST(SUM(e.enemy_kill = TRUE AND e.t_alive_before = e.ct_alive_before) AS SIGNED) AS even_count,
+               CAST(SUM(e.enemy_kill = TRUE AND
+                        ((e.victim_side = 'T' AND e.t_alive_before < e.ct_alive_before) OR
+                         (e.victim_side = 'CT' AND e.ct_alive_before < e.t_alive_before))) AS SIGNED) AS disadvantage_count,
+               CAST(SUM(e.enemy_kill = TRUE AND
+                        ((e.victim_side = 'T' AND e.t_alive_before = 1 AND e.ct_alive_before >= 3) OR
+                         (e.victim_side = 'CT' AND e.ct_alive_before = 1 AND e.t_alive_before >= 3))) AS SIGNED) AS cleanup_count,
+               CAST(SUM(e.enemy_kill = TRUE AND (CASE WHEN e.victim_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 5) AS SIGNED) AS enemy_alive_5,
+               CAST(SUM(e.enemy_kill = TRUE AND (CASE WHEN e.victim_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 4) AS SIGNED) AS enemy_alive_4,
+               CAST(SUM(e.enemy_kill = TRUE AND (CASE WHEN e.victim_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 3) AS SIGNED) AS enemy_alive_3,
+               CAST(SUM(e.enemy_kill = TRUE AND (CASE WHEN e.victim_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 2) AS SIGNED) AS enemy_alive_2,
+               CAST(SUM(e.enemy_kill = TRUE AND (CASE WHEN e.victim_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 1) AS SIGNED) AS enemy_alive_1
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
         JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18')
@@ -536,7 +562,11 @@ private func comparisonSideData(
             ("early_count", "early_deaths"), ("mid_count", "mid_deaths"),
             ("late_count", "late_deaths"), ("postplant_count", "postplant_deaths"),
             ("postplant_elapsed_total", "postplant_death_time_total_ms"),
-            ("bozo_count", "bozo_deaths")
+            ("bozo_count", "bozo_deaths"), ("even_count", "even_deaths"),
+            ("disadvantage_count", "disadvantage_deaths"), ("cleanup_count", "cleanup_deaths"),
+            ("enemy_alive_5", "enemy_alive_5_deaths"), ("enemy_alive_4", "enemy_alive_4_deaths"),
+            ("enemy_alive_3", "enemy_alive_3_deaths"), ("enemy_alive_2", "enemy_alive_2_deaths"),
+            ("enemy_alive_1", "enemy_alive_1_deaths")
         ] { add(id, side, name, Double(try integer(row, column))) }
     }
 
@@ -681,6 +711,14 @@ private func comparisonSideData(
         let manCountCondition = kind == "killer"
             ? "source.enemy_kill = TRUE AND ((source.side = 'T' AND source.t_alive_before < source.ct_alive_before) OR (source.side = 'CT' AND source.ct_alive_before < source.t_alive_before))"
             : "source.enemy_kill = TRUE AND ((source.side = 'T' AND source.t_alive_before > source.ct_alive_before) OR (source.side = 'CT' AND source.ct_alive_before > source.t_alive_before))"
+        let ownAlive = "CASE WHEN source.side = 'T' THEN source.t_alive_before ELSE source.ct_alive_before END"
+        let enemyAlive = "CASE WHEN source.side = 'T' THEN source.ct_alive_before ELSE source.t_alive_before END"
+        let secondaryStateCondition = kind == "killer"
+            ? "source.enemy_kill = TRUE AND \(ownAlive) > \(enemyAlive)"
+            : "source.enemy_kill = TRUE AND \(ownAlive) < \(enemyAlive)"
+        let cleanupCondition = kind == "killer"
+            ? "source.enemy_kill = TRUE AND \(enemyAlive) = 1 AND \(ownAlive) >= 3"
+            : "source.enemy_kill = TRUE AND \(ownAlive) = 1 AND \(enemyAlive) >= 3"
         let rows = try await sql.raw("""
             SELECT source.match_id, source.side, source.buy_type, source.opponent_buy_type, source.round_result,
                    CAST(COUNT(*) AS SIGNED) AS samples,
@@ -690,7 +728,15 @@ private func comparisonSideData(
                    CAST(SUM(source.since_plant_ms IS NULL AND source.elapsed_ms >= 75000) AS SIGNED) AS late_count,
                    CAST(SUM(source.since_plant_ms IS NOT NULL) AS SIGNED) AS postplant_count,
                    CAST(COALESCE(SUM(source.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total,
-                   CAST(SUM(\(unsafeRaw: manCountCondition)) AS SIGNED) AS man_count_context
+                   CAST(SUM(\(unsafeRaw: manCountCondition)) AS SIGNED) AS man_count_context,
+                   CAST(SUM(source.enemy_kill = TRUE AND \(unsafeRaw: ownAlive) = \(unsafeRaw: enemyAlive)) AS SIGNED) AS even_context,
+                   CAST(SUM(\(unsafeRaw: secondaryStateCondition)) AS SIGNED) AS secondary_state_context,
+                   CAST(SUM(\(unsafeRaw: cleanupCondition)) AS SIGNED) AS cleanup_context,
+                   CAST(SUM(source.enemy_kill = TRUE AND \(unsafeRaw: enemyAlive) = 5) AS SIGNED) AS enemy_alive_5,
+                   CAST(SUM(source.enemy_kill = TRUE AND \(unsafeRaw: enemyAlive) = 4) AS SIGNED) AS enemy_alive_4,
+                   CAST(SUM(source.enemy_kill = TRUE AND \(unsafeRaw: enemyAlive) = 3) AS SIGNED) AS enemy_alive_3,
+                   CAST(SUM(source.enemy_kill = TRUE AND \(unsafeRaw: enemyAlive) = 2) AS SIGNED) AS enemy_alive_2,
+                   CAST(SUM(source.enemy_kill = TRUE AND \(unsafeRaw: enemyAlive) = 1) AS SIGNED) AS enemy_alive_1
             FROM (
               SELECT e.match_id, e.\(unsafeRaw: sideColumn) AS side, e.elapsed_ms, e.since_plant_ms,
                      e.enemy_kill, e.t_alive_before, e.ct_alive_before,
@@ -721,12 +767,17 @@ private func comparisonSideData(
             let roundResult = try row.decode(column: "round_result", as: String.self)
             let prefix = kind == "killer" ? "kill" : "death"
             let manCountName = kind == "killer" ? "clawback_kills" : "bozo_deaths"
+            let secondaryStateName = kind == "killer" ? "advantage_kills" : "disadvantage_deaths"
             for (column, name) in [
                 ("samples", "\(prefix)_time_samples"), ("elapsed_total", "\(prefix)_time_total_ms"),
                 ("early_count", "early_\(prefix)s"), ("mid_count", "mid_\(prefix)s"),
                 ("late_count", "late_\(prefix)s"), ("postplant_count", "postplant_\(prefix)s"),
                 ("postplant_elapsed_total", "postplant_\(prefix)_time_total_ms"),
-                ("man_count_context", manCountName)
+                ("man_count_context", manCountName), ("even_context", "even_\(prefix)s"),
+                ("secondary_state_context", secondaryStateName), ("cleanup_context", "cleanup_\(prefix)s"),
+                ("enemy_alive_5", "enemy_alive_5_\(prefix)s"), ("enemy_alive_4", "enemy_alive_4_\(prefix)s"),
+                ("enemy_alive_3", "enemy_alive_3_\(prefix)s"), ("enemy_alive_2", "enemy_alive_2_\(prefix)s"),
+                ("enemy_alive_1", "enemy_alive_1_\(prefix)s")
             ] {
                 let amount = Double(try integer(row, column))
                 addBuyMetric(id, side, buy, "ALL", name, amount)

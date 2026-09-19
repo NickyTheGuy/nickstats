@@ -17,7 +17,7 @@
   function create({ prefix }) {
     const state = {
       map: "ALL",
-      expandedGroups: { combat: false, opening: false, clutches: false, killContext: false },
+      expandedGroups: { combat: false, opening: false, clutches: false, killContext: false, killStage: false },
       sort: null,
       input: null
     };
@@ -86,18 +86,36 @@
           }];
       const contextColumns = state.expandedGroups.killContext ? [
         { key: "clawback-kills", label: "Clawback K", value: item => number(item.stats.clawback_kills), format: item => availability.available(item.stats, "clawback_kills") ? integer(item.stats.clawback_kills) : "—" },
-        { key: "bozo-deaths", label: "Bozo D", value: item => number(item.stats.bozo_deaths), format: item => availability.available(item.stats, "bozo_deaths") ? integer(item.stats.bozo_deaths) : "—" }
+        { key: "bozo-deaths", label: "Bozo D", value: item => number(item.stats.bozo_deaths), format: item => availability.available(item.stats, "bozo_deaths") ? integer(item.stats.bozo_deaths) : "—" },
+        { key: "even-kills", label: "Even K", value: item => number(item.stats.even_kills), format: item => availability.available(item.stats, "even_kills") ? integer(item.stats.even_kills) : "—" },
+        { key: "even-deaths", label: "Even D", value: item => number(item.stats.even_deaths), format: item => availability.available(item.stats, "even_deaths") ? integer(item.stats.even_deaths) : "—" },
+        { key: "advantage-kills", label: "Advantage K", value: item => number(item.stats.advantage_kills), format: item => availability.available(item.stats, "advantage_kills") ? integer(item.stats.advantage_kills) : "—" },
+        { key: "disadvantage-deaths", label: "Outnumbered D", value: item => number(item.stats.disadvantage_deaths), format: item => availability.available(item.stats, "disadvantage_deaths") ? integer(item.stats.disadvantage_deaths) : "—" },
+        { key: "cleanup-kills", label: "Cleanup K", value: item => number(item.stats.cleanup_kills), format: item => availability.available(item.stats, "cleanup_kills") ? integer(item.stats.cleanup_kills) : "—" },
+        { key: "cleanup-deaths", label: "Cleanup D", value: item => number(item.stats.cleanup_deaths), format: item => availability.available(item.stats, "cleanup_deaths") ? integer(item.stats.cleanup_deaths) : "—" }
       ] : [{
         key: "man-count-context", label: "Clawback-Bozo K-D", value: item => number(item.stats.clawback_kills) - number(item.stats.bozo_deaths),
         format: item => availability.available(item.stats, "clawback_kills")
           ? `${integer(item.stats.clawback_kills)}-${integer(item.stats.bozo_deaths)}` : "—"
+      }];
+      const stageAvailable = (item, alive, kind = "kills") => availability.available(item.stats, `enemy_alive_${alive}_${kind}`);
+      const stageColumns = state.expandedGroups.killStage ? [5, 4, 3, 2, 1].map(alive => ({
+        key: `enemy-alive-${alive}`, label: `${alive} alive K-D`,
+        value: item => number(item.stats[`enemy_alive_${alive}_kills`]) - number(item.stats[`enemy_alive_${alive}_deaths`]),
+        format: item => stageAvailable(item, alive)
+          ? `${integer(item.stats[`enemy_alive_${alive}_kills`])}-${integer(item.stats[`enemy_alive_${alive}_deaths`])}` : "—"
+      })) : [{
+        key: "kill-stage-summary", label: "5/1 alive K", value: item => number(item.stats.enemy_alive_5_kills) - number(item.stats.enemy_alive_1_kills),
+        format: item => stageAvailable(item, 5)
+          ? `${integer(item.stats.enemy_alive_5_kills)}/${integer(item.stats.enemy_alive_1_kills)}` : "—"
       }];
       const segments = [
         { columns: fixedColumns },
         { group: "combat", label: "Combat", columns: combatColumns },
         { group: "opening", label: "Opening", columns: openingColumns },
         { group: "clutches", label: "Clutches", columns: clutchColumns },
-        { group: "killContext", label: "Context", columns: contextColumns }
+        { group: "killContext", label: "Context", columns: contextColumns },
+        { group: "killStage", label: "Kill stage", columns: stageColumns }
       ];
       const columns = segments.flatMap(segment => segment.columns.map((column, index) => ({
         ...column, group: segment.group, groupStart: Boolean(segment.group) && index === 0,
@@ -167,8 +185,8 @@
         body.appendChild(row);
       }
       const table = byId("Table");
-      table.className = `player-profile-table quick-comparison-table${state.expandedGroups.combat ? " combat-expanded" : ""}${state.expandedGroups.opening ? " opening-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.killContext ? " killContext-expanded" : ""}`;
-      table.style.minWidth = `${500 + combatColumns.length * 68 + openingColumns.length * 76 + clutchColumns.length * 62 + contextColumns.length * 78}px`;
+      table.className = `player-profile-table quick-comparison-table${state.expandedGroups.combat ? " combat-expanded" : ""}${state.expandedGroups.opening ? " opening-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.killContext ? " killContext-expanded" : ""}${state.expandedGroups.killStage ? " killStage-expanded" : ""}`;
+      table.style.minWidth = `${500 + combatColumns.length * 68 + openingColumns.length * 76 + clutchColumns.length * 62 + contextColumns.length * 78 + stageColumns.length * 86}px`;
       table.replaceChildren(head, body);
     }
 
@@ -203,7 +221,7 @@
 
     function reset() {
       state.map = "ALL";
-      state.expandedGroups = { combat: false, opening: false, clutches: false, killContext: false };
+      state.expandedGroups = { combat: false, opening: false, clutches: false, killContext: false, killStage: false };
       state.sort = null;
       state.input = null;
     }

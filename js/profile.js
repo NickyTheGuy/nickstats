@@ -171,14 +171,20 @@
       ["Opening differential", `${openingDiff >= 0 ? "+" : ""}${integer(openingDiff)}`, `${openingDiff >= 0 ? "+" : ""}${decimal(ratio(openingDiff, rounds), 2)} per round`],
       ["Opening success", percent(100 * ratio(s.opening_kills, openingTotal)), `${integer(s.opening_kills)} won · ${integer(s.opening_deaths)} lost`]
     ]);
-    fillList(`${prefix}KillContextStats`, [["Clawback kills", s.clawback_kills], ["Enemy was blinded", s.blinded_kills], ["Player was blinded", s.blind_kills], ["Wallbang kills", s.wallbang_kills], ["Smoke kills", s.smoke_kills], ["Airborne kills", s.airborne_kills], ["Running kills", s.running_kills], ["Enemy had a grenade out", s.grenade_out_kills], ["Enemy had a knife out", s.knife_out_kills], ["Paul kills", s.equipment_disadvantage_kills], ["Bullshit kills (unique)", s.unfair_kills]].map(([label, value]) => metric(label, value)));
-    fillList(`${prefix}DeathContextStats`, [["Bozo deaths", s.bozo_deaths], ["Player was blinded", s.deaths_while_blind], ["Enemy was blinded", s.deaths_to_blind_killer], ["Wallbang deaths", s.wallbang_deaths], ["Smoke deaths", s.smoke_deaths], ["Deaths to airborne enemies", s.airborne_deaths], ["Deaths to running enemies", s.running_killer_deaths], ["Player had a grenade out", s.grenade_out_deaths], ["Player had a knife out", s.knife_out_deaths], ["Paul deaths", s.equipment_disadvantage_deaths], ["Bullshit deaths (unique)", s.unfair_deaths]].map(([label, value]) => metric(label, value)));
+    fillList(`${prefix}KillContextStats`, [["Clawback kills", s.clawback_kills], ["Even-state kills", s.even_kills], ["Advantage kills", s.advantage_kills], ["Cleanup kills", s.cleanup_kills], ["Enemy was blinded", s.blinded_kills], ["Player was blinded", s.blind_kills], ["Wallbang kills", s.wallbang_kills], ["Smoke kills", s.smoke_kills], ["Airborne kills", s.airborne_kills], ["Running kills", s.running_kills], ["Enemy had a grenade out", s.grenade_out_kills], ["Enemy had a knife out", s.knife_out_kills], ["Paul kills", s.equipment_disadvantage_kills], ["Bullshit kills (unique)", s.unfair_kills]].map(([label, value]) => metric(label, value)));
+    fillList(`${prefix}DeathContextStats`, [["Bozo deaths", s.bozo_deaths], ["Even-state deaths", s.even_deaths], ["Outnumbered deaths", s.disadvantage_deaths], ["Cleanup deaths", s.cleanup_deaths], ["Player was blinded", s.deaths_while_blind], ["Enemy was blinded", s.deaths_to_blind_killer], ["Wallbang deaths", s.wallbang_deaths], ["Smoke deaths", s.smoke_deaths], ["Deaths to airborne enemies", s.airborne_deaths], ["Deaths to running enemies", s.running_killer_deaths], ["Player had a grenade out", s.grenade_out_deaths], ["Player had a knife out", s.knife_out_deaths], ["Paul deaths", s.equipment_disadvantage_deaths], ["Bullshit deaths (unique)", s.unfair_deaths]].map(([label, value]) => metric(label, value)));
     fillStrip(`${prefix}ClutchStats`, [1, 2, 3, 4, 5].map(opponents => {
       const wins = number(s[`clutch_1v${opponents}`]);
       const attempts = number(s[`clutch_attempt_1v${opponents}`]);
       return [`1v${opponents}`, `${integer(wins)} / ${integer(attempts)}`, `${percent(100 * ratio(wins, attempts))} won · ${integer(Math.max(0, attempts - wins))} failed`];
     }));
     fillStrip(`${prefix}MultikillStats`, [["1 kill", s.kill_rounds_1k], ["2 kills", s.kill_rounds_2k], ["3 kills", s.kill_rounds_3k], ["4 kills", s.kill_rounds_4k], ["5 kills", s.kill_rounds_5k]].map(([label, value]) => [label, integer(value), `${decimal(ratio(value, rounds), 2)}/R`]));
+    fillStrip(`${prefix}KillStageStats`, [5, 4, 3, 2, 1].map(alive => [
+      `${alive} enem${alive === 1 ? "y" : "ies"} alive`,
+      statAvailable(`enemy_alive_${alive}_kills`)
+        ? `${statInteger(`enemy_alive_${alive}_kills`)}-${statInteger(`enemy_alive_${alive}_deaths`)}` : "—",
+      statAvailable(`enemy_alive_${alive}_kills`) ? `K-D · ${statPerRound(`enemy_alive_${alive}_kills`)}` : "Not available in these demos"
+    ]));
     fillStrip(`${prefix}ObjectiveStats`, [["Bomb plants", s.bomb_plants], ["Bomb defuses", s.bomb_defuses]].map(([label, value]) => [label, integer(value), countPerRound(value, rounds)]));
     const economyTypes = [["Pistol", "pistol"], ["Eco", "eco"], ["Force buy", "force"], ["Full buy", "full"]];
     fillStrip(`${prefix}EconomyStats`, economyTypes.map(([label, key]) => {
