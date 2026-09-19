@@ -100,6 +100,7 @@ const ADDITIVE_STAT_FIELDS = [
   "smokeKills", "smokeDeaths", "airborneKills", "deathsToAirborneKiller",
   "movingKills", "deathsToMovingKiller", "stillKills", "deathsToStillKiller",
   "runningKills", "deathsToRunningKiller", "unfairKills", "unfairDeaths",
+  "clawbackKills", "bozoDeaths",
   "equipmentDisadvantageKills", "equipmentDisadvantageDeaths", "grenadeOutKills",
   "grenadeOutDeaths", "knifeOutKills", "knifeOutDeaths",
   "speedOnKillTotal", "speedOnKillSamples", "speedOnKillPercentTotal",
@@ -307,6 +308,8 @@ async function parseDemo(fileName, buffer) {
           deathsToRunningKiller: 0,
           unfairKills: 0,
           unfairDeaths: 0,
+          clawbackKills: 0,
+          bozoDeaths: 0,
           equipmentDisadvantageKills: 0,
           equipmentDisadvantageDeaths: 0,
           grenadeOutKills: 0,
@@ -537,6 +540,8 @@ async function parseDemo(fileName, buffer) {
       row.deathsToRunningKiller = 0;
       row.unfairKills = 0;
       row.unfairDeaths = 0;
+      row.clawbackKills = 0;
+      row.bozoDeaths = 0;
       row.equipmentDisadvantageKills = 0;
       row.equipmentDisadvantageDeaths = 0;
       row.grenadeOutKills = 0;
@@ -1565,6 +1570,10 @@ async function parseDemo(fileName, buffer) {
       attacker.observedOpponents.add(victim);
       victim.observedOpponents.add(attacker);
       attacker.kills += 1;
+      const clawbackKill = hasManDisadvantage(attackerTeam, aliveBefore.T, aliveBefore.CT);
+      const bozoDeath = hasManAdvantage(victimTeam, aliveBefore.T, aliveBefore.CT);
+      attacker.clawbackKills += Number(clawbackKill);
+      victim.bozoDeaths += Number(bozoDeath);
       const resolvedWeapon = combatEventWeapon(attacker, event.weapon);
       const killWeapon = weaponStat(attacker, resolvedWeapon);
       if (killWeapon) killWeapon.kills += 1;
@@ -2386,6 +2395,7 @@ async function parseDemo(fileName, buffer) {
       running: "Killer horizontal speed above 34% of the current weapon's maximum movement speed; non-weapon kills are excluded",
       equipment_disadvantage_lookback_seconds: EQUIPMENT_DISADVANTAGE_LOOKBACK_SECONDS,
       equipment_disadvantage: "Victim had a grenade or knife active at death or during the preceding 1.4 seconds",
+      man_count: "Clawback Kills occur when the killer's team has fewer living players immediately before the kill; Bozo Deaths occur when the victim's team has more living players immediately before the death",
       unfair: "Unique Bullshit Kills/Deaths: killer blind, airborne, or running; wallbang; smoke kill; or victim caught with grenade/knife out; overlapping contexts count once"
     },
     flash_definition: {
@@ -2439,7 +2449,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.18.1",
+    nickstats_build: "2026.09.19.1",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2550,6 +2560,7 @@ function finishPlayer(row) {
     kast_rounds: row.kastRounds,
     rounds_played: roundsPlayed,
     round_wins: row.roundWins || 0,
+    man_count_available: true,
     kast_components: {
       kill_rounds: row.killRounds,
       assist_rounds: row.assistRounds,
@@ -2676,6 +2687,8 @@ function finishPlayer(row) {
       knife_out_deaths: row.knifeOutDeaths,
       unfair_kills: row.unfairKills,
       unfair_deaths: row.unfairDeaths,
+      clawback_kills: row.clawbackKills,
+      bozo_deaths: row.bozoDeaths,
       speed_on_kill: speedSummary(row.speedOnKillTotal, row.speedOnKillSamples, row.maxSpeedOnKill,
         row.speedOnKillPercentTotal, row.speedOnKillPercentSamples, row.maxSpeedOnKillPercent),
       killer_speed_on_death: speedSummary(row.killerSpeedTotal, row.killerSpeedSamples, row.maxKillerSpeed,
@@ -2787,6 +2800,14 @@ function equipmentDisadvantageKind(weapon) {
     return "grenade";
   }
   return null;
+}
+
+function hasManDisadvantage(side, terroristAlive, counterTerroristAlive) {
+  return side === 2 ? terroristAlive < counterTerroristAlive : side === 3 ? counterTerroristAlive < terroristAlive : false;
+}
+
+function hasManAdvantage(side, terroristAlive, counterTerroristAlive) {
+  return side === 2 ? terroristAlive > counterTerroristAlive : side === 3 ? counterTerroristAlive > terroristAlive : false;
 }
 
 function itemEventWeapon(pistolChoices, rifleChoices, row, event) {

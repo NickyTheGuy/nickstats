@@ -47,6 +47,19 @@ test("opening context excludes schema 16 matches and preserves schema 17 zeroes"
   assert.equal(availability.scope(mixed, "opening_enemy_assisted_deaths").opening_deaths, 2);
 });
 
+test("man-count context reuses schema 10 death events without reparsing", () => {
+  const mixed = {};
+  availability.add(mixed, { rounds: 12, clawback_kills: 7, bozo_deaths: 7 }, "nickstats.match/9");
+  availability.add(mixed, { rounds: 20, clawback_kills: 2, bozo_deaths: 3 }, "nickstats.match/10");
+
+  assert.equal(availability.rounds(mixed, "clawback_kills"), 20);
+  assert.equal(availability.value(mixed, "clawback_kills"), 2);
+  assert.equal(availability.value(mixed, "bozo_deaths"), 3);
+  assert.match(queriesSource, /AS clawback_count/);
+  assert.match(queriesSource, /AS bozo_count/);
+  assert.match(queriesSource, /AS man_count_context/);
+});
+
 test("comparison matches expose the compact schema used for availability", () => {
   assert.match(modelsSource, /struct ComparisonMatch:[\s\S]*?var schema: String/);
   assert.match(queriesSource, /SELECT m\.id, m\.payload_schema/);

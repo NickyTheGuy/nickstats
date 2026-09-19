@@ -17,7 +17,7 @@
   function create({ prefix }) {
     const state = {
       map: "ALL",
-      expandedGroups: { combat: false, opening: false, clutches: false },
+      expandedGroups: { combat: false, opening: false, clutches: false, killContext: false },
       sort: null,
       input: null
     };
@@ -84,11 +84,20 @@
             key: "clutches", label: "Total W/A", value: item => clutchTotal(item.stats, "clutch"),
             format: item => `${integer(clutchTotal(item.stats, "clutch"))}/${integer(clutchTotal(item.stats, "clutch_attempt"))}`
           }];
+      const contextColumns = state.expandedGroups.killContext ? [
+        { key: "clawback-kills", label: "Clawback K", value: item => number(item.stats.clawback_kills), format: item => availability.available(item.stats, "clawback_kills") ? integer(item.stats.clawback_kills) : "—" },
+        { key: "bozo-deaths", label: "Bozo D", value: item => number(item.stats.bozo_deaths), format: item => availability.available(item.stats, "bozo_deaths") ? integer(item.stats.bozo_deaths) : "—" }
+      ] : [{
+        key: "man-count-context", label: "Clawback-Bozo K-D", value: item => number(item.stats.clawback_kills) - number(item.stats.bozo_deaths),
+        format: item => availability.available(item.stats, "clawback_kills")
+          ? `${integer(item.stats.clawback_kills)}-${integer(item.stats.bozo_deaths)}` : "—"
+      }];
       const segments = [
         { columns: fixedColumns },
         { group: "combat", label: "Combat", columns: combatColumns },
         { group: "opening", label: "Opening", columns: openingColumns },
-        { group: "clutches", label: "Clutches", columns: clutchColumns }
+        { group: "clutches", label: "Clutches", columns: clutchColumns },
+        { group: "killContext", label: "Context", columns: contextColumns }
       ];
       const columns = segments.flatMap(segment => segment.columns.map((column, index) => ({
         ...column, group: segment.group, groupStart: Boolean(segment.group) && index === 0,
@@ -158,8 +167,8 @@
         body.appendChild(row);
       }
       const table = byId("Table");
-      table.className = `player-profile-table quick-comparison-table${state.expandedGroups.combat ? " combat-expanded" : ""}${state.expandedGroups.opening ? " opening-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}`;
-      table.style.minWidth = `${500 + combatColumns.length * 68 + openingColumns.length * 76 + clutchColumns.length * 62}px`;
+      table.className = `player-profile-table quick-comparison-table${state.expandedGroups.combat ? " combat-expanded" : ""}${state.expandedGroups.opening ? " opening-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.killContext ? " killContext-expanded" : ""}`;
+      table.style.minWidth = `${500 + combatColumns.length * 68 + openingColumns.length * 76 + clutchColumns.length * 62 + contextColumns.length * 78}px`;
       table.replaceChildren(head, body);
     }
 
@@ -194,7 +203,7 @@
 
     function reset() {
       state.map = "ALL";
-      state.expandedGroups = { combat: false, opening: false, clutches: false };
+      state.expandedGroups = { combat: false, opening: false, clutches: false, killContext: false };
       state.sort = null;
       state.input = null;
     }

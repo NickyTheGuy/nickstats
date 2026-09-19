@@ -89,6 +89,7 @@
         return 100 * ratio(wins, attempts);
       }, 1, "%"],
       ["bullshit_kr", "Bullshit kills per round", rate("unfair_kills"), 3], ["bullshit_dr", "Bullshit deaths per round", rate("unfair_deaths"), 3],
+      ["clawback_kr", "Clawback kills per round", rate("clawback_kills"), 3], ["bozo_dr", "Bozo deaths per round", rate("bozo_deaths"), 3],
       ["wallbang_kr", "Wallbang kills per round", rate("wallbang_kills"), 3], ["smoke_kr", "Smoke kills per round", rate("smoke_kills"), 3],
       ["paul_kr", "Paul kills per round", rate("equipment_disadvantage_kills"), 3], ["paul_dr", "Paul deaths per round", rate("equipment_disadvantage_deaths"), 3]
     ]],

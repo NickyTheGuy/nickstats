@@ -487,7 +487,9 @@ private func comparisonSideData(
                CAST(SUM(e.since_plant_ms IS NULL AND e.elapsed_ms >= 25000 AND e.elapsed_ms < 75000) AS SIGNED) AS mid_count,
                CAST(SUM(e.since_plant_ms IS NULL AND e.elapsed_ms >= 75000) AS SIGNED) AS late_count,
                CAST(SUM(e.since_plant_ms IS NOT NULL) AS SIGNED) AS postplant_count,
-               CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
+               CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total,
+               CAST(SUM((e.killer_side = 'T' AND e.t_alive_before < e.ct_alive_before) OR
+                        (e.killer_side = 'CT' AND e.ct_alive_before < e.t_alive_before)) AS SIGNED) AS clawback_count
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
         JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18')
@@ -502,7 +504,8 @@ private func comparisonSideData(
             ("samples", "kill_time_samples"), ("elapsed_total", "kill_time_total_ms"),
             ("early_count", "early_kills"), ("mid_count", "mid_kills"),
             ("late_count", "late_kills"), ("postplant_count", "postplant_kills"),
-            ("postplant_elapsed_total", "postplant_kill_time_total_ms")
+            ("postplant_elapsed_total", "postplant_kill_time_total_ms"),
+            ("clawback_count", "clawback_kills")
         ] { add(id, side, name, Double(try integer(row, column))) }
     }
 
@@ -514,7 +517,10 @@ private func comparisonSideData(
                CAST(SUM(e.since_plant_ms IS NULL AND e.elapsed_ms >= 25000 AND e.elapsed_ms < 75000) AS SIGNED) AS mid_count,
                CAST(SUM(e.since_plant_ms IS NULL AND e.elapsed_ms >= 75000) AS SIGNED) AS late_count,
                CAST(SUM(e.since_plant_ms IS NOT NULL) AS SIGNED) AS postplant_count,
-               CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
+               CAST(COALESCE(SUM(e.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total,
+               CAST(SUM(e.enemy_kill = TRUE AND
+                        ((e.victim_side = 'T' AND e.t_alive_before > e.ct_alive_before) OR
+                         (e.victim_side = 'CT' AND e.ct_alive_before > e.t_alive_before))) AS SIGNED) AS bozo_count
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
         JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18')
@@ -529,7 +535,8 @@ private func comparisonSideData(
             ("samples", "death_time_samples"), ("elapsed_total", "death_time_total_ms"),
             ("early_count", "early_deaths"), ("mid_count", "mid_deaths"),
             ("late_count", "late_deaths"), ("postplant_count", "postplant_deaths"),
-            ("postplant_elapsed_total", "postplant_death_time_total_ms")
+            ("postplant_elapsed_total", "postplant_death_time_total_ms"),
+            ("bozo_count", "bozo_deaths")
         ] { add(id, side, name, Double(try integer(row, column))) }
     }
 
@@ -671,6 +678,9 @@ private func comparisonSideData(
     for kind in ["killer", "victim"] {
         let playerColumn = kind == "killer" ? "killer_match_player_id" : "victim_match_player_id"
         let sideColumn = kind == "killer" ? "killer_side" : "victim_side"
+        let manCountCondition = kind == "killer"
+            ? "source.enemy_kill = TRUE AND ((source.side = 'T' AND source.t_alive_before < source.ct_alive_before) OR (source.side = 'CT' AND source.ct_alive_before < source.t_alive_before))"
+            : "source.enemy_kill = TRUE AND ((source.side = 'T' AND source.t_alive_before > source.ct_alive_before) OR (source.side = 'CT' AND source.ct_alive_before > source.t_alive_before))"
         let rows = try await sql.raw("""
             SELECT source.match_id, source.side, source.buy_type, source.opponent_buy_type, source.round_result,
                    CAST(COUNT(*) AS SIGNED) AS samples,
@@ -679,9 +689,11 @@ private func comparisonSideData(
                    CAST(SUM(source.since_plant_ms IS NULL AND source.elapsed_ms >= 25000 AND source.elapsed_ms < 75000) AS SIGNED) AS mid_count,
                    CAST(SUM(source.since_plant_ms IS NULL AND source.elapsed_ms >= 75000) AS SIGNED) AS late_count,
                    CAST(SUM(source.since_plant_ms IS NOT NULL) AS SIGNED) AS postplant_count,
-                   CAST(COALESCE(SUM(source.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total
+                   CAST(COALESCE(SUM(source.since_plant_ms), 0) AS SIGNED) AS postplant_elapsed_total,
+                   CAST(SUM(\(unsafeRaw: manCountCondition)) AS SIGNED) AS man_count_context
             FROM (
               SELECT e.match_id, e.\(unsafeRaw: sideColumn) AS side, e.elapsed_ms, e.since_plant_ms,
+                     e.enemy_kill, e.t_alive_before, e.ct_alive_before,
                      CASE WHEN r.winner_side = e.\(unsafeRaw: sideColumn) THEN 'win' ELSE 'loss' END AS round_result,
                      CASE WHEN r.pistol_round THEN 'pistol'
                           WHEN (CASE WHEN e.\(unsafeRaw: sideColumn) = 'T' THEN r.t_equipment_value ELSE r.ct_equipment_value END)
@@ -708,11 +720,13 @@ private func comparisonSideData(
             let opponentBuy = try row.decode(column: "opponent_buy_type", as: String.self)
             let roundResult = try row.decode(column: "round_result", as: String.self)
             let prefix = kind == "killer" ? "kill" : "death"
+            let manCountName = kind == "killer" ? "clawback_kills" : "bozo_deaths"
             for (column, name) in [
                 ("samples", "\(prefix)_time_samples"), ("elapsed_total", "\(prefix)_time_total_ms"),
                 ("early_count", "early_\(prefix)s"), ("mid_count", "mid_\(prefix)s"),
                 ("late_count", "late_\(prefix)s"), ("postplant_count", "postplant_\(prefix)s"),
-                ("postplant_elapsed_total", "postplant_\(prefix)_time_total_ms")
+                ("postplant_elapsed_total", "postplant_\(prefix)_time_total_ms"),
+                ("man_count_context", manCountName)
             ] {
                 let amount = Double(try integer(row, column))
                 addBuyMetric(id, side, buy, "ALL", name, amount)

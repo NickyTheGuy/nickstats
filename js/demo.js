@@ -157,6 +157,10 @@
       { label: "K", value: player => player.kill_context?.unfair_kills ?? 0 },
       { label: "D", value: player => player.kill_context?.unfair_deaths ?? 0, direction: "asc" }
     ] },
+    manCountContext: { id: "manCountContext", modes: [
+      { label: "Clawback K", value: player => player.kill_context?.clawback_kills ?? 0 },
+      { label: "Bozo D", value: player => player.kill_context?.bozo_deaths ?? 0, direction: "asc" }
+    ] },
     tradeKD: { id: "tradeKD", modes: [
       { label: "K", value: player => player.trade_kills ?? 0 },
       { label: "D", value: player => player.traded_deaths ?? 0 }
@@ -374,7 +378,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260918-1");
+      const worker = new Worker("./js/demo-worker.js?v=20260919-1");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -742,7 +746,8 @@
     const emptyTiming = () => ({
       kill_time_samples: 0, kill_time_total_ms: 0, death_time_samples: 0, death_time_total_ms: 0,
       early_kills: 0, early_deaths: 0, mid_kills: 0, mid_deaths: 0,
-      late_kills: 0, late_deaths: 0, postplant_kills: 0, postplant_deaths: 0
+      late_kills: 0, late_deaths: 0, postplant_kills: 0, postplant_deaths: 0,
+      clawback_kills: 0, bozo_deaths: 0
     });
     const timingByPlayer = sourcePlayers.map(() => ({ T: emptyTiming(), CT: emptyTiming() }));
     const timingByPlayerBuy = sourcePlayers.map(() => Object.fromEntries(["pistol", "eco", "force", "full"].map(buy => [buy, { T: emptyTiming(), CT: emptyTiming() }])));
@@ -770,11 +775,18 @@
       timing[`${kind}_time_samples`] += 1;
       timing[`${kind}_time_total_ms`] += numberValue(event[3]);
       timing[`${phaseForEvent(event)}_${kind === "kill" ? "kills" : "deaths"}`] += 1;
+      const terroristAlive = numberValue(event[11]), counterTerroristAlive = numberValue(event[12]);
+      const manCountContext = Boolean(event[9]) && (kind === "kill"
+        ? (side === "T" ? terroristAlive < counterTerroristAlive : counterTerroristAlive < terroristAlive)
+        : (side === "T" ? terroristAlive > counterTerroristAlive : counterTerroristAlive > terroristAlive));
+      const manCountKey = kind === "kill" ? "clawback_kills" : "bozo_deaths";
+      timing[manCountKey] += Number(manCountContext);
       const buy = buyForEvent(event, side), buyTiming = buy && timingByPlayerBuy[playerIndex]?.[buy]?.[side];
       if (buyTiming) {
         buyTiming[`${kind}_time_samples`] += 1;
         buyTiming[`${kind}_time_total_ms`] += numberValue(event[3]);
         buyTiming[`${phaseForEvent(event)}_${kind === "kill" ? "kills" : "deaths"}`] += 1;
+        buyTiming[manCountKey] += Number(manCountContext);
       }
       const result = winnerByRound.get(numberValue(event?.[0])) === side ? "win" : "loss";
       const enemyBuy = buyForEvent(event, side === "T" ? "CT" : "T");
@@ -783,6 +795,7 @@
         matchupTiming[`${kind}_time_samples`] += 1;
         matchupTiming[`${kind}_time_total_ms`] += numberValue(event[3]);
         matchupTiming[`${phaseForEvent(event)}_${kind === "kill" ? "kills" : "deaths"}`] += 1;
+        matchupTiming[manCountKey] += Number(manCountContext);
       }
       for (const scope of ["ALL", buy].filter(Boolean)) {
         const resultTiming = timingByPlayerRoundResult[playerIndex]?.[scope]?.[result]?.[side];
@@ -790,6 +803,7 @@
         resultTiming[`${kind}_time_samples`] += 1;
         resultTiming[`${kind}_time_total_ms`] += numberValue(event[3]);
         resultTiming[`${phaseForEvent(event)}_${kind === "kill" ? "kills" : "deaths"}`] += 1;
+        resultTiming[manCountKey] += Number(manCountContext);
       }
     };
     for (const event of payload.death_events || []) {
@@ -894,6 +908,7 @@
       return {
         ...player, ...timing,
         timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
+        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18"].includes(payload.schema),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -965,6 +980,7 @@
           knife_out_kills: outgoingContext[10], knife_out_deaths: incomingContext[10],
           equipment_disadvantage_kills: outgoingContext[11], equipment_disadvantage_deaths: incomingContext[11],
           unfair_kills: outgoingContext[12], unfair_deaths: incomingContext[12],
+          clawback_kills: numberValue(timing.clawback_kills), bozo_deaths: numberValue(timing.bozo_deaths),
           speed_on_kill: speedSummaryFromCompact(stats.speed, 0),
           killer_speed_on_death: speedSummaryFromCompact(stats.speed, 6)
         },
@@ -1074,7 +1090,8 @@
       kill_context_definition: {
         still_speed_tolerance_units_per_second: movementRules[0],
         running_threshold_percent_of_weapon_max: movementRules[1],
-        equipment_disadvantage_lookback_seconds: payload.rules?.equipment_disadvantage_seconds
+        equipment_disadvantage_lookback_seconds: payload.rules?.equipment_disadvantage_seconds,
+        man_count: "Clawback Kills occur when the killer's team has fewer living players immediately before the kill; Bozo Deaths occur when the victim's team has more living players immediately before the death"
       },
       teams
     };
@@ -1387,6 +1404,7 @@
     const still = `${context.still_kills ?? 0}-${context.deaths_to_still_killer ?? 0}`;
     const running = `${context.running_kills ?? 0}-${context.deaths_to_running_killer ?? 0}`;
     const unfair = `${context.unfair_kills ?? 0}-${context.unfair_deaths ?? 0}`;
+    const manCount = player.man_count_available ? `${context.clawback_kills ?? 0}-${context.bozo_deaths ?? 0}` : "—";
     if (state.expandedGroups.trades) {
       cell(row, player.trade_opportunities ?? 0, "demo-group-cell trades-cell");
       cell(row, player.trade_attempts ?? 0, "demo-group-cell trades-cell");
@@ -1415,7 +1433,7 @@
       ? `${player[`${phase}_kills`] ?? 0}-${player[`${phase}_deaths`] ?? 0}`
       : "—";
     if (state.expandedGroups.killContext) {
-      [blind, blindKiller, wall, smoke, air, grenade, knife, equipment, running]
+      [manCount, blind, blindKiller, wall, smoke, air, grenade, knife, equipment, running]
         .forEach(value => cell(row, value, "demo-group-cell killContext-cell"));
     } else {
       cell(row, unfair, "demo-group-cell killContext-cell");
@@ -1573,6 +1591,7 @@
       },
       killContext: {
         "Bullshit K-D": sortSpecs.killContextSummary,
+        "Clawback-Bozo K-D": sortSpecs.manCountContext,
         "Enemy blind K-D": sortSpecs.blindContext,
         "Killer blind K-D": sortSpecs.blindKillerContext,
         "Wallbang K-D": sortSpecs.wallContext,
@@ -1731,7 +1750,7 @@
     widths.push(...(state.expandedGroups.opening ? [58, 58, 82, 68, 72, 88, 68, 76, 76] : [108]));
     widths.push(...(state.expandedGroups.trades ? [58, 54, 96, 58, 54, 96] : [88]));
     widths.push(...(state.expandedGroups.clutches ? [55, 55, 55, 55, 55] : [82]));
-    widths.push(...(state.expandedGroups.killContext ? [104, 104, 98, 88, 88, 112, 104, 88, 88] : [112]));
+    widths.push(...(state.expandedGroups.killContext ? [128, 104, 104, 98, 88, 88, 112, 104, 88, 88] : [112]));
     widths.push(...(state.expandedGroups.movement ? [88, 88, 88, 88, 116, 132, 126, 142] : [112]));
     widths.push(...(state.expandedGroups.utility ? [82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90] : [176]));
     widths.push(...(state.expandedGroups.multikills ? [55, 55, 55, 55, 55] : [92]));
@@ -1778,7 +1797,7 @@
     groupHeader(header, detailHeader, "opening", "Opening", ["K", "D", "Assisted K", "Dmg A", "Flash A", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%");
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A");
-    groupHeader(header, detailHeader, "killContext", "Context", ["Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D");
+    groupHeader(header, detailHeader, "killContext", "Context", ["Clawback-Bozo K-D", "Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D");
     groupHeader(header, detailHeader, "movement", "Movement", ["Move K-D", "Still K-D", "Run K-D", "Air K-D", "Kill speed avg/max", "Kill speed avg/peak %", "Enemy speed avg/max", "Enemy speed avg/peak %"], "Move/run/air");
     groupHeader(header, detailHeader, "utility", "Utility", ["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Blind sec", "FA", "Damage assist", "Teammate flash", "Own flash"], "Damage · thrown");
     groupHeader(header, detailHeader, "multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
@@ -2441,7 +2460,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/18",
-      nickstats_build: "2026.09.18.1",
+      nickstats_build: "2026.09.19.1",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

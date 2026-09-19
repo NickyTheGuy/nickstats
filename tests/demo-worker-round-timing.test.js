@@ -35,6 +35,17 @@ test("round timing begins when freeze time ends", () => {
   assert.match(source, /case "bomb_planted":[\s\S]*?round\.bombPlantTick = demoPacket\.tick/);
 });
 
+test("man-count context distinguishes clawbacks, bozos, and even fights", () => {
+  const values = vm.runInContext(`[
+    hasManDisadvantage(2, 2, 3), hasManAdvantage(3, 2, 3),
+    hasManDisadvantage(3, 4, 2), hasManAdvantage(2, 4, 2),
+    hasManDisadvantage(2, 3, 3), hasManAdvantage(2, 3, 3)
+  ]`, workerContext());
+  assert.deepEqual(Array.from(values), [true, true, true, true, false, false]);
+  assert.match(frontendSource, /kind === "kill" \? "clawback_kills" : "bozo_deaths"/);
+  assert.match(frontendSource, /Boolean\(event\[9\]\)/);
+});
+
 test("completed rounds preserve both sides' final survivor counts", () => {
   assert.match(source, /const aliveAtEnd = \{ T: 0, CT: 0 \}/);
   assert.match(source, /t_alive_end: aliveAtEnd\.T/);

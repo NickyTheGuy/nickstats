@@ -20,8 +20,8 @@ test("quick comparison shows filtered rounds instead of redundant match count", 
   assert.doesNotMatch(componentSource, /key: "matches", label: "Matches"/);
 });
 
-test("quick comparison openings and clutches are expandable scoreboard groups", () => {
-  assert.match(componentSource, /expandedGroups: \{ combat: false, opening: false, clutches: false \}/);
+test("quick comparison openings, clutches, and context are expandable scoreboard groups", () => {
+  assert.match(componentSource, /expandedGroups: \{ combat: false, opening: false, clutches: false, killContext: false \}/);
   assert.match(componentSource, /group: "combat", label: "Combat"/);
   assert.match(componentSource, /key: "combat", label: "K-D-A"/);
   assert.match(componentSource, /group: "opening", label: "Opening"/);
@@ -29,6 +29,9 @@ test("quick comparison openings and clutches are expandable scoreboard groups", 
   assert.match(componentSource, /key: "opening-damage-assisted", label: "Dmg A"/);
   assert.match(componentSource, /key: "opening-flash-assisted", label: "Flash A"/);
   assert.match(componentSource, /group: "clutches", label: "Clutches"/);
+  assert.match(componentSource, /group: "killContext", label: "Context"/);
+  assert.match(componentSource, /key: "clawback-kills", label: "Clawback K"/);
+  assert.match(componentSource, /key: "bozo-deaths", label: "Bozo D"/);
   assert.match(componentSource, /demo-toggle-heading.*-heading/);
   assert.match(styles, /\.quick-comparison-table :is\(th, td\)\.demo-group-start/);
   assert.match(styles, /\.opening-cell \{ background:/);

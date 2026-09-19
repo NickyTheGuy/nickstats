@@ -4,6 +4,8 @@
   // Add new parser-derived fields here when their first compact schema ships.
   // Aggregators will then keep a complete, correctly-denominated scope for them.
   const minimumSchema = Object.freeze({
+    clawback_kills: 10,
+    bozo_deaths: 10,
     flash_assists: 15,
     teammate_flash_assisted_kills: 15,
     opening_assisted_kills: 15,
