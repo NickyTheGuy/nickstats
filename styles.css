@@ -1456,6 +1456,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .combat-cell { background: rgba(91, 128, 210, .10); }
 .opening-cell { background: rgba(225, 153, 24, .18); }
 .trades-cell { background: rgba(35, 154, 133, .12); }
+.roundState-cell { background: rgba(181, 101, 61, .13); }
 .killContext-cell { background: rgba(225, 82, 30, .18); }
 .killStage-cell { background: rgba(151, 139, 43, .16); }
 .movement-cell { background: rgba(145, 71, 177, .16); }
@@ -1466,8 +1467,11 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .timing-cell { background: rgba(181, 101, 61, .13); }
 
 .combat-heading { background: rgba(91, 128, 210, .18); }
+.overview-heading { background: rgba(91, 128, 210, .18); }
 .opening-heading { background: rgba(225, 153, 24, .26); }
 .trades-heading { background: rgba(35, 154, 133, .20); }
+.rounds-heading { background: rgba(112, 155, 52, .15); }
+.roundState-heading { background: rgba(181, 101, 61, .21); }
 .killContext-heading { background: rgba(225, 82, 30, .24); }
 .killStage-heading { background: rgba(151, 139, 43, .23); }
 .movement-heading { background: rgba(145, 71, 177, .22); }
@@ -1486,6 +1490,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .demo-toggle-heading.combat-heading { border-top: 3px solid var(--blue); }
 .demo-toggle-heading.opening-heading { border-top: 3px dashed var(--amber); }
 .demo-toggle-heading.trades-heading { border-top: 3px solid var(--section-trades); }
+.demo-toggle-heading.roundState-heading { border-top: 3px double var(--section-timing); }
 .demo-toggle-heading.killContext-heading { border-top: 3px ridge var(--section-context); }
 .demo-toggle-heading.killStage-heading { border-top: 3px double var(--section-kill-stage); }
 .demo-toggle-heading.movement-heading { border-top: 3px dashed var(--section-movement); }

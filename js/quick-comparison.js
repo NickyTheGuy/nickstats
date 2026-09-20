@@ -14,18 +14,27 @@
   };
   const signed = value => `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(number(value)).toFixed(0)}`;
   const seconds = value => Number.isFinite(Number(value)) ? `${number(value).toFixed(1)}s` : "—";
-  const SECTION_STORAGE_KEY = "nickstats.quickComparisonSections.v1";
+  const SECTION_STORAGE_KEY = "nickstats.quickComparisonSections.v2";
   const sectionOptions = Object.freeze([
-    ["combat", "Combat"], ["opening", "Opening"], ["trades", "Trades"], ["clutches", "Clutches"],
-    ["killContext", "Context"], ["killStage", "Kill stage"], ["movement", "Movement"],
-    ["utility", "Utility"], ["multikills", "Kill rounds"], ["objectives", "Objectives"], ["timing", "Round timing"]
+    ["overview", "Overview", ["combat"], "overview"], ["opening", "Opening", ["opening"], "opening"],
+    ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "objectives"], "rounds"],
+    ["roundState", "Round state", ["roundState", "killStage", "timing"], "roundState"],
+    ["context", "Context", ["killContext"], "killContext"], ["movement", "Movement", ["movement"], "movement"],
+    ["utility", "Utility", ["utility"], "utility"]
   ]);
+  const columnGroups = Object.freeze([
+    ["combat", "Overview"], ["opening", "Opening"], ["trades", "Trades"], ["clutches", "Clutches"],
+    ["multikills", "Kill rounds"], ["objectives", "Objectives"], ["roundState", "Man count"],
+    ["killStage", "Kill stage"], ["timing", "Round timing"], ["killContext", "Context"],
+    ["movement", "Movement"], ["utility", "Utility"]
+  ]);
+  const groupSection = Object.freeze(Object.fromEntries(sectionOptions.flatMap(([section, , groups]) => groups.map(group => [group, section]))));
   const sectionKeys = new Set(sectionOptions.map(([key]) => key));
-  const defaultSections = ["combat", "opening", "clutches"];
+  const defaultSections = ["overview", "opening", "rounds"];
   const sectionSubgroups = Object.freeze({
     combat: [["output", "Output", [0, 1, 2, 3, 4]], ["damage", "Damage", [5, 6, 7, 8]]],
     opening: [["results", "Results", [0, 1, 24, 25, 26]], ["received", "Help received", [2, 3, 4, 5, 23]], ["given", "Help given", [6, 7, 8, 9]], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]]],
-    killContext: [["manCount", "Man count", [0, 1, 2, 3]], ["visibility", "Visibility", [4, 5, 6, 7, 8]], ["readiness", "Readiness", [9, 10, 11, 12]]],
+    killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4]], ["readiness", "Readiness", [5, 6, 7, 8]]],
     movement: [["state", "State", [0, 1, 2, 3]], ["speed", "Speed", [4, 5, 6, 7]]],
     utility: [["damage", "Damage", [0, 1]], ["usage", "Usage", [2, 3, 4, 5, 6]], ["flashes", "Flashes", [7, 8, 9]], ["assists", "Assisted kills", [10, 11, 12]]]
   });
@@ -49,11 +58,11 @@
   function create({ prefix }) {
     const state = {
       map: "ALL",
-      expandedGroups: Object.fromEntries(sectionOptions.map(([key]) => [key, false])),
+      expandedGroups: Object.fromEntries(columnGroups.map(([key]) => [key, false])),
       sectionSubgroups: {},
       valueMode: "totals",
       perGrenadeUtility: false,
-      visibleGroups: new Set(sharedSections),
+      visibleSections: new Set(sharedSections),
       sort: null,
       input: null
     };
@@ -72,9 +81,11 @@
       return subgroup[2].map(index => columns[index]).filter(Boolean);
     }
 
+    const groupVisible = group => state.visibleSections.has(groupSection[group]);
+
     function displayedValue(column, item) {
       if (state.valueMode === "totals" || !column.group) return column.format(item);
-      if (["combat", "opening", "trades", "clutches", "kill-context", "kill-stage-summary", "movement", "utility", "multikills", "objectives", "timing"].includes(column.key)) return column.format(item);
+      if (["combat", "opening", "trades", "clutches", "round-state", "kill-context", "kill-stage-summary", "movement", "utility", "multikills", "objectives", "timing"].includes(column.key)) return column.format(item);
       const formatted = column.format(item);
       if (formatted === "—" || formatted === "Not parsed") return formatted;
       const value = column.value(item);
@@ -105,7 +116,7 @@
       }[column.key] : null;
       const unit = grenadeUnit || (state.valueMode === "match" ? "match" : "round");
       if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || (column.label.endsWith("%") && !column.label.includes("(Succ%)")) || ["timing-kill", "timing-death"].includes(column.key)) return column.label;
-      if (["combat", "opening", "trades", "clutches", "kill-context", "kill-stage-summary", "movement", "utility", "multikills", "objectives"].includes(column.key)) return column.label;
+      if (["combat", "opening", "trades", "clutches", "round-state", "kill-context", "kill-stage-summary", "movement", "utility", "multikills", "objectives"].includes(column.key)) return column.label;
       if (column.label.includes("K-D")) return column.label.replace("K-D", `K/${unit}-D/${unit}`);
       if (column.label.includes("(Succ%)")) return column.label.replace(/^([KD])/, `$1 / ${unit}`);
       return `${column.label} / ${unit}`;
@@ -187,11 +198,16 @@
             key: "clutches", label: "Total W/A", value: item => clutchTotal(item.stats, "clutch"),
             format: item => `${integer(clutchTotal(item.stats, "clutch"))}/${integer(clutchTotal(item.stats, "clutch_attempt"))}`
           }];
-      const contextColumns = state.expandedGroups.killContext ? [
+      const roundStateColumns = state.expandedGroups.roundState ? [
         { key: "context-clawback-bozo", label: "Clawback-Bozo K-D", value: item => number(item.stats.clawback_kills) - number(item.stats.bozo_deaths), format: item => availability.available(item.stats, "clawback_kills") ? `${integer(item.stats.clawback_kills)}-${integer(item.stats.bozo_deaths)}` : "—" },
         { key: "context-even", label: "Even K-D", value: item => number(item.stats.even_kills) - number(item.stats.even_deaths), format: item => availability.available(item.stats, "even_kills") ? `${integer(item.stats.even_kills)}-${integer(item.stats.even_deaths)}` : "—" },
         { key: "context-advantage", label: "Advantage K / Outnumbered D", value: item => number(item.stats.advantage_kills) - number(item.stats.disadvantage_deaths), format: item => availability.available(item.stats, "advantage_kills") ? `${integer(item.stats.advantage_kills)}-${integer(item.stats.disadvantage_deaths)}` : "—" },
-        { key: "context-cleanup", label: "Cleanup K-D", value: item => number(item.stats.cleanup_kills) - number(item.stats.cleanup_deaths), format: item => availability.available(item.stats, "cleanup_kills") ? `${integer(item.stats.cleanup_kills)}-${integer(item.stats.cleanup_deaths)}` : "—" },
+        { key: "context-cleanup", label: "Cleanup K-D", value: item => number(item.stats.cleanup_kills) - number(item.stats.cleanup_deaths), format: item => availability.available(item.stats, "cleanup_kills") ? `${integer(item.stats.cleanup_kills)}-${integer(item.stats.cleanup_deaths)}` : "—" }
+      ] : [{
+        key: "round-state", label: "Clawback-Bozo K-D", value: item => number(item.stats.clawback_kills) - number(item.stats.bozo_deaths),
+        format: item => availability.available(item.stats, "clawback_kills") ? `${integer(item.stats.clawback_kills)}-${integer(item.stats.bozo_deaths)}` : "—"
+      }];
+      const contextColumns = state.expandedGroups.killContext ? [
         { key: "context-enemy-blind", label: "Enemy blind K-D", value: item => number(item.stats.blinded_kills) - number(item.stats.deaths_while_blind), format: item => `${integer(item.stats.blinded_kills)}-${integer(item.stats.deaths_while_blind)}` },
         { key: "context-killer-blind", label: "Killer blind K-D", value: item => number(item.stats.blind_kills) - number(item.stats.deaths_to_blind_killer), format: item => `${integer(item.stats.blind_kills)}-${integer(item.stats.deaths_to_blind_killer)}` },
         { key: "context-wallbang", label: "Wallbang K-D", value: item => number(item.stats.wallbang_kills) - number(item.stats.wallbang_deaths), format: item => `${integer(item.stats.wallbang_kills)}-${integer(item.stats.wallbang_deaths)}` },
@@ -288,18 +304,19 @@
       }];
       const segments = [
         { columns: fixedColumns },
-        { group: "combat", label: "Combat", columns: focusedColumns("combat", combatColumns) },
+        { group: "combat", label: "Overview", columns: focusedColumns("combat", combatColumns) },
         { group: "opening", label: "Opening", columns: focusedColumns("opening", openingColumns) },
         { group: "trades", label: "Trades", columns: focusedColumns("trades", tradesColumns) },
         { group: "clutches", label: "Clutches", columns: focusedColumns("clutches", clutchColumns) },
-        { group: "killContext", label: "Context", columns: focusedColumns("killContext", contextColumns) },
-        { group: "killStage", label: "Kill stage", columns: focusedColumns("killStage", stageColumns) },
-        { group: "movement", label: "Movement", columns: focusedColumns("movement", movementColumns) },
-        { group: "utility", label: "Utility", columns: focusedColumns("utility", utilityColumns) },
         { group: "multikills", label: "Kill rounds", columns: focusedColumns("multikills", multikillColumns) },
         { group: "objectives", label: "Objectives", columns: focusedColumns("objectives", objectiveColumns) },
-        { group: "timing", label: "Round timing", columns: focusedColumns("timing", timingColumns) }
-      ].filter(segment => !segment.group || state.visibleGroups.has(segment.group));
+        { group: "roundState", label: "Man count", columns: focusedColumns("roundState", roundStateColumns) },
+        { group: "killStage", label: "Kill stage", columns: focusedColumns("killStage", stageColumns) },
+        { group: "timing", label: "Round timing", columns: focusedColumns("timing", timingColumns) },
+        { group: "killContext", label: "Context", columns: focusedColumns("killContext", contextColumns) },
+        { group: "movement", label: "Movement", columns: focusedColumns("movement", movementColumns) },
+        { group: "utility", label: "Utility", columns: focusedColumns("utility", utilityColumns) }
+      ].filter(segment => !segment.group || groupVisible(segment.group));
       const columns = segments.flatMap(segment => segment.columns.map((column, index) => ({
         ...column, group: segment.group, groupStart: Boolean(segment.group) && index === 0,
         groupEnd: Boolean(segment.group) && index === segment.columns.length - 1
@@ -375,7 +392,7 @@
         body.appendChild(row);
       }
       const table = byId("Table");
-      table.className = `player-profile-table quick-comparison-table${sectionOptions.map(([group]) => state.visibleGroups.has(group) && state.expandedGroups[group] ? ` ${group}-expanded` : "").join("")}`;
+      table.className = `player-profile-table quick-comparison-table${columnGroups.map(([group]) => groupVisible(group) && state.expandedGroups[group] ? ` ${group}-expanded` : "").join("")}`;
       table.style.minWidth = `${500 + segments.filter(segment => segment.group).reduce((width, segment) => width + segment.columns.length * 82, 0)}px`;
       table.replaceChildren(head, body);
     }
@@ -391,10 +408,10 @@
         button.addEventListener("click", () => setSharedSections(new Set(values))); sectionButtons.appendChild(button);
       };
       preset("Default", defaultSections); preset("All", sectionOptions.map(([key]) => key));
-      sectionOptions.forEach(([key, label]) => {
-        const button = element("button", label, `scoreboard-section-button ${key}-heading${state.visibleGroups.has(key) ? " active" : ""}`); button.type = "button";
-        button.setAttribute("aria-pressed", String(state.visibleGroups.has(key)));
-        button.addEventListener("click", () => { const selected = new Set(state.visibleGroups); if (selected.has(key)) selected.delete(key); else selected.add(key); setSharedSections(selected); });
+      sectionOptions.forEach(([key, label, , style]) => {
+        const button = element("button", label, `scoreboard-section-button ${style}-heading${state.visibleSections.has(key) ? " active" : ""}`); button.type = "button";
+        button.setAttribute("aria-pressed", String(state.visibleSections.has(key)));
+        button.addEventListener("click", () => { const selected = new Set(state.visibleSections); if (selected.has(key)) selected.delete(key); else selected.add(key); setSharedSections(selected); });
         sectionButtons.appendChild(button);
       });
       bar.appendChild(sectionButtons);
@@ -416,11 +433,11 @@
         ? "Raw counts"
         : `${state.valueMode === "match" ? "Counts divided by qualifying matches" : "Counts divided by qualifying rounds"}${state.perGrenadeUtility ? "; utility yield columns use the relevant grenade" : ""}`;
       mode.appendChild(element("small", modeNote, "scoreboard-control-note"));
-      const activeGroup = sectionOptions.find(([key]) => state.expandedGroups[key])?.[0];
+      const activeGroup = columnGroups.find(([key]) => groupVisible(key) && state.expandedGroups[key])?.[0];
       const subgroups = activeGroup && sectionSubgroups[activeGroup];
       const subgroupBar = element("div", null, "scoreboard-subgroup-bar scoreboard-control-row"); subgroupBar.hidden = !subgroups;
       if (subgroups) {
-        subgroupBar.appendChild(element("strong", `${sectionOptions.find(([key]) => key === activeGroup)?.[1]} detail`));
+        subgroupBar.appendChild(element("strong", `${columnGroups.find(([key]) => key === activeGroup)?.[1]} detail`));
         const subgroupButtons = element("div", null, "scoreboard-button-group");
         subgroups.forEach(([key, label]) => {
           const active = (state.sectionSubgroups[activeGroup] || subgroups[0][0]) === key;
@@ -468,7 +485,7 @@
 
     function reset() {
       state.map = "ALL";
-      state.expandedGroups = Object.fromEntries(sectionOptions.map(([key]) => [key, false]));
+      state.expandedGroups = Object.fromEntries(columnGroups.map(([key]) => [key, false]));
       state.sectionSubgroups = {};
       state.valueMode = "totals";
       state.perGrenadeUtility = false;
@@ -477,9 +494,9 @@
     }
 
     const syncSections = sections => {
-      state.visibleGroups = new Set(sections);
-      Object.keys(state.expandedGroups).forEach(group => { if (!state.visibleGroups.has(group)) state.expandedGroups[group] = false; });
-      if (state.sort?.group && !state.visibleGroups.has(state.sort.group)) state.sort = null;
+      state.visibleSections = new Set(sections);
+      Object.keys(state.expandedGroups).forEach(group => { if (!groupVisible(group)) state.expandedGroups[group] = false; });
+      if (state.sort?.group && !groupVisible(state.sort.group)) state.sort = null;
       if (state.input) render(state.input); else renderSections();
     };
     sectionSubscribers.add(syncSections);

@@ -34,9 +34,9 @@ test("statistic highlights use the warm high-differentiation semantic palette", 
   assert.match(graphs, /\["#455f97", "#d18c00", "#168a77", "#9d51ba", "#bd343e"\]/);
 });
 
-test("match scoreboard leads with summaries and ends with round detail groups", () => {
+test("match scoreboard follows the player profile section order", () => {
   assert.match(demo, /\["Player", "Rating", "Rounds P\/W", "KAST"\][\s\S]*?showGroup\("combat"/);
-  assert.match(demo, /showGroup\("utility"[\s\S]*?showGroup\("multikills"[\s\S]*?showGroup\("objectives"[\s\S]*?showGroup\("timing"/);
+  assert.match(demo, /showGroup\("clutches"[\s\S]*?showGroup\("multikills"[\s\S]*?showGroup\("objectives"[\s\S]*?showGroup\("roundState"[\s\S]*?showGroup\("killStage"[\s\S]*?showGroup\("timing"[\s\S]*?showGroup\("killContext"[\s\S]*?showGroup\("movement"[\s\S]*?showGroup\("utility"/);
   assert.match(styles, /\.multikills-heading \{ background: rgba\(220, 65, 121, \.21\); \}/);
   assert.match(styles, /\.objectives-heading \{ background: rgba\(194, 143, 28, \.20\); \}/);
   assert.match(styles, /\.timing-heading \{ background: rgba\(181, 101, 61, \.21\); \}/);
@@ -64,7 +64,9 @@ test("collapsed scoreboard summaries stay within their columns", () => {
 });
 
 test("match scoreboard supports section, value-mode, and subgroup controls", () => {
-  assert.match(demo, /const SCOREBOARD_DEFAULT_SECTIONS = \["combat", "opening", "trades", "clutches", "utility"\]/);
+  assert.match(demo, /const SCOREBOARD_DEFAULT_SECTIONS = \["overview", "opening", "trades", "rounds", "utility"\]/);
+  assert.match(demo, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
+  assert.match(demo, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
   assert.match(demo, /const SCOREBOARD_SUBGROUPS = Object\.freeze/);
   assert.match(demo, /className = "scoreboard-section-bar scoreboard-control-row"/);
   assert.match(demo, /\[\["totals", "Totals"\], \["round", "Per round"\]\]/);
@@ -75,7 +77,7 @@ test("match scoreboard supports section, value-mode, and subgroup controls", () 
   assert.match(demo, /group === "clutches"[\s\S]*?fraction/);
   assert.match(demo, /eventPair\(player\[`\$\{phase\}_kills`\], player\[`\$\{phase\}_deaths`\]\)/);
   assert.match(demo, /Object\.keys\(state\.expandedGroups\)\.forEach\(key => \{ state\.expandedGroups\[key\] = false; \}\)/);
-  assert.match(demo, /state\.visibleScoreboardGroups\.has\(key\) && state\.expandedGroups\[key\]/);
+  assert.match(demo, /SCOREBOARD_GROUPS\.find\(\(\[key\]\) => scoreboardGroupVisible\(key\) && state\.expandedGroups\[key\]\)/);
   assert.match(styles, /\.scoreboard-control-panel/);
   assert.match(styles, /\.scoreboard-section-button\.active/);
   assert.match(styles, /grid-template-columns: 94px minmax\(0, 1fr\)/);

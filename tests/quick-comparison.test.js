@@ -21,14 +21,17 @@ test("quick comparison shows filtered rounds instead of redundant match count", 
 });
 
 test("quick comparison sections are selectable and remain expandable", () => {
-  assert.match(componentSource, /expandedGroups: Object\.fromEntries\(sectionOptions\.map\(\(\[key\]\) => \[key, false\]\)\)/);
-  assert.match(componentSource, /const defaultSections = \["combat", "opening", "clutches"\]/);
-  assert.match(componentSource, /SECTION_STORAGE_KEY = "nickstats\.quickComparisonSections\.v1"/);
+  assert.match(componentSource, /expandedGroups: Object\.fromEntries\(columnGroups\.map\(\(\[key\]\) => \[key, false\]\)\)/);
+  assert.match(componentSource, /const defaultSections = \["overview", "opening", "rounds"\]/);
+  assert.match(componentSource, /SECTION_STORAGE_KEY = "nickstats\.quickComparisonSections\.v2"/);
   assert.match(componentSource, /sectionOptions = Object\.freeze/);
-  assert.match(componentSource, /\.filter\(segment => !segment\.group \|\| state\.visibleGroups\.has\(segment\.group\)\)/);
+  assert.match(componentSource, /\.filter\(segment => !segment\.group \|\| groupVisible\(segment\.group\)\)/);
+  assert.match(componentSource, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
+  assert.match(componentSource, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
+  assert.match(componentSource, /\["context", "Context", \["killContext"\], "killContext"\]/);
   assert.match(html, /id="comboQuickSections"/);
   assert.match(html, /id="playerQuickSections"/);
-  assert.match(componentSource, /group: "combat", label: "Combat"/);
+  assert.match(componentSource, /group: "combat", label: "Overview"/);
   assert.match(componentSource, /key: "combat", label: "K-D-A"/);
   assert.match(componentSource, /group: "opening", label: "Opening"/);
   assert.match(componentSource, /key: "opening-assisted", label: "Assisted K"/);
@@ -36,6 +39,7 @@ test("quick comparison sections are selectable and remain expandable", () => {
   assert.match(componentSource, /key: "opening-flash-assisted", label: "Flash A"/);
   assert.match(componentSource, /group: "clutches", label: "Clutches"/);
   assert.match(componentSource, /group: "killContext", label: "Context"/);
+  assert.match(componentSource, /group: "roundState", label: "Man count"/);
   assert.match(componentSource, /key: "context-clawback-bozo", label: "Clawback-Bozo K-D"/);
   assert.match(componentSource, /key: "context-cleanup", label: "Cleanup K-D"/);
   assert.match(componentSource, /key: "kill-context", label: "Bullshit K-D"/);
@@ -74,7 +78,7 @@ test("the standalone Matrix navigation tab is removed", () => {
 test("quick comparison puts summary columns before collapsible combat", () => {
   assert.match(componentSource, /key: "player", label: "Player"[\s\S]*?key: "rating", label: "Rating"[\s\S]*?key: "win-rate", label: "Win rate"[\s\S]*?key: "rounds", label: "Rounds"[\s\S]*?key: "kast", label: "KAST"/);
   assert.match(playersSource, /winRate: summary\.winRate/);
-  assert.match(componentSource, /\{ columns: fixedColumns \},\s*\{ group: "combat", label: "Combat", columns: focusedColumns\("combat", combatColumns\) \},\s*\{ group: "opening"/);
+  assert.match(componentSource, /\{ columns: fixedColumns \},\s*\{ group: "combat", label: "Overview", columns: focusedColumns\("combat", combatColumns\) \},\s*\{ group: "opening"/);
 });
 
 test("quick comparison uses visible section, value-mode, and subgroup controls", () => {
@@ -97,7 +101,7 @@ test("quick comparison preserves sorts when unrelated sections change", () => {
   assert.match(componentSource, /group: column\.group \|\| null/);
   assert.match(componentSource, /const sortedGroup = state\.sort\?\.group/);
   assert.match(componentSource, /sortedGroup === segment\.group \|\| \(next && sortedGroup && state\.expandedGroups\[sortedGroup\]\)/);
-  assert.match(componentSource, /if \(state\.sort\?\.group && !state\.visibleGroups\.has\(state\.sort\.group\)\) state\.sort = null/);
+  assert.match(componentSource, /if \(state\.sort\?\.group && !groupVisible\(state\.sort\.group\)\) state\.sort = null/);
   assert.doesNotMatch(componentSource, /state\.expandedGroups\[segment\.group\] = next; state\.sort = null/);
 });
 

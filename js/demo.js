@@ -6,15 +6,24 @@
   const MATCH_LIST_LIMIT = 25;
   const MAX_UNCOMPRESSED_DEMO_BYTES = 768 * 1024 * 1024;
   const SCOREBOARD_SECTIONS = Object.freeze([
-    ["combat", "Combat"], ["opening", "Opening"], ["trades", "Trades"], ["clutches", "Clutches"],
-    ["killContext", "Context"], ["killStage", "Kill stage"], ["movement", "Movement"],
-    ["utility", "Utility"], ["multikills", "Kill rounds"], ["objectives", "Objectives"], ["timing", "Round timing"]
+    ["overview", "Overview", ["combat"], "overview"], ["opening", "Opening", ["opening"], "opening"],
+    ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "objectives"], "rounds"],
+    ["roundState", "Round state", ["roundState", "killStage", "timing"], "roundState"],
+    ["context", "Context", ["killContext"], "killContext"], ["movement", "Movement", ["movement"], "movement"],
+    ["utility", "Utility", ["utility"], "utility"]
   ]);
-  const SCOREBOARD_DEFAULT_SECTIONS = ["combat", "opening", "trades", "clutches", "utility"];
+  const SCOREBOARD_GROUPS = Object.freeze([
+    ["combat", "Overview"], ["opening", "Opening"], ["trades", "Trades"], ["clutches", "Clutches"],
+    ["multikills", "Kill rounds"], ["objectives", "Objectives"], ["roundState", "Man count"],
+    ["killStage", "Kill stage"], ["timing", "Round timing"], ["killContext", "Context"],
+    ["movement", "Movement"], ["utility", "Utility"]
+  ]);
+  const SCOREBOARD_GROUP_SECTION = Object.freeze(Object.fromEntries(SCOREBOARD_SECTIONS.flatMap(([section, , groups]) => groups.map(group => [group, section]))));
+  const SCOREBOARD_DEFAULT_SECTIONS = ["overview", "opening", "trades", "rounds", "utility"];
   const SCOREBOARD_SUBGROUPS = Object.freeze({
     combat: [["output", "Output", [0, 1, 2, 3, 4]], ["damage", "Damage", [5, 6, 7, 8]]],
     opening: [["results", "Results", [0, 1, 23, 24, 25]], ["received", "Help received", [2, 3, 4, 5, 26]], ["given", "Help given", [6, 7, 8, 9]], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]]],
-    killContext: [["manCount", "Man count", [0, 1, 2, 3]], ["visibility", "Visibility", [4, 5, 6, 7, 8]], ["readiness", "Readiness", [9, 10, 11, 12]]],
+    killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4]], ["readiness", "Readiness", [5, 6, 7, 8]]],
     movement: [["state", "State", [0, 1, 2, 3]], ["speed", "Speed", [4, 5, 6, 7]]],
     utility: [["damage", "Damage", [0, 1]], ["usage", "Usage", [2, 3, 4, 5, 6]], ["flashes", "Flashes", [7, 8, 9]], ["assists", "Assisted kills", [10, 11, 12]]]
   });
@@ -44,8 +53,8 @@
     rejectReady: null,
     resolveParse: null,
     rejectParse: null,
-    expandedGroups: Object.fromEntries(SCOREBOARD_SECTIONS.map(([key]) => [key, false])),
-    visibleScoreboardGroups: new Set(SCOREBOARD_DEFAULT_SECTIONS),
+    expandedGroups: Object.fromEntries(SCOREBOARD_GROUPS.map(([key]) => [key, false])),
+    visibleScoreboardSections: new Set(SCOREBOARD_DEFAULT_SECTIONS),
     scoreboardSubgroups: {},
     scoreboardValueMode: "totals",
     scoreboardPerGrenadeUtility: false,
@@ -1475,8 +1484,12 @@
     return subgroup[2].map(index => values[index]).filter(value => value != null);
   }
 
+  function scoreboardGroupVisible(group) {
+    return state.visibleScoreboardSections.has(SCOREBOARD_GROUP_SECTION[group]);
+  }
+
   function scoreboardCells(row, group, collapsed, expanded) {
-    if (!state.visibleScoreboardGroups.has(group)) return;
+    if (!scoreboardGroupVisible(group)) return;
     const source = state.expandedGroups[group] ? scoreboardFocus(group, expanded) : [collapsed];
     const rounds = Math.max(1, numberValue(row.dataset.rounds));
     const values = state.scoreboardValueMode === "round"
@@ -1506,19 +1519,21 @@
       const button = document.createElement("button"); button.type = "button"; button.className = "scoreboard-preset-button"; button.textContent = text; button.addEventListener("click", onClick); sectionButtons.appendChild(button);
     };
     preset("Default", () => {
-      state.visibleScoreboardGroups = new Set(SCOREBOARD_DEFAULT_SECTIONS);
-      Object.keys(state.expandedGroups).forEach(group => { if (!state.visibleScoreboardGroups.has(group)) state.expandedGroups[group] = false; });
-      if (state.scoreboardSort?.group && !state.visibleScoreboardGroups.has(state.scoreboardSort.group)) state.scoreboardSort = null;
+      state.visibleScoreboardSections = new Set(SCOREBOARD_DEFAULT_SECTIONS);
+      Object.keys(state.expandedGroups).forEach(group => { if (!scoreboardGroupVisible(group)) state.expandedGroups[group] = false; });
+      if (state.scoreboardSort?.group && !scoreboardGroupVisible(state.scoreboardSort.group)) state.scoreboardSort = null;
       rerenderScoreboard();
     });
-    preset("All", () => { state.visibleScoreboardGroups = new Set(SCOREBOARD_SECTIONS.map(([key]) => key)); rerenderScoreboard(); });
-    for (const [key, text] of SCOREBOARD_SECTIONS) {
-      const button = document.createElement("button"); button.type = "button"; button.className = `scoreboard-section-button ${key}-heading`;
-      const active = state.visibleScoreboardGroups.has(key); button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); button.textContent = text;
+    preset("All", () => { state.visibleScoreboardSections = new Set(SCOREBOARD_SECTIONS.map(([key]) => key)); rerenderScoreboard(); });
+    for (const [key, text, groups, style] of SCOREBOARD_SECTIONS) {
+      const button = document.createElement("button"); button.type = "button"; button.className = `scoreboard-section-button ${style}-heading`;
+      const active = state.visibleScoreboardSections.has(key); button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); button.textContent = text;
       button.addEventListener("click", () => {
-        if (state.visibleScoreboardGroups.has(key)) { state.visibleScoreboardGroups.delete(key); state.expandedGroups[key] = false; }
-        else state.visibleScoreboardGroups.add(key);
-        if (!state.visibleScoreboardGroups.has(key) && state.scoreboardSort?.group === key) state.scoreboardSort = null;
+        if (state.visibleScoreboardSections.has(key)) {
+          state.visibleScoreboardSections.delete(key);
+          groups.forEach(group => { state.expandedGroups[group] = false; });
+        } else state.visibleScoreboardSections.add(key);
+        if (!state.visibleScoreboardSections.has(key) && state.scoreboardSort?.group && groups.includes(state.scoreboardSort.group)) state.scoreboardSort = null;
         rerenderScoreboard();
       });
       sectionButtons.appendChild(button);
@@ -1541,10 +1556,10 @@
       ? "Raw counts"
       : `Counts divided by rounds played${state.scoreboardPerGrenadeUtility ? "; utility yield columns use the relevant grenade" : ""}`;
     mode.appendChild(Object.assign(document.createElement("small"), { className: "scoreboard-control-note", textContent: modeNote }));
-    const activeGroup = SCOREBOARD_SECTIONS.find(([key]) => state.visibleScoreboardGroups.has(key) && state.expandedGroups[key])?.[0];
+    const activeGroup = SCOREBOARD_GROUPS.find(([key]) => scoreboardGroupVisible(key) && state.expandedGroups[key])?.[0];
     const subgroupBar = document.createElement("div"); subgroupBar.className = "scoreboard-subgroup-bar scoreboard-control-row"; subgroupBar.hidden = !activeGroup || !SCOREBOARD_SUBGROUPS[activeGroup];
     if (!subgroupBar.hidden) {
-      subgroupBar.appendChild(Object.assign(document.createElement("strong"), { textContent: `${SCOREBOARD_SECTIONS.find(([key]) => key === activeGroup)?.[1]} detail` }));
+      subgroupBar.appendChild(Object.assign(document.createElement("strong"), { textContent: `${SCOREBOARD_GROUPS.find(([key]) => key === activeGroup)?.[1]} detail` }));
       const subgroupButtons = document.createElement("div"); subgroupButtons.className = "scoreboard-button-group";
       for (const [key, text] of SCOREBOARD_SUBGROUPS[activeGroup]) {
         const button = document.createElement("button"); button.type = "button"; button.textContent = text;
@@ -1627,6 +1642,9 @@
     const clutchWins = [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_wins?.[opponents] ?? 0), 0);
     const clutchAttempts = [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_attempts?.[opponents] ?? 0), 0);
     scoreboardCells(row, "clutches", `${clutchWins}/${clutchAttempts}`, [5, 4, 3, 2, 1].map(opponents => `${player.clutch_wins?.[opponents] ?? 0}/${player.clutch_attempts?.[opponents] ?? 0}`));
+    const multikillTotal = [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0);
+    scoreboardCells(row, "multikills", multikillTotal, [5, 4, 3, 2, 1].map(kills => player.kill_rounds?.[kills] ?? 0));
+    scoreboardCells(row, "objectives", `${player.objectives?.plants ?? 0}/${player.objectives?.defuses ?? 0}`, [player.objectives?.plants ?? 0, player.objectives?.defuses ?? 0]);
     const timingAverage = kind => {
       if (!player.timing_available) return "—";
       const samples = numberValue(player[`${kind}_time_samples`]);
@@ -1635,11 +1653,13 @@
     const timingPair = phase => player.timing_available
       ? eventPair(player[`${phase}_kills`], player[`${phase}_deaths`])
       : "—";
-    scoreboardCells(row, "killContext", unfair, [manCount, evenCount, advantageCount, cleanupCount, blind, blindKiller, wall, smoke, air, grenade, knife, equipment, running]);
+    scoreboardCells(row, "roundState", manCount, [manCount, evenCount, advantageCount, cleanupCount]);
     const stagePair = alive => player.round_state_available
       ? eventPair(player.kill_stage?.enemy_alive?.[alive]?.kills, player.kill_stage?.enemy_alive?.[alive]?.deaths)
       : "—";
     scoreboardCells(row, "killStage", player.round_state_available ? `${player.kill_stage?.enemy_alive?.[5]?.kills ?? 0}/${player.kill_stage?.enemy_alive?.[1]?.kills ?? 0}` : "—", [5, 4, 3, 2, 1].map(stagePair));
+    scoreboardCells(row, "timing", player.timing_available ? `${timingAverage("kill")}/${timingAverage("death")}` : "Not parsed", [timingAverage("kill"), timingAverage("death"), timingPair("early"), timingPair("mid"), timingPair("late"), timingPair("postplant")]);
+    scoreboardCells(row, "killContext", unfair, [blind, blindKiller, wall, smoke, air, grenade, knife, equipment, running]);
     const speedPair = summary => `${Number.isFinite(summary?.average) ? summary.average.toFixed(1) : "—"}/${Number.isFinite(summary?.maximum) ? summary.maximum.toFixed(1) : "—"}`;
     const speedPercentPair = summary => `${speedValue(summary?.average_percent_of_max)}/${speedValue(summary?.maximum_percent_of_max)}`;
     scoreboardCells(row, "movement", `${context.moving_kills ?? 0}/${context.running_kills ?? 0}/${context.airborne_kills ?? 0}`, [moving, still, running, air, speedPair(context.speed_on_kill), speedPercentPair(context.speed_on_kill), speedPair(context.killer_speed_on_death), speedPercentPair(context.killer_speed_on_death)]);
@@ -1668,16 +1688,12 @@
       ? (state.scoreboardPerGrenadeUtility ? utilityRates : utilityRoundRates)
       : utilityTotals;
     scoreboardCells(row, "utility", `${player.grenade_damage?.total ?? 0} dmg · ${totalThrown} thrown`, displayedUtility);
-    const multikillTotal = [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0);
-    scoreboardCells(row, "multikills", multikillTotal, [5, 4, 3, 2, 1].map(kills => player.kill_rounds?.[kills] ?? 0));
-    scoreboardCells(row, "objectives", `${player.objectives?.plants ?? 0}/${player.objectives?.defuses ?? 0}`, [player.objectives?.plants ?? 0, player.objectives?.defuses ?? 0]);
-    scoreboardCells(row, "timing", player.timing_available ? `${timingAverage("kill")}/${timingAverage("death")}` : "Not parsed", [timingAverage("kill"), timingAverage("death"), timingPair("early"), timingPair("mid"), timingPair("late"), timingPair("postplant")]);
     markGroupBoundaries(row);
     return row;
   }
 
   function markGroupBoundaries(row) {
-    for (const group of ["combat", "opening", "trades", "clutches", "killContext", "killStage", "movement", "utility", "multikills", "objectives", "timing"]) {
+    for (const [group] of SCOREBOARD_GROUPS) {
       const cells = [...row.cells].filter(item => item.classList.contains(`${group}-cell`));
       cells[0]?.classList.add("demo-group-start");
       cells.at(-1)?.classList.add("demo-group-end");
@@ -1815,10 +1831,6 @@
       },
       killContext: {
         "Bullshit K-D": sortSpecs.killContextSummary,
-        "Clawback-Bozo K-D": sortSpecs.manCountContext,
-        "Even K-D": sortSpecs.evenContext,
-        "Advantage K / Outnumbered D": sortSpecs.advantageContext,
-        "Cleanup K-D": sortSpecs.cleanupContext,
         "Enemy blind K-D": sortSpecs.blindContext,
         "Killer blind K-D": sortSpecs.blindKillerContext,
         "Wallbang K-D": sortSpecs.wallContext,
@@ -1830,6 +1842,12 @@
         "Move K-D": sortSpecs.movingContext,
         "Still K-D": sortSpecs.stillContext,
         "Run K-D": sortSpecs.runningContext
+      },
+      roundState: {
+        "Clawback-Bozo K-D": sortSpecs.manCountContext,
+        "Even K-D": sortSpecs.evenContext,
+        "Advantage K / Outnumbered D": sortSpecs.advantageContext,
+        "Cleanup K-D": sortSpecs.cleanupContext
       },
       killStage: {
         "5/1 alive K": sortSpecs.killStageSummary,
@@ -1982,20 +2000,21 @@
   function scoreboardColumnWidths() {
     const widths = [160, 72, 82, 72];
     const add = (group, expandedWidths, collapsedWidth) => {
-      if (!state.visibleScoreboardGroups.has(group)) return;
+      if (!scoreboardGroupVisible(group)) return;
       widths.push(...(state.expandedGroups[group] ? scoreboardFocus(group, expandedWidths) : [collapsedWidth]));
     };
     add("combat", [54, 54, 54, 62, 62, 82, 88, 76, 72], 90);
     add("opening", [58, 58, 82, 68, 72, 88, 68, 76, 76, 84, 82, 68, 68, 92, 104, 112, 112, 88, 120, 102, 92, 120, 110, 82, 62, 72, 76], 108);
     add("trades", [58, 54, 96, 58, 54, 96], 88);
     add("clutches", [55, 55, 55, 55, 55], 82);
-    add("killContext", [128, 88, 168, 104, 104, 104, 98, 88, 88, 112, 104, 88, 88], 112);
-    add("killStage", [92, 92, 92, 92, 92], 104);
-    add("movement", [88, 88, 88, 88, 116, 132, 126, 142], 112);
-    add("utility", [82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90], 176);
     add("multikills", [55, 55, 55, 55, 55], 92);
     add("objectives", [74, 74], 128);
+    add("roundState", [128, 88, 168, 104], 112);
+    add("killStage", [92, 92, 92, 92, 92], 104);
     add("timing", [82, 82, 84, 84, 84, 112], 110);
+    add("killContext", [104, 104, 98, 88, 88, 112, 104, 88, 88], 112);
+    add("movement", [88, 88, 88, 88, 116, 132, 126, 142], 112);
+    add("utility", [82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90], 176);
     return widths;
   }
 
@@ -2034,19 +2053,20 @@
     const detailHeader = document.createElement("tr");
     ["Player", "Rating", "Rounds P/W", "KAST"].forEach(label => regularHeader(header, label));
     const showGroup = (group, label, labels, collapsedLabel) => {
-      if (state.visibleScoreboardGroups.has(group)) groupHeader(header, detailHeader, group, label, labels, collapsedLabel);
+      if (scoreboardGroupVisible(group)) groupHeader(header, detailHeader, group, label, labels, collapsedLabel);
     };
-    showGroup("combat", "Combat", ["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A");
+    showGroup("combat", "Overview", ["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A");
     showGroup("opening", "Opening", ["K", "D", "Assisted K", "Dmg A", "Flash A", "Traded D", "Trade K", "A earned", "Dmg A earned", "Flash A earned", "Enemy blind K", "Blind K", "Blind D", "Blind killer D", "Enemy assisted D", "Enemy dmg A D", "Enemy flash A D", "Own flash K", "Victim-side flash K", "Unknown flash K", "Killer flash D", "Own-side flash D", "Unknown flash D", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%");
     showGroup("trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     showGroup("clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A");
-    showGroup("killContext", "Context", ["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D", "Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D");
-    showGroup("killStage", "Kill stage", ["5 alive K-D", "4 alive K-D", "3 alive K-D", "2 alive K-D", "1 alive K-D"], "5/1 alive K");
-    showGroup("movement", "Movement", ["Move K-D", "Still K-D", "Run K-D", "Air K-D", "Kill speed avg/max", "Kill speed avg/peak %", "Enemy speed avg/max", "Enemy speed avg/peak %"], "Move/run/air");
-    showGroup("utility", "Utility", ["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Blind sec", "FA", "Damage assist", "Teammate flash", "Own flash"], "Damage · thrown");
     showGroup("multikills", "Kill rounds", ["5K", "4K", "3K", "2K", "1K"]);
     showGroup("objectives", "Objectives", ["Plants", "Defuses"], "Plants/defuses");
+    showGroup("roundState", "Man count", ["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D"], "Clawback-Bozo K-D");
+    showGroup("killStage", "Kill stage", ["5 alive K-D", "4 alive K-D", "3 alive K-D", "2 alive K-D", "1 alive K-D"], "5/1 alive K");
     showGroup("timing", "Round timing", ["Avg kill", "Avg death", "Early K-D", "Mid K-D", "Late K-D", "Post-plant K-D"], "Avg K/D time");
+    showGroup("killContext", "Context", ["Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D");
+    showGroup("movement", "Movement", ["Move K-D", "Still K-D", "Run K-D", "Air K-D", "Kill speed avg/max", "Kill speed avg/peak %", "Enemy speed avg/max", "Enemy speed avg/peak %"], "Move/run/air");
+    showGroup("utility", "Utility", ["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Blind sec", "FA", "Damage assist", "Teammate flash", "Own flash"], "Damage · thrown");
     thead.append(header, detailHeader);
     const body = document.createElement("tbody");
     sortedPlayers(team.players).forEach(player => body.appendChild(playerRow(player)));
