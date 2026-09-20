@@ -2632,6 +2632,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-profile-tab[data-player-view="openings"].active { --tab-active-accent: var(--amber); }
 .player-profile-tab[data-player-view="context"].active { --tab-active-accent: var(--section-context); }
 .player-profile-tab[data-player-view="rounds"].active { --tab-active-accent: var(--green); }
+.player-profile-tab[data-player-view="roundState"].active { --tab-active-accent: var(--section-timing); }
 .player-profile-tab[data-player-view="movement"].active { --tab-active-accent: var(--section-movement); }
 .player-profile-tab[data-player-view="graphs"].active { --tab-active-accent: var(--blue); }
 .player-profile-tab[data-combo-profile-view="utility"].active { --tab-active-accent: var(--blue); }
@@ -2639,6 +2640,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-profile-tab[data-combo-profile-view="openings"].active { --tab-active-accent: var(--amber); }
 .player-profile-tab[data-combo-profile-view="context"].active { --tab-active-accent: var(--section-context); }
 .player-profile-tab[data-combo-profile-view="rounds"].active { --tab-active-accent: var(--green); }
+.player-profile-tab[data-combo-profile-view="roundState"].active { --tab-active-accent: var(--section-timing); }
 .player-profile-tab[data-combo-profile-view="movement"].active { --tab-active-accent: var(--section-movement); }
 .player-profile-tab[data-combo-profile-view="graphs"].active { --tab-active-accent: var(--blue); }
 
@@ -2708,6 +2710,17 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   border-left: 3px solid var(--section-context);
   border-radius: 0 9px 9px 0;
   background: rgba(225, 82, 30, .12);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.player-round-state-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--section-timing);
+  border-radius: 0 9px 9px 0;
+  background: rgba(181, 101, 61, .12);
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
@@ -2783,6 +2796,13 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   --profile-accent: var(--green);
   --profile-accent-rgb: 112, 155, 52;
   border-top-style: dotted;
+}
+
+[data-player-profile-view="roundState"] .player-stat-section,
+[data-combo-profile-panel="roundState"] .player-stat-section {
+  --profile-accent: var(--section-timing);
+  --profile-accent-rgb: 181, 101, 61;
+  border-top-style: double;
 }
 
 [data-player-profile-view="movement"] .player-stat-section,
@@ -2870,6 +2890,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   display: grid;
   gap: 14px;
 }
+
+.player-round-state-sections { margin-top: 14px; }
 
 .player-count-strip {
   display: grid;

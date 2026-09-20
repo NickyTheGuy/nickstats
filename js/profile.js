@@ -125,7 +125,17 @@
     fillCards(`${prefix}RecordStats`, recordCards);
     const damageDifferential = number(s.damage) - number(s.damage_received);
     const killRateLabel = roundResult === "win" ? "KPRW" : roundResult === "loss" ? "KPRL" : "per round";
-    fillCards(`${prefix}CombatStats`, [["Kills", integer(s.kills), `${decimal(ratio(s.kills, rounds), 2)} ${killRateLabel}`], ["Deaths", integer(s.deaths), countPerRound(s.deaths, rounds)], ["Assists", integer(s.assists), countPerRound(s.assists, rounds)], ["Headshot rate", percent(100 * ratio(s.headshots, s.kills)), `${integer(s.headshots)} headshots`], ["Damage received", integer(s.damage_received), countPerRound(s.damage_received, rounds, 1)], ["Damage differential", `${damageDifferential >= 0 ? "+" : ""}${integer(damageDifferential)}`, `${damageDifferential >= 0 ? "+" : ""}${decimal(ratio(damageDifferential, rounds), 1)} per round`]]);
+    fillCards(`${prefix}CombatOutputStats`, [
+      ["Kills", integer(s.kills), `${decimal(ratio(s.kills, rounds), 2)} ${killRateLabel}`],
+      ["Assists", integer(s.assists), countPerRound(s.assists, rounds)],
+      ["Damage dealt", integer(s.damage), countPerRound(s.damage, rounds, 1)],
+      ["Headshot rate", percent(100 * ratio(s.headshots, s.kills)), `${integer(s.headshots)} headshots`]
+    ]);
+    fillCards(`${prefix}CombatCostStats`, [
+      ["Deaths", integer(s.deaths), countPerRound(s.deaths, rounds)],
+      ["Damage received", integer(s.damage_received), countPerRound(s.damage_received, rounds, 1)],
+      ["Damage differential", `${damageDifferential >= 0 ? "+" : ""}${integer(damageDifferential)}`, `${damageDifferential >= 0 ? "+" : ""}${decimal(ratio(damageDifferential, rounds), 1)} per round`]
+    ]);
     const utilityDamage = number(s.he_damage) + number(s.fire_damage);
     const damagingGrenades = number(s.he_grenades_thrown) + number(s.fire_grenades_thrown);
     fillCards(`${prefix}UtilityDamageStats`, [
@@ -140,39 +150,65 @@
       ["Enemy blind time", `${decimal(blindSeconds, 1)}s`, `${perGrenade(blindSeconds, s.flashbangs_thrown, "flash", 2, "s")} · ${decimal(ratio(blindSeconds, rounds), 2)}s per round`],
       ["Flash assists", statInteger("flash_assists"), statPerGrenadeAndRound("flash_assists", "flashbangs_thrown", "flash")]
     ]);
-    fillCards(`${prefix}AssistStats`, [["Damage", integer(s.damage_assisted_kills), countPerRound(s.damage_assisted_kills, rounds)], ["Teammate flash", statInteger("teammate_flash_assisted_kills"), statPerRound("teammate_flash_assisted_kills")], ["Own flash", integer(s.own_flash_kills), `${perGrenade(s.own_flash_kills, s.flashbangs_thrown, "flash")} · ${countPerRound(s.own_flash_kills, rounds)}`]]);
-    fillCards(`${prefix}TradeAttackStats`, [["Opportunities", integer(s.trade_opportunities), countPerRound(s.trade_opportunities, rounds)], ["Attempts", integer(s.trade_attempts), `${countPerRound(s.trade_attempts, rounds)} · ${percent(100 * ratio(s.trade_attempts, s.trade_opportunities))} response`], ["Trade kills", integer(s.trade_kills), `${countPerRound(s.trade_kills, rounds)} · ${integer(s.trade_successes)} successful responses · ${percent(100 * ratio(s.trade_successes, s.trade_attempts))} success`]]);
-    fillCards(`${prefix}TradeDeathStats`, [["Tradeable deaths", integer(s.tradeable_deaths), countPerRound(s.tradeable_deaths, rounds)], ["Teammates attempted", integer(s.attempted_tradeable_deaths), `${countPerRound(s.attempted_tradeable_deaths, rounds)} · ${percent(100 * ratio(s.attempted_tradeable_deaths, s.tradeable_deaths))} response`], ["Deaths traded", integer(s.traded_deaths), `${countPerRound(s.traded_deaths, rounds)} · ${percent(100 * ratio(s.traded_deaths, s.attempted_tradeable_deaths))} conversion`]]);
+    fillCards(`${prefix}AssistStats`, [["Damage-assisted kills", integer(s.damage_assisted_kills), countPerRound(s.damage_assisted_kills, rounds)], ["Teammate-flash kills", statInteger("teammate_flash_assisted_kills"), statPerRound("teammate_flash_assisted_kills")], ["Own-flash kills", integer(s.own_flash_kills), `${perGrenade(s.own_flash_kills, s.flashbangs_thrown, "flash")} · ${countPerRound(s.own_flash_kills, rounds)}`]]);
+    fillCards(`${prefix}TradeAttackStats`, [["Chances to trade", integer(s.trade_opportunities), countPerRound(s.trade_opportunities, rounds)], ["Trade attempts", integer(s.trade_attempts), `${countPerRound(s.trade_attempts, rounds)} · attempted ${percent(100 * ratio(s.trade_attempts, s.trade_opportunities))} of chances`], ["Trade kills", integer(s.trade_kills), `${countPerRound(s.trade_kills, rounds)} · converted ${percent(100 * ratio(s.trade_kills, s.trade_attempts))} of attempts`]]);
+    fillCards(`${prefix}TradeDeathStats`, [["Deaths teammates could trade", integer(s.tradeable_deaths), countPerRound(s.tradeable_deaths, rounds)], ["Deaths teammates tried to trade", integer(s.attempted_tradeable_deaths), `${countPerRound(s.attempted_tradeable_deaths, rounds)} · response on ${percent(100 * ratio(s.attempted_tradeable_deaths, s.tradeable_deaths))}`], ["Deaths successfully traded", integer(s.traded_deaths), `${countPerRound(s.traded_deaths, rounds)} · converted ${percent(100 * ratio(s.traded_deaths, s.attempted_tradeable_deaths))} of attempts`]]);
     const openingTotal = number(s.opening_kills) + number(s.opening_deaths), openingDiff = number(s.opening_kills) - number(s.opening_deaths);
     const openingScope = key => availability.scope(rawStats, key);
     const openingPercent = (key, numerator, denominator) => {
       const scoped = openingScope(key);
       return scoped ? percent(100 * ratio(scoped[numerator], scoped[denominator])) : "—";
     };
-    fillCards(`${prefix}OpeningStats`, [
+    fillCards(`${prefix}OpeningOutcomeStats`, [
       ["Opening kills", integer(s.opening_kills), countPerRound(s.opening_kills, rounds)],
       ["Opening deaths", integer(s.opening_deaths), countPerRound(s.opening_deaths, rounds)],
-      ["Opening deaths traded", statInteger("opening_traded_deaths"), statAvailable("opening_traded_deaths") ? availabilityNote("opening_traded_deaths", `${openingPercent("opening_traded_deaths", "opening_traded_deaths", "opening_deaths")} of opening deaths`) : "Not available in these demos"],
-      ["Opening trade kills", statInteger("opening_trade_kills"), statPerRound("opening_trade_kills")],
-      ["Assisted opening kills", statInteger("opening_assisted_kills"), statAvailable("opening_assisted_kills") ? availabilityNote("opening_assisted_kills", `${openingPercent("opening_assisted_kills", "opening_assisted_kills", "opening_kills")} of opening kills`) : "Not available in these demos"],
-      ["Opening assists earned", statInteger("opening_assists"), statPerRound("opening_assists")],
-      ["Damage opening assists", statInteger("opening_damage_assists"), statPerRound("opening_damage_assists")],
-      ["Flash opening assists", statInteger("opening_flash_assists"), statPerRound("opening_flash_assists")],
-      ["Damage-assisted openings", statInteger("opening_damage_assisted_kills"), statPerRound("opening_damage_assisted_kills")],
-      ["Flash-assisted openings", statInteger("opening_flash_assisted_kills"), statPerRound("opening_flash_assisted_kills")],
-      ["Opening kill: enemy blinded", statInteger("opening_blinded_enemy_kills"), statPerRound("opening_blinded_enemy_kills")],
-      ["Opening kill: player blinded", statInteger("opening_blind_kills"), statPerRound("opening_blind_kills")],
-      ["Opening death: player blinded", statInteger("opening_deaths_while_blind"), statPerRound("opening_deaths_while_blind")],
-      ["Opening death: enemy blinded", statInteger("opening_deaths_to_blind_killer"), statPerRound("opening_deaths_to_blind_killer")],
-      ["Enemy-assisted opening deaths", statInteger("opening_enemy_assisted_deaths"), statAvailable("opening_enemy_assisted_deaths") ? availabilityNote("opening_enemy_assisted_deaths", `${openingPercent("opening_enemy_assisted_deaths", "opening_enemy_assisted_deaths", "opening_deaths")} of opening deaths`) : "Not available in these demos"],
-      ["Enemy damage-assisted deaths", statInteger("opening_enemy_damage_assisted_deaths"), statPerRound("opening_enemy_damage_assisted_deaths")],
-      ["Enemy flash-assisted deaths", statInteger("opening_enemy_flash_assisted_deaths"), statPerRound("opening_enemy_flash_assisted_deaths")],
-      ["Opening attempt rate", percent(100 * ratio(openingTotal, rounds)), `${integer(openingTotal)} duels · ${countPerRound(openingTotal, rounds)}`],
+      ["Opening duels", integer(openingTotal), countPerRound(openingTotal, rounds)],
+      ["Rounds involved", percent(100 * ratio(openingTotal, rounds)), `${integer(openingTotal)} of ${integer(rounds)} rounds`],
       ["Opening differential", `${openingDiff >= 0 ? "+" : ""}${integer(openingDiff)}`, `${openingDiff >= 0 ? "+" : ""}${decimal(ratio(openingDiff, rounds), 2)} per round`],
-      ["Opening success", percent(100 * ratio(s.opening_kills, openingTotal)), `${integer(s.opening_kills)} won · ${integer(s.opening_deaths)} lost`]
+      ["Opening duel win rate", percent(100 * ratio(s.opening_kills, openingTotal)), `${integer(s.opening_kills)} won · ${integer(s.opening_deaths)} lost`]
     ]);
-    fillList(`${prefix}KillContextStats`, [["Clawback kills", s.clawback_kills], ["Even-state kills", s.even_kills], ["Advantage kills", s.advantage_kills], ["Cleanup kills", s.cleanup_kills], ["Enemy was blinded", s.blinded_kills], ["Player was blinded", s.blind_kills], ["Wallbang kills", s.wallbang_kills], ["Smoke kills", s.smoke_kills], ["Airborne kills", s.airborne_kills], ["Running kills", s.running_kills], ["Enemy had a grenade out", s.grenade_out_kills], ["Enemy had a knife out", s.knife_out_kills], ["Paul kills", s.equipment_disadvantage_kills], ["Bullshit kills (unique)", s.unfair_kills]].map(([label, value]) => metric(label, value)));
-    fillList(`${prefix}DeathContextStats`, [["Bozo deaths", s.bozo_deaths], ["Even-state deaths", s.even_deaths], ["Outnumbered deaths", s.disadvantage_deaths], ["Cleanup deaths", s.cleanup_deaths], ["Player was blinded", s.deaths_while_blind], ["Enemy was blinded", s.deaths_to_blind_killer], ["Wallbang deaths", s.wallbang_deaths], ["Smoke deaths", s.smoke_deaths], ["Deaths to airborne enemies", s.airborne_deaths], ["Deaths to running enemies", s.running_killer_deaths], ["Player had a grenade out", s.grenade_out_deaths], ["Player had a knife out", s.knife_out_deaths], ["Paul deaths", s.equipment_disadvantage_deaths], ["Bullshit deaths (unique)", s.unfair_deaths]].map(([label, value]) => metric(label, value)));
+    fillCards(`${prefix}OpeningSupportReceivedStats`, [
+      ["Kills with teammate help", statInteger("opening_assisted_kills"), statAvailable("opening_assisted_kills") ? availabilityNote("opening_assisted_kills", `${openingPercent("opening_assisted_kills", "opening_assisted_kills", "opening_kills")} of opening kills`) : "Not available in these demos"],
+      ["Kills with damage help", statInteger("opening_damage_assisted_kills"), statPerRound("opening_damage_assisted_kills")],
+      ["Kills with flash help", statInteger("opening_flash_assisted_kills"), statPerRound("opening_flash_assisted_kills")],
+      ["Share receiving help", statAvailable("opening_assisted_kills") ? openingPercent("opening_assisted_kills", "opening_assisted_kills", "opening_kills") : "—", statAvailable("opening_assisted_kills") ? "Of this player’s opening kills" : "Not available in these demos"]
+    ]);
+    fillCards(`${prefix}OpeningSupportGivenStats`, [
+      ["Opening kills assisted", statInteger("opening_assists"), statPerRound("opening_assists")],
+      ["Damage assists provided", statInteger("opening_damage_assists"), statPerRound("opening_damage_assists")],
+      ["Flash assists provided", statInteger("opening_flash_assists"), statPerRound("opening_flash_assists")]
+    ]);
+    fillCards(`${prefix}OpeningTradeStats`, [
+      ["Your opening deaths traded", statInteger("opening_traded_deaths"), statAvailable("opening_traded_deaths") ? availabilityNote("opening_traded_deaths", `${openingPercent("opening_traded_deaths", "opening_traded_deaths", "opening_deaths")} of opening deaths`) : "Not available in these demos"],
+      ["Opening deaths you traded", statInteger("opening_trade_kills"), statPerRound("opening_trade_kills")]
+    ]);
+    fillCards(`${prefix}OpeningBlindStats`, [
+      ["Killed a blinded enemy", statInteger("opening_blinded_enemy_kills"), statPerRound("opening_blinded_enemy_kills")],
+      ["Got the kill while blinded", statInteger("opening_blind_kills"), statPerRound("opening_blind_kills")],
+      ["Died while blinded", statInteger("opening_deaths_while_blind"), statPerRound("opening_deaths_while_blind")],
+      ["Killed by a blinded enemy", statInteger("opening_deaths_to_blind_killer"), statPerRound("opening_deaths_to_blind_killer")]
+    ]);
+    fillCards(`${prefix}OpeningEnemySupportStats`, [
+      ["Enemy kills with teammate help", statInteger("opening_enemy_assisted_deaths"), statAvailable("opening_enemy_assisted_deaths") ? availabilityNote("opening_enemy_assisted_deaths", `${openingPercent("opening_enemy_assisted_deaths", "opening_enemy_assisted_deaths", "opening_deaths")} of opening deaths`) : "Not available in these demos"],
+      ["Enemy kills with damage help", statInteger("opening_enemy_damage_assisted_deaths"), statPerRound("opening_enemy_damage_assisted_deaths")],
+      ["Enemy kills with flash help", statInteger("opening_enemy_flash_assisted_deaths"), statPerRound("opening_enemy_flash_assisted_deaths")]
+    ]);
+    fillList(`${prefix}KillVisibilityStats`, [["Enemy blinded", s.blinded_kills], ["Player blinded", s.blind_kills], ["Wallbang", s.wallbang_kills], ["Through smoke", s.smoke_kills]].map(([label, value]) => metric(label, value)));
+    fillList(`${prefix}DeathVisibilityStats`, [["Player blinded", s.deaths_while_blind], ["Enemy blinded", s.deaths_to_blind_killer], ["Wallbang", s.wallbang_deaths], ["Through smoke", s.smoke_deaths]].map(([label, value]) => metric(label, value)));
+    fillList(`${prefix}KillReadinessStats`, [["Enemy holding a grenade", s.grenade_out_kills], ["Enemy holding a knife", s.knife_out_kills], ["Paul kills", s.equipment_disadvantage_kills], ["Bullshit kills (unique)", s.unfair_kills]].map(([label, value]) => metric(label, value)));
+    fillList(`${prefix}DeathReadinessStats`, [["Holding a grenade", s.grenade_out_deaths], ["Holding a knife", s.knife_out_deaths], ["Paul deaths", s.equipment_disadvantage_deaths], ["Bullshit deaths (unique)", s.unfair_deaths]].map(([label, value]) => metric(label, value)));
+    fillCards(`${prefix}RoundStateKillStats`, [
+      ["Clawback kills", statInteger("clawback_kills"), statPerRound("clawback_kills")],
+      ["Even-state kills", statInteger("even_kills"), statPerRound("even_kills")],
+      ["Advantage kills", statInteger("advantage_kills"), statPerRound("advantage_kills")],
+      ["Cleanup kills", statInteger("cleanup_kills"), statPerRound("cleanup_kills")]
+    ]);
+    fillCards(`${prefix}RoundStateDeathStats`, [
+      ["Bozo deaths", statInteger("bozo_deaths"), statPerRound("bozo_deaths")],
+      ["Even-state deaths", statInteger("even_deaths"), statPerRound("even_deaths")],
+      ["Outnumbered deaths", statInteger("disadvantage_deaths"), statPerRound("disadvantage_deaths")],
+      ["Cleanup deaths", statInteger("cleanup_deaths"), statPerRound("cleanup_deaths")]
+    ]);
     fillStrip(`${prefix}ClutchStats`, [1, 2, 3, 4, 5].map(opponents => {
       const wins = number(s[`clutch_1v${opponents}`]);
       const attempts = number(s[`clutch_attempt_1v${opponents}`]);
