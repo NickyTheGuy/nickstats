@@ -113,3 +113,12 @@ test("quick comparison uses every open profile while graphs auto-select new prof
   assert.match(playersSource, /if \(state\.graphPlayers\.size < MAX_GRAPH_PLAYERS\) state\.graphPlayers\.add\(key\)/);
   assert.match(playersSource, /renderGraphPlayers\(\); renderGraphs\(\); renderQuickComparison\(\);/);
 });
+
+test("player filters are shared across every open profile", () => {
+  assert.match(playersSource, /side: "ALL", buy: "ALL", opponentBuy: "ALL", roundResult: "ALL", result: "ALL", maps: \[\]/);
+  assert.match(playersSource, /function matchesFor\(payload\)[\s\S]*?new Set\(state\.maps\)[\s\S]*?state\.result/);
+  assert.match(playersSource, /aggregate\(matches, state\.side, state\.buy, state\.roundResult, state\.opponentBuy\)/);
+  assert.match(playersSource, /mapFilter\.setOptions\(availableMaps\); state\.maps = mapFilter\.values\(\)/);
+  assert.match(playersSource, /state\.profiles\.set\(key, \{ payload, view: "overview" \}\)/);
+  assert.doesNotMatch(playersSource, /profile\.(?:side|buy|opponentBuy|roundResult|result|maps)/);
+});
