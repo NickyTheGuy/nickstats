@@ -21,7 +21,7 @@ test("quick comparison shows filtered rounds instead of redundant match count", 
 });
 
 test("quick comparison sections are selectable and remain expandable", () => {
-  assert.match(componentSource, /expandedGroups: \{ combat: false, opening: false, clutches: false, killContext: false, killStage: false \}/);
+  assert.match(componentSource, /expandedGroups: Object\.fromEntries\(sectionOptions\.map\(\(\[key\]\) => \[key, false\]\)\)/);
   assert.match(componentSource, /const defaultSections = \["combat", "opening", "clutches"\]/);
   assert.match(componentSource, /SECTION_STORAGE_KEY = "nickstats\.quickComparisonSections\.v1"/);
   assert.match(componentSource, /sectionOptions = Object\.freeze/);
@@ -36,11 +36,24 @@ test("quick comparison sections are selectable and remain expandable", () => {
   assert.match(componentSource, /key: "opening-flash-assisted", label: "Flash A"/);
   assert.match(componentSource, /group: "clutches", label: "Clutches"/);
   assert.match(componentSource, /group: "killContext", label: "Context"/);
-  assert.match(componentSource, /key: "clawback-kills", label: "Clawback K"/);
-  assert.match(componentSource, /key: "bozo-deaths", label: "Bozo D"/);
-  assert.match(componentSource, /key: "cleanup-kills", label: "Cleanup K"/);
+  assert.match(componentSource, /key: "context-clawback-bozo", label: "Clawback-Bozo K-D"/);
+  assert.match(componentSource, /key: "context-cleanup", label: "Cleanup K-D"/);
+  assert.match(componentSource, /key: "kill-context", label: "Bullshit K-D"/);
   assert.match(componentSource, /group: "killStage", label: "Kill stage"/);
   assert.match(componentSource, /label: `\$\{alive\} alive K-D`/);
+  for (const [group, label] of [
+    ["trades", "Trades"], ["movement", "Movement"], ["utility", "Utility"],
+    ["multikills", "Kill rounds"], ["objectives", "Objectives"], ["timing", "Round timing"]
+  ]) {
+    assert.match(componentSource, new RegExp(`group: "${group}", label: "${label}"`));
+    assert.match(styles, new RegExp(`\\.${group}-cell \\{ background:`));
+  }
+  assert.match(componentSource, /key: "trades", label: "K-D"/);
+  assert.match(componentSource, /key: "movement", label: "Move\/run\/air"/);
+  assert.match(componentSource, /key: "utility", label: "Damage · thrown"/);
+  assert.match(componentSource, /key: "multikills", label: "Total"/);
+  assert.match(componentSource, /key: "objectives", label: "Plants\/defuses"/);
+  assert.match(componentSource, /key: "timing", label: "Avg K\/D time"/);
   assert.match(componentSource, /demo-toggle-heading.*-heading/);
   assert.match(styles, /\.quick-comparison-table :is\(th, td\)\.demo-group-start/);
   assert.match(styles, /\.opening-cell \{ background:/);
