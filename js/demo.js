@@ -1508,17 +1508,18 @@
     preset("Default", () => {
       state.visibleScoreboardGroups = new Set(SCOREBOARD_DEFAULT_SECTIONS);
       Object.keys(state.expandedGroups).forEach(group => { if (!state.visibleScoreboardGroups.has(group)) state.expandedGroups[group] = false; });
-      state.scoreboardSort = null;
+      if (state.scoreboardSort?.group && !state.visibleScoreboardGroups.has(state.scoreboardSort.group)) state.scoreboardSort = null;
       rerenderScoreboard();
     });
-    preset("All", () => { state.visibleScoreboardGroups = new Set(SCOREBOARD_SECTIONS.map(([key]) => key)); state.scoreboardSort = null; rerenderScoreboard(); });
+    preset("All", () => { state.visibleScoreboardGroups = new Set(SCOREBOARD_SECTIONS.map(([key]) => key)); rerenderScoreboard(); });
     for (const [key, text] of SCOREBOARD_SECTIONS) {
       const button = document.createElement("button"); button.type = "button"; button.className = `scoreboard-section-button ${key}-heading`;
       const active = state.visibleScoreboardGroups.has(key); button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); button.textContent = text;
       button.addEventListener("click", () => {
         if (state.visibleScoreboardGroups.has(key)) { state.visibleScoreboardGroups.delete(key); state.expandedGroups[key] = false; }
         else state.visibleScoreboardGroups.add(key);
-        state.scoreboardSort = null; rerenderScoreboard();
+        if (!state.visibleScoreboardGroups.has(key) && state.scoreboardSort?.group === key) state.scoreboardSort = null;
+        rerenderScoreboard();
       });
       sectionButtons.appendChild(button);
     }
@@ -1549,7 +1550,11 @@
         const button = document.createElement("button"); button.type = "button"; button.textContent = text;
         const active = (state.scoreboardSubgroups[activeGroup] || SCOREBOARD_SUBGROUPS[activeGroup][0][0]) === key;
         button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
-        button.addEventListener("click", () => { state.scoreboardSubgroups[activeGroup] = key; state.scoreboardSort = null; rerenderScoreboard(); }); subgroupButtons.appendChild(button);
+        button.addEventListener("click", () => {
+          state.scoreboardSubgroups[activeGroup] = key;
+          if (state.scoreboardSort?.group === activeGroup) state.scoreboardSort = null;
+          rerenderScoreboard();
+        }); subgroupButtons.appendChild(button);
       }
       subgroupBar.appendChild(subgroupButtons);
     }
@@ -1750,7 +1755,7 @@
       if (index === 0) child.classList.add("demo-group-start");
       if (index === details.length - 1) child.classList.add("demo-group-end");
       const sourceDetail = expanded ? focusedLabels[index] : collapsedLabel;
-      sortableHeader(child, detail, groupSortSpec(group, sourceDetail));
+      sortableHeader(child, detail, groupSortSpec(group, sourceDetail), group);
       detailRow.appendChild(child);
     });
   }
@@ -1892,7 +1897,7 @@
     return maps[group]?.[detail];
   }
 
-  function sortableHeader(th, label, spec) {
+  function sortableHeader(th, label, spec, group = null) {
     if (!spec) {
       th.textContent = label;
       return;
@@ -1909,15 +1914,15 @@
       ? spec.modes.length === 1 ? `${label} •` : `${label} · ${mode.label}`
       : label;
     button.title = active ? `Sorted by ${mode.label}; click for next mode` : `Sort by ${spec.modes[0].label}`;
-    button.addEventListener("click", () => cycleScoreboardSort(spec));
+    button.addEventListener("click", () => cycleScoreboardSort(spec, group));
     th.appendChild(button);
   }
 
-  function cycleScoreboardSort(spec) {
+  function cycleScoreboardSort(spec, group = null) {
     if (state.scoreboardSort?.id !== spec.id) {
-      state.scoreboardSort = { id: spec.id, mode: 0, spec };
+      state.scoreboardSort = { id: spec.id, mode: 0, spec, group };
     } else if (state.scoreboardSort.mode + 1 < spec.modes.length) {
-      state.scoreboardSort = { id: spec.id, mode: state.scoreboardSort.mode + 1, spec };
+      state.scoreboardSort = { id: spec.id, mode: state.scoreboardSort.mode + 1, spec, group };
     } else {
       state.scoreboardSort = null;
     }
@@ -1965,8 +1970,10 @@
   }
 
   function toggleColumnGroup(group) {
-    state.scoreboardSort = null;
     const next = !state.expandedGroups[group];
+    const sortedGroup = state.scoreboardSort?.group;
+    const sortedColumnDisappears = sortedGroup === group || (next && sortedGroup && state.expandedGroups[sortedGroup]);
+    if (sortedColumnDisappears) state.scoreboardSort = null;
     Object.keys(state.expandedGroups).forEach(key => { state.expandedGroups[key] = false; });
     state.expandedGroups[group] = next;
     rerenderScoreboard();

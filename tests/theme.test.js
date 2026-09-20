@@ -81,6 +81,14 @@ test("match scoreboard supports section, value-mode, and subgroup controls", () 
   assert.match(styles, /grid-template-columns: 94px minmax\(0, 1fr\)/);
 });
 
+test("match scoreboard preserves sorts when unrelated sections change", () => {
+  assert.match(demo, /function sortableHeader\(th, label, spec, group = null\)/);
+  assert.match(demo, /state\.scoreboardSort = \{ id: spec\.id, mode: 0, spec, group \}/);
+  assert.match(demo, /const sortedGroup = state\.scoreboardSort\?\.group/);
+  assert.match(demo, /sortedGroup === group \|\| \(next && sortedGroup && state\.expandedGroups\[sortedGroup\]\)/);
+  assert.doesNotMatch(demo, /function toggleColumnGroup\(group\) \{\s*state\.scoreboardSort = null/);
+});
+
 test("empty open-profile tabs remain fully hidden", () => {
   assert.match(styles, /\.player-open-profiles\[hidden\] \{ display: none; \}/);
 });

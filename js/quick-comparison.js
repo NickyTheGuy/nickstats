@@ -322,7 +322,7 @@
         button.type = "button";
         if (active) button.dataset.direction = sort.direction;
         button.addEventListener("click", () => {
-          state.sort = { key: column.key, direction: active ? (sort.direction === "asc" ? "desc" : "asc") : column.key === "player" ? "asc" : "desc" };
+          state.sort = { key: column.key, direction: active ? (sort.direction === "asc" ? "desc" : "asc") : column.key === "player" ? "asc" : "desc", group: column.group || null };
           render(state.input);
         });
         cell.setAttribute("aria-sort", active ? (sort.direction === "asc" ? "ascending" : "descending") : "none");
@@ -343,8 +343,11 @@
         toggle.type = "button"; toggle.setAttribute("aria-expanded", String(state.expandedGroups[segment.group]));
         toggle.addEventListener("click", () => {
           const next = !state.expandedGroups[segment.group];
+          const sortedGroup = state.sort?.group;
+          const sortedColumnDisappears = sortedGroup === segment.group || (next && sortedGroup && state.expandedGroups[sortedGroup]);
+          if (sortedColumnDisappears) state.sort = null;
           Object.keys(state.expandedGroups).forEach(group => { state.expandedGroups[group] = false; });
-          state.expandedGroups[segment.group] = next; state.sort = null; render(state.input);
+          state.expandedGroups[segment.group] = next; render(state.input);
         });
         heading.appendChild(toggle); top.appendChild(heading);
         segment.columns.forEach((column, index) => {
@@ -422,7 +425,11 @@
         subgroups.forEach(([key, label]) => {
           const active = (state.sectionSubgroups[activeGroup] || subgroups[0][0]) === key;
           const button = element("button", label, active ? "active" : ""); button.type = "button"; button.setAttribute("aria-pressed", String(active));
-          button.addEventListener("click", () => { state.sectionSubgroups[activeGroup] = key; state.sort = null; render(state.input); }); subgroupButtons.appendChild(button);
+          button.addEventListener("click", () => {
+            state.sectionSubgroups[activeGroup] = key;
+            if (state.sort?.group === activeGroup) state.sort = null;
+            render(state.input);
+          }); subgroupButtons.appendChild(button);
         });
         subgroupBar.appendChild(subgroupButtons);
       }
@@ -472,7 +479,7 @@
     const syncSections = sections => {
       state.visibleGroups = new Set(sections);
       Object.keys(state.expandedGroups).forEach(group => { if (!state.visibleGroups.has(group)) state.expandedGroups[group] = false; });
-      state.sort = null;
+      if (state.sort?.group && !state.visibleGroups.has(state.sort.group)) state.sort = null;
       if (state.input) render(state.input); else renderSections();
     };
     sectionSubscribers.add(syncSections);

@@ -93,6 +93,14 @@ test("quick comparison uses visible section, value-mode, and subgroup controls",
   assert.match(styles, /\.scoreboard-control-row \+ \.scoreboard-control-row/);
 });
 
+test("quick comparison preserves sorts when unrelated sections change", () => {
+  assert.match(componentSource, /group: column\.group \|\| null/);
+  assert.match(componentSource, /const sortedGroup = state\.sort\?\.group/);
+  assert.match(componentSource, /sortedGroup === segment\.group \|\| \(next && sortedGroup && state\.expandedGroups\[sortedGroup\]\)/);
+  assert.match(componentSource, /if \(state\.sort\?\.group && !state\.visibleGroups\.has\(state\.sort\.group\)\) state\.sort = null/);
+  assert.doesNotMatch(componentSource, /state\.expandedGroups\[segment\.group\] = next; state\.sort = null/);
+});
+
 test("quick comparison serves the group scoreboard and standalone player profiles", () => {
   assert.match(componentSource, /window\.NickStatsQuickComparison = \{ create \}/);
   assert.match(playersSource, /NickStatsQuickComparison\.create\(\{ prefix: "player" \}\)/);
