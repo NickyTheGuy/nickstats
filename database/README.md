@@ -1,6 +1,6 @@
 # NickStats database
 
-The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/18` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
+The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/19` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
 
 ## Why it is normalized
 
@@ -104,3 +104,5 @@ Migration 009 adds traded opening deaths, opening trade kills, and opening assis
 Migration 010 adds opening kill/death blind context and enemy-assisted opening-death attribution. Existing rows initialize to zero but remain excluded from these schema-17 metrics until their demos are reparsed.
 
 Migration 011 adds sparse player statistics keyed by both teams' buy types, round result, and side. Existing matches remain readable but are excluded whenever an enemy-buy filter is active; reparse them to populate schema-18 matchup data.
+
+Migration 012 adds the active flash source behind blinded opening kills and deaths: the killer, a killer-side teammate, the victim's side (including self-flashes), or unavailable. Source categories may overlap when multiple flashes are active. Existing matches remain readable but are excluded from these schema-19 source metrics until reparsed.

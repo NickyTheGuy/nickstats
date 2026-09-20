@@ -228,6 +228,12 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
   opening_enemy_assisted_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   opening_enemy_damage_assisted_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   opening_enemy_flash_assisted_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_own_flash_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_victim_side_flash_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_blind_source_unknown_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_deaths_to_killer_flash SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_deaths_to_own_side_flash SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  opening_deaths_blind_source_unknown SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   trade_kills SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   tradeable_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   attempted_tradeable_deaths SMALLINT UNSIGNED NOT NULL DEFAULT 0,
@@ -292,7 +298,13 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
     opening_deaths_to_blind_killer <= opening_deaths AND
     opening_enemy_assisted_deaths <= opening_deaths AND
     opening_enemy_damage_assisted_deaths <= opening_enemy_assisted_deaths AND
-    opening_enemy_flash_assisted_deaths <= opening_enemy_assisted_deaths
+    opening_enemy_flash_assisted_deaths <= opening_enemy_assisted_deaths AND
+    opening_own_flash_kills <= opening_blinded_enemy_kills AND
+    opening_victim_side_flash_kills <= opening_blinded_enemy_kills AND
+    opening_blind_source_unknown_kills <= opening_blinded_enemy_kills AND
+    opening_deaths_to_killer_flash <= opening_deaths_while_blind AND
+    opening_deaths_to_own_side_flash <= opening_deaths_while_blind AND
+    opening_deaths_blind_source_unknown <= opening_deaths_while_blind
   ),
   CONSTRAINT chk_player_side_stats_trade_deaths CHECK (
     traded_deaths <= attempted_tradeable_deaths AND
@@ -506,5 +518,6 @@ INSERT INTO schema_migrations (version, description) VALUES
   (8, 'Unique assisted opening kills with damage and flash attribution'),
   (9, 'Opening-death trades and opening-assist attribution'),
   (10, 'Opening kill and death context'),
-  (11, 'Player statistics by own and opponent economy')
+  (11, 'Player statistics by own and opponent economy'),
+  (12, 'Opening flash source attribution')
 ON DUPLICATE KEY UPDATE description = VALUES(description);

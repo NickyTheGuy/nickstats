@@ -182,11 +182,21 @@
       ["Your opening deaths traded", statInteger("opening_traded_deaths"), statAvailable("opening_traded_deaths") ? availabilityNote("opening_traded_deaths", `${openingPercent("opening_traded_deaths", "opening_traded_deaths", "opening_deaths")} of opening deaths`) : "Not available in these demos"],
       ["Opening deaths you traded", statInteger("opening_trade_kills"), statPerRound("opening_trade_kills")]
     ]);
-    fillCards(`${prefix}OpeningBlindStats`, [
-      ["Killed a blinded enemy", statInteger("opening_blinded_enemy_kills"), statPerRound("opening_blinded_enemy_kills")],
-      ["Got the kill while blinded", statInteger("opening_blind_kills"), statPerRound("opening_blind_kills")],
-      ["Died while blinded", statInteger("opening_deaths_while_blind"), statPerRound("opening_deaths_while_blind")],
-      ["Killed by a blinded enemy", statInteger("opening_deaths_to_blind_killer"), statPerRound("opening_deaths_to_blind_killer")]
+    fillCards(`${prefix}OpeningKillBlindStats`, [
+      ["Blinded enemy (any source)", statInteger("opening_blinded_enemy_kills"), statPerRound("opening_blinded_enemy_kills")],
+      ["Teammate flash active", statInteger("opening_flash_assisted_kills"), statPerRound("opening_flash_assisted_kills")],
+      ["Own flash active", statInteger("opening_own_flash_kills"), statPerRound("opening_own_flash_kills")],
+      ["Victim-side/self flash active", statInteger("opening_victim_side_flash_kills"), statPerRound("opening_victim_side_flash_kills")],
+      ["Blind source unavailable", statInteger("opening_blind_source_unknown_kills"), statPerRound("opening_blind_source_unknown_kills")],
+      ["Player also blinded", statInteger("opening_blind_kills"), statPerRound("opening_blind_kills")]
+    ]);
+    fillCards(`${prefix}OpeningDeathBlindStats`, [
+      ["Player blinded (any source)", statInteger("opening_deaths_while_blind"), statPerRound("opening_deaths_while_blind")],
+      ["Killer teammate flash active", statInteger("opening_enemy_flash_assisted_deaths"), statPerRound("opening_enemy_flash_assisted_deaths")],
+      ["Killer’s own flash active", statInteger("opening_deaths_to_killer_flash"), statPerRound("opening_deaths_to_killer_flash")],
+      ["Own-side/self flash active", statInteger("opening_deaths_to_own_side_flash"), statPerRound("opening_deaths_to_own_side_flash")],
+      ["Blind source unavailable", statInteger("opening_deaths_blind_source_unknown"), statPerRound("opening_deaths_blind_source_unknown")],
+      ["Killer also blinded", statInteger("opening_deaths_to_blind_killer"), statPerRound("opening_deaths_to_blind_killer")]
     ]);
     fillCards(`${prefix}OpeningEnemySupportStats`, [
       ["Enemy kills with teammate help", statInteger("opening_enemy_assisted_deaths"), statAvailable("opening_enemy_assisted_deaths") ? availabilityNote("opening_enemy_assisted_deaths", `${openingPercent("opening_enemy_assisted_deaths", "opening_enemy_assisted_deaths", "opening_deaths")} of opening deaths`) : "Not available in these demos"],

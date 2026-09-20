@@ -47,6 +47,17 @@ test("opening context excludes schema 16 matches and preserves schema 17 zeroes"
   assert.equal(availability.scope(mixed, "opening_enemy_assisted_deaths").opening_deaths, 2);
 });
 
+test("opening flash-source context excludes schema 18 and preserves schema 19 zeroes", () => {
+  const mixed = {};
+  availability.add(mixed, { rounds: 20, opening_blinded_enemy_kills: 4, opening_own_flash_kills: 3 }, "nickstats.match/18");
+  availability.add(mixed, { rounds: 10, opening_blinded_enemy_kills: 2, opening_own_flash_kills: 0 }, "nickstats.match/19");
+
+  assert.equal(availability.available(mixed, "opening_own_flash_kills"), true);
+  assert.equal(availability.rounds(mixed, "opening_own_flash_kills"), 10);
+  assert.equal(availability.value(mixed, "opening_own_flash_kills"), 0);
+  assert.equal(availability.scope(mixed, "opening_own_flash_kills").opening_blinded_enemy_kills, 2);
+});
+
 test("man-count context reuses schema 10 death events without reparsing", () => {
   const mixed = {};
   availability.add(mixed, { rounds: 12, clawback_kills: 7, bozo_deaths: 7 }, "nickstats.match/9");

@@ -39,7 +39,13 @@
     opening_deaths_to_blind_killer: 17,
     opening_enemy_assisted_deaths: 17,
     opening_enemy_damage_assisted_deaths: 17,
-    opening_enemy_flash_assisted_deaths: 17
+    opening_enemy_flash_assisted_deaths: 17,
+    opening_own_flash_kills: 19,
+    opening_victim_side_flash_kills: 19,
+    opening_blind_source_unknown_kills: 19,
+    opening_deaths_to_killer_flash: 19,
+    opening_deaths_to_own_side_flash: 19,
+    opening_deaths_blind_source_unknown: 19
   });
   const thresholds = [...new Set(Object.values(minimumSchema))].sort((left, right) => left - right);
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;

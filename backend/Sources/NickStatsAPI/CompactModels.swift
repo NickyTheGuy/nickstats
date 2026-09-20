@@ -443,8 +443,14 @@ struct OpeningStats: Codable, Sendable {
     var enemyAssistedDeaths: Int
     var enemyDamageAssistedDeaths: Int
     var enemyFlashAssistedDeaths: Int
+    var ownFlashKills: Int
+    var victimSideFlashKills: Int
+    var blindSourceUnknownKills: Int
+    var deathsToKillerFlash: Int
+    var deathsToOwnSideFlash: Int
+    var deathsBlindSourceUnknown: Int
 
-    init(kills: Int, deaths: Int, assistedKills: Int = 0, damageAssistedKills: Int = 0, flashAssistedKills: Int = 0, tradedDeaths: Int = 0, tradeKills: Int = 0, assists: Int = 0, damageAssists: Int = 0, flashAssists: Int = 0, blindedEnemyKills: Int = 0, blindKills: Int = 0, deathsWhileBlind: Int = 0, deathsToBlindKiller: Int = 0, enemyAssistedDeaths: Int = 0, enemyDamageAssistedDeaths: Int = 0, enemyFlashAssistedDeaths: Int = 0) {
+    init(kills: Int, deaths: Int, assistedKills: Int = 0, damageAssistedKills: Int = 0, flashAssistedKills: Int = 0, tradedDeaths: Int = 0, tradeKills: Int = 0, assists: Int = 0, damageAssists: Int = 0, flashAssists: Int = 0, blindedEnemyKills: Int = 0, blindKills: Int = 0, deathsWhileBlind: Int = 0, deathsToBlindKiller: Int = 0, enemyAssistedDeaths: Int = 0, enemyDamageAssistedDeaths: Int = 0, enemyFlashAssistedDeaths: Int = 0, ownFlashKills: Int = 0, victimSideFlashKills: Int = 0, blindSourceUnknownKills: Int = 0, deathsToKillerFlash: Int = 0, deathsToOwnSideFlash: Int = 0, deathsBlindSourceUnknown: Int = 0) {
         self.kills = kills
         self.deaths = deaths
         self.assistedKills = assistedKills
@@ -462,6 +468,12 @@ struct OpeningStats: Codable, Sendable {
         self.enemyAssistedDeaths = enemyAssistedDeaths
         self.enemyDamageAssistedDeaths = enemyDamageAssistedDeaths
         self.enemyFlashAssistedDeaths = enemyFlashAssistedDeaths
+        self.ownFlashKills = ownFlashKills
+        self.victimSideFlashKills = victimSideFlashKills
+        self.blindSourceUnknownKills = blindSourceUnknownKills
+        self.deathsToKillerFlash = deathsToKillerFlash
+        self.deathsToOwnSideFlash = deathsToOwnSideFlash
+        self.deathsBlindSourceUnknown = deathsBlindSourceUnknown
     }
 
     init(from decoder: any Decoder) throws {
@@ -483,6 +495,12 @@ struct OpeningStats: Codable, Sendable {
         enemyAssistedDeaths = values.isAtEnd ? 0 : try values.decode(Int.self)
         enemyDamageAssistedDeaths = values.isAtEnd ? 0 : try values.decode(Int.self)
         enemyFlashAssistedDeaths = values.isAtEnd ? 0 : try values.decode(Int.self)
+        ownFlashKills = values.isAtEnd ? 0 : try values.decode(Int.self)
+        victimSideFlashKills = values.isAtEnd ? 0 : try values.decode(Int.self)
+        blindSourceUnknownKills = values.isAtEnd ? 0 : try values.decode(Int.self)
+        deathsToKillerFlash = values.isAtEnd ? 0 : try values.decode(Int.self)
+        deathsToOwnSideFlash = values.isAtEnd ? 0 : try values.decode(Int.self)
+        deathsBlindSourceUnknown = values.isAtEnd ? 0 : try values.decode(Int.self)
         try rejectExtraValues(in: values, description: "Opening statistics")
     }
 
@@ -505,6 +523,12 @@ struct OpeningStats: Codable, Sendable {
         try values.encode(enemyAssistedDeaths)
         try values.encode(enemyDamageAssistedDeaths)
         try values.encode(enemyFlashAssistedDeaths)
+        try values.encode(ownFlashKills)
+        try values.encode(victimSideFlashKills)
+        try values.encode(blindSourceUnknownKills)
+        try values.encode(deathsToKillerFlash)
+        try values.encode(deathsToOwnSideFlash)
+        try values.encode(deathsBlindSourceUnknown)
     }
 }
 

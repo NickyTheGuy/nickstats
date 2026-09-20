@@ -7,7 +7,7 @@ A local-first Counter-Strike 2 analysis application organized around four produc
 - **Matrix** — database-backed teammate matrices and pairwise comparisons.
 - **Groups** — Included/Excluded teammate conditions and With/Without player profiles.
 
-Demo files are processed in the browser and are never uploaded. All four views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/18` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
+Demo files are processed in the browser and are never uploaded. All four views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/19` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
 
 The demo picker accepts multiple files. Batch parsing processes them sequentially to keep browser memory bounded, reports each file's result independently, continues after individual parse or upload failures, and refreshes the match list once at the end. Because batches are intended for reparsing, a demo already in the database is replaced automatically with the newly parsed statistics; single-file parsing keeps the explicit replacement confirmation.
 
@@ -73,7 +73,9 @@ Trade calibration traces remain available while a demo is being parsed but are d
 
 ## Compact match JSON
 
-**Download compact JSON** writes the versioned `nickstats.match/18` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index.
+**Download compact JSON** writes the versioned `nickstats.match/19` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index.
+
+Schema 19 attributes the active flash sources on blinded opening kills and deaths. The categories are the killer's own flash, a killer teammate's flash, a victim-side or self flash, and source unavailable. Source categories can overlap when multiple flashes are active; the unavailable counter is used only when the demo reports blindness without an attributable active source.
 
 Profile, group, quick-comparison, and graph aggregations retain each match's compact schema. Statistics introduced by a newer schema use only compatible matches and rounds; older demos show those fields as unavailable rather than contributing false zeroes. Register future parser-derived fields in `js/stat-availability.js` when their schema ships.
 
@@ -95,7 +97,7 @@ Each player has a `sides` array in T, CT order. The full-match view is deliberat
 - `round_economy`: round number, T value, CT value, T players, CT players, pistol flag, T team index, CT team index
 - `rounds`: played, won
 - `kda`: kills, deaths, assists, headshots, damage
-- `opening`: kills, deaths, unique assisted kills, damage-assisted kills, flash-assisted kills
+- `opening`: kills, deaths, unique assisted kills, damage-assisted kills, flash-assisted kills, traded deaths, trade kills, assists earned, damage assists earned, flash assists earned, blinded-enemy kills, blind kills, deaths while blind, deaths to a blind killer, enemy-assisted deaths, enemy damage-assisted deaths, enemy flash-assisted deaths, own-flash kills, victim-side-flash kills, unattributed blind kills, deaths to the killer's flash, deaths to an own-side flash, unattributed blind deaths
 - `trade_kills`: unique trade kills; opportunities and attempts come from summing `trades`
 - `trade_d`: tradeable deaths, attempted tradeable deaths, traded deaths
 - `utility`: HE damage, fire damage

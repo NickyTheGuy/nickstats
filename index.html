@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260920-2">
+  <link rel="stylesheet" href="./styles.css?v=20260920-3">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.20.2</span>
+          <span class="demo-build">Build 2026.09.20.3</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -429,8 +429,9 @@
               <section class="player-stat-section"><header><span>02</span><div><h3>Help on opening kills</h3><p>Teammate damage and flashes behind the player’s opening kills</p></div></header><div class="player-detail-grid" id="playerOpeningSupportReceivedStats"></div></section>
               <section class="player-stat-section"><header><span>03</span><div><h3>Opening assists created</h3><p>Opening kills this player helped a teammate secure</p></div></header><div class="player-detail-grid" id="playerOpeningSupportGivenStats"></div></section>
               <section class="player-stat-section"><header><span>04</span><div><h3>Response after an opening death</h3><p>Whether opening deaths were recovered through a trade</p></div></header><div class="player-detail-grid" id="playerOpeningTradeStats"></div></section>
-              <section class="player-stat-section"><header><span>05</span><div><h3>Blindness in opening duels</h3><p>Whether either duelist was blinded during the first engagement</p></div></header><div class="player-detail-grid" id="playerOpeningBlindStats"></div></section>
-              <section class="player-stat-section"><header><span>06</span><div><h3>Help on enemy opening kills</h3><p>Opening deaths where the enemy killer received teammate help</p></div></header><div class="player-detail-grid" id="playerOpeningEnemySupportStats"></div></section>
+              <section class="player-stat-section"><header><span>05</span><div><h3>Flash sources on opening kills</h3><p>Who blinded the enemy before the player’s opening kill; sources can overlap</p></div></header><div class="player-detail-grid" id="playerOpeningKillBlindStats"></div></section>
+              <section class="player-stat-section"><header><span>06</span><div><h3>Flash sources on opening deaths</h3><p>Who blinded the player before their opening death; sources can overlap</p></div></header><div class="player-detail-grid" id="playerOpeningDeathBlindStats"></div></section>
+              <section class="player-stat-section"><header><span>07</span><div><h3>Help on enemy opening kills</h3><p>Opening deaths where the enemy killer received teammate help</p></div></header><div class="player-detail-grid" id="playerOpeningEnemySupportStats"></div></section>
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="context" hidden>
@@ -533,14 +534,14 @@
     </form>
   </dialog>
 
-  <script defer src="./js/navigation.js?v=20260920-2"></script>
-  <script defer src="./js/filters.js?v=20260920-2"></script>
-  <script defer src="./js/stat-availability.js?v=20260920-2"></script>
-  <script defer src="./js/demo.js?v=20260920-2"></script>
-  <script defer src="./js/graphs.js?v=20260920-2"></script>
-  <script defer src="./js/profile.js?v=20260920-2"></script>
-  <script defer src="./js/quick-comparison.js?v=20260920-2"></script>
-  <script defer src="./js/players.js?v=20260920-2"></script>
-  <script defer src="./js/compare.js?v=20260920-2"></script>
+  <script defer src="./js/navigation.js?v=20260920-3"></script>
+  <script defer src="./js/filters.js?v=20260920-3"></script>
+  <script defer src="./js/stat-availability.js?v=20260920-3"></script>
+  <script defer src="./js/demo.js?v=20260920-3"></script>
+  <script defer src="./js/graphs.js?v=20260920-3"></script>
+  <script defer src="./js/profile.js?v=20260920-3"></script>
+  <script defer src="./js/quick-comparison.js?v=20260920-3"></script>
+  <script defer src="./js/players.js?v=20260920-3"></script>
+  <script defer src="./js/compare.js?v=20260920-3"></script>
 </body>
 </html>

@@ -105,6 +105,14 @@ private func validPayload() -> MatchPayload {
     #expect(throws: MatchValidationError.self) { try payload.validate() }
 }
 
+@Test func rejectsOpeningFlashSourceCountsThatExceedBlindOpenings() {
+    var payload = validPayload()
+    payload.players[0].sides.terrorist.opening = OpeningStats(
+        kills: 1, deaths: 0, blindedEnemyKills: 0, ownFlashKills: 1
+    )
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+}
+
 @Test func acceptsLegacyPayloadWithoutClutchAttempts() throws {
     var legacyPayload = validPayload()
     legacyPayload.schema = "nickstats.match/9"
@@ -259,6 +267,7 @@ private func validPayload() -> MatchPayload {
     let sides = try #require(players[0]["sides"] as? [[String: Any]])
     #expect(sides[0]["duels"] as? [[Int]] == [[2, 3]])
     #expect(sides[0]["trades"] as? [[Int]] == [[1, 4, 3, 2, 0]])
+    #expect((sides[0]["opening"] as? [Int])?.count == 23)
     #expect(sides[0]["clutch_attempts"] as? [Int] == [2, 1, 0, 0, 0])
     #expect(object["round_timing"] as? [[Any]] != nil)
     #expect(object["round_survivors"] as? [[Int]] == [[1, 2, 0]])

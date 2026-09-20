@@ -104,6 +104,12 @@
     openingEnemyAssistedDeaths: oneMode("openingEnemyAssistedDeaths", "Enemy assisted D", player => player.opening_enemy_assisted_deaths ?? 0),
     openingEnemyDamageAssistedDeaths: oneMode("openingEnemyDamageAssistedDeaths", "Enemy dmg A D", player => player.opening_enemy_damage_assisted_deaths ?? 0),
     openingEnemyFlashAssistedDeaths: oneMode("openingEnemyFlashAssistedDeaths", "Enemy flash A D", player => player.opening_enemy_flash_assisted_deaths ?? 0),
+    openingOwnFlashKills: oneMode("openingOwnFlashKills", "Own flash K", player => player.opening_own_flash_kills ?? 0),
+    openingVictimSideFlashKills: oneMode("openingVictimSideFlashKills", "Victim-side flash K", player => player.opening_victim_side_flash_kills ?? 0),
+    openingBlindSourceUnknownKills: oneMode("openingBlindSourceUnknownKills", "Unknown flash K", player => player.opening_blind_source_unknown_kills ?? 0),
+    openingDeathsToKillerFlash: oneMode("openingDeathsToKillerFlash", "Killer flash D", player => player.opening_deaths_to_killer_flash ?? 0, "asc"),
+    openingDeathsToOwnSideFlash: oneMode("openingDeathsToOwnSideFlash", "Own-side flash D", player => player.opening_deaths_to_own_side_flash ?? 0, "asc"),
+    openingDeathsBlindSourceUnknown: oneMode("openingDeathsBlindSourceUnknown", "Unknown flash D", player => player.opening_deaths_blind_source_unknown ?? 0, "asc"),
     openingAssistRate: oneMode("openingAssistRate", "Assist %", player => 100 * (player.opening_assisted_kills ?? 0) / Math.max(1, player.opening_kills ?? 0)),
     combatKills: oneMode("combatKills", "K", player => player.kills ?? 0),
     combatDeaths: oneMode("combatDeaths", "D", player => player.deaths ?? 0, "asc"),
@@ -408,7 +414,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260920-2");
+      const worker = new Worker("./js/demo-worker.js?v=20260920-3");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -731,7 +737,7 @@
       rounds: sumArray(left.rounds, right.rounds, 2),
       kda: sumArray(left.kda, right.kda, 5),
       kast_rounds: numberValue(left.kast_rounds) + numberValue(right.kast_rounds),
-      opening: sumArray(left.opening, right.opening, 17),
+      opening: sumArray(left.opening, right.opening, 23),
       trade_kills: numberValue(left.trade_kills) + numberValue(right.trade_kills),
       trade_d: sumArray(left.trade_d, right.trade_d, 3),
       utility: sumArray(left.utility, right.utility, 2),
@@ -1000,9 +1006,9 @@
 
       return {
         ...player, ...timing,
-        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
-        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18"].includes(payload.schema),
-        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18"].includes(payload.schema),
+        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
+        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19"].includes(payload.schema),
+        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19"].includes(payload.schema),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -1024,6 +1030,12 @@
         opening_enemy_assisted_deaths: numberValue(stats.opening?.[14]),
         opening_enemy_damage_assisted_deaths: numberValue(stats.opening?.[15]),
         opening_enemy_flash_assisted_deaths: numberValue(stats.opening?.[16]),
+        opening_own_flash_kills: numberValue(stats.opening?.[17]),
+        opening_victim_side_flash_kills: numberValue(stats.opening?.[18]),
+        opening_blind_source_unknown_kills: numberValue(stats.opening?.[19]),
+        opening_deaths_to_killer_flash: numberValue(stats.opening?.[20]),
+        opening_deaths_to_own_side_flash: numberValue(stats.opening?.[21]),
+        opening_deaths_blind_source_unknown: numberValue(stats.opening?.[22]),
         trade_kills: tradeKills,
         trade_opportunities: opportunities,
         trade_attempts: attempts,
@@ -1487,6 +1499,12 @@
       cell(row, player.opening_enemy_assisted_deaths ?? 0, "demo-group-cell opening-cell");
       cell(row, player.opening_enemy_damage_assisted_deaths ?? 0, "demo-group-cell opening-cell");
       cell(row, player.opening_enemy_flash_assisted_deaths ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_own_flash_kills ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_victim_side_flash_kills ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_blind_source_unknown_kills ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_deaths_to_killer_flash ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_deaths_to_own_side_flash ?? 0, "demo-group-cell opening-cell");
+      cell(row, player.opening_deaths_blind_source_unknown ?? 0, "demo-group-cell opening-cell");
       cell(row, `${(100 * openingTotal / Math.max(1, player.rounds_played ?? 0)).toFixed(0)}%`, "demo-group-cell opening-cell");
       cell(row, `${openingDiff > 0 ? "+" : ""}${openingDiff}`, "demo-group-cell opening-cell");
       cell(row, `${(100 * (player.opening_kills ?? 0) / Math.max(1, openingTotal)).toFixed(0)}%`, "demo-group-cell opening-cell");
@@ -1690,6 +1708,24 @@
         "Assisted K": sortSpecs.openingAssisted,
         "Dmg A": sortSpecs.openingDamageAssisted,
         "Flash A": sortSpecs.openingFlashAssisted,
+        "Traded D": sortSpecs.openingTradedDeaths,
+        "Trade K": sortSpecs.openingTradeKills,
+        "A earned": sortSpecs.openingAssists,
+        "Dmg A earned": sortSpecs.openingDamageAssists,
+        "Flash A earned": sortSpecs.openingFlashAssists,
+        "Enemy blind K": sortSpecs.openingBlindedEnemyKills,
+        "Blind K": sortSpecs.openingBlindKills,
+        "Blind D": sortSpecs.openingDeathsWhileBlind,
+        "Blind killer D": sortSpecs.openingDeathsToBlindKiller,
+        "Enemy assisted D": sortSpecs.openingEnemyAssistedDeaths,
+        "Enemy dmg A D": sortSpecs.openingEnemyDamageAssistedDeaths,
+        "Enemy flash A D": sortSpecs.openingEnemyFlashAssistedDeaths,
+        "Own flash K": sortSpecs.openingOwnFlashKills,
+        "Victim-side flash K": sortSpecs.openingVictimSideFlashKills,
+        "Unknown flash K": sortSpecs.openingBlindSourceUnknownKills,
+        "Killer flash D": sortSpecs.openingDeathsToKillerFlash,
+        "Own-side flash D": sortSpecs.openingDeathsToOwnSideFlash,
+        "Unknown flash D": sortSpecs.openingDeathsBlindSourceUnknown,
         "Attempt rate": sortSpecs.openingAttempts,
         Diff: sortSpecs.openingDiff,
         Success: sortSpecs.openingSuccess,
@@ -1917,7 +1953,7 @@
     const detailHeader = document.createElement("tr");
     ["Player", "Rating", "Rounds P/W", "KAST"].forEach(label => regularHeader(header, label));
     groupHeader(header, detailHeader, "combat", "Combat", ["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A");
-    groupHeader(header, detailHeader, "opening", "Opening", ["K", "D", "Assisted K", "Dmg A", "Flash A", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%");
+    groupHeader(header, detailHeader, "opening", "Opening", ["K", "D", "Assisted K", "Dmg A", "Flash A", "Traded D", "Trade K", "A earned", "Dmg A earned", "Flash A earned", "Enemy blind K", "Blind K", "Blind D", "Blind killer D", "Enemy assisted D", "Enemy dmg A D", "Enemy flash A D", "Own flash K", "Victim-side flash K", "Unknown flash K", "Killer flash D", "Own-side flash D", "Unknown flash D", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%");
     groupHeader(header, detailHeader, "trades", "Trades", ["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D");
     groupHeader(header, detailHeader, "clutches", "Clutches", ["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A");
     groupHeader(header, detailHeader, "killContext", "Context", ["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D", "Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D");
@@ -2622,7 +2658,13 @@
           number(player.opening_deaths_while_blind), number(player.opening_deaths_to_blind_killer),
           number(player.opening_enemy_assisted_deaths),
           number(player.opening_enemy_damage_assisted_deaths),
-          number(player.opening_enemy_flash_assisted_deaths)
+          number(player.opening_enemy_flash_assisted_deaths),
+          number(player.opening_own_flash_kills),
+          number(player.opening_victim_side_flash_kills),
+          number(player.opening_blind_source_unknown_kills),
+          number(player.opening_deaths_to_killer_flash),
+          number(player.opening_deaths_to_own_side_flash),
+          number(player.opening_deaths_blind_source_unknown)
         ],
         trade_kills: number(player.trade_kills),
         trade_d: [number(player.tradeable_deaths), number(player.attempted_tradeable_deaths), number(player.traded_deaths ?? player.traded_tradeable_deaths)],
@@ -2688,8 +2730,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/18",
-      nickstats_build: "2026.09.20.2",
+      schema: "nickstats.match/19",
+      nickstats_build: "2026.09.20.3",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

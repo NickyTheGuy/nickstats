@@ -20,13 +20,18 @@ test("round state has its own shared player and group profile tab", () => {
 test("opening statistics are split by outcome and source of help", () => {
   for (const id of [
     "playerOpeningOutcomeStats", "playerOpeningSupportReceivedStats", "playerOpeningSupportGivenStats",
-    "playerOpeningTradeStats", "playerOpeningBlindStats", "playerOpeningEnemySupportStats"
+    "playerOpeningTradeStats", "playerOpeningKillBlindStats", "playerOpeningDeathBlindStats",
+    "playerOpeningEnemySupportStats"
   ]) assert.match(html, new RegExp(`id="${id}"`));
   assert.doesNotMatch(html, /id="playerOpeningStats"/);
   assert.match(profile, /"Rounds involved"/);
   assert.match(profile, /"Kills with teammate help"/);
   assert.match(profile, /"Opening kills assisted"/);
   assert.match(profile, /"Your opening deaths traded"/);
+  assert.match(profile, /"Own flash active"/);
+  assert.match(profile, /"Victim-side\/self flash active"/);
+  assert.match(profile, /"Killer’s own flash active"/);
+  assert.match(profile, /"Own-side\/self flash active"/);
   assert.match(profile, /"Enemy kills with teammate help"/);
 });
 

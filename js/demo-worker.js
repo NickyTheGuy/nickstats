@@ -115,7 +115,10 @@ const ADDITIVE_STAT_FIELDS = [
   "openingAssists", "openingDamageAssists", "openingFlashAssists",
   "openingBlindedEnemyKills", "openingBlindKills", "openingDeathsWhileBlind",
   "openingDeathsToBlindKiller", "openingEnemyAssistedDeaths",
-  "openingEnemyDamageAssistedDeaths", "openingEnemyFlashAssistedDeaths", "multikillRounds"
+  "openingEnemyDamageAssistedDeaths", "openingEnemyFlashAssistedDeaths",
+  "openingOwnFlashKills", "openingVictimSideFlashKills", "openingBlindSourceUnknownKills",
+  "openingDeathsToKillerFlash", "openingDeathsToOwnSideFlash",
+  "openingDeathsBlindSourceUnknown", "multikillRounds"
 ];
 let libraryError = null;
 
@@ -369,6 +372,12 @@ async function parseDemo(fileName, buffer) {
           openingEnemyAssistedDeaths: 0,
           openingEnemyDamageAssistedDeaths: 0,
           openingEnemyFlashAssistedDeaths: 0,
+          openingOwnFlashKills: 0,
+          openingVictimSideFlashKills: 0,
+          openingBlindSourceUnknownKills: 0,
+          openingDeathsToKillerFlash: 0,
+          openingDeathsToOwnSideFlash: 0,
+          openingDeathsBlindSourceUnknown: 0,
           multikillRounds: 0,
           killRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
           clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
@@ -611,6 +620,12 @@ async function parseDemo(fileName, buffer) {
       row.openingEnemyAssistedDeaths = 0;
       row.openingEnemyDamageAssistedDeaths = 0;
       row.openingEnemyFlashAssistedDeaths = 0;
+      row.openingOwnFlashKills = 0;
+      row.openingVictimSideFlashKills = 0;
+      row.openingBlindSourceUnknownKills = 0;
+      row.openingDeathsToKillerFlash = 0;
+      row.openingDeathsToOwnSideFlash = 0;
+      row.openingDeathsBlindSourceUnknown = 0;
       row.multikillRounds = 0;
       row.killRoundsByCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       row.clutchWins = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -1620,6 +1635,14 @@ async function parseDemo(fileName, buffer) {
       noteWeaponUse(attacker, resolvedWeapon);
       const victimWasBlind = (blindUntilTick.get(victim.userId) ?? -1) >= tick;
       const ownFlashBlind = (blindSources.get(victim)?.get(attacker) ?? -1) >= tick;
+      const activeBlindSources = [...(blindSources.get(victim) || [])]
+        .filter(([, expiry]) => expiry >= tick)
+        .map(([thrower]) => thrower);
+      const victimSideFlashBlind = activeBlindSources.some(thrower => {
+        const throwerTeam = round.sideAssignments.get(thrower) || rowSide(thrower);
+        return throwerTeam === victimTeam;
+      });
+      const blindSourceUnknown = victimWasBlind && activeBlindSources.length === 0;
       const attackerWasBlind = Boolean(event.attackerblind);
       const penetrations = Math.max(0, integer(event.penetrated) ?? 0);
       const throughSmoke = Boolean(event.thrusmoke);
@@ -1746,6 +1769,12 @@ async function parseDemo(fileName, buffer) {
         attacker.openingBlindKills += Number(attackerWasBlind);
         victim.openingDeathsWhileBlind += Number(victimWasBlind);
         victim.openingDeathsToBlindKiller += Number(attackerWasBlind);
+        attacker.openingOwnFlashKills += Number(ownFlashBlind);
+        attacker.openingVictimSideFlashKills += Number(victimSideFlashBlind);
+        attacker.openingBlindSourceUnknownKills += Number(blindSourceUnknown);
+        victim.openingDeathsToKillerFlash += Number(ownFlashBlind);
+        victim.openingDeathsToOwnSideFlash += Number(victimSideFlashBlind);
+        victim.openingDeathsBlindSourceUnknown += Number(blindSourceUnknown);
         round.openingRecorded = true;
       }
 
@@ -1932,8 +1961,8 @@ async function parseDemo(fileName, buffer) {
         matchup.flashes += 1;
         matchup.blindDuration += duration;
       }
-      if (attacker && attacker !== victim && (attackerTeam === 2 || attackerTeam === 3) &&
-          (victimTeam === 2 || victimTeam === 3) && attackerTeam !== victimTeam) {
+      if (attacker && (attackerTeam === 2 || attackerTeam === 3) &&
+          (victimTeam === 2 || victimTeam === 3)) {
         let sources = blindSources.get(victim);
         if (!sources) blindSources.set(victim, (sources = new Map()));
         sources.set(attacker, Math.max(sources.get(attacker) ?? -1, expiry));
@@ -2441,6 +2470,7 @@ async function parseDemo(fileName, buffer) {
     flash_definition: {
       own_flash: "Killer's own flash is an active blind source on the victim at death",
       teammate_assist: "Every teammate whose flash remains an active blind source on the victim receives assist credit, even when the death event's single assister slot is occupied by a damage assister",
+      opening_sources: "Opening blind context separately records active killer, killer-teammate, and victim-side flash sources; categories may overlap when several flashes are active, with unknown reserved for blinded victims whose source event was unavailable",
       deduplication: "A player receives at most one assist per kill; damage and flash attribution may both describe that assist"
     },
     damage_definition: {
@@ -2489,7 +2519,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.19.2",
+    nickstats_build: "2026.09.20.3",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2785,6 +2815,12 @@ function finishPlayer(row) {
     opening_enemy_assisted_deaths: row.openingEnemyAssistedDeaths,
     opening_enemy_damage_assisted_deaths: row.openingEnemyDamageAssistedDeaths,
     opening_enemy_flash_assisted_deaths: row.openingEnemyFlashAssistedDeaths,
+    opening_own_flash_kills: row.openingOwnFlashKills,
+    opening_victim_side_flash_kills: row.openingVictimSideFlashKills,
+    opening_blind_source_unknown_kills: row.openingBlindSourceUnknownKills,
+    opening_deaths_to_killer_flash: row.openingDeathsToKillerFlash,
+    opening_deaths_to_own_side_flash: row.openingDeathsToOwnSideFlash,
+    opening_deaths_blind_source_unknown: row.openingDeathsBlindSourceUnknown,
     multikill_rounds: row.multikillRounds,
     kill_rounds: row.killRoundsByCount,
     clutch_wins: row.clutchWins,

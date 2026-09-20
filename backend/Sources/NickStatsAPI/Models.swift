@@ -1,8 +1,8 @@
 import Vapor
 
-let compactSchema = "nickstats.match/18"
-let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", compactSchema])
-let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", compactSchema])
+let compactSchema = "nickstats.match/19"
+let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", compactSchema])
+let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
@@ -378,6 +378,12 @@ struct PlayerOpeningProfileStats: Content {
     var enemyAssistedDeaths: Int
     var enemyDamageAssistedDeaths: Int
     var enemyFlashAssistedDeaths: Int
+    var ownFlashKills: Int
+    var victimSideFlashKills: Int
+    var blindSourceUnknownKills: Int
+    var deathsToKillerFlash: Int
+    var deathsToOwnSideFlash: Int
+    var deathsBlindSourceUnknown: Int
 
     enum CodingKeys: String, CodingKey {
         case kills, deaths
@@ -396,6 +402,12 @@ struct PlayerOpeningProfileStats: Content {
         case enemyAssistedDeaths = "enemy_assisted_deaths"
         case enemyDamageAssistedDeaths = "enemy_damage_assisted_deaths"
         case enemyFlashAssistedDeaths = "enemy_flash_assisted_deaths"
+        case ownFlashKills = "own_flash_kills"
+        case victimSideFlashKills = "victim_side_flash_kills"
+        case blindSourceUnknownKills = "blind_source_unknown_kills"
+        case deathsToKillerFlash = "deaths_to_killer_flash"
+        case deathsToOwnSideFlash = "deaths_to_own_side_flash"
+        case deathsBlindSourceUnknown = "deaths_blind_source_unknown"
     }
 }
 
