@@ -52,6 +52,7 @@
       expandedGroups: Object.fromEntries(sectionOptions.map(([key]) => [key, false])),
       sectionSubgroups: {},
       valueMode: "totals",
+      perGrenadeUtility: false,
       visibleGroups: new Set(sharedSections),
       sort: null,
       input: null
@@ -72,15 +73,15 @@
     }
 
     function displayedValue(column, item) {
-      if (state.valueMode !== "rates" || !column.group) return column.format(item);
+      if (state.valueMode === "totals" || !column.group) return column.format(item);
       if (["combat", "opening", "trades", "clutches", "kill-context", "kill-stage-summary", "movement", "utility", "multikills", "objectives", "timing"].includes(column.key)) return column.format(item);
       const formatted = column.format(item);
       if (formatted === "—" || formatted === "Not parsed") return formatted;
       const value = column.value(item);
       if (!Number.isFinite(Number(value))) return column.format(item);
-      if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || column.label.includes("%") || ["timing-kill", "timing-death"].includes(column.key)) return formatted;
-      let denominator = number(item.stats.rounds);
-      if (column.group === "utility") {
+      if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || (/^[-+−]?\d+(?:\.\d+)?%$/.test(formatted)) || ["timing-kill", "timing-death"].includes(column.key)) return formatted;
+      let denominator = state.valueMode === "match" ? item.rows.length : number(item.stats.rounds);
+      if (column.group === "utility" && state.perGrenadeUtility) {
         if (["utility-he-damage"].includes(column.key)) denominator = number(item.stats.he_grenades_thrown);
         else if (["utility-fire-damage"].includes(column.key)) denominator = number(item.stats.fire_grenades_thrown);
         else if (["utility-enemies-flashed", "utility-blind-seconds", "utility-flash-assists", "utility-own-flash"].includes(column.key)) denominator = number(item.stats.flashbangs_thrown);
@@ -97,12 +98,17 @@
     }
 
     function displayedLabel(column) {
-      if (state.valueMode !== "rates" || !column.group) return column.label;
-      if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || column.label.includes("%") || ["timing-kill", "timing-death"].includes(column.key)) return column.label;
+      if (state.valueMode === "totals" || !column.group) return column.label;
+      const grenadeUnit = state.perGrenadeUtility && column.group === "utility" ? {
+        "utility-he-damage": "HE", "utility-fire-damage": "fire", "utility-enemies-flashed": "flash",
+        "utility-blind-seconds": "flash", "utility-flash-assists": "flash", "utility-own-flash": "flash"
+      }[column.key] : null;
+      const unit = grenadeUnit || (state.valueMode === "match" ? "match" : "round");
+      if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || (column.label.endsWith("%") && !column.label.includes("(Succ%)")) || ["timing-kill", "timing-death"].includes(column.key)) return column.label;
       if (["combat", "opening", "trades", "clutches", "kill-context", "kill-stage-summary", "movement", "utility", "multikills", "objectives"].includes(column.key)) return column.label;
-      const suffix = column.group === "utility" && ["utility-he-damage", "utility-fire-damage", "utility-enemies-flashed", "utility-blind-seconds", "utility-flash-assists", "utility-own-flash"].includes(column.key) ? "/G" : "/R";
-      if (column.label.includes("K-D")) return column.label.replace("K-D", "K/R-D/R");
-      return `${column.label}${suffix}`;
+      if (column.label.includes("K-D")) return column.label.replace("K-D", `K/${unit}-D/${unit}`);
+      if (column.label.includes("(Succ%)")) return column.label.replace(/^([KD])/, `$1 / ${unit}`);
+      return `${column.label} / ${unit}`;
     }
 
     function renderTable(comparison) {
@@ -374,33 +380,51 @@
     function renderSections() {
       const target = byId("Sections");
       if (!target) return;
-      const bar = element("div", null, "scoreboard-section-bar");
+      const bar = element("div", null, "scoreboard-section-bar scoreboard-control-row");
+      bar.appendChild(element("strong", "Sections"));
+      const sectionButtons = element("div", null, "scoreboard-button-group scoreboard-section-buttons");
       const preset = (label, values) => {
         const button = element("button", label, "scoreboard-preset-button"); button.type = "button";
-        button.addEventListener("click", () => setSharedSections(new Set(values))); bar.appendChild(button);
+        button.addEventListener("click", () => setSharedSections(new Set(values))); sectionButtons.appendChild(button);
       };
       preset("Default", defaultSections); preset("All", sectionOptions.map(([key]) => key));
       sectionOptions.forEach(([key, label]) => {
         const button = element("button", label, `scoreboard-section-button ${key}-heading${state.visibleGroups.has(key) ? " active" : ""}`); button.type = "button";
         button.setAttribute("aria-pressed", String(state.visibleGroups.has(key)));
         button.addEventListener("click", () => { const selected = new Set(state.visibleGroups); if (selected.has(key)) selected.delete(key); else selected.add(key); setSharedSections(selected); });
-        bar.appendChild(button);
+        sectionButtons.appendChild(button);
       });
-      const mode = element("div", null, "scoreboard-value-toggle"); mode.appendChild(element("strong", "Values"));
-      [["totals", "Totals"], ["rates", "Rates"]].forEach(([value, label]) => {
+      bar.appendChild(sectionButtons);
+      const mode = element("div", null, "scoreboard-value-toggle scoreboard-control-row"); mode.appendChild(element("strong", "Values"));
+      const modeButtons = element("div", null, "scoreboard-button-group");
+      [["totals", "Totals"], ["round", "Per round"], ["match", "Per match"]].forEach(([value, label]) => {
         const button = element("button", label, state.valueMode === value ? "active" : ""); button.type = "button"; button.setAttribute("aria-pressed", String(state.valueMode === value));
-        button.addEventListener("click", () => { state.valueMode = value; state.sort = null; render(state.input); }); mode.appendChild(button);
+        button.addEventListener("click", () => { state.valueMode = value; state.sort = null; render(state.input); }); modeButtons.appendChild(button);
       });
+      mode.appendChild(modeButtons);
+      const utilityBasis = element("div", null, "scoreboard-utility-basis");
+      utilityBasis.appendChild(element("span", "Utility yields"));
+      const utilityButton = element("button", "Per grenade", state.perGrenadeUtility ? "active" : ""); utilityButton.type = "button";
+      utilityButton.disabled = state.valueMode === "totals"; utilityButton.setAttribute("aria-pressed", String(state.perGrenadeUtility));
+      utilityButton.title = "Use each relevant grenade type for damage, flash effects, and flash-assist yields";
+      utilityButton.addEventListener("click", () => { state.perGrenadeUtility = !state.perGrenadeUtility; state.sort = null; render(state.input); });
+      utilityBasis.appendChild(utilityButton); mode.appendChild(utilityBasis);
+      const modeNote = state.valueMode === "totals"
+        ? "Raw counts"
+        : `${state.valueMode === "match" ? "Counts divided by qualifying matches" : "Counts divided by qualifying rounds"}${state.perGrenadeUtility ? "; utility yield columns use the relevant grenade" : ""}`;
+      mode.appendChild(element("small", modeNote, "scoreboard-control-note"));
       const activeGroup = sectionOptions.find(([key]) => state.expandedGroups[key])?.[0];
       const subgroups = activeGroup && sectionSubgroups[activeGroup];
-      const subgroupBar = element("div", null, "scoreboard-subgroup-bar"); subgroupBar.hidden = !subgroups;
+      const subgroupBar = element("div", null, "scoreboard-subgroup-bar scoreboard-control-row"); subgroupBar.hidden = !subgroups;
       if (subgroups) {
         subgroupBar.appendChild(element("strong", `${sectionOptions.find(([key]) => key === activeGroup)?.[1]} detail`));
+        const subgroupButtons = element("div", null, "scoreboard-button-group");
         subgroups.forEach(([key, label]) => {
           const active = (state.sectionSubgroups[activeGroup] || subgroups[0][0]) === key;
           const button = element("button", label, active ? "active" : ""); button.type = "button"; button.setAttribute("aria-pressed", String(active));
-          button.addEventListener("click", () => { state.sectionSubgroups[activeGroup] = key; state.sort = null; render(state.input); }); subgroupBar.appendChild(button);
+          button.addEventListener("click", () => { state.sectionSubgroups[activeGroup] = key; state.sort = null; render(state.input); }); subgroupButtons.appendChild(button);
         });
+        subgroupBar.appendChild(subgroupButtons);
       }
       target.replaceChildren(bar, mode, subgroupBar);
     }
@@ -440,6 +464,7 @@
       state.expandedGroups = Object.fromEntries(sectionOptions.map(([key]) => [key, false]));
       state.sectionSubgroups = {};
       state.valueMode = "totals";
+      state.perGrenadeUtility = false;
       state.sort = null;
       state.input = null;
     }

@@ -66,12 +66,19 @@ test("collapsed scoreboard summaries stay within their columns", () => {
 test("match scoreboard supports section, value-mode, and subgroup controls", () => {
   assert.match(demo, /const SCOREBOARD_DEFAULT_SECTIONS = \["combat", "opening", "trades", "clutches", "utility"\]/);
   assert.match(demo, /const SCOREBOARD_SUBGROUPS = Object\.freeze/);
-  assert.match(demo, /className = "scoreboard-section-bar"/);
-  assert.match(demo, /\[\["totals", "Totals"\], \["rates", "Rates"\]\]/);
+  assert.match(demo, /className = "scoreboard-section-bar scoreboard-control-row"/);
+  assert.match(demo, /\[\["totals", "Totals"\], \["round", "Per round"\]\]/);
+  assert.match(demo, /utilityButton\.textContent = "Per grenade"/);
+  assert.match(demo, /"Blind sec": "flash"/);
+  assert.match(demo, /Counts divided by rounds played/);
+  assert.match(demo, /group === "trades"[\s\S]*?countedPercent/);
+  assert.match(demo, /group === "clutches"[\s\S]*?fraction/);
+  assert.match(demo, /eventPair\(player\[`\$\{phase\}_kills`\], player\[`\$\{phase\}_deaths`\]\)/);
   assert.match(demo, /Object\.keys\(state\.expandedGroups\)\.forEach\(key => \{ state\.expandedGroups\[key\] = false; \}\)/);
   assert.match(demo, /state\.visibleScoreboardGroups\.has\(key\) && state\.expandedGroups\[key\]/);
   assert.match(styles, /\.scoreboard-control-panel/);
   assert.match(styles, /\.scoreboard-section-button\.active/);
+  assert.match(styles, /grid-template-columns: 94px minmax\(0, 1fr\)/);
 });
 
 test("empty open-profile tabs remain fully hidden", () => {

@@ -78,14 +78,19 @@ test("quick comparison puts summary columns before collapsible combat", () => {
 });
 
 test("quick comparison uses visible section, value-mode, and subgroup controls", () => {
-  assert.match(componentSource, /element\("div", null, "scoreboard-section-bar"\)/);
-  assert.match(componentSource, /\[\["totals", "Totals"\], \["rates", "Rates"\]\]/);
+  assert.match(componentSource, /element\("div", null, "scoreboard-section-bar scoreboard-control-row"\)/);
+  assert.match(componentSource, /\[\["totals", "Totals"\], \["round", "Per round"\], \["match", "Per match"\]\]/);
+  assert.match(componentSource, /state\.valueMode === "match" \? item\.rows\.length : number\(item\.stats\.rounds\)/);
+  assert.match(componentSource, /utilityButton = element\("button", "Per grenade"/);
+  assert.match(componentSource, /"utility-enemies-flashed": "flash"/);
+  assert.match(componentSource, /Counts divided by qualifying matches/);
   assert.match(componentSource, /const sectionSubgroups = Object\.freeze/);
   assert.match(componentSource, /\["received", "Help received"/);
   assert.match(componentSource, /\["assists", "Assisted kills"/);
   assert.match(componentSource, /Object\.keys\(state\.expandedGroups\)\.forEach\(group => \{ state\.expandedGroups\[group\] = false; \}\)/);
   assert.doesNotMatch(componentSource, /map-filter-menu/);
   assert.match(styles, /\.scoreboard-subgroup-bar/);
+  assert.match(styles, /\.scoreboard-control-row \+ \.scoreboard-control-row/);
 });
 
 test("quick comparison serves the group scoreboard and standalone player profiles", () => {

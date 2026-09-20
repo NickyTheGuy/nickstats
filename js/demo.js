@@ -48,6 +48,7 @@
     visibleScoreboardGroups: new Set(SCOREBOARD_DEFAULT_SECTIONS),
     scoreboardSubgroups: {},
     scoreboardValueMode: "totals",
+    scoreboardPerGrenadeUtility: false,
     scoreboardSort: null,
     sideFilter: "ALL",
     buyFilter: "ALL",
@@ -1478,8 +1479,19 @@
     if (!state.visibleScoreboardGroups.has(group)) return;
     const source = state.expandedGroups[group] ? scoreboardFocus(group, expanded) : [collapsed];
     const rounds = Math.max(1, numberValue(row.dataset.rounds));
-    const values = state.scoreboardValueMode === "rates"
-      ? source.map(value => typeof value === "number" ? (value / rounds).toFixed(2) : value)
+    const values = state.scoreboardValueMode === "round"
+      ? source.map(value => {
+          if (typeof value === "number") return (value / rounds).toFixed(2);
+          if (group === "trades") {
+            const countedPercent = String(value).match(/^(\d+(?:\.\d+)?) (\([^)]+\))$/);
+            if (countedPercent) return `${(numberValue(countedPercent[1]) / rounds).toFixed(2)} ${countedPercent[2]}`;
+          }
+          if (group === "clutches") {
+            const fraction = String(value).match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
+            if (fraction) return `${(numberValue(fraction[1]) / rounds).toFixed(2)}/${(numberValue(fraction[2]) / rounds).toFixed(2)}`;
+          }
+          return value;
+        })
       : source;
     values.forEach(value => cell(row, value, `demo-group-cell ${group}-cell`));
   }
@@ -1487,10 +1499,11 @@
   function renderScoreboardControls() {
     const target = $("demoScoreboardControls");
     if (!target) return;
-    const sectionBar = document.createElement("div"); sectionBar.className = "scoreboard-section-bar";
+    const sectionBar = document.createElement("div"); sectionBar.className = "scoreboard-section-bar scoreboard-control-row";
     const label = document.createElement("strong"); label.textContent = "Sections"; sectionBar.appendChild(label);
+    const sectionButtons = document.createElement("div"); sectionButtons.className = "scoreboard-button-group scoreboard-section-buttons"; sectionBar.appendChild(sectionButtons);
     const preset = (text, onClick) => {
-      const button = document.createElement("button"); button.type = "button"; button.className = "scoreboard-preset-button"; button.textContent = text; button.addEventListener("click", onClick); sectionBar.appendChild(button);
+      const button = document.createElement("button"); button.type = "button"; button.className = "scoreboard-preset-button"; button.textContent = text; button.addEventListener("click", onClick); sectionButtons.appendChild(button);
     };
     preset("Default", () => {
       state.visibleScoreboardGroups = new Set(SCOREBOARD_DEFAULT_SECTIONS);
@@ -1507,23 +1520,38 @@
         else state.visibleScoreboardGroups.add(key);
         state.scoreboardSort = null; rerenderScoreboard();
       });
-      sectionBar.appendChild(button);
+      sectionButtons.appendChild(button);
     }
-    const mode = document.createElement("div"); mode.className = "scoreboard-value-toggle"; mode.appendChild(Object.assign(document.createElement("strong"), { textContent: "Values" }));
-    for (const [value, text] of [["totals", "Totals"], ["rates", "Rates"]]) {
+    const mode = document.createElement("div"); mode.className = "scoreboard-value-toggle scoreboard-control-row"; mode.appendChild(Object.assign(document.createElement("strong"), { textContent: "Values" }));
+    const modeButtons = document.createElement("div"); modeButtons.className = "scoreboard-button-group";
+    for (const [value, text] of [["totals", "Totals"], ["round", "Per round"]]) {
       const button = document.createElement("button"); button.type = "button"; button.textContent = text; button.classList.toggle("active", state.scoreboardValueMode === value); button.setAttribute("aria-pressed", String(state.scoreboardValueMode === value));
-      button.addEventListener("click", () => { state.scoreboardValueMode = value; state.scoreboardSort = null; rerenderScoreboard(); }); mode.appendChild(button);
+      button.addEventListener("click", () => { state.scoreboardValueMode = value; state.scoreboardSort = null; rerenderScoreboard(); }); modeButtons.appendChild(button);
     }
+    mode.appendChild(modeButtons);
+    const utilityBasis = document.createElement("div"); utilityBasis.className = "scoreboard-utility-basis";
+    utilityBasis.appendChild(Object.assign(document.createElement("span"), { textContent: "Utility yields" }));
+    const utilityButton = document.createElement("button"); utilityButton.type = "button"; utilityButton.textContent = "Per grenade"; utilityButton.disabled = state.scoreboardValueMode === "totals";
+    utilityButton.classList.toggle("active", state.scoreboardPerGrenadeUtility); utilityButton.setAttribute("aria-pressed", String(state.scoreboardPerGrenadeUtility));
+    utilityButton.title = "Use each relevant grenade type for damage, flash effects, and flash-assist yields";
+    utilityButton.addEventListener("click", () => { state.scoreboardPerGrenadeUtility = !state.scoreboardPerGrenadeUtility; state.scoreboardSort = null; rerenderScoreboard(); });
+    utilityBasis.appendChild(utilityButton); mode.appendChild(utilityBasis);
+    const modeNote = state.scoreboardValueMode === "totals"
+      ? "Raw counts"
+      : `Counts divided by rounds played${state.scoreboardPerGrenadeUtility ? "; utility yield columns use the relevant grenade" : ""}`;
+    mode.appendChild(Object.assign(document.createElement("small"), { className: "scoreboard-control-note", textContent: modeNote }));
     const activeGroup = SCOREBOARD_SECTIONS.find(([key]) => state.visibleScoreboardGroups.has(key) && state.expandedGroups[key])?.[0];
-    const subgroupBar = document.createElement("div"); subgroupBar.className = "scoreboard-subgroup-bar"; subgroupBar.hidden = !activeGroup || !SCOREBOARD_SUBGROUPS[activeGroup];
+    const subgroupBar = document.createElement("div"); subgroupBar.className = "scoreboard-subgroup-bar scoreboard-control-row"; subgroupBar.hidden = !activeGroup || !SCOREBOARD_SUBGROUPS[activeGroup];
     if (!subgroupBar.hidden) {
       subgroupBar.appendChild(Object.assign(document.createElement("strong"), { textContent: `${SCOREBOARD_SECTIONS.find(([key]) => key === activeGroup)?.[1]} detail` }));
+      const subgroupButtons = document.createElement("div"); subgroupButtons.className = "scoreboard-button-group";
       for (const [key, text] of SCOREBOARD_SUBGROUPS[activeGroup]) {
         const button = document.createElement("button"); button.type = "button"; button.textContent = text;
         const active = (state.scoreboardSubgroups[activeGroup] || SCOREBOARD_SUBGROUPS[activeGroup][0][0]) === key;
         button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
-        button.addEventListener("click", () => { state.scoreboardSubgroups[activeGroup] = key; state.scoreboardSort = null; rerenderScoreboard(); }); subgroupBar.appendChild(button);
+        button.addEventListener("click", () => { state.scoreboardSubgroups[activeGroup] = key; state.scoreboardSort = null; rerenderScoreboard(); }); subgroupButtons.appendChild(button);
       }
+      subgroupBar.appendChild(subgroupButtons);
     }
     target.replaceChildren(sectionBar, mode, subgroupBar);
   }
@@ -1568,7 +1596,7 @@
       `${(100 * (player.opening_assisted_kills ?? 0) / Math.max(1, player.opening_kills ?? 0)).toFixed(0)}%`
     ]);
     const context = player.kill_context || {};
-    const eventPair = (left, right) => state.scoreboardValueMode === "rates"
+    const eventPair = (left, right) => state.scoreboardValueMode === "round"
       ? `${(numberValue(left) / Math.max(1, player.rounds_played ?? 0)).toFixed(2)}-${(numberValue(right) / Math.max(1, player.rounds_played ?? 0)).toFixed(2)}`
       : `${left ?? 0}-${right ?? 0}`;
     const blind = eventPair(context.blinded_enemy_kills, context.deaths_while_blind);
@@ -1600,7 +1628,7 @@
       return samples ? `${(numberValue(player[`${kind}_time_total_ms`]) / samples / 1000).toFixed(1)}s` : "—";
     };
     const timingPair = phase => player.timing_available
-      ? `${player[`${phase}_kills`] ?? 0}-${player[`${phase}_deaths`] ?? 0}`
+      ? eventPair(player[`${phase}_kills`], player[`${phase}_deaths`])
       : "—";
     scoreboardCells(row, "killContext", unfair, [manCount, evenCount, advantageCount, cleanupCount, blind, blindKiller, wall, smoke, air, grenade, knife, equipment, running]);
     const stagePair = alive => player.round_state_available
@@ -1627,7 +1655,14 @@
       per(utilityTotals[7], utilityThrown.flashbang), per(utilityTotals[8], utilityThrown.flashbang), per(utilityTotals[9], utilityThrown.flashbang),
       per(utilityTotals[10], player.rounds_played), per(utilityTotals[11], player.rounds_played), per(utilityTotals[12], utilityThrown.flashbang)
     ];
-    scoreboardCells(row, "utility", `${player.grenade_damage?.total ?? 0} dmg · ${totalThrown} thrown`, state.scoreboardValueMode === "rates" ? utilityRates : utilityTotals);
+    const utilityRoundRates = [
+      ...utilityTotals.slice(0, 2).map(value => per(value, player.rounds_played)),
+      ...utilityTotals.slice(2, 13).map(value => per(value, player.rounds_played))
+    ];
+    const displayedUtility = state.scoreboardValueMode === "round"
+      ? (state.scoreboardPerGrenadeUtility ? utilityRates : utilityRoundRates)
+      : utilityTotals;
+    scoreboardCells(row, "utility", `${player.grenade_damage?.total ?? 0} dmg · ${totalThrown} thrown`, displayedUtility);
     const multikillTotal = [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0);
     scoreboardCells(row, "multikills", multikillTotal, [5, 4, 3, 2, 1].map(kills => player.kill_rounds?.[kills] ?? 0));
     scoreboardCells(row, "objectives", `${player.objectives?.plants ?? 0}/${player.objectives?.defuses ?? 0}`, [player.objectives?.plants ?? 0, player.objectives?.defuses ?? 0]);
@@ -1677,11 +1712,15 @@
     th.appendChild(button);
     topRow.appendChild(th);
     const rateLabel = detail => {
-      if (state.scoreboardValueMode !== "rates" || !expanded) return detail;
-      if (/K-D/.test(detail)) return detail.replace("K-D", "K/R-D/R");
-      if (/K\/D|%|rate|Success|speed|Avg |Blind sec/.test(detail)) return detail;
-      if (group === "utility" && ["HE Dmg", "Fire Dmg", "EF", "FA", "Own flash"].includes(detail)) return `${detail}/G`;
-      return `${detail}/R`;
+      if (state.scoreboardValueMode !== "round" || !expanded) return detail;
+      if (/K-D/.test(detail)) return detail.replace("K-D", "K/round-D/round");
+      if (detail.includes("(Succ%)")) return detail.replace(/^([KD])/, "$1 / round");
+      if (/K\/D|%|rate|Success|speed|Avg /.test(detail)) return detail;
+      if (group === "utility" && state.scoreboardPerGrenadeUtility) {
+        const unit = { "HE Dmg": "HE", "Fire Dmg": "fire", EF: "flash", "Blind sec": "flash", FA: "flash", "Own flash": "flash" }[detail];
+        if (unit) return `${detail} / ${unit}`;
+      }
+      return `${detail} / round`;
     };
     const details = (expanded ? focusedLabels : [collapsedLabel]).map(rateLabel);
     details.forEach((detail, index) => {
