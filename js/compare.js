@@ -5,6 +5,7 @@
   const COMPARE_ENDPOINT = "/nickstats/api/compare";
   const MAX_GROUP = 10;
   const MAX_INCLUDED = 5;
+  const GROUP_SELECTION_KEY = "nickstats.groupSelection.v1";
   const scoring = {
     winRateWeight: 0.8, ratingWeight: 0.2,
     winRateScale: 10, ratingScale: 0.10,
@@ -12,8 +13,27 @@
   };
   const $ = id => document.getElementById(id);
   const availability = window.NickStatsAvailability;
+  function readSavedRoster() {
+    try {
+      const rows = JSON.parse(localStorage.getItem(GROUP_SELECTION_KEY) || "[]");
+      if (!Array.isArray(rows)) return [];
+      const roster = [], seen = new Set();
+      let included = 0;
+      for (const row of rows) {
+        if (!row || row.id == null || seen.has(String(row.id)) || roster.length >= MAX_GROUP) continue;
+        const id = String(row.id), requestedChoice = row.choice === "exclude" ? "exclude" : "include";
+        const choice = requestedChoice === "include" && included >= MAX_INCLUDED ? "exclude" : requestedChoice;
+        if (choice === "include") included += 1;
+        seen.add(id);
+        roster.push({ player: { id, name: row.name || "Unknown player", steam_id: row.steam_id || "", match_count: Number(row.match_count) || 0 }, choice });
+      }
+      return roster;
+    } catch (_) { return []; }
+  }
+  const savedRoster = readSavedRoster();
   const state = {
-    selected: new Map(), players: [], choices: new Map(), analysis: null,
+    selected: new Map(savedRoster.map(({ player }) => [String(player.id), player])), players: [],
+    choices: new Map(savedRoster.map(({ player, choice }) => [String(player.id), choice])), analysis: null,
     searchController: null, compareController: null, searchTimer: null,
     side: "ALL", buy: "ALL", opponentBuy: "ALL", roundResult: "ALL", result: "ALL", metricGroup: "core", weapon: "",
     comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile",
@@ -65,6 +85,17 @@
   function setSearchStatus(message, error = false) {
     $("compareSearchStatus").textContent = message;
     $("compareSearchStatus").classList.toggle("error", error);
+  }
+
+  function persistRoster() {
+    const rows = [...state.selected.values()].map(player => ({
+      id: String(player.id), name: player.name || "Unknown player", steam_id: player.steam_id || "",
+      match_count: num(player.match_count), choice: state.choices.get(String(player.id)) === "exclude" ? "exclude" : "include"
+    }));
+    try {
+      if (rows.length) localStorage.setItem(GROUP_SELECTION_KEY, JSON.stringify(rows));
+      else localStorage.removeItem(GROUP_SELECTION_KEY);
+    } catch (_) {}
   }
 
   function playerRating(row) {
@@ -395,6 +426,7 @@
     $("compareSearchInput").value = "";
     $("compareSearchResults").replaceChildren();
     setSearchStatus("Search for another player, or build the current selection.");
+    persistRoster();
     invalidateAnalysis();
     renderSelectedRoster();
   }
@@ -402,6 +434,7 @@
   function removePlayer(id) {
     state.selected.delete(String(id));
     state.choices.delete(String(id));
+    persistRoster();
     invalidateAnalysis();
     renderSelectedRoster();
   }
@@ -420,6 +453,7 @@
       return;
     }
     state.choices.set(String(id), choice);
+    persistRoster();
     invalidateAnalysis();
     renderSelectedRoster();
   }
@@ -658,6 +692,7 @@
     state.compareController?.abort();
     state.selected.clear();
     state.choices.clear();
+    persistRoster();
     state.result = "ALL";
     state.buy = "ALL";
     state.opponentBuy = "ALL";

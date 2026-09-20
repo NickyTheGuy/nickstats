@@ -141,3 +141,14 @@ test("player filters are shared across every open profile", () => {
   assert.match(playersSource, /state\.profiles\.set\(key, \{ payload, view: "overview" \}\)/);
   assert.doesNotMatch(playersSource, /profile\.(?:side|buy|opponentBuy|roundResult|result|maps)/);
 });
+
+test("groups restore the most recent roster and include or exclude roles", () => {
+  assert.match(compareSource, /GROUP_SELECTION_KEY = "nickstats\.groupSelection\.v1"/);
+  assert.match(compareSource, /const savedRoster = readSavedRoster\(\)/);
+  assert.match(compareSource, /selected: new Map\(savedRoster\.map/);
+  assert.match(compareSource, /choices: new Map\(savedRoster\.map/);
+  assert.match(compareSource, /roster\.length >= MAX_GROUP/);
+  assert.match(compareSource, /included >= MAX_INCLUDED \? "exclude"/);
+  assert.match(compareSource, /localStorage\.setItem\(GROUP_SELECTION_KEY, JSON\.stringify\(rows\)\)/);
+  assert.match(compareSource, /else localStorage\.removeItem\(GROUP_SELECTION_KEY\)/);
+});

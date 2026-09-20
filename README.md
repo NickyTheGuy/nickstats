@@ -52,6 +52,8 @@ Weapon player cards are expandable, retain their open state across ALL/CT/T chan
 
 Quick comparison can display every collapsible match-scoreboard section: Combat, Opening, Trades, Clutches, Context, Kill stage, Movement, Utility, Kill rounds, Objectives, and Round timing. Its section selection is shared between the Player and Groups views and retains the compact Combat, Opening, and Clutches default.
 
+The Groups builder remembers its most recent roster and each player’s Include or Exclude role in local browser storage. Reopening the page restores those selections without caching match statistics; building the group still fetches current data from the API. Clear removes the saved roster.
+
 Pickup, equip, and even damage events sometimes use the shared `hkp2000` family label for both CT starting pistols. NickStats learns each player's CT pistol choice from the explicit item definition index—USP-S (61), P2000 (32)—or unambiguous combat events, retains it across rounds, and routes ambiguous inventory/damage events to that choice. An unindexed `hkp2000` inventory event cannot create a P2000 statistic by itself.
 
 The M4 family receives the same treatment. CS2 identifies the M4A4 as `m4a1` (item definition 16) and the M4A1-S as `m4a1_silencer` (item definition 60), but some combat events report only the shared `m4a1` family. NickStats learns the player's equipped M4 from inventory, item-definition, and unambiguous combat evidence, then routes ambiguous damage and kill events to the learned variant.
