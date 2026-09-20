@@ -45,3 +45,11 @@ test("context and overview use focused cards instead of catch-all lists", () => 
   ]) assert.match(html, new RegExp(`id="${id}"`));
   assert.doesNotMatch(html, /id="playerKillContextStats"|id="playerDeathContextStats"/);
 });
+
+test("map summaries combine match records, include round records, and color semantic results", () => {
+  assert.match(profile, /\["Map", "Matches · W–L", "Rounds", "Round W–L"/);
+  assert.match(profile, /styledCell\(`\$\{integer\(map\.matches\)\} · \$\{integer\(map\.wins\)\}–\$\{integer\(map\.losses\)\}`/);
+  assert.match(profile, /styledCell\(`\$\{integer\(roundWins\)\}–\$\{integer\(roundLosses\)\}`/);
+  assert.match(profile, /styledCell\(decimal\(map\.rating, 2\), semanticClass\(map\.rating, 1\.1, \.9, true\)\)/);
+  assert.match(profile, /if \(display\.className\) cell\.className = display\.className/);
+});

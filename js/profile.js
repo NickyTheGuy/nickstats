@@ -22,6 +22,11 @@
     const seconds = Math.max(0, number(milliseconds) / 1000), minutes = Math.floor(seconds / 60);
     return `${minutes}:${(seconds % 60).toFixed(1).padStart(4, "0")}`;
   };
+  const semanticClass = (value, good, bad, inclusive = false) => {
+    const numeric = number(value);
+    return `demo-rating ${inclusive ? (numeric >= good ? "rating-good" : numeric <= bad ? "rating-bad" : "rating-average") : (numeric > good ? "rating-good" : numeric < bad ? "rating-bad" : "rating-average")}`;
+  };
+  const styledCell = (text, className) => ({ text, className });
   const tableSorts = new Map();
 
   function card(label, value, note = "", className = "") {
@@ -79,7 +84,18 @@
       cell.appendChild(button); headerRow.appendChild(cell);
     }); head.appendChild(headerRow);
     const body = document.createElement("tbody");
-    indexed.forEach(({ values }) => { const row = document.createElement("tr"); values.forEach((value, index) => { const cell = document.createElement(index ? "td" : "th"); if (!index) cell.scope = "row"; cell.textContent = value; row.appendChild(cell); }); body.appendChild(row); });
+    indexed.forEach(({ values }) => {
+      const row = document.createElement("tr");
+      values.forEach((value, index) => {
+        const cell = document.createElement(index ? "td" : "th");
+        const display = value && typeof value === "object" && Object.hasOwn(value, "text") ? value : { text: value };
+        if (!index) cell.scope = "row";
+        if (display.className) cell.className = display.className;
+        cell.textContent = display.text;
+        row.appendChild(cell);
+      });
+      body.appendChild(row);
+    });
     table.replaceChildren(head, body);
   }
 
@@ -266,7 +282,25 @@
     const weapons = summary.weapons || [];
     renderTable(`${prefix}WeaponsTable`, ["Weapon", "Kills", "K/RU", "Damage", "Dmg/RU", "Shots", "Hits", "Hit rate", "Rounds used", "Usage"], weapons.map(weapon => [titleCase(weapon.weapon), integer(weapon.kills), decimal(ratio(weapon.kills, weapon.rounds_used), 3), integer(weapon.damage), decimal(ratio(weapon.damage, weapon.rounds_used), 1), integer(weapon.shots), integer(weapon.hits), percent(100 * ratio(weapon.hits, weapon.shots)), integer(weapon.rounds_used), percent(100 * ratio(weapon.rounds_used, rounds))]), weapons.map(weapon => [weapon.weapon, number(weapon.kills), ratio(weapon.kills, weapon.rounds_used), number(weapon.damage), ratio(weapon.damage, weapon.rounds_used), number(weapon.shots), number(weapon.hits), ratio(weapon.hits, weapon.shots), number(weapon.rounds_used), ratio(weapon.rounds_used, rounds)]));
     const mapRows = maps || [];
-    renderTable(`${prefix}MapsTable`, ["Map", "Matches", sideAll ? "Record" : "Rounds", sideAll ? "Win rate" : "Round win", "Rating", "K/D", "K/R", "A/R", "ADR", "KAST"], mapRows.map(({ name, summary: map }) => [titleCase(String(name).replace(/^de_/, "")), integer(map.matches), sideAll ? `${map.wins}–${map.losses}` : `${integer(map.stats.round_wins)}–${integer(map.rounds - number(map.stats.round_wins))}`, percent(map.winRate), decimal(map.rating, 2), decimal(map.kd, 2), decimal(ratio(map.stats.kills, map.rounds), 2), decimal(ratio(map.stats.assists, map.rounds), 2), decimal(map.adr, 1), percent(map.kast)]), mapRows.map(({ name, summary: map }) => [name, map.matches, sideAll ? map.wins - map.losses : number(map.stats.round_wins) - (map.rounds - number(map.stats.round_wins)), map.winRate, map.rating, map.kd, ratio(map.stats.kills, map.rounds), ratio(map.stats.assists, map.rounds), map.adr, map.kast]));
+    renderTable(`${prefix}MapsTable`, ["Map", "Matches · W–L", "Rounds", "Round W–L", sideAll ? "Win rate" : "Round win", "Rating", "K/D", "K/R", "A/R", "ADR", "KAST"], mapRows.map(({ name, summary: map }) => {
+      const roundWins = number(map.stats.round_wins), roundLosses = Math.max(0, number(map.rounds) - roundWins);
+      return [
+        titleCase(String(name).replace(/^de_/, "")),
+        styledCell(`${integer(map.matches)} · ${integer(map.wins)}–${integer(map.losses)}`, semanticClass(number(map.wins) - number(map.losses), 0, 0)),
+        integer(map.rounds),
+        styledCell(`${integer(roundWins)}–${integer(roundLosses)}`, semanticClass(roundWins - roundLosses, 0, 0)),
+        styledCell(percent(map.winRate), semanticClass(map.winRate, 50, 50)),
+        styledCell(decimal(map.rating, 2), semanticClass(map.rating, 1.1, .9, true)),
+        decimal(map.kd, 2),
+        decimal(ratio(map.stats.kills, map.rounds), 2),
+        decimal(ratio(map.stats.assists, map.rounds), 2),
+        decimal(map.adr, 1),
+        percent(map.kast)
+      ];
+    }), mapRows.map(({ name, summary: map }) => {
+      const roundWins = number(map.stats.round_wins), roundLosses = Math.max(0, number(map.rounds) - roundWins);
+      return [name, map.matches, number(map.rounds), roundWins - roundLosses, map.winRate, map.rating, map.kd, ratio(map.stats.kills, map.rounds), ratio(map.stats.assists, map.rounds), map.adr, map.kast];
+    }));
   }
 
   function mountComparisonProfile() {
