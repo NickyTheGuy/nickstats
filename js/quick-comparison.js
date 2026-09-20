@@ -22,6 +22,13 @@
   ]);
   const sectionKeys = new Set(sectionOptions.map(([key]) => key));
   const defaultSections = ["combat", "opening", "clutches"];
+  const sectionSubgroups = Object.freeze({
+    combat: [["output", "Output", [0, 1, 2, 3, 4]], ["damage", "Damage", [5, 6, 7, 8]]],
+    opening: [["results", "Results", [0, 1, 24, 25, 26]], ["received", "Help received", [2, 3, 4, 5, 23]], ["given", "Help given", [6, 7, 8, 9]], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]]],
+    killContext: [["manCount", "Man count", [0, 1, 2, 3]], ["visibility", "Visibility", [4, 5, 6, 7, 8]], ["readiness", "Readiness", [9, 10, 11, 12]]],
+    movement: [["state", "State", [0, 1, 2, 3]], ["speed", "Speed", [4, 5, 6, 7]]],
+    utility: [["damage", "Damage", [0, 1]], ["usage", "Usage", [2, 3, 4, 5, 6]], ["flashes", "Flashes", [7, 8, 9]], ["assists", "Assisted kills", [10, 11, 12]]]
+  });
   const storedSections = () => {
     try {
       const values = JSON.parse(localStorage.getItem(SECTION_STORAGE_KEY));
@@ -43,6 +50,8 @@
     const state = {
       map: "ALL",
       expandedGroups: Object.fromEntries(sectionOptions.map(([key]) => [key, false])),
+      sectionSubgroups: {},
+      valueMode: "totals",
       visibleGroups: new Set(sharedSections),
       sort: null,
       input: null
@@ -53,6 +62,47 @@
     function mapsFor(players) {
       return [...new Set(players.flatMap(player => player.rows || []).map(row => row.map).filter(Boolean))]
         .sort((left, right) => titleCase(left.replace(/^de_/, "")).localeCompare(titleCase(right.replace(/^de_/, ""))));
+    }
+
+    function focusedColumns(group, columns) {
+      if (!state.expandedGroups[group] || !sectionSubgroups[group]) return columns;
+      const subgroups = sectionSubgroups[group], active = state.sectionSubgroups[group] || subgroups[0][0];
+      const subgroup = subgroups.find(([key]) => key === active) || subgroups[0];
+      return subgroup[2].map(index => columns[index]).filter(Boolean);
+    }
+
+    function displayedValue(column, item) {
+      if (state.valueMode !== "rates" || !column.group) return column.format(item);
+      if (["combat", "opening", "trades", "clutches", "kill-context", "kill-stage-summary", "movement", "utility", "multikills", "objectives", "timing"].includes(column.key)) return column.format(item);
+      const formatted = column.format(item);
+      if (formatted === "—" || formatted === "Not parsed") return formatted;
+      const value = column.value(item);
+      if (!Number.isFinite(Number(value))) return column.format(item);
+      if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || column.label.includes("%") || ["timing-kill", "timing-death"].includes(column.key)) return formatted;
+      let denominator = number(item.stats.rounds);
+      if (column.group === "utility") {
+        if (["utility-he-damage"].includes(column.key)) denominator = number(item.stats.he_grenades_thrown);
+        else if (["utility-fire-damage"].includes(column.key)) denominator = number(item.stats.fire_grenades_thrown);
+        else if (["utility-enemies-flashed", "utility-blind-seconds", "utility-flash-assists", "utility-own-flash"].includes(column.key)) denominator = number(item.stats.flashbangs_thrown);
+      }
+      if (!denominator) return "—";
+      const pair = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+      if (pair) return `${decimal(number(pair[1]) / denominator, 2)}-${decimal(number(pair[2]) / denominator, 2)}`;
+      const fraction = formatted.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
+      if (fraction) return `${decimal(number(fraction[1]) / denominator, 2)}/${decimal(number(fraction[2]) / denominator, 2)}`;
+      const countedPercent = formatted.match(/^(\d+(?:\.\d+)?) (\([^)]+\))$/);
+      if (countedPercent) return `${decimal(number(countedPercent[1]) / denominator, 2)} ${countedPercent[2]}`;
+      const scaledValue = column.key === "utility-blind-seconds" ? number(value) / 1000 : number(value);
+      return decimal(scaledValue / denominator, 2);
+    }
+
+    function displayedLabel(column) {
+      if (state.valueMode !== "rates" || !column.group) return column.label;
+      if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || column.label.includes("%") || ["timing-kill", "timing-death"].includes(column.key)) return column.label;
+      if (["combat", "opening", "trades", "clutches", "kill-context", "kill-stage-summary", "movement", "utility", "multikills", "objectives"].includes(column.key)) return column.label;
+      const suffix = column.group === "utility" && ["utility-he-damage", "utility-fire-damage", "utility-enemies-flashed", "utility-blind-seconds", "utility-flash-assists", "utility-own-flash"].includes(column.key) ? "/G" : "/R";
+      if (column.label.includes("K-D")) return column.label.replace("K-D", "K/R-D/R");
+      return `${column.label}${suffix}`;
     }
 
     function renderTable(comparison) {
@@ -232,17 +282,17 @@
       }];
       const segments = [
         { columns: fixedColumns },
-        { group: "combat", label: "Combat", columns: combatColumns },
-        { group: "opening", label: "Opening", columns: openingColumns },
-        { group: "trades", label: "Trades", columns: tradesColumns },
-        { group: "clutches", label: "Clutches", columns: clutchColumns },
-        { group: "killContext", label: "Context", columns: contextColumns },
-        { group: "killStage", label: "Kill stage", columns: stageColumns },
-        { group: "movement", label: "Movement", columns: movementColumns },
-        { group: "utility", label: "Utility", columns: utilityColumns },
-        { group: "multikills", label: "Kill rounds", columns: multikillColumns },
-        { group: "objectives", label: "Objectives", columns: objectiveColumns },
-        { group: "timing", label: "Round timing", columns: timingColumns }
+        { group: "combat", label: "Combat", columns: focusedColumns("combat", combatColumns) },
+        { group: "opening", label: "Opening", columns: focusedColumns("opening", openingColumns) },
+        { group: "trades", label: "Trades", columns: focusedColumns("trades", tradesColumns) },
+        { group: "clutches", label: "Clutches", columns: focusedColumns("clutches", clutchColumns) },
+        { group: "killContext", label: "Context", columns: focusedColumns("killContext", contextColumns) },
+        { group: "killStage", label: "Kill stage", columns: focusedColumns("killStage", stageColumns) },
+        { group: "movement", label: "Movement", columns: focusedColumns("movement", movementColumns) },
+        { group: "utility", label: "Utility", columns: focusedColumns("utility", utilityColumns) },
+        { group: "multikills", label: "Kill rounds", columns: focusedColumns("multikills", multikillColumns) },
+        { group: "objectives", label: "Objectives", columns: focusedColumns("objectives", objectiveColumns) },
+        { group: "timing", label: "Round timing", columns: focusedColumns("timing", timingColumns) }
       ].filter(segment => !segment.group || state.visibleGroups.has(segment.group));
       const columns = segments.flatMap(segment => segment.columns.map((column, index) => ({
         ...column, group: segment.group, groupStart: Boolean(segment.group) && index === 0,
@@ -262,7 +312,7 @@
 
       const sortHeader = (cell, column) => {
         const active = sort?.key === column.key;
-        const button = element("button", column.label, `player-table-sort-button${active ? " active" : ""}`);
+        const button = element("button", displayedLabel(column), `player-table-sort-button${active ? " active" : ""}`);
         button.type = "button";
         if (active) button.dataset.direction = sort.direction;
         button.addEventListener("click", () => {
@@ -285,7 +335,11 @@
         heading.className = `demo-toggle-heading ${segment.group}-heading demo-group-start demo-group-end`;
         const toggle = element("button", `${segment.label} ${state.expandedGroups[segment.group] ? "▾" : "▸"}`, "demo-column-toggle");
         toggle.type = "button"; toggle.setAttribute("aria-expanded", String(state.expandedGroups[segment.group]));
-        toggle.addEventListener("click", () => { state.expandedGroups[segment.group] = !state.expandedGroups[segment.group]; state.sort = null; render(state.input); });
+        toggle.addEventListener("click", () => {
+          const next = !state.expandedGroups[segment.group];
+          Object.keys(state.expandedGroups).forEach(group => { state.expandedGroups[group] = false; });
+          state.expandedGroups[segment.group] = next; state.sort = null; render(state.input);
+        });
         heading.appendChild(toggle); top.appendChild(heading);
         segment.columns.forEach((column, index) => {
           const cell = document.createElement("th"); cell.scope = "col"; cell.className = `demo-group-detail ${segment.group}-cell`;
@@ -301,7 +355,7 @@
         columns.forEach((column, index) => {
           const cell = document.createElement(index === 0 ? "th" : "td");
           if (index === 0) cell.scope = "row";
-          cell.textContent = column.format(item);
+          cell.textContent = displayedValue(column, item);
           const className = typeof column.className === "function" ? column.className(item) : column.className;
           if (className) cell.className = className;
           if (column.group) cell.classList.add("demo-group-cell", `${column.group}-cell`);
@@ -313,41 +367,47 @@
       }
       const table = byId("Table");
       table.className = `player-profile-table quick-comparison-table${sectionOptions.map(([group]) => state.visibleGroups.has(group) && state.expandedGroups[group] ? ` ${group}-expanded` : "").join("")}`;
-      const sectionWidth = (group, columns, width) => state.visibleGroups.has(group) ? columns.length * width : 0;
-      table.style.minWidth = `${500 + sectionWidth("combat", combatColumns, 68) + sectionWidth("opening", openingColumns, 76) + sectionWidth("trades", tradesColumns, 76) + sectionWidth("clutches", clutchColumns, 62) + sectionWidth("killContext", contextColumns, 78) + sectionWidth("killStage", stageColumns, 86) + sectionWidth("movement", movementColumns, 88) + sectionWidth("utility", utilityColumns, 82) + sectionWidth("multikills", multikillColumns, 62) + sectionWidth("objectives", objectiveColumns, 76) + sectionWidth("timing", timingColumns, 86)}px`;
+      table.style.minWidth = `${500 + segments.filter(segment => segment.group).reduce((width, segment) => width + segment.columns.length * 82, 0)}px`;
       table.replaceChildren(head, body);
     }
 
-    function renderSections(keepOpen = false) {
+    function renderSections() {
       const target = byId("Sections");
       if (!target) return;
-      const details = element("details", null, "map-filter-menu");
-      details.open = keepOpen;
-      const count = state.visibleGroups.size;
-      details.appendChild(element("summary", count === sectionOptions.length ? "All sections" : count ? `${count} sections` : "Summary only"));
-      const options = element("div", null, "map-filter-options");
-      const addOption = (key, label) => {
-        const row = element("label"), checkbox = element("input"), text = element("span", label);
-        checkbox.type = "checkbox";
-        checkbox.checked = key === "ALL" ? count === sectionOptions.length : state.visibleGroups.has(key);
-        checkbox.addEventListener("change", () => {
-          const selected = new Set(state.visibleGroups);
-          if (key === "ALL") {
-            selected.clear();
-            if (checkbox.checked) sectionOptions.forEach(([section]) => selected.add(section));
-          } else if (checkbox.checked) selected.add(key); else selected.delete(key);
-          setSharedSections(selected);
-        });
-        row.append(checkbox, text); options.appendChild(row);
+      const bar = element("div", null, "scoreboard-section-bar");
+      const preset = (label, values) => {
+        const button = element("button", label, "scoreboard-preset-button"); button.type = "button";
+        button.addEventListener("click", () => setSharedSections(new Set(values))); bar.appendChild(button);
       };
-      addOption("ALL", "All sections");
-      sectionOptions.forEach(([key, label]) => addOption(key, label));
-      details.appendChild(options); target.replaceChildren(details);
+      preset("Default", defaultSections); preset("All", sectionOptions.map(([key]) => key));
+      sectionOptions.forEach(([key, label]) => {
+        const button = element("button", label, `scoreboard-section-button ${key}-heading${state.visibleGroups.has(key) ? " active" : ""}`); button.type = "button";
+        button.setAttribute("aria-pressed", String(state.visibleGroups.has(key)));
+        button.addEventListener("click", () => { const selected = new Set(state.visibleGroups); if (selected.has(key)) selected.delete(key); else selected.add(key); setSharedSections(selected); });
+        bar.appendChild(button);
+      });
+      const mode = element("div", null, "scoreboard-value-toggle"); mode.appendChild(element("strong", "Values"));
+      [["totals", "Totals"], ["rates", "Rates"]].forEach(([value, label]) => {
+        const button = element("button", label, state.valueMode === value ? "active" : ""); button.type = "button"; button.setAttribute("aria-pressed", String(state.valueMode === value));
+        button.addEventListener("click", () => { state.valueMode = value; state.sort = null; render(state.input); }); mode.appendChild(button);
+      });
+      const activeGroup = sectionOptions.find(([key]) => state.expandedGroups[key])?.[0];
+      const subgroups = activeGroup && sectionSubgroups[activeGroup];
+      const subgroupBar = element("div", null, "scoreboard-subgroup-bar"); subgroupBar.hidden = !subgroups;
+      if (subgroups) {
+        subgroupBar.appendChild(element("strong", `${sectionOptions.find(([key]) => key === activeGroup)?.[1]} detail`));
+        subgroups.forEach(([key, label]) => {
+          const active = (state.sectionSubgroups[activeGroup] || subgroups[0][0]) === key;
+          const button = element("button", label, active ? "active" : ""); button.type = "button"; button.setAttribute("aria-pressed", String(active));
+          button.addEventListener("click", () => { state.sectionSubgroups[activeGroup] = key; state.sort = null; render(state.input); }); subgroupBar.appendChild(button);
+        });
+      }
+      target.replaceChildren(bar, mode, subgroupBar);
     }
 
-    function render(input, keepSectionMenuOpen = false) {
+    function render(input) {
       state.input = input;
-      renderSections(keepSectionMenuOpen);
+      renderSections();
       const players = input?.players || [];
       const maps = mapsFor(players);
       if (state.map !== "ALL" && !maps.includes(state.map)) state.map = "ALL";
@@ -378,21 +438,19 @@
     function reset() {
       state.map = "ALL";
       state.expandedGroups = Object.fromEntries(sectionOptions.map(([key]) => [key, false]));
+      state.sectionSubgroups = {};
+      state.valueMode = "totals";
       state.sort = null;
       state.input = null;
     }
 
     const syncSections = sections => {
-      const keepOpen = Boolean(byId("Sections")?.querySelector("details[open]"));
       state.visibleGroups = new Set(sections);
+      Object.keys(state.expandedGroups).forEach(group => { if (!state.visibleGroups.has(group)) state.expandedGroups[group] = false; });
       state.sort = null;
-      if (state.input) render(state.input, keepOpen); else renderSections(keepOpen);
+      if (state.input) render(state.input); else renderSections();
     };
     sectionSubscribers.add(syncSections);
-    document.addEventListener("click", event => {
-      const menu = byId("Sections")?.querySelector("details[open]");
-      if (menu && !menu.contains(event.target)) menu.open = false;
-    });
     renderSections();
 
     return { render, reset };

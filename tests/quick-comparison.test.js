@@ -74,7 +74,18 @@ test("the standalone Matrix navigation tab is removed", () => {
 test("quick comparison puts summary columns before collapsible combat", () => {
   assert.match(componentSource, /key: "player", label: "Player"[\s\S]*?key: "rating", label: "Rating"[\s\S]*?key: "win-rate", label: "Win rate"[\s\S]*?key: "rounds", label: "Rounds"[\s\S]*?key: "kast", label: "KAST"/);
   assert.match(playersSource, /winRate: summary\.winRate/);
-  assert.match(componentSource, /\{ columns: fixedColumns \},\s*\{ group: "combat", label: "Combat", columns: combatColumns \},\s*\{ group: "opening"/);
+  assert.match(componentSource, /\{ columns: fixedColumns \},\s*\{ group: "combat", label: "Combat", columns: focusedColumns\("combat", combatColumns\) \},\s*\{ group: "opening"/);
+});
+
+test("quick comparison uses visible section, value-mode, and subgroup controls", () => {
+  assert.match(componentSource, /element\("div", null, "scoreboard-section-bar"\)/);
+  assert.match(componentSource, /\[\["totals", "Totals"\], \["rates", "Rates"\]\]/);
+  assert.match(componentSource, /const sectionSubgroups = Object\.freeze/);
+  assert.match(componentSource, /\["received", "Help received"/);
+  assert.match(componentSource, /\["assists", "Assisted kills"/);
+  assert.match(componentSource, /Object\.keys\(state\.expandedGroups\)\.forEach\(group => \{ state\.expandedGroups\[group\] = false; \}\)/);
+  assert.doesNotMatch(componentSource, /map-filter-menu/);
+  assert.match(styles, /\.scoreboard-subgroup-bar/);
 });
 
 test("quick comparison serves the group scoreboard and standalone player profiles", () => {

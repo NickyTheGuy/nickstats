@@ -35,8 +35,8 @@ test("statistic highlights use the warm high-differentiation semantic palette", 
 });
 
 test("match scoreboard leads with summaries and ends with round detail groups", () => {
-  assert.match(demo, /\["Player", "Rating", "Rounds P\/W", "KAST"\][\s\S]*?groupHeader\(header, detailHeader, "combat"/);
-  assert.match(demo, /groupHeader\(header, detailHeader, "utility"[\s\S]*?groupHeader\(header, detailHeader, "multikills"[\s\S]*?groupHeader\(header, detailHeader, "objectives"[\s\S]*?groupHeader\(header, detailHeader, "timing"/);
+  assert.match(demo, /\["Player", "Rating", "Rounds P\/W", "KAST"\][\s\S]*?showGroup\("combat"/);
+  assert.match(demo, /showGroup\("utility"[\s\S]*?showGroup\("multikills"[\s\S]*?showGroup\("objectives"[\s\S]*?showGroup\("timing"/);
   assert.match(styles, /\.multikills-heading \{ background: rgba\(220, 65, 121, \.21\); \}/);
   assert.match(styles, /\.objectives-heading \{ background: rgba\(194, 143, 28, \.20\); \}/);
   assert.match(styles, /\.timing-heading \{ background: rgba\(181, 101, 61, \.21\); \}/);
@@ -58,9 +58,20 @@ test("primary and secondary buttons have visible interaction feedback", () => {
 });
 
 test("collapsed scoreboard summaries stay within their columns", () => {
-  assert.match(demo, /expandedGroups\.objectives \? \[74, 74\] : \[128\]/);
-  assert.match(demo, /expandedGroups\.utility \? \[82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90\] : \[176\]/);
+  assert.match(demo, /add\("objectives", \[74, 74\], 128\)/);
+  assert.match(demo, /add\("utility", \[82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90\], 176\)/);
   assert.match(styles, /\.demo-score-table th,[\s\S]*?\.demo-score-table td \{[\s\S]*?overflow: hidden;[\s\S]*?text-overflow: ellipsis;/);
+});
+
+test("match scoreboard supports section, value-mode, and subgroup controls", () => {
+  assert.match(demo, /const SCOREBOARD_DEFAULT_SECTIONS = \["combat", "opening", "trades", "clutches", "utility"\]/);
+  assert.match(demo, /const SCOREBOARD_SUBGROUPS = Object\.freeze/);
+  assert.match(demo, /className = "scoreboard-section-bar"/);
+  assert.match(demo, /\[\["totals", "Totals"\], \["rates", "Rates"\]\]/);
+  assert.match(demo, /Object\.keys\(state\.expandedGroups\)\.forEach\(key => \{ state\.expandedGroups\[key\] = false; \}\)/);
+  assert.match(demo, /state\.visibleScoreboardGroups\.has\(key\) && state\.expandedGroups\[key\]/);
+  assert.match(styles, /\.scoreboard-control-panel/);
+  assert.match(styles, /\.scoreboard-section-button\.active/);
 });
 
 test("empty open-profile tabs remain fully hidden", () => {
