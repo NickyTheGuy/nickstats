@@ -7,6 +7,9 @@
   const MAX_UNCOMPRESSED_DEMO_BYTES = 768 * 1024 * 1024;
   const state = {
     file: null,
+    files: [],
+    batchRunning: false,
+    batchCurrent: null,
     parsedResult: null,
     result: null,
     storedPayload: null,
@@ -303,6 +306,25 @@
     $("demoAuthToken").focus();
   }
 
+  async function postParsedMatch(result, replace = false) {
+    const response = await fetch(replace ? `${MATCH_UPLOAD_ENDPOINT}?replace=true` : MATCH_UPLOAD_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${state.uploadToken}`,
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+      },
+      body: JSON.stringify(compactMatchResult(result))
+    });
+    const responseBody = await response.json().catch(() => null);
+    if (!response.ok) {
+      const error = new Error(responseBody?.reason || `The API returned HTTP ${response.status}.`);
+      error.status = response.status;
+      throw error;
+    }
+    return responseBody || {};
+  }
+
   async function uploadParsedMatch(result = state.parsedResult, { replace = false } = {}) {
     if (!result || state.uploading) return;
     if (!state.uploadToken) {
@@ -323,21 +345,7 @@
     setStatus(`${parsedMatchDescription(result)} ${replace ? "Replacing the stored match" : "Uploading compact statistics"}…`);
 
     try {
-      const response = await fetch(replace ? `${MATCH_UPLOAD_ENDPOINT}?replace=true` : MATCH_UPLOAD_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${state.uploadToken}`,
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        body: JSON.stringify(compactMatchResult(result))
-      });
-      const responseBody = await response.json().catch(() => null);
-      if (!response.ok) {
-        const error = new Error(responseBody?.reason || `The API returned HTTP ${response.status}.`);
-        error.status = response.status;
-        throw error;
-      }
+      const responseBody = await postParsedMatch(result, replace);
 
       const matchID = responseBody?.id == null ? "" : ` as match #${responseBody.id}`;
       state.duplicateMatchID = responseBody?.created === false && !responseBody?.replaced ? responseBody.id : null;
@@ -400,7 +408,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260919-2");
+      const worker = new Worker("./js/demo-worker.js?v=20260920-2");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -420,7 +428,14 @@
           state.resolveParse = null;
           state.rejectParse = null;
         } else if (message.type === "status") {
-          setStatus(message.message || "Working locally…");
+          const progress = state.batchCurrent;
+          const detail = message.message || "Working locally…";
+          if (state.batchRunning && progress) {
+            setStatus(`[${progress.index + 1}/${progress.total}] ${progress.file.name}: ${detail}`);
+            updateBatchItem(progress.index, "active", detail);
+          } else {
+            setStatus(detail);
+          }
         } else if (message.type === "error") {
           const error = new Error(message.message || "The demo parser failed.");
           state.diagnostics = message.diagnostics || null;
@@ -443,13 +458,56 @@
     return state.workerReady;
   }
 
-  function chooseFile(file) {
-    if (!file) return;
-    if (!/\.dem(?:\.(?:gz|zst))?$/i.test(file.name) && !/\.(?:gz|zst|zip)$/i.test(file.name)) {
-      setStatus("Choose a .dem, .dem.gz, .dem.zst, .zst, or .zip file.", true);
+  function supportedDemoFile(file) {
+    return /\.dem(?:\.(?:gz|zst))?$/i.test(file.name) || /\.(?:gz|zst|zip)$/i.test(file.name);
+  }
+
+  function renderBatchQueue() {
+    const batch = $("demoBatch");
+    batch.hidden = state.files.length < 2;
+    $("demoBatchList").replaceChildren(...state.files.map((file, index) => {
+      const item = document.createElement("li");
+      item.dataset.batchIndex = String(index);
+      item.dataset.state = "waiting";
+      const name = document.createElement("span");
+      name.className = "demo-batch-name";
+      name.textContent = file.name;
+      const detail = document.createElement("span");
+      detail.className = "demo-batch-detail";
+      detail.textContent = "Waiting";
+      item.append(name, detail);
+      return item;
+    }));
+    $("demoBatchSummary").textContent = `0 of ${state.files.length} complete`;
+    $("demoBatchBar").style.width = "0%";
+  }
+
+  function updateBatchItem(index, itemState, detail) {
+    const item = $("demoBatchList").querySelector(`[data-batch-index="${index}"]`);
+    if (!item) return;
+    item.dataset.state = itemState;
+    const status = item.querySelector(".demo-batch-detail");
+    if (status) status.textContent = detail;
+  }
+
+  function updateBatchProgress(completed, total, saved, failed) {
+    $("demoBatchSummary").textContent = completed === total
+      ? `${saved} saved · ${failed} failed`
+      : `${completed} of ${total} complete`;
+    $("demoBatchBar").style.width = `${total ? 100 * completed / total : 0}%`;
+  }
+
+  function chooseFiles(fileList) {
+    const selected = Array.from(fileList || []);
+    if (!selected.length) return;
+    const files = selected.filter(supportedDemoFile);
+    const rejected = selected.length - files.length;
+    if (!files.length) {
+      setStatus("Choose .dem, .dem.gz, .dem.zst, .zst, or .zip files.", true);
       return;
     }
-    state.file = file;
+    state.files = files;
+    state.file = files[0];
     state.parsedResult = null;
     state.uploadPending = false;
     state.duplicateMatchID = null;
@@ -458,10 +516,15 @@
     $("demoRetryUploadButton").hidden = true;
     $("demoReplaceUploadButton").hidden = true;
     $("demoParsedDownloadButton").hidden = true;
-    $("demoFileLabel").textContent = `${file.name} · ${formatBytes(file.size)}`;
+    const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
+    $("demoFileLabel").textContent = files.length === 1
+      ? `${files[0].name} · ${formatBytes(files[0].size)}`
+      : `${files.length} demos · ${formatBytes(totalBytes)} total`;
+    $("demoParseButton").textContent = files.length === 1 ? "Parse match" : `Parse ${files.length} matches`;
     $("demoParseButton").disabled = false;
     $("demoClearButton").disabled = false;
-    setStatus("Ready to parse. The demo stays inside this browser.");
+    renderBatchQueue();
+    setStatus(`${files.length} demo${files.length === 1 ? "" : "s"} ready to parse locally.${rejected ? ` Ignored ${rejected} unsupported file${rejected === 1 ? "" : "s"}.` : ""}`);
   }
 
   async function readDemo(file) {
@@ -2348,6 +2411,10 @@
       openUploadAuthentication("Enter the upload token to parse and automatically save this match.");
       return;
     }
+    if (state.files.length > 1) {
+      await parseDemoBatch();
+      return;
+    }
     state.diagnostics = null;
     showDiagnosticsDownload(false);
     $("demoParseButton").disabled = true;
@@ -2373,8 +2440,106 @@
     }
   }
 
+  async function parseDemoFile(file) {
+    state.file = file;
+    state.parsedResult = null;
+    state.diagnostics = null;
+    const demo = await readDemo(file);
+    if (demo.data.byteLength > MAX_UNCOMPRESSED_DEMO_BYTES) throw demoSizeLimitError(demo.data.byteLength);
+    const result = await parseWithWorker(demo.name, demo.data, demo.compression);
+    if (!result || result.error) throw new Error(result?.error || "The parser returned no match data.");
+    result.played_at = demo.matchTime?.timestamp ?? null;
+    result.played_at_source = demo.matchTime?.source ?? null;
+    state.parsedResult = result;
+    return result;
+  }
+
+  async function saveBatchMatch(result) {
+    let response = await postParsedMatch(result, false);
+    if (response.created === false && !response.replaced) response = await postParsedMatch(result, true);
+    return response;
+  }
+
+  async function parseDemoBatch() {
+    if (state.batchRunning || !state.files.length) return;
+    state.batchRunning = true;
+    state.diagnostics = null;
+    showDiagnosticsDownload(false);
+    $("demoParseButton").disabled = true;
+    $("demoClearButton").disabled = true;
+    $("demoInput").disabled = true;
+    $("demoDropZone").classList.add("disabled");
+    $("demoBatch").setAttribute("aria-busy", "true");
+    $("demoRetryUploadButton").hidden = true;
+    $("demoReplaceUploadButton").hidden = true;
+    $("demoParsedDownloadButton").hidden = true;
+    renderBatchQueue();
+    let saved = 0;
+    let failed = 0;
+    let completed = 0;
+    let wakeLock = null;
+    try {
+      wakeLock = await navigator.wakeLock?.request("screen").catch(() => null);
+      setStatus("Loading the browser demo parser…");
+      await ensureWorker();
+      for (let index = 0; index < state.files.length; index += 1) {
+        const file = state.files[index];
+        state.batchCurrent = { index, total: state.files.length, file };
+        updateBatchItem(index, "active", "Reading demo…");
+        setStatus(`[${index + 1}/${state.files.length}] Reading ${file.name}…`);
+        try {
+          const result = await parseDemoFile(file);
+          updateBatchItem(index, "active", "Saving statistics…");
+          setStatus(`[${index + 1}/${state.files.length}] Saving ${file.name}…`);
+          const response = await saveBatchMatch(result);
+          const matchID = response.id == null ? "" : ` #${response.id}`;
+          updateBatchItem(index, "success", `${response.replaced ? "Replaced" : "Saved"}${matchID}`);
+          saved += 1;
+        } catch (error) {
+          const reason = error.message || "Could not parse or save this demo.";
+          updateBatchItem(index, "error", reason);
+          failed += 1;
+          if (error.status === 401) {
+            state.uploadToken = "";
+            updateUploadAuthenticationDisplay();
+            for (let pending = index + 1; pending < state.files.length; pending += 1) {
+              updateBatchItem(pending, "waiting", "Not started — upload token rejected");
+            }
+            openUploadAuthentication("That upload token was rejected. Enter the current server token, then start the batch again.");
+            completed += 1;
+            break;
+          }
+        }
+        completed += 1;
+        updateBatchProgress(completed, state.files.length, saved, failed);
+      }
+      updateBatchProgress(completed, state.files.length, saved, failed);
+      const stopped = completed < state.files.length;
+      setStatus(stopped
+        ? `Batch stopped after ${completed} of ${state.files.length}: ${saved} saved and ${failed} failed.`
+        : `Batch complete: ${saved} saved and ${failed} failed.`, failed > 0);
+      await loadMatches(0);
+    } catch (error) {
+      const reason = error.message || "The batch could not start.";
+      setStatus(reason, true);
+      for (let index = completed; index < state.files.length; index += 1) {
+        updateBatchItem(index, "waiting", `Not started — ${reason}`);
+      }
+    } finally {
+      await wakeLock?.release().catch(() => {});
+      state.batchRunning = false;
+      state.batchCurrent = null;
+      $("demoInput").disabled = false;
+      $("demoDropZone").classList.remove("disabled");
+      $("demoBatch").removeAttribute("aria-busy");
+      $("demoParseButton").disabled = false;
+      $("demoClearButton").disabled = false;
+    }
+  }
+
   function clear() {
     state.file = null;
+    state.files = [];
     state.parsedResult = null;
     state.uploadPending = false;
     state.parsePending = false;
@@ -2382,13 +2547,16 @@
     state.diagnostics = null;
     showDiagnosticsDownload(false);
     $("demoInput").value = "";
-    $("demoFileLabel").textContent = "Choose a demo";
+    $("demoFileLabel").textContent = "Choose one or more demos";
+    $("demoParseButton").textContent = "Parse match";
     $("demoParseButton").disabled = true;
     $("demoClearButton").disabled = true;
     $("demoRetryUploadButton").hidden = true;
     $("demoReplaceUploadButton").hidden = true;
     $("demoParsedDownloadButton").hidden = true;
-    setStatus("Choose one demo file.");
+    $("demoBatch").hidden = true;
+    $("demoBatchList").replaceChildren();
+    setStatus("Choose one or more demo files.");
   }
 
   function compactMatchResult(result) {
@@ -2521,7 +2689,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/18",
-      nickstats_build: "2026.09.19.2",
+      nickstats_build: "2026.09.20.2",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -2636,7 +2804,7 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  $("demoInput").addEventListener("change", event => chooseFile(event.target.files[0]));
+  $("demoInput").addEventListener("change", event => chooseFiles(event.target.files));
   $("demoParseButton").addEventListener("click", parseDemo);
   $("demoClearButton").addEventListener("click", clear);
   $("demoDownloadButton").addEventListener("click", downloadJson);
@@ -2665,7 +2833,7 @@
       state.parsePending = false;
       parseDemo();
     } else {
-      setStatus("Automatic database uploads are enabled. Choose one demo file.");
+      setStatus("Automatic database uploads are enabled. Choose one or more demo files.");
     }
   });
   $("demoAuthCancelButton").addEventListener("click", () => {
@@ -2701,7 +2869,7 @@
     event.preventDefault();
     drop.classList.remove("dragging");
   }));
-  drop.addEventListener("drop", event => chooseFile(event.dataTransfer.files[0]));
+  drop.addEventListener("drop", event => chooseFiles(event.dataTransfer.files));
   updateUploadAuthenticationDisplay();
   loadMatches(0);
 })();

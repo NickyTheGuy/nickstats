@@ -1041,6 +1041,11 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   background: var(--accent-wash);
 }
 
+.demo-drop.disabled {
+  opacity: .62;
+  pointer-events: none;
+}
+
 .demo-drop > div {
   display: grid;
   gap: 3px;
@@ -1637,6 +1642,92 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .demo-upload-panel > .actions {
   margin-top: 12px;
+}
+
+.demo-batch {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .74);
+}
+
+.demo-batch[hidden] { display: none; }
+
+.demo-batch-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.demo-batch-head h3,
+.demo-batch-head p { margin: 0; }
+.demo-batch-head h3 { font-size: 15px; }
+.demo-batch-head p { margin-top: 2px; color: var(--muted); font-size: 12px; }
+.demo-batch-head > strong { color: var(--accent-ink); font-size: 12px; white-space: nowrap; }
+
+.demo-batch-track {
+  height: 5px;
+  margin-top: 11px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(32, 26, 29, .1);
+}
+
+.demo-batch-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width .2s ease;
+}
+
+.demo-batch-list {
+  display: grid;
+  gap: 5px;
+  max-height: 230px;
+  margin: 11px 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.demo-batch-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(32, 26, 29, .035);
+  font-size: 12px;
+}
+
+.demo-batch-name {
+  overflow: hidden;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demo-batch-detail {
+  max-width: min(42vw, 520px);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+.demo-batch-list li[data-state="active"] { background: var(--accent-wash); }
+.demo-batch-list li[data-state="active"] .demo-batch-detail { color: var(--accent-ink); }
+.demo-batch-list li[data-state="success"] .demo-batch-detail { color: var(--green); }
+.demo-batch-list li[data-state="error"] .demo-batch-detail { color: var(--red); }
+
+@media (max-width: 700px) {
+  .demo-batch-head { flex-direction: column; align-items: start; }
+  .demo-batch-list li { grid-template-columns: 1fr; }
+  .demo-batch-list li { display: grid; gap: 3px; }
+  .demo-batch-detail { max-width: none; text-align: left; }
 }
 
 .match-library-panel {

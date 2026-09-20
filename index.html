@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260920-1">
+  <link rel="stylesheet" href="./styles.css?v=20260920-2">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.20.1</span>
+          <span class="demo-build">Build 2026.09.20.2</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -44,11 +44,11 @@
 
         <div class="demo-drop" id="demoDropZone">
           <div>
-            <strong id="demoFileLabel">Choose a demo</strong>
-            <span><code>.dem</code>, <code>.zst</code>, <code>.gz</code>, or <code>.zip</code> · processed only in this browser</span>
+            <strong id="demoFileLabel">Choose one or more demos</strong>
+            <span><code>.dem</code>, <code>.zst</code>, <code>.gz</code>, or <code>.zip</code> · batches parse one at a time in this browser</span>
           </div>
-          <label class="button button-primary" for="demoInput">Choose demo</label>
-          <input class="file-input" id="demoInput" type="file" accept=".dem,.gz,.dem.gz,.zst,.dem.zst,.zip,application/gzip,application/zstd,application/zip">
+          <label class="button button-primary" for="demoInput">Choose demos</label>
+          <input class="file-input" id="demoInput" type="file" multiple accept=".dem,.gz,.dem.gz,.zst,.dem.zst,.zip,application/gzip,application/zstd,application/zip">
         </div>
 
         <div class="actions">
@@ -57,8 +57,20 @@
           <button class="button button-primary" id="demoRetryUploadButton" type="button" hidden>Retry upload</button>
           <button class="button button-secondary" id="demoReplaceUploadButton" type="button" hidden>Replace stored match</button>
           <button class="button button-secondary" id="demoParsedDownloadButton" type="button" hidden>Download match JSON</button>
-          <div class="status" id="demoStatus" role="status" aria-live="polite">Choose one demo file.</div>
+          <div class="status" id="demoStatus" role="status" aria-live="polite">Choose one or more demo files.</div>
         </div>
+
+        <section class="demo-batch" id="demoBatch" aria-labelledby="demoBatchTitle" hidden>
+          <div class="demo-batch-head">
+            <div>
+              <h3 id="demoBatchTitle">Batch queue</h3>
+              <p>Existing matches are replaced automatically when reparsed.</p>
+            </div>
+            <strong id="demoBatchSummary">0 of 0 complete</strong>
+          </div>
+          <div class="demo-batch-track" aria-hidden="true"><span id="demoBatchBar"></span></div>
+          <ol class="demo-batch-list" id="demoBatchList"></ol>
+        </section>
       </section>
 
       <section class="panel match-library-panel">
@@ -521,14 +533,14 @@
     </form>
   </dialog>
 
-  <script defer src="./js/navigation.js?v=20260920-1"></script>
-  <script defer src="./js/filters.js?v=20260920-1"></script>
-  <script defer src="./js/stat-availability.js?v=20260920-1"></script>
-  <script defer src="./js/demo.js?v=20260920-1"></script>
-  <script defer src="./js/graphs.js?v=20260920-1"></script>
-  <script defer src="./js/profile.js?v=20260920-1"></script>
-  <script defer src="./js/quick-comparison.js?v=20260920-1"></script>
-  <script defer src="./js/players.js?v=20260920-1"></script>
-  <script defer src="./js/compare.js?v=20260920-1"></script>
+  <script defer src="./js/navigation.js?v=20260920-2"></script>
+  <script defer src="./js/filters.js?v=20260920-2"></script>
+  <script defer src="./js/stat-availability.js?v=20260920-2"></script>
+  <script defer src="./js/demo.js?v=20260920-2"></script>
+  <script defer src="./js/graphs.js?v=20260920-2"></script>
+  <script defer src="./js/profile.js?v=20260920-2"></script>
+  <script defer src="./js/quick-comparison.js?v=20260920-2"></script>
+  <script defer src="./js/players.js?v=20260920-2"></script>
+  <script defer src="./js/compare.js?v=20260920-2"></script>
 </body>
 </html>
