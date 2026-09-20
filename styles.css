@@ -2608,7 +2608,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-display-panel[hidden],
 .combo-display-panel[hidden] { display: none; }
 .quick-comparison-panel { min-width: 0; padding: 22px; }
-.player-quick-comparison { margin-top: 18px; padding: 0; }
 .quick-comparison-heading { margin-bottom: 16px; }
 .quick-comparison-heading h2,
 .quick-comparison-heading p { margin: 0; }

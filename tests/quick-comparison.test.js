@@ -92,6 +92,12 @@ test("quick comparison serves the group scoreboard and standalone player profile
   assert.match(html, /id="comboQuickTable"/);
 });
 
+test("player and group quick comparisons use the same panel card", () => {
+  assert.match(html, /class="panel quick-comparison-panel combo-display-panel"/);
+  assert.match(html, /class="panel quick-comparison-panel player-quick-comparison player-display-panel"/);
+  assert.doesNotMatch(styles, /\.player-quick-comparison \{[^}]*padding:\s*0/);
+});
+
 test("player and group quick-comparison switches sit above shared filters", () => {
   assert.match(html, /class="player-open-profiles unified-profile-tabs" id="comboProfilePlayers"[\s\S]*?class="stats-toolbar combo-profile-toolbar"/);
   assert.match(html, /class="player-open-profiles unified-profile-tabs" id="playerOpenProfiles"[\s\S]*?class="stats-toolbar"/);
