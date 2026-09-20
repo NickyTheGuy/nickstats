@@ -13,11 +13,35 @@
     return node;
   };
   const signed = value => `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(number(value)).toFixed(0)}`;
+  const SECTION_STORAGE_KEY = "nickstats.quickComparisonSections.v1";
+  const sectionOptions = Object.freeze([
+    ["combat", "Combat"], ["opening", "Opening"], ["clutches", "Clutches"],
+    ["killContext", "Context"], ["killStage", "Round stage"]
+  ]);
+  const sectionKeys = new Set(sectionOptions.map(([key]) => key));
+  const defaultSections = ["combat", "opening", "clutches"];
+  const storedSections = () => {
+    try {
+      const values = JSON.parse(localStorage.getItem(SECTION_STORAGE_KEY));
+      return Array.isArray(values) ? values.filter(value => sectionKeys.has(value)) : defaultSections;
+    } catch (_) {
+      return defaultSections;
+    }
+  };
+  let sharedSections = new Set(storedSections());
+  const sectionSubscribers = new Set();
+
+  function setSharedSections(values) {
+    sharedSections = new Set(values);
+    try { localStorage.setItem(SECTION_STORAGE_KEY, JSON.stringify([...sharedSections])); } catch (_) {}
+    sectionSubscribers.forEach(subscriber => subscriber(sharedSections));
+  }
 
   function create({ prefix }) {
     const state = {
       map: "ALL",
       expandedGroups: { combat: false, opening: false, clutches: false, killContext: false, killStage: false },
+      visibleGroups: new Set(sharedSections),
       sort: null,
       input: null
     };
@@ -122,7 +146,7 @@
         { group: "clutches", label: "Clutches", columns: clutchColumns },
         { group: "killContext", label: "Context", columns: contextColumns },
         { group: "killStage", label: "Kill stage", columns: stageColumns }
-      ];
+      ].filter(segment => !segment.group || state.visibleGroups.has(segment.group));
       const columns = segments.flatMap(segment => segment.columns.map((column, index) => ({
         ...column, group: segment.group, groupStart: Boolean(segment.group) && index === 0,
         groupEnd: Boolean(segment.group) && index === segment.columns.length - 1
@@ -191,13 +215,42 @@
         body.appendChild(row);
       }
       const table = byId("Table");
-      table.className = `player-profile-table quick-comparison-table${state.expandedGroups.combat ? " combat-expanded" : ""}${state.expandedGroups.opening ? " opening-expanded" : ""}${state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.expandedGroups.killContext ? " killContext-expanded" : ""}${state.expandedGroups.killStage ? " killStage-expanded" : ""}`;
-      table.style.minWidth = `${500 + combatColumns.length * 68 + openingColumns.length * 76 + clutchColumns.length * 62 + contextColumns.length * 78 + stageColumns.length * 86}px`;
+      table.className = `player-profile-table quick-comparison-table${state.visibleGroups.has("combat") && state.expandedGroups.combat ? " combat-expanded" : ""}${state.visibleGroups.has("opening") && state.expandedGroups.opening ? " opening-expanded" : ""}${state.visibleGroups.has("clutches") && state.expandedGroups.clutches ? " clutches-expanded" : ""}${state.visibleGroups.has("killContext") && state.expandedGroups.killContext ? " killContext-expanded" : ""}${state.visibleGroups.has("killStage") && state.expandedGroups.killStage ? " killStage-expanded" : ""}`;
+      const sectionWidth = (group, columns, width) => state.visibleGroups.has(group) ? columns.length * width : 0;
+      table.style.minWidth = `${500 + sectionWidth("combat", combatColumns, 68) + sectionWidth("opening", openingColumns, 76) + sectionWidth("clutches", clutchColumns, 62) + sectionWidth("killContext", contextColumns, 78) + sectionWidth("killStage", stageColumns, 86)}px`;
       table.replaceChildren(head, body);
     }
 
-    function render(input) {
+    function renderSections(keepOpen = false) {
+      const target = byId("Sections");
+      if (!target) return;
+      const details = element("details", null, "map-filter-menu");
+      details.open = keepOpen;
+      const count = state.visibleGroups.size;
+      details.appendChild(element("summary", count === sectionOptions.length ? "All sections" : count ? `${count} sections` : "Summary only"));
+      const options = element("div", null, "map-filter-options");
+      const addOption = (key, label) => {
+        const row = element("label"), checkbox = element("input"), text = element("span", label);
+        checkbox.type = "checkbox";
+        checkbox.checked = key === "ALL" ? count === sectionOptions.length : state.visibleGroups.has(key);
+        checkbox.addEventListener("change", () => {
+          const selected = new Set(state.visibleGroups);
+          if (key === "ALL") {
+            selected.clear();
+            if (checkbox.checked) sectionOptions.forEach(([section]) => selected.add(section));
+          } else if (checkbox.checked) selected.add(key); else selected.delete(key);
+          setSharedSections(selected);
+        });
+        row.append(checkbox, text); options.appendChild(row);
+      };
+      addOption("ALL", "All sections");
+      sectionOptions.forEach(([key, label]) => addOption(key, label));
+      details.appendChild(options); target.replaceChildren(details);
+    }
+
+    function render(input, keepSectionMenuOpen = false) {
       state.input = input;
+      renderSections(keepSectionMenuOpen);
       const players = input?.players || [];
       const maps = mapsFor(players);
       if (state.map !== "ALL" && !maps.includes(state.map)) state.map = "ALL";
@@ -231,6 +284,19 @@
       state.sort = null;
       state.input = null;
     }
+
+    const syncSections = sections => {
+      const keepOpen = Boolean(byId("Sections")?.querySelector("details[open]"));
+      state.visibleGroups = new Set(sections);
+      state.sort = null;
+      if (state.input) render(state.input, keepOpen); else renderSections(keepOpen);
+    };
+    sectionSubscribers.add(syncSections);
+    document.addEventListener("click", event => {
+      const menu = byId("Sections")?.querySelector("details[open]");
+      if (menu && !menu.contains(event.target)) menu.open = false;
+    });
+    renderSections();
 
     return { render, reset };
   }

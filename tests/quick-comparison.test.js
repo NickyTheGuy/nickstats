@@ -20,8 +20,14 @@ test("quick comparison shows filtered rounds instead of redundant match count", 
   assert.doesNotMatch(componentSource, /key: "matches", label: "Matches"/);
 });
 
-test("quick comparison openings, clutches, context, and kill stage are expandable scoreboard groups", () => {
+test("quick comparison sections are selectable and remain expandable", () => {
   assert.match(componentSource, /expandedGroups: \{ combat: false, opening: false, clutches: false, killContext: false, killStage: false \}/);
+  assert.match(componentSource, /const defaultSections = \["combat", "opening", "clutches"\]/);
+  assert.match(componentSource, /SECTION_STORAGE_KEY = "nickstats\.quickComparisonSections\.v1"/);
+  assert.match(componentSource, /sectionOptions = Object\.freeze/);
+  assert.match(componentSource, /\.filter\(segment => !segment\.group \|\| state\.visibleGroups\.has\(segment\.group\)\)/);
+  assert.match(html, /id="comboQuickSections"/);
+  assert.match(html, /id="playerQuickSections"/);
   assert.match(componentSource, /group: "combat", label: "Combat"/);
   assert.match(componentSource, /key: "combat", label: "K-D-A"/);
   assert.match(componentSource, /group: "opening", label: "Opening"/);
@@ -43,6 +49,13 @@ test("quick comparison openings, clutches, context, and kill stage are expandabl
   assert.match(styles, /\.player-profile-table\.quick-comparison-table :is\(th, td\) \{ text-align: center; \}/);
   assert.match(styles, /th\.demo-toggle-heading,[\s\S]*?th\.demo-group-detail \{ padding: 0; \}/);
   assert.match(styles, /\.player-profile-table\.quick-comparison-table \.player-table-sort-button \{[\s\S]*?min-height: 38px;[\s\S]*?text-align: center;/);
+});
+
+test("the standalone Matrix navigation tab is removed", () => {
+  assert.doesNotMatch(html, /data-app-page="matrix"|id="matrixPageTab"/);
+  const navigation = fs.readFileSync(path.join(__dirname, "..", "js", "navigation.js"), "utf8");
+  assert.match(navigation, /page === "matrix" \? "compare" : page/);
+  assert.doesNotMatch(navigation, /new Set\(\["match", "compare", "matrix", "players"\]\)/);
 });
 
 test("quick comparison puts summary columns before collapsible combat", () => {

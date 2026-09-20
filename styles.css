@@ -2613,6 +2613,17 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .quick-comparison-heading h2,
 .quick-comparison-heading p { margin: 0; }
 .quick-comparison-heading p { margin-top: 5px; color: var(--muted); }
+.quick-comparison-controls {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  width: fit-content;
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.quick-comparison-sections { min-width: 150px; color: var(--text); font-weight: 600; }
 .quick-comparison-map-tabs {
   max-width: 100%;
   margin-bottom: 14px;

@@ -1,13 +1,12 @@
 # NickStats
 
-A local-first Counter-Strike 2 analysis application organized around four product views:
+A local-first Counter-Strike 2 analysis application organized around three product views:
 
 - **Match** — parse a CS2 `.dem`, FACEIT `.zst`, `.dem.gz`, or `.zip` and inspect the scoreboard, duels, trades, and weapons.
 - **Player** — reusable personal profiles, splits, graphs, and match history.
-- **Matrix** — database-backed teammate matrices and pairwise comparisons.
 - **Groups** — Included/Excluded teammate conditions and With/Without player profiles.
 
-Demo files are processed in the browser and are never uploaded. All four views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/19` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
+Demo files are processed in the browser and are never uploaded. All three views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/19` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
 
 The demo picker accepts multiple files. Batch parsing processes them sequentially to keep browser memory bounded, reports each file's result independently, continues after individual parse or upload failures, and refreshes the match list once at the end. Because batches are intended for reparsing, a demo already in the database is replaced automatically with the newly parsed statistics; single-file parsing keeps the explicit replacement confirmation.
 
@@ -133,7 +132,7 @@ If a demo contains no recognizable completed rounds, the app offers a small diag
 
 - `index.html` — interface markup
 - `styles.css` — presentation
-- `js/navigation.js` — Match, Player, Matrix, and Groups navigation
+- `js/navigation.js` — Match, Player, and Groups navigation
 - `js/demo.js` — demo upload, worker control, and scoreboard rendering
 - `js/demo-worker.js` — local CS2 demo parsing and aggregation
 - `database/schema.sql` — normalized MySQL schema

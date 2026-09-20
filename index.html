@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260920-3">
+  <link rel="stylesheet" href="./styles.css?v=20260920-4">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.20.3</span>
+          <span class="demo-build">Build 2026.09.20.4</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -24,7 +24,6 @@
     <nav class="data-tabs app-tabs" role="tablist" aria-label="NickStats sections">
       <button class="data-tab" id="matchPageTab" type="button" role="tab" aria-selected="true" aria-controls="matchPage" data-app-page="match">Match</button>
       <button class="data-tab" id="playersPageTab" type="button" role="tab" aria-selected="false" aria-controls="playersPage" data-app-page="players">Player</button>
-      <button class="data-tab" id="matrixPageTab" type="button" role="tab" aria-selected="false" aria-controls="comparePage" data-app-page="matrix">Matrix</button>
       <button class="data-tab" id="comparePageTab" type="button" role="tab" aria-selected="false" aria-controls="comparePage" data-app-page="compare">Groups</button>
     </nav>
 
@@ -298,6 +297,7 @@
                 <header class="section-head quick-comparison-heading">
                   <div><div class="eyebrow">Quick comparison</div><h2>Group scoreboard</h2><p id="comboQuickMeta">Compare the included players at a glance.</p></div>
                 </header>
+                <div class="quick-comparison-controls"><span>Sections</span><div class="map-multiselect quick-comparison-sections" id="comboQuickSections"></div></div>
                 <nav class="match-browser-tabs quick-comparison-map-tabs" id="comboQuickMaps" role="tablist" aria-label="Quick comparison map"></nav>
                 <div class="player-profile-table-wrap">
                   <table class="player-profile-table quick-comparison-table" id="comboQuickTable"></table>
@@ -508,6 +508,7 @@
             <header class="section-head quick-comparison-heading">
               <div><div class="eyebrow">Quick comparison</div><h2>Player scoreboard</h2><p id="playerQuickMeta">Compare all open profiles at a glance.</p></div>
             </header>
+            <div class="quick-comparison-controls"><span>Sections</span><div class="map-multiselect quick-comparison-sections" id="playerQuickSections"></div></div>
             <nav class="match-browser-tabs quick-comparison-map-tabs" id="playerQuickMaps" role="tablist" aria-label="Player quick comparison map"></nav>
             <div class="player-profile-table-wrap">
               <table class="player-profile-table quick-comparison-table" id="playerQuickTable"></table>
@@ -534,14 +535,14 @@
     </form>
   </dialog>
 
-  <script defer src="./js/navigation.js?v=20260920-3"></script>
-  <script defer src="./js/filters.js?v=20260920-3"></script>
-  <script defer src="./js/stat-availability.js?v=20260920-3"></script>
-  <script defer src="./js/demo.js?v=20260920-3"></script>
-  <script defer src="./js/graphs.js?v=20260920-3"></script>
-  <script defer src="./js/profile.js?v=20260920-3"></script>
-  <script defer src="./js/quick-comparison.js?v=20260920-3"></script>
-  <script defer src="./js/players.js?v=20260920-3"></script>
-  <script defer src="./js/compare.js?v=20260920-3"></script>
+  <script defer src="./js/navigation.js?v=20260920-4"></script>
+  <script defer src="./js/filters.js?v=20260920-4"></script>
+  <script defer src="./js/stat-availability.js?v=20260920-4"></script>
+  <script defer src="./js/demo.js?v=20260920-4"></script>
+  <script defer src="./js/graphs.js?v=20260920-4"></script>
+  <script defer src="./js/profile.js?v=20260920-4"></script>
+  <script defer src="./js/quick-comparison.js?v=20260920-4"></script>
+  <script defer src="./js/players.js?v=20260920-4"></script>
+  <script defer src="./js/compare.js?v=20260920-4"></script>
 </body>
 </html>
