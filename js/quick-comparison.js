@@ -85,7 +85,6 @@
 
     function displayedValue(column, item) {
       if (state.valueMode === "totals" || !column.group) return column.format(item);
-      if (["combat", "opening", "trades", "clutches", "round-state", "kill-context", "kill-stage-summary", "movement", "utility", "multikills", "objectives", "timing"].includes(column.key)) return column.format(item);
       const formatted = column.format(item);
       if (formatted === "—" || formatted === "Not parsed") return formatted;
       const value = column.value(item);
@@ -98,10 +97,18 @@
         else if (["utility-enemies-flashed", "utility-blind-seconds", "utility-flash-assists", "utility-own-flash"].includes(column.key)) denominator = number(item.stats.flashbangs_thrown);
       }
       if (!denominator) return "—";
+      const kda = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+      if (kda) return kda.slice(1).map(part => decimal(number(part) / denominator, 2)).join("-");
+      const opening = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?) · (.+)$/);
+      if (opening) return `${decimal(number(opening[1]) / denominator, 2)}-${decimal(number(opening[2]) / denominator, 2)} · ${opening[3]}`;
       const pair = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
       if (pair) return `${decimal(number(pair[1]) / denominator, 2)}-${decimal(number(pair[2]) / denominator, 2)}`;
       const fraction = formatted.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
       if (fraction) return `${decimal(number(fraction[1]) / denominator, 2)}/${decimal(number(fraction[2]) / denominator, 2)}`;
+      const triple = formatted.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
+      if (triple) return triple.slice(1).map(part => decimal(number(part) / denominator, 2)).join("/");
+      const utilitySummary = formatted.match(/^(\d+(?:\.\d+)?) dmg · (\d+(?:\.\d+)?) thrown$/);
+      if (utilitySummary) return `${decimal(number(utilitySummary[1]) / denominator, 2)} dmg · ${decimal(number(utilitySummary[2]) / denominator, 2)} thrown`;
       const countedPercent = formatted.match(/^(\d+(?:\.\d+)?) (\([^)]+\))$/);
       if (countedPercent) return `${decimal(number(countedPercent[1]) / denominator, 2)} ${countedPercent[2]}`;
       const scaledValue = column.key === "utility-blind-seconds" ? number(value) / 1000 : number(value);
@@ -116,10 +123,31 @@
       }[column.key] : null;
       const unit = grenadeUnit || (state.valueMode === "match" ? "match" : "round");
       if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || (column.label.endsWith("%") && !column.label.includes("(Succ%)")) || ["timing-kill", "timing-death"].includes(column.key)) return column.label;
-      if (["combat", "opening", "trades", "clutches", "round-state", "kill-context", "kill-stage-summary", "movement", "utility", "multikills", "objectives"].includes(column.key)) return column.label;
+      const compositeLabels = {
+        combat: `K/${unit}-D/${unit}-A/${unit}`,
+        opening: `K/${unit}-D/${unit} · Att%`,
+        trades: `K/${unit}-D/${unit}`,
+        clutches: `W/${unit} / A/${unit}`,
+        "round-state": `Clawback K/${unit}-Bozo D/${unit}`,
+        "kill-context": `Bullshit K/${unit}-D/${unit}`,
+        "kill-stage-summary": `5 alive K/${unit} / 1 alive K/${unit}`,
+        movement: `Move/run/air / ${unit}`,
+        utility: `Damage/${unit} · thrown/${unit}`,
+        multikills: `Total / ${unit}`,
+        objectives: `Plants/${unit} / defuses/${unit}`
+      };
+      if (compositeLabels[column.key]) return compositeLabels[column.key];
       if (column.label.includes("K-D")) return column.label.replace("K-D", `K/${unit}-D/${unit}`);
+      if (column.label === "Advantage K / Outnumbered D") return `Advantage K/${unit} / Outnumbered D/${unit}`;
       if (column.label.includes("(Succ%)")) return column.label.replace(/^([KD])/, `$1 / ${unit}`);
       return `${column.label} / ${unit}`;
+    }
+
+    function estimatedColumnWidth(label, values, firstColumn = false) {
+      const estimatedTextWidth = text => 26 + [...String(text ?? "")].reduce((width, character) =>
+        width + (/[MW@#%]/.test(character) ? 9 : /[il1 .·]/.test(character) ? 4 : 7), 0);
+      return Math.max(firstColumn ? 160 : 58, estimatedTextWidth(label) + 16,
+        ...values.map(value => estimatedTextWidth(value)));
     }
 
     function renderTable(comparison) {
@@ -393,8 +421,17 @@
       }
       const table = byId("Table");
       table.className = `player-profile-table quick-comparison-table${columnGroups.map(([group]) => groupVisible(group) && state.expandedGroups[group] ? ` ${group}-expanded` : "").join("")}`;
-      table.style.minWidth = `${500 + segments.filter(segment => segment.group).reduce((width, segment) => width + segment.columns.length * 82, 0)}px`;
-      table.replaceChildren(head, body);
+      const widths = columns.map((column, index) => estimatedColumnWidth(
+        displayedLabel(column), comparison.map(item => displayedValue(column, item)), index === 0
+      ));
+      const colgroup = document.createElement("colgroup");
+      widths.forEach(width => {
+        const col = document.createElement("col");
+        col.style.width = `${width}px`;
+        colgroup.appendChild(col);
+      });
+      table.style.minWidth = `${widths.reduce((total, width) => total + width, 0)}px`;
+      table.replaceChildren(colgroup, head, body);
     }
 
     function renderSections() {

@@ -88,6 +88,11 @@ test("quick comparison uses visible section, value-mode, and subgroup controls",
   assert.match(componentSource, /utilityButton = element\("button", "Per grenade"/);
   assert.match(componentSource, /"utility-enemies-flashed": "flash"/);
   assert.match(componentSource, /Counts divided by qualifying matches/);
+  assert.match(componentSource, /combat: `K\/\$\{unit\}-D\/\$\{unit\}-A\/\$\{unit\}`/);
+  assert.match(componentSource, /const kda = formatted\.match/);
+  assert.match(componentSource, /estimatedColumnWidth\([\s\S]*?displayedLabel\(column\)[\s\S]*?displayedValue\(column, item\)/);
+  assert.match(componentSource, /table\.replaceChildren\(colgroup, head, body\)/);
+  assert.match(styles, /\.quick-comparison-table \{[^}]*table-layout: fixed;/);
   assert.match(componentSource, /const sectionSubgroups = Object\.freeze/);
   assert.match(componentSource, /\["received", "Help received"/);
   assert.match(componentSource, /\["assists", "Assisted kills"/);

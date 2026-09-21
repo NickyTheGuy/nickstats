@@ -2722,7 +2722,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   overflow-x: auto;
 }
 .quick-comparison-map-tabs .match-browser-tab { flex: 0 0 auto; }
-.quick-comparison-table { min-width: 900px; }
+.quick-comparison-table { min-width: 900px; table-layout: fixed; }
 .player-profile-table.quick-comparison-table :is(th, td) { text-align: center; }
 .player-profile-table.quick-comparison-table th.demo-toggle-heading,
 .player-profile-table.quick-comparison-table th.demo-group-detail { padding: 0; }

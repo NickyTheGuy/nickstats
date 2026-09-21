@@ -35,8 +35,8 @@ test("statistic highlights use the warm high-differentiation semantic palette", 
 });
 
 test("match scoreboard follows the player profile section order", () => {
-  assert.match(demo, /\["Player", "Rating", "Rounds P\/W", "KAST"\][\s\S]*?showGroup\("combat"/);
-  assert.match(demo, /showGroup\("clutches"[\s\S]*?showGroup\("multikills"[\s\S]*?showGroup\("objectives"[\s\S]*?showGroup\("roundState"[\s\S]*?showGroup\("killStage"[\s\S]*?showGroup\("timing"[\s\S]*?showGroup\("killContext"[\s\S]*?showGroup\("movement"[\s\S]*?showGroup\("utility"/);
+  assert.match(demo, /const SCOREBOARD_GROUPS = Object\.freeze\(\[[\s\S]*?\["combat", "Overview"\][\s\S]*?\["clutches", "Clutches"\][\s\S]*?\["multikills", "Kill rounds"\][\s\S]*?\["objectives", "Objectives"\][\s\S]*?\["roundState", "Man count"\][\s\S]*?\["killStage", "Kill stage"\][\s\S]*?\["timing", "Round timing"\][\s\S]*?\["killContext", "Context"\][\s\S]*?\["movement", "Movement"\][\s\S]*?\["utility", "Utility"\]/);
+  assert.match(demo, /\["Player", "Rating", "Rounds P\/W", "KAST"\][\s\S]*?SCOREBOARD_GROUPS\.forEach/);
   assert.match(styles, /\.multikills-heading \{ background: rgba\(220, 65, 121, \.21\); \}/);
   assert.match(styles, /\.objectives-heading \{ background: rgba\(194, 143, 28, \.20\); \}/);
   assert.match(styles, /\.timing-heading \{ background: rgba\(181, 101, 61, \.21\); \}/);
@@ -60,6 +60,7 @@ test("primary and secondary buttons have visible interaction feedback", () => {
 test("collapsed scoreboard summaries stay within their columns", () => {
   assert.match(demo, /add\("objectives", \[74, 74\], 128\)/);
   assert.match(demo, /add\("utility", \[82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90\], 176\)/);
+  assert.match(demo, /estimatedLabelWidth\(scoreboardRateLabel\(group, label, expanded\)\)|estimatedLabelWidth\(activeLabel\(displayed, groupSortSpec\(group, label\)\)\)/);
   assert.match(styles, /\.demo-score-table th,[\s\S]*?\.demo-score-table td \{[\s\S]*?overflow: hidden;[\s\S]*?text-overflow: ellipsis;/);
 });
 
@@ -75,6 +76,8 @@ test("match scoreboard supports section, value-mode, and subgroup controls", () 
   assert.match(demo, /Counts divided by rounds played/);
   assert.match(demo, /group === "trades"[\s\S]*?countedPercent/);
   assert.match(demo, /group === "clutches"[\s\S]*?fraction/);
+  assert.match(demo, /combat: "K\/round-D\/round-A\/round"/);
+  assert.match(demo, /const kda = formatted\.match/);
   assert.match(demo, /eventPair\(player\[`\$\{phase\}_kills`\], player\[`\$\{phase\}_deaths`\]\)/);
   assert.match(demo, /Object\.keys\(state\.expandedGroups\)\.forEach\(key => \{ state\.expandedGroups\[key\] = false; \}\)/);
   assert.match(demo, /SCOREBOARD_GROUPS\.find\(\(\[key\]\) => scoreboardGroupVisible\(key\) && state\.expandedGroups\[key\]\)/);
