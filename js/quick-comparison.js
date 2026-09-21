@@ -76,9 +76,25 @@
 
     function focusedColumns(group, columns) {
       if (!state.expandedGroups[group] || !sectionSubgroups[group]) return columns;
-      const subgroups = sectionSubgroups[group], active = state.sectionSubgroups[group] || subgroups[0][0];
-      const subgroup = subgroups.find(([key]) => key === active) || subgroups[0];
+      const subgroup = activeSubgroup(group);
       return subgroup[2].map(index => columns[index]).filter(Boolean);
+    }
+
+    function activeSubgroup(group) {
+      const subgroups = sectionSubgroups[group];
+      if (!subgroups) return null;
+      const active = state.sectionSubgroups[group] || subgroups[0][0];
+      return subgroups.find(([key]) => key === active) || subgroups[0];
+    }
+
+    function cycleSubgroup(group) {
+      const subgroups = sectionSubgroups[group];
+      if (!subgroups) return;
+      const active = activeSubgroup(group);
+      const index = Math.max(0, subgroups.findIndex(([key]) => key === active[0]));
+      state.sectionSubgroups[group] = subgroups[(index + 1) % subgroups.length][0];
+      if (state.sort?.group === group) state.sort = null;
+      render(state.input);
     }
 
     const groupVisible = group => state.visibleSections.has(groupSection[group]);
@@ -394,7 +410,21 @@
           Object.keys(state.expandedGroups).forEach(group => { state.expandedGroups[group] = false; });
           state.expandedGroups[segment.group] = next; render(state.input);
         });
-        heading.appendChild(toggle); top.appendChild(heading);
+        const actions = element("div", null, "demo-column-heading-actions");
+        actions.appendChild(toggle);
+        const subgroup = state.expandedGroups[segment.group] && activeSubgroup(segment.group);
+        if (subgroup) {
+          const subgroups = sectionSubgroups[segment.group];
+          const subgroupIndex = subgroups.findIndex(([key]) => key === subgroup[0]);
+          const next = subgroups[(subgroupIndex + 1) % subgroups.length];
+          const cycle = element("button", `${subgroup[1]} ↻`, "demo-subgroup-cycle");
+          cycle.type = "button";
+          cycle.title = `Showing ${subgroup[1]}; switch to ${next[1]}`;
+          cycle.setAttribute("aria-label", `${segment.label} detail: ${subgroup[1]}. Switch to ${next[1]}`);
+          cycle.addEventListener("click", () => cycleSubgroup(segment.group));
+          actions.appendChild(cycle);
+        }
+        heading.appendChild(actions); top.appendChild(heading);
         segment.columns.forEach((column, index) => {
           const cell = document.createElement("th"); cell.scope = "col"; cell.className = `demo-group-detail ${segment.group}-cell`;
           if (index === 0) cell.classList.add("demo-group-start");
@@ -470,24 +500,7 @@
         ? "Raw counts"
         : `${state.valueMode === "match" ? "Counts divided by qualifying matches" : "Counts divided by qualifying rounds"}${state.perGrenadeUtility ? "; utility yield columns use the relevant grenade" : ""}`;
       mode.appendChild(element("small", modeNote, "scoreboard-control-note"));
-      const activeGroup = columnGroups.find(([key]) => groupVisible(key) && state.expandedGroups[key])?.[0];
-      const subgroups = activeGroup && sectionSubgroups[activeGroup];
-      const subgroupBar = element("div", null, "scoreboard-subgroup-bar scoreboard-control-row"); subgroupBar.hidden = !subgroups;
-      if (subgroups) {
-        subgroupBar.appendChild(element("strong", `${columnGroups.find(([key]) => key === activeGroup)?.[1]} detail`));
-        const subgroupButtons = element("div", null, "scoreboard-button-group");
-        subgroups.forEach(([key, label]) => {
-          const active = (state.sectionSubgroups[activeGroup] || subgroups[0][0]) === key;
-          const button = element("button", label, active ? "active" : ""); button.type = "button"; button.setAttribute("aria-pressed", String(active));
-          button.addEventListener("click", () => {
-            state.sectionSubgroups[activeGroup] = key;
-            if (state.sort?.group === activeGroup) state.sort = null;
-            render(state.input);
-          }); subgroupButtons.appendChild(button);
-        });
-        subgroupBar.appendChild(subgroupButtons);
-      }
-      target.replaceChildren(bar, mode, subgroupBar);
+      target.replaceChildren(bar, mode);
     }
 
     function render(input) {

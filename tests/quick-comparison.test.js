@@ -81,7 +81,7 @@ test("quick comparison puts summary columns before collapsible combat", () => {
   assert.match(componentSource, /\{ columns: fixedColumns \},\s*\{ group: "combat", label: "Overview", columns: focusedColumns\("combat", combatColumns\) \},\s*\{ group: "opening"/);
 });
 
-test("quick comparison uses visible section, value-mode, and subgroup controls", () => {
+test("quick comparison uses visible section, value-mode, and header detail controls", () => {
   assert.match(componentSource, /element\("div", null, "scoreboard-section-bar scoreboard-control-row"\)/);
   assert.match(componentSource, /\[\["totals", "Totals"\], \["round", "Per round"\], \["match", "Per match"\]\]/);
   assert.match(componentSource, /state\.valueMode === "match" \? item\.rows\.length : number\(item\.stats\.rounds\)/);
@@ -98,7 +98,12 @@ test("quick comparison uses visible section, value-mode, and subgroup controls",
   assert.match(componentSource, /\["assists", "Assisted kills"/);
   assert.match(componentSource, /Object\.keys\(state\.expandedGroups\)\.forEach\(group => \{ state\.expandedGroups\[group\] = false; \}\)/);
   assert.doesNotMatch(componentSource, /map-filter-menu/);
-  assert.match(styles, /\.scoreboard-subgroup-bar/);
+  assert.match(componentSource, /function cycleSubgroup\(group\)/);
+  assert.match(componentSource, /element\("button", `\$\{subgroup\[1\]\} ↻`, "demo-subgroup-cycle"\)/);
+  assert.match(componentSource, /cycle\.addEventListener\("click", \(\) => cycleSubgroup\(segment\.group\)\)/);
+  assert.doesNotMatch(componentSource, /scoreboard-subgroup-bar/);
+  assert.doesNotMatch(styles, /\.scoreboard-subgroup-bar/);
+  assert.match(styles, /\.demo-column-heading-actions/);
   assert.match(styles, /\.scoreboard-control-row \+ \.scoreboard-control-row/);
 });
 

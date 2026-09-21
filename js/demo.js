@@ -1493,9 +1493,25 @@
     if (!state.expandedGroups[group]) return values;
     const subgroups = SCOREBOARD_SUBGROUPS[group];
     if (!subgroups) return values;
-    const active = state.scoreboardSubgroups[group] || subgroups[0][0];
-    const subgroup = subgroups.find(([key]) => key === active) || subgroups[0];
+    const subgroup = activeScoreboardSubgroup(group);
     return subgroup[2].map(index => values[index]).filter(value => value != null);
+  }
+
+  function activeScoreboardSubgroup(group) {
+    const subgroups = SCOREBOARD_SUBGROUPS[group];
+    if (!subgroups) return null;
+    const active = state.scoreboardSubgroups[group] || subgroups[0][0];
+    return subgroups.find(([key]) => key === active) || subgroups[0];
+  }
+
+  function cycleScoreboardSubgroup(group) {
+    const subgroups = SCOREBOARD_SUBGROUPS[group];
+    if (!subgroups) return;
+    const active = activeScoreboardSubgroup(group);
+    const index = Math.max(0, subgroups.findIndex(([key]) => key === active[0]));
+    state.scoreboardSubgroups[group] = subgroups[(index + 1) % subgroups.length][0];
+    if (state.scoreboardSort?.group === group) state.scoreboardSort = null;
+    rerenderScoreboard();
   }
 
   function scoreboardGroupVisible(group) {
@@ -1586,24 +1602,7 @@
       ? "Raw counts"
       : `Counts divided by rounds played${state.scoreboardPerGrenadeUtility ? "; utility yield columns use the relevant grenade" : ""}`;
     mode.appendChild(Object.assign(document.createElement("small"), { className: "scoreboard-control-note", textContent: modeNote }));
-    const activeGroup = SCOREBOARD_GROUPS.find(([key]) => scoreboardGroupVisible(key) && state.expandedGroups[key])?.[0];
-    const subgroupBar = document.createElement("div"); subgroupBar.className = "scoreboard-subgroup-bar scoreboard-control-row"; subgroupBar.hidden = !activeGroup || !SCOREBOARD_SUBGROUPS[activeGroup];
-    if (!subgroupBar.hidden) {
-      subgroupBar.appendChild(Object.assign(document.createElement("strong"), { textContent: `${SCOREBOARD_GROUPS.find(([key]) => key === activeGroup)?.[1]} detail` }));
-      const subgroupButtons = document.createElement("div"); subgroupButtons.className = "scoreboard-button-group";
-      for (const [key, text] of SCOREBOARD_SUBGROUPS[activeGroup]) {
-        const button = document.createElement("button"); button.type = "button"; button.textContent = text;
-        const active = (state.scoreboardSubgroups[activeGroup] || SCOREBOARD_SUBGROUPS[activeGroup][0][0]) === key;
-        button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
-        button.addEventListener("click", () => {
-          state.scoreboardSubgroups[activeGroup] = key;
-          if (state.scoreboardSort?.group === activeGroup) state.scoreboardSort = null;
-          rerenderScoreboard();
-        }); subgroupButtons.appendChild(button);
-      }
-      subgroupBar.appendChild(subgroupButtons);
-    }
-    target.replaceChildren(sectionBar, mode, subgroupBar);
+    target.replaceChildren(sectionBar, mode);
   }
 
   function playerRow(player) {
@@ -1788,7 +1787,24 @@
     button.setAttribute("aria-expanded", String(expanded));
     button.textContent = `${label} ${expanded ? "▾" : "▸"}`;
     button.addEventListener("click", () => toggleColumnGroup(group));
-    th.appendChild(button);
+    const actions = document.createElement("div");
+    actions.className = "demo-column-heading-actions";
+    actions.appendChild(button);
+    const activeSubgroup = expanded && activeScoreboardSubgroup(group);
+    if (activeSubgroup) {
+      const subgroups = SCOREBOARD_SUBGROUPS[group];
+      const index = subgroups.findIndex(([key]) => key === activeSubgroup[0]);
+      const next = subgroups[(index + 1) % subgroups.length];
+      const cycle = document.createElement("button");
+      cycle.type = "button";
+      cycle.className = "demo-subgroup-cycle";
+      cycle.textContent = `${activeSubgroup[1]} ↻`;
+      cycle.title = `Showing ${activeSubgroup[1]}; switch to ${next[1]}`;
+      cycle.setAttribute("aria-label", `${label} detail: ${activeSubgroup[1]}. Switch to ${next[1]}`);
+      cycle.addEventListener("click", () => cycleScoreboardSubgroup(group));
+      actions.appendChild(cycle);
+    }
+    th.appendChild(actions);
     topRow.appendChild(th);
     const details = (expanded ? focusedLabels : [collapsedLabel]).map(detail => scoreboardRateLabel(group, detail, expanded));
     details.forEach((detail, index) => {

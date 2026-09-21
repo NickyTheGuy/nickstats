@@ -64,7 +64,7 @@ test("collapsed scoreboard summaries stay within their columns", () => {
   assert.match(styles, /\.demo-score-table th,[\s\S]*?\.demo-score-table td \{[\s\S]*?overflow: hidden;[\s\S]*?text-overflow: ellipsis;/);
 });
 
-test("match scoreboard supports section, value-mode, and subgroup controls", () => {
+test("match scoreboard supports section, value-mode, and header detail controls", () => {
   assert.match(demo, /const SCOREBOARD_DEFAULT_SECTIONS = \["overview", "opening", "trades", "rounds", "utility"\]/);
   assert.match(demo, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
   assert.match(demo, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
@@ -80,9 +80,13 @@ test("match scoreboard supports section, value-mode, and subgroup controls", () 
   assert.match(demo, /const kda = formatted\.match/);
   assert.match(demo, /eventPair\(player\[`\$\{phase\}_kills`\], player\[`\$\{phase\}_deaths`\]\)/);
   assert.match(demo, /Object\.keys\(state\.expandedGroups\)\.forEach\(key => \{ state\.expandedGroups\[key\] = false; \}\)/);
-  assert.match(demo, /SCOREBOARD_GROUPS\.find\(\(\[key\]\) => scoreboardGroupVisible\(key\) && state\.expandedGroups\[key\]\)/);
+  assert.match(demo, /function cycleScoreboardSubgroup\(group\)/);
+  assert.match(demo, /cycle\.className = "demo-subgroup-cycle"/);
+  assert.match(demo, /cycle\.addEventListener\("click", \(\) => cycleScoreboardSubgroup\(group\)\)/);
+  assert.doesNotMatch(demo, /scoreboard-subgroup-bar/);
   assert.match(styles, /\.scoreboard-control-panel/);
   assert.match(styles, /\.scoreboard-section-button\.active/);
+  assert.match(styles, /\.demo-subgroup-cycle/);
   assert.match(styles, /grid-template-columns: 94px minmax\(0, 1fr\)/);
 });
 
