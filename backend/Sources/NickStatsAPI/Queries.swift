@@ -116,8 +116,12 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
     let rows = try await sql.raw("""
         SELECT DISTINCT
           m.id, m.provider, m.provider_match_id, LOWER(HEX(m.demo_sha256)) AS sha256,
-          m.map_name, m.played_at, m.rounds, m.nickstats_build
+          m.map_name, m.played_at, m.rounds, m.nickstats_build,
+          team_0.display_name AS team_0_name, team_0.score AS team_0_score,
+          team_1.display_name AS team_1_name, team_1.score AS team_1_score
         FROM matches m
+        LEFT JOIN match_teams team_0 ON team_0.match_id = m.id AND team_0.team_slot = 0
+        LEFT JOIN match_teams team_1 ON team_1.match_id = m.id AND team_1.team_slot = 1
         WHERE (
           \(bind: steamID.isEmpty) OR EXISTS (
             SELECT 1 FROM match_players mp
@@ -135,10 +139,13 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
     var matches: [MatchSummary] = []
     for row in rows {
         let matchID = try int64(row, "id")
-        let teamRows = try await sql.raw("""
-            SELECT display_name, score FROM match_teams
-            WHERE match_id = \(bind: matchID) ORDER BY team_slot
-            """).all()
+        var teams: [TeamSummary] = []
+        if let name = try optionalString(row, "team_0_name") {
+            teams.append(TeamSummary(name: name, score: try optionalInteger(row, "team_0_score")))
+        }
+        if let name = try optionalString(row, "team_1_name") {
+            teams.append(TeamSummary(name: name, score: try optionalInteger(row, "team_1_score")))
+        }
         matches.append(MatchSummary(
             id: matchID,
             provider: try optionalString(row, "provider"),
@@ -148,10 +155,7 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
             playedAt: unix(try optionalDate(row, "played_at")),
             rounds: try integer(row, "rounds"),
             nickstatsBuild: try row.decode(column: "nickstats_build", as: String.self),
-            teams: try teamRows.map { TeamSummary(
-                name: try $0.decode(column: "display_name", as: String.self),
-                score: try optionalInteger($0, "score")
-            ) }
+            teams: teams
         ))
     }
     let mapRows = try await sql.raw("SELECT DISTINCT map_name FROM matches ORDER BY map_name").all()
@@ -330,14 +334,11 @@ private func comparisonSideData(
     }
     let rows = try await sql.raw("""
         SELECT mp.match_id, m.payload_schema, m.rounds AS match_round_count,
-               COALESCE(rt.timed_round_count, 0) AS timed_round_count, s.*
+               (SELECT COUNT(*) FROM match_rounds rt WHERE rt.match_id = mp.match_id) AS timed_round_count,
+               s.*
         FROM match_players mp
         JOIN player_side_stats s ON s.match_player_id = mp.id
         JOIN matches m ON m.id = mp.match_id
-        LEFT JOIN (
-          SELECT match_id, COUNT(*) AS timed_round_count
-          FROM match_rounds GROUP BY match_id
-        ) rt ON rt.match_id = mp.match_id
         WHERE mp.player_id = \(bind: playerID)
         """).all()
     var values: [String: ComparisonSideAccumulator] = [:]
@@ -576,9 +577,8 @@ private func comparisonSideData(
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
         JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20')
-        JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
-          ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID) AND e.enemy_kill = TRUE
+          AND (SELECT COUNT(*) FROM match_rounds rt WHERE rt.match_id = m.id) = m.rounds
         GROUP BY e.match_id, e.killer_side
         """).all()
     for row in killTiming {
@@ -623,9 +623,8 @@ private func comparisonSideData(
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
         JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20')
-        JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
-          ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID)
+          AND (SELECT COUNT(*) FROM match_rounds rt WHERE rt.match_id = m.id) = m.rounds
         GROUP BY e.match_id, e.victim_side
         """).all()
     for row in deathTiming {
@@ -1324,6 +1323,24 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
         },
         maps: maps,
         matches: profileMatches
+    )
+}
+
+func getPlayerProfileData(_ playerID: Int64, on database: any Database) async throws -> PlayerProfileDataResponse {
+    guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
+    guard let player = try await sql.raw("""
+        SELECT id, CAST(steam_id AS CHAR) AS steam_id, current_name, first_seen_at, last_seen_at
+        FROM players WHERE id = \(bind: playerID)
+        """).first() else { throw Abort(.notFound, reason: "Player not found.") }
+    return PlayerProfileDataResponse(
+        player: PlayerProfileIdentity(
+            id: try int64(player, "id"),
+            steamID: try player.decode(column: "steam_id", as: String.self),
+            name: try player.decode(column: "current_name", as: String.self),
+            firstSeenAt: unix(try optionalDate(player, "first_seen_at")),
+            lastSeenAt: unix(try optionalDate(player, "last_seen_at"))
+        ),
+        matches: try await comparisonMatches(playerID: playerID, sql: sql)
     )
 }
 

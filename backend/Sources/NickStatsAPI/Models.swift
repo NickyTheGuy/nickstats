@@ -261,6 +261,13 @@ struct PlayerProfileResponse: Content {
     var matches: [ComparisonMatch]
 }
 
+/// The data the interactive profile UI actually needs. The full response remains
+/// available for API clients that consume the precomputed career summaries.
+struct PlayerProfileDataResponse: Content {
+    var player: PlayerProfileIdentity
+    var matches: [ComparisonMatch]
+}
+
 struct PlayerProfileIdentity: Content {
     var id: Int64
     var steamID: String

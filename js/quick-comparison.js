@@ -574,7 +574,7 @@
       });
       const comparison = players.map(player => {
         const rows = (player.rows || []).filter(row => state.map === "ALL" || row.map === state.map);
-        return { player, rows, stats: input.summarize(rows) };
+        return { player, rows, stats: player.summarize ? player.summarize(rows, state.map) : input.summarize(rows) };
       });
       const counts = comparison.map(item => item.rows.length);
       const minimum = counts.length ? Math.min(...counts) : 0, maximum = counts.length ? Math.max(...counts) : 0;

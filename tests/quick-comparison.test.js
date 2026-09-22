@@ -193,14 +193,16 @@ test("quick comparison uses every open profile while graphs auto-select new prof
   assert.match(playersSource, /players: \[\.\.\.state\.profiles\.entries\(\)\][\s\S]*?\.map\(\(\[id, candidate\]\)/);
   assert.doesNotMatch(playersSource, /playerQuickPlayers|playerQuickPlayerStatus/);
   assert.match(playersSource, /if \(state\.graphPlayers\.size < MAX_GRAPH_PLAYERS\) state\.graphPlayers\.add\(key\)/);
-  assert.match(playersSource, /renderGraphPlayers\(\); renderGraphs\(\); renderQuickComparison\(\);/);
+  assert.match(playersSource, /if \(state\.display === "quick"\) renderQuickComparison\(\);/);
+  assert.match(playersSource, /if \(state\.view === "graphs"\) \{ renderGraphPlayers\(\); renderGraphs\(\); \}/);
+  assert.match(playersSource, /summaryCache \|\|= new Map\(\)/);
 });
 
 test("player filters and detail tab are shared across every open profile", () => {
   assert.match(playersSource, /display: "profile", view: "overview"/);
   assert.match(playersSource, /side: "ALL", buy: "ALL", opponentBuy: "ALL", roundResult: "ALL", result: "ALL", maps: \[\]/);
   assert.match(playersSource, /function setPlayerView\(view\) \{\s*state\.view = view/);
-  assert.match(playersSource, /renderProfile\(\); setPlayerView\(state\.view\); setPlayerDisplay\(state\.display\)/);
+  assert.match(playersSource, /setPlayerView\(state\.view\); setPlayerDisplay\(state\.display\)/);
   assert.match(playersSource, /function matchesFor\(payload\)[\s\S]*?new Set\(state\.maps\)[\s\S]*?state\.result/);
   assert.match(playersSource, /aggregate\(matches, state\.side, state\.buy, state\.roundResult, state\.opponentBuy\)/);
   assert.match(playersSource, /mapFilter\.setOptions\(availableMaps\); state\.maps = mapFilter\.values\(\)/);

@@ -90,11 +90,19 @@ func routes(_ app: Application) throws {
         try await listPlayers(request)
     }
 
-    app.get("players", ":id") { request async throws -> PlayerProfileResponse in
+    app.get("players", ":id") { request async throws -> Response in
         guard let playerID = request.parameters.get("id", as: Int64.self), playerID > 0 else {
             throw Abort(.badRequest, reason: "Invalid player ID.")
         }
-        return try await getPlayerProfile(playerID, on: request.db)
+        let response = Response(status: .ok)
+        if request.query[Bool.self, at: "compact"] == true {
+            let payload = try await getPlayerProfileData(playerID, on: request.db)
+            try response.content.encode(payload)
+        } else {
+            let payload = try await getPlayerProfile(playerID, on: request.db)
+            try response.content.encode(payload)
+        }
+        return response
     }
 
     app.get("compare") { request async throws -> ComparisonResponse in

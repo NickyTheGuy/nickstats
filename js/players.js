@@ -24,7 +24,7 @@
   const activeProfile = () => state.profiles.get(state.activeId) || null;
   const mapFilter = new window.NickStatsFilters.MultiMapFilter("playerMapFilter", {
     formatLabel: value => titleCase(value.replace(/^de_/, "")),
-    onChange: values => { state.maps = values; if (activeProfile()) renderProfile(); }
+    onChange: values => { state.maps = values; if (activeProfile()) renderCurrentDisplay(); }
   });
   const quickComparison = window.NickStatsQuickComparison.create({ prefix: "player" });
 
@@ -44,6 +44,10 @@
       button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
     });
     document.querySelectorAll("[data-player-profile-view]").forEach(panel => { panel.hidden = panel.dataset.playerProfileView !== view; });
+    if (view === "graphs" && state.display === "profile" && activeProfile()) {
+      renderGraphPlayers();
+      renderGraphs();
+    }
   }
   function setPlayerDisplay(display) {
     state.display = display === "quick" ? "quick" : "profile";
@@ -51,6 +55,12 @@
       panel.hidden = panel.dataset.playerDisplayPanel !== state.display;
     });
     renderOpenTabs();
+    if (activeProfile()) renderCurrentDisplay();
+  }
+
+  function renderCurrentDisplay() {
+    if (state.display === "quick") renderQuickComparison();
+    else renderProfile();
   }
 
   function rememberPlayer(player) {
@@ -151,6 +161,18 @@
     const selectedMaps = new Set(state.maps);
     return (payload.matches || []).filter(match => (!selectedMaps.size || selectedMaps.has(match.map)) && matchResultMatches(match.result, state.result));
   }
+  function aggregationKey(map = "ALL") {
+    return [state.side, state.buy, state.opponentBuy, state.roundResult, state.result, [...state.maps].sort().join(","), map].join("|");
+  }
+  function summaryFor(profile, map = "ALL") {
+    profile.summaryCache ||= new Map();
+    const key = aggregationKey(map);
+    if (!profile.summaryCache.has(key)) {
+      const matches = matchesFor(profile.payload).filter(match => map === "ALL" || match.map === map);
+      profile.summaryCache.set(key, aggregate(matches, state.side, state.buy, state.roundResult, state.opponentBuy));
+    }
+    return profile.summaryCache.get(key);
+  }
   function renderGraphPlayers() {
     const target = $("playerGraphPlayers"); target.replaceChildren();
     state.profiles.forEach((profile, id) => {
@@ -174,13 +196,18 @@
     if (!activeProfile()) return;
     const availableSeries = [...state.profiles.entries()].map(([id, candidate], colorIndex) => {
       const matches = matchesFor(candidate.payload);
-      return { id, colorIndex, label: candidate.payload.player?.name || "Unknown player", samples: window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy) };
+      candidate.graphCache ||= new Map();
+      const key = aggregationKey();
+      if (!candidate.graphCache.has(key)) {
+        candidate.graphCache.set(key, window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy));
+      }
+      return { id, colorIndex, label: candidate.payload.player?.name || "Unknown player", samples: candidate.graphCache.get(key) };
     });
     const series = availableSeries.filter(candidate => state.graphPlayers.has(candidate.id));
     window.NickStatsGraphs.render({ prefix: "player", series, domainSeries: availableSeries, independent: true });
   }
-  function quickSummary(matches) {
-    const summary = aggregate(matches, state.side, state.buy, state.roundResult, state.opponentBuy), stats = summary.stats;
+  function quickSummary(matches, cachedSummary = null) {
+    const summary = cachedSummary || aggregate(matches, state.side, state.buy, state.roundResult, state.opponentBuy), stats = summary.stats;
     const openingKills = number(stats.opening_kills), openingDeaths = number(stats.opening_deaths);
     const assistedOpenings = availability.scope(stats, "opening_assisted_kills");
     return {
@@ -203,7 +230,12 @@
     if (!activeProfile()) return;
     quickComparison.render({
       players: [...state.profiles.entries()]
-        .map(([id, candidate]) => ({ id, label: candidate.payload.player?.name || "Unknown player", rows: matchesFor(candidate.payload) })),
+        .map(([id, candidate]) => ({
+          id,
+          label: candidate.payload.player?.name || "Unknown player",
+          rows: matchesFor(candidate.payload),
+          summarize: (rows, map) => quickSummary(rows, summaryFor(candidate, map))
+        })),
       summarize: quickSummary,
       metaSuffix: resultFilterLabel(state.result)
     });
@@ -231,7 +263,7 @@
 
   function renderProfile() {
     const profile = activeProfile(); if (!profile) return;
-    const payload = profile.payload, player = payload.player || {}, matches = matchesFor(payload), summary = aggregate(matches, state.side, state.buy, state.roundResult, state.opponentBuy);
+    const payload = profile.payload, player = payload.player || {}, matches = matchesFor(payload), summary = summaryFor(profile);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("playerProfileName").textContent = player.name || "Unknown player";
     const buyLabel = state.buy === "ALL" ? "All buys" : `${titleCase(state.buy)} buys`;
@@ -239,9 +271,9 @@
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
     $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${resultFilterLabel(state.result)}${state.maps.length ? ` · ${mapFilter.summary()}` : ""}`;
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
-    const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: aggregate(map.rows, state.side, state.buy, state.roundResult, state.opponentBuy) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
+    const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: summaryFor(profile, map.name) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
-    renderGraphPlayers(); renderGraphs(); renderQuickComparison();
+    if (state.view === "graphs") { renderGraphPlayers(); renderGraphs(); }
     $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "";
   }
 
@@ -250,7 +282,7 @@
     state.activeId = id;
     const availableMaps = [...state.profiles.values()].flatMap(candidate => (candidate.payload.matches || []).map(match => match.map));
     mapFilter.setOptions(availableMaps); state.maps = mapFilter.values();
-    renderProfile(); setPlayerView(state.view); setPlayerDisplay(state.display);
+    setPlayerView(state.view); setPlayerDisplay(state.display);
   }
   function closeProfile(id) {
     id = String(id); const ids = [...state.profiles.keys()], index = ids.indexOf(id);
@@ -267,7 +299,7 @@
     state.profileController?.abort(); state.profileController = new AbortController();
     $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "Loading player profile…"; $("playerProfileStatus").classList.remove("error");
     try {
-      const payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}`, { headers: { Accept: "application/json" }, signal: state.profileController.signal }));
+      const payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true`, { headers: { Accept: "application/json" }, signal: state.profileController.signal }));
       const key = String(payload.player?.id ?? id);
       state.profiles.set(key, { payload });
       if (state.graphPlayers.size < MAX_GRAPH_PLAYERS) state.graphPlayers.add(key);
@@ -286,10 +318,10 @@
   });
   $("playerRecentClear").addEventListener("click", () => { state.recent = []; try { localStorage.removeItem(RECENT_KEY); } catch (_) {} renderRecent(); });
   document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
-  window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { state.side = side; if (activeProfile()) renderProfile(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-buy]", valueFor: button => button.dataset.playerBuy, onChange: buy => { state.buy = buy; if (activeProfile()) renderProfile(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-enemy-buy]", valueFor: button => button.dataset.playerEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; if (activeProfile()) renderProfile(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-round-result]", valueFor: button => button.dataset.playerRoundResult, onChange: roundResult => { state.roundResult = roundResult; if (activeProfile()) renderProfile(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-result]", valueFor: button => button.dataset.playerResult, onChange: result => { state.result = result; if (activeProfile()) renderProfile(); } });
+  window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { state.side = side; if (activeProfile()) renderCurrentDisplay(); } });
+  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-buy]", valueFor: button => button.dataset.playerBuy, onChange: buy => { state.buy = buy; if (activeProfile()) renderCurrentDisplay(); } });
+  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-enemy-buy]", valueFor: button => button.dataset.playerEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; if (activeProfile()) renderCurrentDisplay(); } });
+  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-round-result]", valueFor: button => button.dataset.playerRoundResult, onChange: roundResult => { state.roundResult = roundResult; if (activeProfile()) renderCurrentDisplay(); } });
+  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-result]", valueFor: button => button.dataset.playerResult, onChange: result => { state.result = result; if (activeProfile()) renderCurrentDisplay(); } });
   renderRecent(); renderOpenTabs();
 })();
