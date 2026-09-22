@@ -82,7 +82,7 @@ test("quick comparison sections are selectable and remain expandable", () => {
 test("the standalone Matrix navigation tab is removed", () => {
   assert.doesNotMatch(html, /data-app-page="matrix"|id="matrixPageTab"/);
   const navigation = fs.readFileSync(path.join(__dirname, "..", "js", "navigation.js"), "utf8");
-  assert.match(navigation, /page === "matrix" \? "compare" : page/);
+  assert.match(navigation, /requestedPage === "matrix" \? "compare" : requestedPage/);
   assert.doesNotMatch(navigation, /new Set\(\["match", "compare", "matrix", "players"\]\)/);
 });
 

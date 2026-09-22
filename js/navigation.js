@@ -2,9 +2,11 @@
   "use strict";
 
   const pages = new Set(["match", "compare", "players"]);
+  const routePage = route => String(route || "").split("/")[0];
 
   function showPage(page, updateHash = true) {
-    const requested = page === "matrix" ? "compare" : page;
+    const requestedPage = routePage(page);
+    const requested = requestedPage === "matrix" ? "compare" : requestedPage;
     const next = pages.has(requested) ? requested : "match";
     document.querySelectorAll("[data-app-page]").forEach(button => {
       const active = button.dataset.appPage === next;
@@ -15,7 +17,9 @@
       view.hidden = view.dataset.appView !== next;
     });
     window.dispatchEvent(new CustomEvent("nickstats:page", { detail: { page: next } }));
-    if (updateHash && location.hash !== `#${next}`) history.replaceState(null, "", `#${next}`);
+    const currentRoute = location.hash.slice(1);
+    const validMatchDetail = next === "match" && /^match\/\d+$/.test(currentRoute);
+    if (updateHash && location.hash !== `#${next}` && !validMatchDetail) history.replaceState(null, "", `#${next}`);
   }
 
   document.querySelectorAll("[data-app-page]").forEach(button => {

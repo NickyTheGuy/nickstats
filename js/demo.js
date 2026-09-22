@@ -26,6 +26,7 @@
     matchListLoading: false,
     matchListController: null,
     matchDetailLoading: false,
+    matchDetailController: null,
     diagnostics: null,
     uploadToken: "",
     uploadPending: false,
@@ -1265,6 +1266,70 @@
     $("matchDetailView").hidden = view !== "detail";
   }
 
+  const matchRouteID = () => {
+    const route = location.hash.match(/^#match\/(\d+)$/);
+    return route ? route[1] : null;
+  };
+
+  function updateMatchRoute(matchID, { replace = false } = {}) {
+    const route = matchID == null ? "#match" : `#match/${encodeURIComponent(matchID)}`;
+    if (location.hash === route) return;
+    const routeState = { ...(history.state || {}) };
+    if (matchID == null) delete routeState.nickstatsMatchID;
+    else routeState.nickstatsMatchID = String(matchID);
+    history[replace ? "replaceState" : "pushState"](routeState, "", route);
+  }
+
+  function rememberMatchListScroll() {
+    history.replaceState({ ...(history.state || {}), nickstatsMatchListScrollY: window.scrollY }, "", location.href);
+  }
+
+  function restoreMatchListScroll() {
+    const top = Number(history.state?.nickstatsMatchListScrollY);
+    if (!Number.isFinite(top)) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top, left: 0, behavior: "auto" })));
+  }
+
+  function reserveMatchDetailHeight() {
+    const list = $("matchListView"), detail = $("matchDetailView");
+    if (!list.hidden) detail.style.minHeight = `${Math.ceil(list.getBoundingClientRect().height)}px`;
+  }
+
+  function showMatchList({ updateHistory = true, restoreScroll = true } = {}) {
+    state.matchDetailController?.abort();
+    setMatchBrowserView("list");
+    if (updateHistory) updateMatchRoute(null);
+    if (restoreScroll) restoreMatchListScroll();
+  }
+
+  function openStoredMatch(matchID, { updateHistory = true, preserveScroll = true } = {}) {
+    const scrollY = preserveScroll && !$("matchListView").hidden ? window.scrollY : null;
+    if (updateHistory) {
+      if (scrollY != null) rememberMatchListScroll();
+      updateMatchRoute(matchID);
+    }
+    reserveMatchDetailHeight();
+    state.selectedMatchID = matchID;
+    $("matchDetailTab").disabled = false;
+    $("matchDetailTab").textContent = `Match #${matchID}`;
+    setMatchBrowserView("detail");
+    if (String(state.selectedMatchID) === String(matchID) && state.result && String(state.result.database_id) === String(matchID)) {
+      $("matchDetailView").style.minHeight = "";
+      if (scrollY != null) requestAnimationFrame(() => window.scrollTo({ top: scrollY, left: 0, behavior: "auto" }));
+      return;
+    }
+    loadStoredMatch(matchID, { scrollY });
+  }
+
+  function syncMatchRoute() {
+    const matchID = matchRouteID();
+    if (matchID) {
+      openStoredMatch(matchID, { updateHistory: false, preserveScroll: false });
+      return;
+    }
+    if (location.hash === "#match") showMatchList({ updateHistory: false, restoreScroll: true });
+  }
+
   function matchSummaryTimestamp(match) {
     return Number(match.playedAt ?? match.played_at);
   }
@@ -1368,7 +1433,7 @@
         ? `${teamRows[0].name || "Unknown team"} ${matchScore(teamRows[0]) ?? "unknown"} to ${matchScore(teamRows[1]) ?? "unknown"} ${teamRows[1].name || "Unknown team"}`
         : "score unavailable";
       button.setAttribute("aria-label", `Open match ${match.id} on ${mapName}: ${scoreDescription}`);
-      button.addEventListener("click", () => loadStoredMatch(match.id));
+      button.addEventListener("click", () => openStoredMatch(match.id));
       list.appendChild(button);
     }
   }
@@ -1416,22 +1481,23 @@
     }
   }
 
-  async function loadStoredMatch(matchID) {
-    if (state.matchDetailLoading) return;
+  async function loadStoredMatch(matchID, { scrollY = null } = {}) {
+    state.matchDetailController?.abort();
+    const controller = new AbortController();
+    state.matchDetailController = controller;
     state.matchDetailLoading = true;
-    state.selectedMatchID = matchID;
-    $("matchDetailTab").disabled = false;
-    $("matchDetailTab").textContent = `Match #${matchID}`;
-    setMatchBrowserView("detail");
     $("demoResults").hidden = true;
     $("matchDetailStatus").textContent = `Loading match #${matchID}…`;
     $("matchDetailStatus").classList.remove("error");
     try {
       const payload = await apiJson(await fetch(`${MATCH_UPLOAD_ENDPOINT}/${encodeURIComponent(matchID)}`, {
-        headers: { "Accept": "application/json" }
+        headers: { "Accept": "application/json" },
+        signal: controller.signal
       }));
+      if (controller.signal.aborted) return;
       state.storedPayload = payload;
       state.result = expandStoredMatch(payload, matchID);
+      state.result.database_id = matchID;
       state.scoreboardSort = null;
       state.expandedWeaponPlayers.clear();
       state.weaponSorts.clear();
@@ -1440,12 +1506,22 @@
       render(state.result);
       $("matchDetailStatus").textContent = "";
     } catch (error) {
+      if (error.name === "AbortError") return;
       state.result = null;
       state.storedPayload = null;
       $("matchDetailStatus").textContent = `Could not load match #${matchID}: ${error.message}`;
       $("matchDetailStatus").classList.add("error");
     } finally {
-      state.matchDetailLoading = false;
+      if (state.matchDetailController === controller) {
+        state.matchDetailLoading = false;
+        state.matchDetailController = null;
+        requestAnimationFrame(() => {
+          $("matchDetailView").style.minHeight = "";
+          if (scrollY != null && String(matchRouteID()) === String(matchID)) {
+            window.scrollTo({ top: scrollY, left: 0, behavior: "auto" });
+          }
+        });
+      }
     }
   }
 
@@ -2898,7 +2974,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/20",
-      nickstats_build: "2026.09.22.6",
+      nickstats_build: "2026.09.22.7",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -3064,7 +3140,10 @@
   });
   document.addEventListener("keydown", handleScoreboardDetailShortcut);
   document.querySelectorAll("[data-match-browser-view]").forEach(button => {
-    button.addEventListener("click", () => setMatchBrowserView(button.dataset.matchBrowserView));
+    button.addEventListener("click", () => {
+      if (button.dataset.matchBrowserView === "list") showMatchList();
+      else if (state.selectedMatchID) openStoredMatch(state.selectedMatchID);
+    });
   });
   $("matchListRefreshButton").addEventListener("click", () => loadMatches());
   $("matchListPreviousButton").addEventListener("click", () => loadMatches(Math.max(0, state.matchListOffset - MATCH_LIST_LIMIT)));
@@ -3080,6 +3159,8 @@
     drop.classList.remove("dragging");
   }));
   drop.addEventListener("drop", event => chooseFiles(event.dataTransfer.files));
+  window.addEventListener("hashchange", syncMatchRoute);
   updateUploadAuthenticationDisplay();
   loadMatches(0);
+  syncMatchRoute();
 })();
