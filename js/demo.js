@@ -2898,7 +2898,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/20",
-      nickstats_build: "2026.09.22.5",
+      nickstats_build: "2026.09.22.6",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

@@ -183,11 +183,51 @@
       return `${column.label} / ${unit}`;
     }
 
-    function estimatedColumnWidth(label, values, firstColumn = false) {
-      const estimatedTextWidth = text => 26 + [...String(text ?? "")].reduce((width, character) =>
-        width + (/[MW@#%]/.test(character) ? 9 : /[il1 .·]/.test(character) ? 4 : 7), 0);
-      return Math.max(firstColumn ? 160 : 58, estimatedTextWidth(label) + 16,
-        ...values.map(value => estimatedTextWidth(value)));
+    function measuredColumnWidths(tableClass, head, body, minimums) {
+      const contentWidth = cell => {
+        if (!cell) return 0;
+        const style = getComputedStyle(cell);
+        const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
+        const childWidths = [...cell.children].map(child => child.scrollWidth + padding);
+        return Math.ceil(Math.max(cell.scrollWidth, ...childWidths) + 2);
+      };
+      const measuringTable = document.createElement("table");
+      measuringTable.className = tableClass;
+      measuringTable.setAttribute("aria-hidden", "true");
+      Object.assign(measuringTable.style, {
+        position: "fixed", left: "-100000px", top: "0", visibility: "hidden", pointerEvents: "none",
+        width: `${minimums.reduce((total, width) => total + width, 0)}px`,
+        minWidth: "0"
+      });
+      const colgroup = document.createElement("colgroup");
+      minimums.forEach(width => {
+        const column = document.createElement("col");
+        column.style.width = `${width}px`;
+        colgroup.appendChild(column);
+      });
+      measuringTable.append(colgroup, head.cloneNode(true), body.cloneNode(true));
+      document.body.appendChild(measuringTable);
+      try {
+        const measuredHead = measuringTable.tHead;
+        const top = measuredHead.rows[0], detail = measuredHead.rows[1];
+        const headers = [...top.cells].filter(cell => cell.rowSpan === 2).concat([...detail.cells]);
+        const widths = minimums.map((minimum, index) => Math.max(minimum, contentWidth(headers[index]),
+          ...[...measuringTable.tBodies[0].rows].map(row => contentWidth(row.cells[index]))));
+        let columnIndex = 0;
+        [...top.cells].forEach(cell => {
+          const span = cell.rowSpan === 2 ? 1 : cell.colSpan;
+          const currentWidth = widths.slice(columnIndex, columnIndex + span).reduce((total, width) => total + width, 0);
+          const extra = Math.max(0, contentWidth(cell) - currentWidth);
+          if (extra) {
+            const addition = Math.ceil(extra / span);
+            for (let index = columnIndex; index < columnIndex + span; index += 1) widths[index] += addition;
+          }
+          columnIndex += span;
+        });
+        return widths;
+      } finally {
+        measuringTable.remove();
+      }
     }
 
     function minimumWidthsForGroup(group) {
@@ -486,15 +526,15 @@
       }
       const table = byId("Table");
       table.className = `player-profile-table quick-comparison-table${columnGroups.map(([group]) => groupVisible(group) && state.expandedGroups[group] ? ` ${group}-expanded` : "").join("")}`;
-      const widths = columns.map((column, index) => Math.max(column.minimumWidth, estimatedColumnWidth(
-        displayedLabel(column), comparison.map(item => displayedValue(column, item)), index === 0
-      )));
+      const minimumWidths = columns.map(column => column.minimumWidth);
+      const widths = measuredColumnWidths(table.className, head, body, minimumWidths);
       const colgroup = document.createElement("colgroup");
       widths.forEach(width => {
         const col = document.createElement("col");
         col.style.width = `${width}px`;
         colgroup.appendChild(col);
       });
+      table.style.width = "100%";
       table.style.minWidth = `${widths.reduce((total, width) => total + width, 0)}px`;
       table.replaceChildren(colgroup, head, body);
     }

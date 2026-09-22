@@ -103,7 +103,12 @@ test("quick comparison uses visible section, value-mode, and header detail contr
   assert.match(componentSource, /Counts divided by qualifying matches/);
   assert.match(componentSource, /combat: `K\/\$\{unit\}-D\/\$\{unit\}-A\/\$\{unit\}`/);
   assert.match(componentSource, /const kda = formatted\.match/);
-  assert.match(componentSource, /estimatedColumnWidth\([\s\S]*?displayedLabel\(column\)[\s\S]*?displayedValue\(column, item\)/);
+  assert.match(componentSource, /function measuredColumnWidths\(tableClass, head, body, minimums\)/);
+  assert.match(componentSource, /Math\.max\(cell\.scrollWidth, \.\.\.childWidths\)/);
+  assert.match(componentSource, /left: "-100000px"[\s\S]*?head\.cloneNode\(true\), body\.cloneNode\(true\)/);
+  assert.match(componentSource, /const extra = Math\.max\(0, contentWidth\(cell\) - currentWidth\)/);
+  assert.match(componentSource, /const widths = measuredColumnWidths\(table\.className, head, body, minimumWidths\)/);
+  assert.match(componentSource, /table\.style\.width = "100%"[\s\S]*?table\.replaceChildren\(colgroup, head, body\)/);
   assert.match(componentSource, /table\.replaceChildren\(colgroup, head, body\)/);
   assert.match(styles, /\.quick-comparison-table \{[^}]*table-layout: fixed;/);
   assert.match(scoreboardSource, /const subgroups = Object\.freeze/);
