@@ -1419,42 +1419,52 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .demo-column-heading-actions {
-  display: grid;
-  grid-template-rows: auto auto;
+  display: flex;
   width: 100%;
   min-width: 0;
   align-items: center;
-  justify-items: center;
+  justify-content: center;
 }
 
 .demo-column-heading-actions .demo-column-toggle {
-  width: 100%;
+  width: auto;
   min-width: 0;
 }
 
-.demo-subgroup-cycle {
-  width: min(144px, calc(100% - 12px));
-  min-height: 28px;
-  margin: 0 6px 5px;
-  padding: 4px 8px;
-  border: 1px solid rgba(65, 55, 60, .24);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, .62);
+.demo-subgroup-shortcut {
+  position: relative;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  margin: 0 7px 0 -5px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
   color: var(--text);
   font: inherit;
-  font-size: 10px;
-  font-weight: 850;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 9px;
+  font-weight: 950;
   cursor: pointer;
 }
 
-.demo-subgroup-cycle:hover,
-.demo-subgroup-cycle:focus-visible {
-  border-color: var(--accent);
+.demo-subgroup-shortcut::before {
+  position: absolute;
+  inset: 0;
+  color: var(--accent);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 27px;
+  content: "↻";
+}
+
+.demo-subgroup-shortcut > span { position: relative; z-index: 1; }
+
+.demo-subgroup-shortcut:hover,
+.demo-subgroup-shortcut:focus-visible {
   background: var(--accent-wash);
-  outline: none;
+  outline: 2px solid rgba(233, 86, 49, .35);
+  outline-offset: 1px;
 }
 
 .demo-group-detail {

@@ -32,12 +32,25 @@
   const sectionKeys = new Set(sectionOptions.map(([key]) => key));
   const defaultSections = ["overview", "opening", "rounds"];
   const sectionSubgroups = Object.freeze({
-    combat: [["output", "Output", [0, 1, 2, 3, 4]], ["damage", "Damage", [5, 6, 7, 8]]],
-    opening: [["results", "Results", [0, 1, 24, 25, 26]], ["received", "Help received", [2, 3, 4, 5, 23]], ["given", "Help given", [6, 7, 8, 9]], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]]],
-    multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5]], ["true", "True", [6, 7, 8, 9, 10]]],
-    killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4]], ["readiness", "Readiness", [5, 6, 7, 8]]],
-    movement: [["state", "State", [0, 1, 2, 3]], ["speed", "Speed", [4, 5, 6, 7]]],
-    utility: [["damage", "Damage", [0, 1]], ["usage", "Usage", [2, 3, 4, 5, 6]], ["flashes", "Flash effects", [7, 8, 9, 10, 11, 12, 13]], ["assists", "Assisted kills", [14, 15, 16]]]
+    combat: [["output", "Output", [0, 1, 2, 3, 4], "Overview"], ["damage", "Damage", [5, 6, 7, 8], "Damage"]],
+    opening: [["results", "Results", [0, 1, 24, 25, 26], "Opening results"], ["received", "Help received", [2, 3, 4, 5, 23], "Opening help received"], ["given", "Help given", [6, 7, 8, 9], "Opening help given"], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22], "Opening flash context"]],
+    multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5], "Multi-kills"], ["true", "True", [6, 7, 8, 9, 10], "True multi-kills"]],
+    killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4], "Visibility and cover"], ["readiness", "Readiness", [5, 6, 7, 8], "Readiness"]],
+    movement: [["state", "State", [0, 1, 2, 3], "Movement"], ["speed", "Speed", [4, 5, 6, 7], "Movement speed"]],
+    utility: [["damage", "Damage", [0, 1], "Utility damage"], ["usage", "Usage", [2, 3, 4, 5, 6], "Utility usage"], ["flashes", "Flash effects", [7, 8, 9, 10, 11, 12, 13], "Flash effects"], ["assists", "Assisted kills", [14, 15, 16], "Utility assisted kills"]]
+  });
+  const groupExpandedWidths = Object.freeze({
+    combat: [54, 54, 54, 62, 62, 82, 88, 76, 72],
+    opening: [58, 58, 82, 68, 72, 88, 68, 76, 76, 84, 82, 68, 68, 92, 104, 112, 112, 88, 120, 102, 92, 120, 110, 82, 62, 72, 76],
+    trades: [58, 54, 96, 58, 54, 96], clutches: [55, 55, 55, 55, 55],
+    multikills: [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], objectives: [74, 74],
+    roundState: [128, 88, 168, 104], killStage: [92, 92, 92, 92, 92], timing: [82, 82, 84, 84, 84, 112],
+    killContext: [104, 104, 98, 88, 88, 112, 104, 88, 88], movement: [88, 88, 88, 88, 116, 132, 126, 142],
+    utility: [82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90]
+  });
+  const groupCollapsedWidths = Object.freeze({
+    combat: 90, opening: 108, trades: 88, clutches: 82, multikills: 92, objectives: 128,
+    roundState: 112, killStage: 104, timing: 110, killContext: 112, movement: 112, utility: 176
   });
   const storedSections = () => {
     try {
@@ -101,10 +114,37 @@
       render(state.input);
       if (!wrap || viewportX == null) return;
       wrap.scrollLeft = scrollLeft;
-      const control = byId("Table")?.querySelector(`.demo-subgroup-cycle[data-scoreboard-group="${group}"]`);
+      const control = byId("Table")?.querySelector(`.demo-subgroup-shortcut[data-scoreboard-group="${group}"]`);
       if (!control) return;
       const adjustment = control.getBoundingClientRect().left + control.offsetWidth / 2 - viewportX;
       if (Math.abs(adjustment) >= 0.5) wrap.scrollLeft += adjustment;
+    }
+
+    function scrollGroupIntoView(group) {
+      const table = byId("Table");
+      const wrap = table?.parentElement;
+      const header = table?.querySelector(`[data-scoreboard-header="${group}"]`);
+      if (!wrap || !header || wrap.scrollWidth <= wrap.clientWidth) return;
+      const wrapRect = wrap.getBoundingClientRect();
+      const headerRect = header.getBoundingClientRect();
+      const stickyInset = table.querySelector("thead th:first-child")?.offsetWidth || 0;
+      const left = wrap.scrollLeft + headerRect.left - wrapRect.left;
+      const right = left + headerRect.width;
+      const visibleLeft = wrap.scrollLeft + stickyInset;
+      const visibleRight = wrap.scrollLeft + wrap.clientWidth;
+      if (headerRect.width > wrap.clientWidth - stickyInset || left < visibleLeft) wrap.scrollLeft = left - stickyInset;
+      else if (right > visibleRight) wrap.scrollLeft = right - wrap.clientWidth;
+    }
+
+    function handleDetailShortcut(event) {
+      if (event.key?.toLowerCase() !== "r" || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+      const table = byId("Table");
+      if (!table || !table.getClientRects().length) return;
+      const group = Object.keys(state.expandedGroups).find(key => state.expandedGroups[key] && sectionSubgroups[key]);
+      if (!group) return;
+      event.preventDefault();
+      cycleSubgroup(group, table.querySelector(`.demo-subgroup-shortcut[data-scoreboard-group="${group}"]`));
     }
 
     const groupVisible = group => state.visibleSections.has(groupSection[group]);
@@ -176,6 +216,13 @@
         width + (/[MW@#%]/.test(character) ? 9 : /[il1 .·]/.test(character) ? 4 : 7), 0);
       return Math.max(firstColumn ? 160 : 58, estimatedTextWidth(label) + 16,
         ...values.map(value => estimatedTextWidth(value)));
+    }
+
+    function minimumWidthsForGroup(group) {
+      if (!state.expandedGroups[group]) return [groupCollapsedWidths[group] || 58];
+      const widths = groupExpandedWidths[group] || [];
+      const subgroup = activeSubgroup(group);
+      return subgroup ? subgroup[2].map(index => widths[index] || 58) : widths;
     }
 
     function renderTable(comparison) {
@@ -394,10 +441,13 @@
         { group: "movement", label: "Movement", columns: focusedColumns("movement", movementColumns) },
         { group: "utility", label: "Utility", columns: focusedColumns("utility", utilityColumns) }
       ].filter(segment => !segment.group || groupVisible(segment.group));
-      const columns = segments.flatMap(segment => segment.columns.map((column, index) => ({
-        ...column, group: segment.group, groupStart: Boolean(segment.group) && index === 0,
+      const columns = segments.flatMap(segment => {
+        const minimums = segment.group ? minimumWidthsForGroup(segment.group) : [160, 72, 82, 82, 72];
+        return segment.columns.map((column, index) => ({
+        ...column, minimumWidth: minimums[index] || 58, group: segment.group, groupStart: Boolean(segment.group) && index === 0,
         groupEnd: Boolean(segment.group) && index === segment.columns.length - 1
-      })));
+      }));
+      });
       const sort = state.sort;
       const ordered = comparison.map((item, index) => ({ item, index }));
       if (sort) {
@@ -433,7 +483,9 @@
         const heading = document.createElement("th");
         heading.colSpan = segment.columns.length;
         heading.className = `demo-toggle-heading ${segment.group}-heading demo-group-start demo-group-end`;
-        const toggle = element("button", `${segment.label} ${state.expandedGroups[segment.group] ? "▾" : "▸"}`, "demo-column-toggle");
+        heading.dataset.scoreboardHeader = segment.group;
+        const subgroup = state.expandedGroups[segment.group] && activeSubgroup(segment.group);
+        const toggle = element("button", `${subgroup?.[3] || segment.label} ${state.expandedGroups[segment.group] ? "▾" : "▸"}`, "demo-column-toggle");
         toggle.type = "button"; toggle.setAttribute("aria-expanded", String(state.expandedGroups[segment.group]));
         toggle.addEventListener("click", () => {
           const next = !state.expandedGroups[segment.group];
@@ -441,20 +493,20 @@
           const sortedColumnDisappears = sortedGroup === segment.group || (next && sortedGroup && state.expandedGroups[sortedGroup]);
           if (sortedColumnDisappears) state.sort = null;
           Object.keys(state.expandedGroups).forEach(group => { state.expandedGroups[group] = false; });
-          state.expandedGroups[segment.group] = next; render(state.input);
+          state.expandedGroups[segment.group] = next; render(state.input); scrollGroupIntoView(segment.group);
         });
         const actions = element("div", null, "demo-column-heading-actions");
         actions.appendChild(toggle);
-        const subgroup = state.expandedGroups[segment.group] && activeSubgroup(segment.group);
         if (subgroup) {
           const subgroups = sectionSubgroups[segment.group];
           const subgroupIndex = subgroups.findIndex(([key]) => key === subgroup[0]);
           const next = subgroups[(subgroupIndex + 1) % subgroups.length];
-          const cycle = element("button", `${subgroup[1]} ↻`, "demo-subgroup-cycle");
+          const cycle = element("button", null, "demo-subgroup-shortcut");
           cycle.type = "button";
           cycle.dataset.scoreboardGroup = segment.group;
-          cycle.title = `Showing ${subgroup[1]}; switch to ${next[1]}`;
-          cycle.setAttribute("aria-label", `${segment.label} detail: ${subgroup[1]}. Switch to ${next[1]}`);
+          cycle.appendChild(element("span", "R"));
+          cycle.title = `Press R or tap to switch to ${next[1]}`;
+          cycle.setAttribute("aria-label", `${segment.label} detail: ${subgroup[1]}. Press R or tap to switch to ${next[1]}`);
           cycle.addEventListener("click", () => cycleSubgroup(segment.group, cycle));
           actions.appendChild(cycle);
         }
@@ -485,9 +537,9 @@
       }
       const table = byId("Table");
       table.className = `player-profile-table quick-comparison-table${columnGroups.map(([group]) => groupVisible(group) && state.expandedGroups[group] ? ` ${group}-expanded` : "").join("")}`;
-      const widths = columns.map((column, index) => estimatedColumnWidth(
+      const widths = columns.map((column, index) => Math.max(column.minimumWidth, estimatedColumnWidth(
         displayedLabel(column), comparison.map(item => displayedValue(column, item)), index === 0
-      ));
+      )));
       const colgroup = document.createElement("colgroup");
       widths.forEach(width => {
         const col = document.createElement("col");
@@ -584,6 +636,7 @@
       if (state.input) render(state.input); else renderSections();
     };
     sectionSubscribers.add(syncSections);
+    document.addEventListener("keydown", handleDetailShortcut);
     renderSections();
 
     return { render, reset };

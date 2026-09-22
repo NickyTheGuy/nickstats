@@ -35,12 +35,25 @@
   const SCOREBOARD_GROUP_SECTION = Object.freeze(Object.fromEntries(SCOREBOARD_SECTIONS.flatMap(([section, , groups]) => groups.map(group => [group, section]))));
   const SCOREBOARD_DEFAULT_SECTIONS = ["overview", "opening", "trades", "rounds", "utility"];
   const SCOREBOARD_SUBGROUPS = Object.freeze({
-    combat: [["output", "Output", [0, 1, 2, 3, 4]], ["damage", "Damage", [5, 6, 7, 8]]],
-    opening: [["results", "Results", [0, 1, 23, 24, 25]], ["received", "Help received", [2, 3, 4, 5, 26]], ["given", "Help given", [6, 7, 8, 9]], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]]],
-    multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5]], ["true", "True", [6, 7, 8, 9, 10]]],
-    killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4]], ["readiness", "Readiness", [5, 6, 7, 8]]],
-    movement: [["state", "State", [0, 1, 2, 3]], ["speed", "Speed", [4, 5, 6, 7]]],
-    utility: [["damage", "Damage", [0, 1]], ["usage", "Usage", [2, 3, 4, 5, 6]], ["flashes", "Flash effects", [7, 8, 9, 10, 11, 12, 13]], ["assists", "Assisted kills", [14, 15, 16]]]
+    combat: [["output", "Output", [0, 1, 2, 3, 4], "Overview"], ["damage", "Damage", [5, 6, 7, 8], "Damage"]],
+    opening: [["results", "Results", [0, 1, 23, 24, 25], "Opening results"], ["received", "Help received", [2, 3, 4, 5, 26], "Opening help received"], ["given", "Help given", [6, 7, 8, 9], "Opening help given"], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22], "Opening flash context"]],
+    multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5], "Multi-kills"], ["true", "True", [6, 7, 8, 9, 10], "True multi-kills"]],
+    killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4], "Visibility and cover"], ["readiness", "Readiness", [5, 6, 7, 8], "Readiness"]],
+    movement: [["state", "State", [0, 1, 2, 3], "Movement"], ["speed", "Speed", [4, 5, 6, 7], "Movement speed"]],
+    utility: [["damage", "Damage", [0, 1], "Utility damage"], ["usage", "Usage", [2, 3, 4, 5, 6], "Utility usage"], ["flashes", "Flash effects", [7, 8, 9, 10, 11, 12, 13], "Flash effects"], ["assists", "Assisted kills", [14, 15, 16], "Utility assisted kills"]]
+  });
+  const SCOREBOARD_EXPANDED_WIDTHS = Object.freeze({
+    combat: [54, 54, 54, 62, 62, 82, 88, 76, 72],
+    opening: [58, 58, 82, 68, 72, 88, 68, 76, 76, 84, 82, 68, 68, 92, 104, 112, 112, 88, 120, 102, 92, 120, 110, 82, 62, 72, 76],
+    trades: [58, 54, 96, 58, 54, 96], clutches: [55, 55, 55, 55, 55],
+    multikills: [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], objectives: [74, 74],
+    roundState: [128, 88, 168, 104], killStage: [92, 92, 92, 92, 92], timing: [82, 82, 84, 84, 84, 112],
+    killContext: [104, 104, 98, 88, 88, 112, 104, 88, 88], movement: [88, 88, 88, 88, 116, 132, 126, 142],
+    utility: [82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90]
+  });
+  const SCOREBOARD_COLLAPSED_WIDTHS = Object.freeze({
+    combat: 90, opening: 108, trades: 88, clutches: 82, multikills: 92, objectives: 128,
+    roundState: 112, killStage: 104, timing: 110, killContext: 112, movement: 112, utility: 176
   });
   const state = {
     file: null,
@@ -1546,6 +1559,17 @@
     rerenderScoreboard(anchor ? { group, viewportX: anchor.getBoundingClientRect().left + anchor.offsetWidth / 2 } : null);
   }
 
+  function handleScoreboardDetailShortcut(event) {
+    if (event.key?.toLowerCase() !== "r" || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
+    const view = $("demoScoreboardView");
+    if (!view || view.hidden || !view.getClientRects().length) return;
+    const group = Object.keys(state.expandedGroups).find(key => state.expandedGroups[key] && SCOREBOARD_SUBGROUPS[key]);
+    if (!group) return;
+    event.preventDefault();
+    cycleScoreboardSubgroup(group, view.querySelector(`.demo-subgroup-shortcut[data-scoreboard-group="${group}"]`));
+  }
+
   function scoreboardGroupVisible(group) {
     return state.visibleScoreboardSections.has(SCOREBOARD_GROUP_SECTION[group]);
   }
@@ -1824,30 +1848,31 @@
   function groupHeader(topRow, detailRow, group, label, labels, collapsedLabel = "Total") {
     const expanded = state.expandedGroups[group];
     const focusedLabels = expanded ? scoreboardFocus(group, labels) : labels;
+    const activeSubgroup = expanded && activeScoreboardSubgroup(group);
     const th = document.createElement("th");
     th.colSpan = expanded ? focusedLabels.length : 1;
     th.className = `demo-toggle-heading ${group}-heading demo-group-start demo-group-end`;
+    th.dataset.scoreboardHeader = group;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "demo-column-toggle";
     button.setAttribute("aria-expanded", String(expanded));
-    button.textContent = `${label} ${expanded ? "▾" : "▸"}`;
+    button.textContent = `${activeSubgroup?.[3] || label} ${expanded ? "▾" : "▸"}`;
     button.addEventListener("click", () => toggleColumnGroup(group));
     const actions = document.createElement("div");
     actions.className = "demo-column-heading-actions";
     actions.appendChild(button);
-    const activeSubgroup = expanded && activeScoreboardSubgroup(group);
     if (activeSubgroup) {
       const subgroups = SCOREBOARD_SUBGROUPS[group];
       const index = subgroups.findIndex(([key]) => key === activeSubgroup[0]);
       const next = subgroups[(index + 1) % subgroups.length];
       const cycle = document.createElement("button");
       cycle.type = "button";
-      cycle.className = "demo-subgroup-cycle";
+      cycle.className = "demo-subgroup-shortcut";
       cycle.dataset.scoreboardGroup = group;
-      cycle.textContent = `${activeSubgroup[1]} ↻`;
-      cycle.title = `Showing ${activeSubgroup[1]}; switch to ${next[1]}`;
-      cycle.setAttribute("aria-label", `${label} detail: ${activeSubgroup[1]}. Switch to ${next[1]}`);
+      cycle.appendChild(Object.assign(document.createElement("span"), { textContent: "R" }));
+      cycle.title = `Press R or tap to switch to ${next[1]}`;
+      cycle.setAttribute("aria-label", `${label} detail: ${activeSubgroup[1]}. Press R or tap to switch to ${next[1]}`);
       cycle.addEventListener("click", () => cycleScoreboardSubgroup(group, cycle));
       actions.appendChild(cycle);
     }
@@ -2090,7 +2115,25 @@
     }).map(item => item.player);
   }
 
-  function rerenderScoreboard(anchor = null) {
+  function scrollScoreboardGroupIntoView(group, wraps) {
+    const header = document.querySelector(`[data-scoreboard-header="${group}"]`);
+    const source = wraps[0];
+    if (!header || !source || source.scrollWidth <= source.clientWidth) return;
+    const wrapRect = source.getBoundingClientRect();
+    const headerRect = header.getBoundingClientRect();
+    const stickyInset = source.querySelector("thead th:first-child")?.offsetWidth || 0;
+    const left = source.scrollLeft + headerRect.left - wrapRect.left;
+    const right = left + headerRect.width;
+    const visibleLeft = source.scrollLeft + stickyInset;
+    const visibleRight = source.scrollLeft + source.clientWidth;
+    let next = source.scrollLeft;
+    if (headerRect.width > source.clientWidth - stickyInset || left < visibleLeft) next = left - stickyInset;
+    else if (right > visibleRight) next = right - source.clientWidth;
+    if (Math.abs(next - source.scrollLeft) < 0.5) return;
+    wraps.forEach(wrap => { wrap.scrollLeft = next; });
+  }
+
+  function rerenderScoreboard(anchor = null, revealGroup = null) {
     const scrollLeft = document.querySelector(".demo-team .table-wrap")?.scrollLeft || 0;
     render(state.result);
     const wraps = [...document.querySelectorAll(".demo-team .table-wrap")];
@@ -2098,12 +2141,15 @@
       wrap.scrollLeft = scrollLeft;
     });
     if (!anchor) return;
-    const control = document.querySelector(`.demo-subgroup-cycle[data-scoreboard-group="${anchor.group}"]`);
-    if (!control) return;
-    const viewportX = control.getBoundingClientRect().left + control.offsetWidth / 2;
-    const adjustment = viewportX - anchor.viewportX;
-    if (Math.abs(adjustment) < 0.5) return;
-    wraps.forEach(wrap => { wrap.scrollLeft += adjustment; });
+    if (anchor) {
+      const control = document.querySelector(`.demo-subgroup-shortcut[data-scoreboard-group="${anchor.group}"]`);
+      if (control) {
+        const viewportX = control.getBoundingClientRect().left + control.offsetWidth / 2;
+        const adjustment = viewportX - anchor.viewportX;
+        if (Math.abs(adjustment) >= 0.5) wraps.forEach(wrap => { wrap.scrollLeft += adjustment; });
+      }
+    }
+    if (revealGroup) scrollScoreboardGroupIntoView(revealGroup, wraps);
   }
 
   function synchronizeScoreboardScrolling() {
@@ -2128,7 +2174,7 @@
     if (sortedColumnDisappears) state.scoreboardSort = null;
     Object.keys(state.expandedGroups).forEach(key => { state.expandedGroups[key] = false; });
     state.expandedGroups[group] = next;
-    rerenderScoreboard();
+    rerenderScoreboard(null, group);
   }
 
   function scoreboardColumnWidths() {
@@ -2155,18 +2201,7 @@
           estimatedLabelWidth(activeLabel(displayed, groupSortSpec(group, label))));
       }));
     };
-    add("combat", [54, 54, 54, 62, 62, 82, 88, 76, 72], 90);
-    add("opening", [58, 58, 82, 68, 72, 88, 68, 76, 76, 84, 82, 68, 68, 92, 104, 112, 112, 88, 120, 102, 92, 120, 110, 82, 62, 72, 76], 108);
-    add("trades", [58, 54, 96, 58, 54, 96], 88);
-    add("clutches", [55, 55, 55, 55, 55], 82);
-    add("multikills", [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], 92);
-    add("objectives", [74, 74], 128);
-    add("roundState", [128, 88, 168, 104], 112);
-    add("killStage", [92, 92, 92, 92, 92], 104);
-    add("timing", [82, 82, 84, 84, 84, 112], 110);
-    add("killContext", [104, 104, 98, 88, 88, 112, 104, 88, 88], 112);
-    add("movement", [88, 88, 88, 88, 116, 132, 126, 142], 112);
-    add("utility", [82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90], 176);
+    SCOREBOARD_GROUPS.forEach(([group]) => add(group, SCOREBOARD_EXPANDED_WIDTHS[group], SCOREBOARD_COLLAPSED_WIDTHS[group]));
     return widths;
   }
 
@@ -2981,7 +3016,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/20",
-      nickstats_build: "2026.09.22.3",
+      nickstats_build: "2026.09.22.4",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -3145,6 +3180,7 @@
   document.querySelectorAll("[data-demo-result-view]").forEach(button => {
     button.addEventListener("click", () => setResultView(button.dataset.demoResultView));
   });
+  document.addEventListener("keydown", handleScoreboardDetailShortcut);
   document.querySelectorAll("[data-match-browser-view]").forEach(button => {
     button.addEventListener("click", () => setMatchBrowserView(button.dataset.matchBrowserView));
   });

@@ -58,8 +58,10 @@ test("primary and secondary buttons have visible interaction feedback", () => {
 });
 
 test("collapsed scoreboard summaries stay within their columns", () => {
-  assert.match(demo, /add\("objectives", \[74, 74\], 128\)/);
-  assert.match(demo, /add\("utility", \[82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90\], 176\)/);
+  assert.match(demo, /objectives: \[74, 74\]/);
+  assert.match(demo, /objectives: 128/);
+  assert.match(demo, /utility: \[82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90\]/);
+  assert.match(demo, /utility: 176/);
   assert.match(demo, /estimatedLabelWidth\(scoreboardRateLabel\(group, label, expanded\)\)|estimatedLabelWidth\(activeLabel\(displayed, groupSortSpec\(group, label\)\)\)/);
   assert.match(styles, /\.demo-score-table th,[\s\S]*?\.demo-score-table td \{[\s\S]*?overflow: hidden;[\s\S]*?text-overflow: ellipsis;/);
 });
@@ -81,14 +83,16 @@ test("match scoreboard supports section, value-mode, and header detail controls"
   assert.match(demo, /eventPair\(player\[`\$\{phase\}_kills`\], player\[`\$\{phase\}_deaths`\]\)/);
   assert.match(demo, /Object\.keys\(state\.expandedGroups\)\.forEach\(key => \{ state\.expandedGroups\[key\] = false; \}\)/);
   assert.match(demo, /function cycleScoreboardSubgroup\(group, anchor\)/);
-  assert.match(demo, /cycle\.className = "demo-subgroup-cycle"/);
+  assert.match(demo, /cycle\.className = "demo-subgroup-shortcut"/);
   assert.match(demo, /cycle\.addEventListener\("click", \(\) => cycleScoreboardSubgroup\(group, cycle\)\)/);
   assert.match(demo, /viewportX: anchor\.getBoundingClientRect\(\)\.left \+ anchor\.offsetWidth \/ 2/);
-  assert.match(styles, /\.demo-column-heading-actions \{[\s\S]*?justify-items: center;/);
+  assert.match(demo, /event\.key\?\.toLowerCase\(\) !== "r"/);
+  assert.match(demo, /scrollScoreboardGroupIntoView\(revealGroup, wraps\)/);
+  assert.match(styles, /\.demo-column-heading-actions \{[\s\S]*?justify-content: center;/);
   assert.doesNotMatch(demo, /scoreboard-subgroup-bar/);
   assert.match(styles, /\.scoreboard-control-panel/);
   assert.match(styles, /\.scoreboard-section-button\.active/);
-  assert.match(styles, /\.demo-subgroup-cycle/);
+  assert.match(styles, /\.demo-subgroup-shortcut/);
   assert.match(styles, /grid-template-columns: 94px minmax\(0, 1fr\)/);
 });
 

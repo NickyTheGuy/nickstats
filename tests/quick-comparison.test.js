@@ -101,13 +101,18 @@ test("quick comparison uses visible section, value-mode, and header detail contr
   assert.match(componentSource, /Object\.keys\(state\.expandedGroups\)\.forEach\(group => \{ state\.expandedGroups\[group\] = false; \}\)/);
   assert.doesNotMatch(componentSource, /map-filter-menu/);
   assert.match(componentSource, /function cycleSubgroup\(group, anchor\)/);
-  assert.match(componentSource, /element\("button", `\$\{subgroup\[1\]\} ↻`, "demo-subgroup-cycle"\)/);
+  assert.match(componentSource, /element\("button", null, "demo-subgroup-shortcut"\)/);
   assert.match(componentSource, /cycle\.addEventListener\("click", \(\) => cycleSubgroup\(segment\.group, cycle\)\)/);
   assert.match(componentSource, /control\.getBoundingClientRect\(\)\.left \+ control\.offsetWidth \/ 2 - viewportX/);
   assert.match(componentSource, /multikills: \[\["regular", "Regular"[\s\S]*?\["true", "True"/);
+  assert.match(componentSource, /event\.key\?\.toLowerCase\(\) !== "r"/);
+  assert.match(componentSource, /scrollGroupIntoView\(segment\.group\)/);
+  assert.match(componentSource, /minimumWidthsForGroup/);
+  assert.match(componentSource, /groupExpandedWidths/);
   assert.doesNotMatch(componentSource, /scoreboard-subgroup-bar/);
   assert.doesNotMatch(styles, /\.scoreboard-subgroup-bar/);
-  assert.match(styles, /\.demo-column-heading-actions/);
+  assert.match(styles, /\.demo-column-heading-actions \{[\s\S]*?justify-content: center;/);
+  assert.match(styles, /\.demo-subgroup-shortcut::before \{[\s\S]*?content: "↻";/);
   assert.match(styles, /\.scoreboard-control-row \+ \.scoreboard-control-row/);
 });
 
