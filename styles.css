@@ -25,7 +25,6 @@
   --section-kill-stage: #6f671f;
   --section-movement: #784292;
   --section-multikills: #9e305c;
-  --section-true-multikills: #6f3c82;
   --section-objectives: #785400;
   --section-timing: #794a32;
   --blue: var(--section-combat);
@@ -1420,22 +1419,23 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .demo-column-heading-actions {
-  display: flex;
+  display: grid;
+  grid-template-rows: auto auto;
   width: 100%;
   min-width: 0;
-  align-items: stretch;
+  align-items: center;
+  justify-items: center;
 }
 
 .demo-column-heading-actions .demo-column-toggle {
-  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
 }
 
 .demo-subgroup-cycle {
-  flex: 0 0 auto;
-  align-self: center;
+  width: min(144px, calc(100% - 12px));
   min-height: 28px;
-  margin: 4px 6px 4px 0;
+  margin: 0 6px 5px;
   padding: 4px 8px;
   border: 1px solid rgba(65, 55, 60, .24);
   border-radius: 7px;
@@ -1444,6 +1444,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   font: inherit;
   font-size: 10px;
   font-weight: 850;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -1515,7 +1517,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .utility-heading { background: rgba(91, 128, 210, .18); }
 .clutches-heading { background: rgba(112, 155, 52, .15); }
 .multikills-heading { background: rgba(220, 65, 121, .21); }
-.trueMultikills-heading { background: rgba(132, 70, 155, .20); }
 .objectives-heading { background: rgba(194, 143, 28, .20); }
 .timing-heading { background: rgba(181, 101, 61, .21); }
 
@@ -1535,7 +1536,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .demo-toggle-heading.utility-heading { border-top: 3px double var(--blue); }
 .demo-toggle-heading.clutches-heading { border-top: 3px dotted var(--green); }
 .demo-toggle-heading.multikills-heading { border-top: 3px solid var(--section-multikills); }
-.demo-toggle-heading.trueMultikills-heading { border-top: 3px solid var(--section-true-multikills); }
 .demo-toggle-heading.objectives-heading { border-top: 3px dashed var(--section-objectives); }
 .demo-toggle-heading.timing-heading { border-top: 3px double var(--section-timing); }
 

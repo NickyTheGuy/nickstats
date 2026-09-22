@@ -7,14 +7,14 @@
   const MAX_UNCOMPRESSED_DEMO_BYTES = 768 * 1024 * 1024;
   const SCOREBOARD_SECTIONS = Object.freeze([
     ["overview", "Overview", ["combat"], "overview"], ["opening", "Opening", ["opening"], "opening"],
-    ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "trueMultikills", "objectives"], "rounds"],
+    ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "objectives"], "rounds"],
     ["roundState", "Round state", ["roundState", "killStage", "timing"], "roundState"],
     ["context", "Context", ["killContext"], "killContext"], ["movement", "Movement", ["movement"], "movement"],
     ["utility", "Utility", ["utility"], "utility"]
   ]);
   const SCOREBOARD_GROUPS = Object.freeze([
     ["combat", "Overview"], ["opening", "Opening"], ["trades", "Trades"], ["clutches", "Clutches"],
-    ["multikills", "Kill rounds"], ["trueMultikills", "True multi-kills"], ["objectives", "Objectives"], ["roundState", "Man count"],
+    ["multikills", "Kill rounds"], ["objectives", "Objectives"], ["roundState", "Man count"],
     ["killStage", "Kill stage"], ["timing", "Round timing"], ["killContext", "Context"],
     ["movement", "Movement"], ["utility", "Utility"]
   ]);
@@ -23,8 +23,7 @@
     opening: [["K", "D", "Assisted K", "Dmg A", "Flash A", "Traded D", "Trade K", "A earned", "Dmg A earned", "Flash A earned", "Enemy blind K", "Blind K", "Blind D", "Blind killer D", "Enemy assisted D", "Enemy dmg A D", "Enemy flash A D", "Own flash K", "Victim-side flash K", "Unknown flash K", "Killer flash D", "Own-side flash D", "Unknown flash D", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
     trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
     clutches: [["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A"],
-    multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%"], "Total"],
-    trueMultikills: [["5K", "4K", "3K", "2K", "TMK%"], "TMK%"],
+    multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%", "5K", "4K", "3K", "2K", "TMK%"], "Total"],
     objectives: [["Plants", "Defuses"], "Plants/defuses"],
     roundState: [["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D"], "Clawback-Bozo K-D"],
     killStage: [["5 alive K-D", "4 alive K-D", "3 alive K-D", "2 alive K-D", "1 alive K-D"], "5/1 alive K"],
@@ -38,6 +37,7 @@
   const SCOREBOARD_SUBGROUPS = Object.freeze({
     combat: [["output", "Output", [0, 1, 2, 3, 4]], ["damage", "Damage", [5, 6, 7, 8]]],
     opening: [["results", "Results", [0, 1, 23, 24, 25]], ["received", "Help received", [2, 3, 4, 5, 26]], ["given", "Help given", [6, 7, 8, 9]], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]]],
+    multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5]], ["true", "True", [6, 7, 8, 9, 10]]],
     killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4]], ["readiness", "Readiness", [5, 6, 7, 8]]],
     movement: [["state", "State", [0, 1, 2, 3]], ["speed", "Speed", [4, 5, 6, 7]]],
     utility: [["damage", "Damage", [0, 1]], ["usage", "Usage", [2, 3, 4, 5, 6]], ["flashes", "Flash effects", [7, 8, 9, 10, 11, 12, 13]], ["assists", "Assisted kills", [14, 15, 16]]]
@@ -1536,14 +1536,14 @@
     return subgroups.find(([key]) => key === active) || subgroups[0];
   }
 
-  function cycleScoreboardSubgroup(group) {
+  function cycleScoreboardSubgroup(group, anchor) {
     const subgroups = SCOREBOARD_SUBGROUPS[group];
     if (!subgroups) return;
     const active = activeScoreboardSubgroup(group);
     const index = Math.max(0, subgroups.findIndex(([key]) => key === active[0]));
     state.scoreboardSubgroups[group] = subgroups[(index + 1) % subgroups.length][0];
     if (state.scoreboardSort?.group === group) state.scoreboardSort = null;
-    rerenderScoreboard();
+    rerenderScoreboard(anchor ? { group, viewportX: anchor.getBoundingClientRect().left + anchor.offsetWidth / 2 } : null);
   }
 
   function scoreboardGroupVisible(group) {
@@ -1703,11 +1703,13 @@
     scoreboardCells(row, "clutches", `${clutchWins}/${clutchAttempts}`, [5, 4, 3, 2, 1].map(opponents => `${player.clutch_wins?.[opponents] ?? 0}/${player.clutch_attempts?.[opponents] ?? 0}`));
     const multikillTotal = [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0);
     const multikillPercent = 100 * [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0) / Math.max(1, player.rounds_played ?? 0);
-    scoreboardCells(row, "multikills", multikillTotal, [...[5, 4, 3, 2, 1].map(kills => player.kill_rounds?.[kills] ?? 0), `${multikillPercent.toFixed(1)}%`]);
     const trueMultikillTotal = [2, 3, 4, 5].reduce((sum, kills) => sum + (player.true_kill_rounds?.[kills] ?? 0), 0);
     const trueMultikillPercent = 100 * trueMultikillTotal / Math.max(1, player.rounds_played ?? 0);
-    scoreboardCells(row, "trueMultikills", player.true_multikill_available ? `${trueMultikillPercent.toFixed(1)}%` : "—",
-      player.true_multikill_available ? [...[5, 4, 3, 2].map(kills => player.true_kill_rounds?.[kills] ?? 0), `${trueMultikillPercent.toFixed(1)}%`] : ["—", "—", "—", "—", "—"]);
+    const trueMultikillValues = player.true_multikill_available
+      ? [...[5, 4, 3, 2].map(kills => player.true_kill_rounds?.[kills] ?? 0), `${trueMultikillPercent.toFixed(1)}%`]
+      : ["—", "—", "—", "—", "—"];
+    scoreboardCells(row, "multikills", multikillTotal,
+      [...[5, 4, 3, 2, 1].map(kills => player.kill_rounds?.[kills] ?? 0), `${multikillPercent.toFixed(1)}%`, ...trueMultikillValues]);
     scoreboardCells(row, "objectives", `${player.objectives?.plants ?? 0}/${player.objectives?.defuses ?? 0}`, [player.objectives?.plants ?? 0, player.objectives?.defuses ?? 0]);
     const timingAverage = kind => {
       if (!player.timing_available) return "—";
@@ -1798,7 +1800,6 @@
         trades: "K/round-D/round",
         clutches: "W/round / A/round",
         multikills: "Total / round",
-        trueMultikills: "TMK%",
         objectives: "Plants/round / defuses/round",
         roundState: "Clawback K/round-Bozo D/round",
         killStage: "5 alive K/round / 1 alive K/round",
@@ -1843,10 +1844,11 @@
       const cycle = document.createElement("button");
       cycle.type = "button";
       cycle.className = "demo-subgroup-cycle";
+      cycle.dataset.scoreboardGroup = group;
       cycle.textContent = `${activeSubgroup[1]} ↻`;
       cycle.title = `Showing ${activeSubgroup[1]}; switch to ${next[1]}`;
       cycle.setAttribute("aria-label", `${label} detail: ${activeSubgroup[1]}. Switch to ${next[1]}`);
-      cycle.addEventListener("click", () => cycleScoreboardSubgroup(group));
+      cycle.addEventListener("click", () => cycleScoreboardSubgroup(group, cycle));
       actions.appendChild(cycle);
     }
     th.appendChild(actions);
@@ -1887,6 +1889,15 @@
   }
 
   function groupSortSpec(group, detail) {
+    if (group === "multikills" && state.expandedGroups.multikills && activeScoreboardSubgroup("multikills")?.[0] === "true") {
+      return {
+        "TMK%": sortSpecs.trueMultikillPercent,
+        "5K": sortSpecs.trueKills5,
+        "4K": sortSpecs.trueKills4,
+        "3K": sortSpecs.trueKills3,
+        "2K": sortSpecs.trueKills2
+      }[detail];
+    }
     const maps = {
       combat: {
         "K-D-A": sortSpecs.kda,
@@ -2001,13 +2012,6 @@
         "1K": sortSpecs.kills1,
         "Multi%": sortSpecs.multikillPercent
       },
-      trueMultikills: {
-        "TMK%": sortSpecs.trueMultikillPercent,
-        "5K": sortSpecs.trueKills5,
-        "4K": sortSpecs.trueKills4,
-        "3K": sortSpecs.trueKills3,
-        "2K": sortSpecs.trueKills2
-      },
       objectives: {
         "Plants/defuses": sortSpecs.bombPlants,
         Plants: sortSpecs.bombPlants,
@@ -2086,12 +2090,20 @@
     }).map(item => item.player);
   }
 
-  function rerenderScoreboard() {
+  function rerenderScoreboard(anchor = null) {
     const scrollLeft = document.querySelector(".demo-team .table-wrap")?.scrollLeft || 0;
     render(state.result);
-    document.querySelectorAll(".demo-team .table-wrap").forEach(wrap => {
+    const wraps = [...document.querySelectorAll(".demo-team .table-wrap")];
+    wraps.forEach(wrap => {
       wrap.scrollLeft = scrollLeft;
     });
+    if (!anchor) return;
+    const control = document.querySelector(`.demo-subgroup-cycle[data-scoreboard-group="${anchor.group}"]`);
+    if (!control) return;
+    const viewportX = control.getBoundingClientRect().left + control.offsetWidth / 2;
+    const adjustment = viewportX - anchor.viewportX;
+    if (Math.abs(adjustment) < 0.5) return;
+    wraps.forEach(wrap => { wrap.scrollLeft += adjustment; });
   }
 
   function synchronizeScoreboardScrolling() {
@@ -2147,8 +2159,7 @@
     add("opening", [58, 58, 82, 68, 72, 88, 68, 76, 76, 84, 82, 68, 68, 92, 104, 112, 112, 88, 120, 102, 92, 120, 110, 82, 62, 72, 76], 108);
     add("trades", [58, 54, 96, 58, 54, 96], 88);
     add("clutches", [55, 55, 55, 55, 55], 82);
-    add("multikills", [55, 55, 55, 55, 55, 72], 92);
-    add("trueMultikills", [55, 55, 55, 55, 72], 76);
+    add("multikills", [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], 92);
     add("objectives", [74, 74], 128);
     add("roundState", [128, 88, 168, 104], 112);
     add("killStage", [92, 92, 92, 92, 92], 104);
@@ -2970,7 +2981,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/20",
-      nickstats_build: "2026.09.22.2",
+      nickstats_build: "2026.09.22.3",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

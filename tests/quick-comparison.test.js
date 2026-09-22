@@ -26,7 +26,7 @@ test("quick comparison sections are selectable and remain expandable", () => {
   assert.match(componentSource, /SECTION_STORAGE_KEY = "nickstats\.quickComparisonSections\.v2"/);
   assert.match(componentSource, /sectionOptions = Object\.freeze/);
   assert.match(componentSource, /\.filter\(segment => !segment\.group \|\| groupVisible\(segment\.group\)\)/);
-  assert.match(componentSource, /\["rounds", "Rounds", \["clutches", "multikills", "trueMultikills", "objectives"\], "rounds"\]/);
+  assert.match(componentSource, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
   assert.match(componentSource, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
   assert.match(componentSource, /\["context", "Context", \["killContext"\], "killContext"\]/);
   assert.match(html, /id="comboQuickSections"/);
@@ -100,9 +100,11 @@ test("quick comparison uses visible section, value-mode, and header detail contr
   assert.match(componentSource, /\["assists", "Assisted kills"/);
   assert.match(componentSource, /Object\.keys\(state\.expandedGroups\)\.forEach\(group => \{ state\.expandedGroups\[group\] = false; \}\)/);
   assert.doesNotMatch(componentSource, /map-filter-menu/);
-  assert.match(componentSource, /function cycleSubgroup\(group\)/);
+  assert.match(componentSource, /function cycleSubgroup\(group, anchor\)/);
   assert.match(componentSource, /element\("button", `\$\{subgroup\[1\]\} ↻`, "demo-subgroup-cycle"\)/);
-  assert.match(componentSource, /cycle\.addEventListener\("click", \(\) => cycleSubgroup\(segment\.group\)\)/);
+  assert.match(componentSource, /cycle\.addEventListener\("click", \(\) => cycleSubgroup\(segment\.group, cycle\)\)/);
+  assert.match(componentSource, /control\.getBoundingClientRect\(\)\.left \+ control\.offsetWidth \/ 2 - viewportX/);
+  assert.match(componentSource, /multikills: \[\["regular", "Regular"[\s\S]*?\["true", "True"/);
   assert.doesNotMatch(componentSource, /scoreboard-subgroup-bar/);
   assert.doesNotMatch(styles, /\.scoreboard-subgroup-bar/);
   assert.match(styles, /\.demo-column-heading-actions/);

@@ -66,7 +66,7 @@ test("collapsed scoreboard summaries stay within their columns", () => {
 
 test("match scoreboard supports section, value-mode, and header detail controls", () => {
   assert.match(demo, /const SCOREBOARD_DEFAULT_SECTIONS = \["overview", "opening", "trades", "rounds", "utility"\]/);
-  assert.match(demo, /\["rounds", "Rounds", \["clutches", "multikills", "trueMultikills", "objectives"\], "rounds"\]/);
+  assert.match(demo, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
   assert.match(demo, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
   assert.match(demo, /const SCOREBOARD_SUBGROUPS = Object\.freeze/);
   assert.match(demo, /className = "scoreboard-section-bar scoreboard-control-row"/);
@@ -80,9 +80,11 @@ test("match scoreboard supports section, value-mode, and header detail controls"
   assert.match(demo, /const kda = formatted\.match/);
   assert.match(demo, /eventPair\(player\[`\$\{phase\}_kills`\], player\[`\$\{phase\}_deaths`\]\)/);
   assert.match(demo, /Object\.keys\(state\.expandedGroups\)\.forEach\(key => \{ state\.expandedGroups\[key\] = false; \}\)/);
-  assert.match(demo, /function cycleScoreboardSubgroup\(group\)/);
+  assert.match(demo, /function cycleScoreboardSubgroup\(group, anchor\)/);
   assert.match(demo, /cycle\.className = "demo-subgroup-cycle"/);
-  assert.match(demo, /cycle\.addEventListener\("click", \(\) => cycleScoreboardSubgroup\(group\)\)/);
+  assert.match(demo, /cycle\.addEventListener\("click", \(\) => cycleScoreboardSubgroup\(group, cycle\)\)/);
+  assert.match(demo, /viewportX: anchor\.getBoundingClientRect\(\)\.left \+ anchor\.offsetWidth \/ 2/);
+  assert.match(styles, /\.demo-column-heading-actions \{[\s\S]*?justify-items: center;/);
   assert.doesNotMatch(demo, /scoreboard-subgroup-bar/);
   assert.match(styles, /\.scoreboard-control-panel/);
   assert.match(styles, /\.scoreboard-section-button\.active/);

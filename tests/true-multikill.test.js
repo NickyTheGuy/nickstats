@@ -55,9 +55,10 @@ test("schema 20 stores true 2K through 5K round counts in every side slice", () 
 });
 
 test("multi-kill rates and true multi-kill detail appear across profile and comparison views", () => {
-  assert.match(demo, /trueMultikills: \[\["5K", "4K", "3K", "2K", "TMK%"\], "TMK%"\]/);
+  assert.match(demo, /multikills: \[\["regular", "Regular"[\s\S]*?\["true", "True"/);
   assert.match(demo, /const multikillPercent = 100 \* \[2, 3, 4, 5\]/);
-  assert.match(quick, /group: "trueMultikills", label: "True multi-kills"/);
+  assert.match(quick, /multikills: \[\["regular", "Regular"[\s\S]*?\["true", "True"/);
+  assert.doesNotMatch(quick, /group: "trueMultikills"/);
   assert.match(quick, /key: "multikill-percent", label: "Multi%"/);
   assert.match(profile, /`\$\{prefix\}TrueMultikillStats`/);
   assert.match(profile, /\["Multi-kill %", percent/);
