@@ -6,10 +6,21 @@ const path = require("node:path");
 const test = require("node:test");
 
 const componentSource = fs.readFileSync(path.join(__dirname, "..", "js", "quick-comparison.js"), "utf8");
+const scoreboardSource = fs.readFileSync(path.join(__dirname, "..", "js", "scoreboard.js"), "utf8");
 const compareSource = fs.readFileSync(path.join(__dirname, "..", "js", "compare.js"), "utf8");
 const playersSource = fs.readFileSync(path.join(__dirname, "..", "js", "players.js"), "utf8");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const styles = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
+
+test("match and quick comparison use the shared scoreboard component", () => {
+  const shared = html.indexOf("./js/scoreboard.js");
+  assert.ok(shared >= 0);
+  assert.ok(shared < html.indexOf("./js/demo.js"));
+  assert.ok(shared < html.indexOf("./js/quick-comparison.js"));
+  assert.match(componentSource, /const Scoreboard = window\.NickStatsScoreboard/);
+  assert.match(componentSource, /Scoreboard\.appendGroupHeader/);
+  assert.match(componentSource, /Scoreboard\.renderControls/);
+});
 
 test("quick comparison uses the scoreboard rating colors", () => {
   assert.match(componentSource, /demo-rating.*rating-good.*rating-bad.*rating-average/);
@@ -24,11 +35,11 @@ test("quick comparison sections are selectable and remain expandable", () => {
   assert.match(componentSource, /expandedGroups: Object\.fromEntries\(columnGroups\.map\(\(\[key\]\) => \[key, false\]\)\)/);
   assert.match(componentSource, /const defaultSections = \["overview", "opening", "rounds"\]/);
   assert.match(componentSource, /SECTION_STORAGE_KEY = "nickstats\.quickComparisonSections\.v2"/);
-  assert.match(componentSource, /sectionOptions = Object\.freeze/);
+  assert.match(scoreboardSource, /const sections = Object\.freeze/);
   assert.match(componentSource, /\.filter\(segment => !segment\.group \|\| groupVisible\(segment\.group\)\)/);
-  assert.match(componentSource, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
-  assert.match(componentSource, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
-  assert.match(componentSource, /\["context", "Context", \["killContext"\], "killContext"\]/);
+  assert.match(scoreboardSource, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
+  assert.match(scoreboardSource, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
+  assert.match(scoreboardSource, /\["context", "Context", \["killContext"\], "killContext"\]/);
   assert.match(html, /id="comboQuickSections"/);
   assert.match(html, /id="playerQuickSections"/);
   assert.match(componentSource, /group: "combat", label: "Overview"/);
@@ -58,7 +69,7 @@ test("quick comparison sections are selectable and remain expandable", () => {
   assert.match(componentSource, /key: "multikills", label: "Total"/);
   assert.match(componentSource, /key: "objectives", label: "Plants\/defuses"/);
   assert.match(componentSource, /key: "timing", label: "Avg K\/D time"/);
-  assert.match(componentSource, /demo-toggle-heading.*-heading/);
+  assert.match(scoreboardSource, /demo-toggle-heading \$\{group\}-heading/);
   assert.match(styles, /\.quick-comparison-table :is\(th, td\)\.demo-group-start/);
   assert.match(styles, /\.opening-cell \{ background:/);
   assert.match(styles, /\.clutches-cell \{ background:/);
@@ -82,10 +93,10 @@ test("quick comparison puts summary columns before collapsible combat", () => {
 });
 
 test("quick comparison uses visible section, value-mode, and header detail controls", () => {
-  assert.match(componentSource, /element\("div", null, "scoreboard-section-bar scoreboard-control-row"\)/);
+  assert.match(scoreboardSource, /element\("div", null, "scoreboard-section-bar scoreboard-control-row"\)/);
   assert.match(componentSource, /\[\["totals", "Totals"\], \["round", "Per round"\], \["match", "Per match"\]\]/);
   assert.match(componentSource, /state\.valueMode === "match" \? item\.rows\.length : number\(item\.stats\.rounds\)/);
-  assert.match(componentSource, /utilityButton = element\("button", "Per grenade"/);
+  assert.match(scoreboardSource, /utilityButton = element\("button", "Per grenade"/);
   assert.match(componentSource, /"utility-enemies-flashed": "flash"/);
   assert.match(componentSource, /"utility-teammates-flashed": "flash"/);
   assert.match(componentSource, /key: "utility-self-flashes", label: "SF"/);
@@ -95,20 +106,20 @@ test("quick comparison uses visible section, value-mode, and header detail contr
   assert.match(componentSource, /estimatedColumnWidth\([\s\S]*?displayedLabel\(column\)[\s\S]*?displayedValue\(column, item\)/);
   assert.match(componentSource, /table\.replaceChildren\(colgroup, head, body\)/);
   assert.match(styles, /\.quick-comparison-table \{[^}]*table-layout: fixed;/);
-  assert.match(componentSource, /const sectionSubgroups = Object\.freeze/);
-  assert.match(componentSource, /\["received", "Help received"/);
-  assert.match(componentSource, /\["assists", "Assisted kills"/);
-  assert.match(componentSource, /Object\.keys\(state\.expandedGroups\)\.forEach\(group => \{ state\.expandedGroups\[group\] = false; \}\)/);
+  assert.match(scoreboardSource, /const subgroups = Object\.freeze/);
+  assert.match(scoreboardSource, /\["received", "Help received"/);
+  assert.match(scoreboardSource, /\["assists", "Assisted kills"/);
+  assert.match(componentSource, /Object\.keys\(state\.expandedGroups\)\.forEach\(key => \{ state\.expandedGroups\[key\] = false; \}\)/);
   assert.doesNotMatch(componentSource, /map-filter-menu/);
   assert.match(componentSource, /function cycleSubgroup\(group, anchor\)/);
-  assert.match(componentSource, /element\("button", null, "demo-subgroup-shortcut"\)/);
-  assert.match(componentSource, /cycle\.addEventListener\("click", \(\) => cycleSubgroup\(segment\.group, cycle\)\)/);
+  assert.match(scoreboardSource, /element\("button", null, "demo-subgroup-shortcut"\)/);
+  assert.match(scoreboardSource, /button\.addEventListener\("click", \(\) => onCycle\(group, button\)\)/);
   assert.match(componentSource, /control\.getBoundingClientRect\(\)\.left \+ control\.offsetWidth \/ 2 - viewportX/);
-  assert.match(componentSource, /multikills: \[\["regular", "Regular"[\s\S]*?\["true", "True"/);
+  assert.match(scoreboardSource, /multikills: \[\["regular", "Regular"[\s\S]*?\["true", "True"/);
   assert.match(componentSource, /event\.key\?\.toLowerCase\(\) !== "r"/);
-  assert.match(componentSource, /scrollGroupIntoView\(segment\.group\)/);
+  assert.match(componentSource, /scrollGroupIntoView\(group\)/);
   assert.match(componentSource, /minimumWidthsForGroup/);
-  assert.match(componentSource, /groupExpandedWidths/);
+  assert.match(scoreboardSource, /const expandedWidths = Object\.freeze/);
   assert.doesNotMatch(componentSource, /scoreboard-subgroup-bar/);
   assert.doesNotMatch(styles, /\.scoreboard-subgroup-bar/);
   assert.match(styles, /\.demo-column-heading-actions \{[\s\S]*?justify-content: center;/);
@@ -119,7 +130,7 @@ test("quick comparison uses visible section, value-mode, and header detail contr
 test("quick comparison preserves sorts when unrelated sections change", () => {
   assert.match(componentSource, /group: column\.group \|\| null/);
   assert.match(componentSource, /const sortedGroup = state\.sort\?\.group/);
-  assert.match(componentSource, /sortedGroup === segment\.group \|\| \(next && sortedGroup && state\.expandedGroups\[sortedGroup\]\)/);
+  assert.match(componentSource, /sortedGroup === group \|\| \(next && sortedGroup && state\.expandedGroups\[sortedGroup\]\)/);
   assert.match(componentSource, /if \(state\.sort\?\.group && !groupVisible\(state\.sort\.group\)\) state\.sort = null/);
   assert.doesNotMatch(componentSource, /state\.expandedGroups\[segment\.group\] = next; state\.sort = null/);
 });

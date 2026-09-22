@@ -15,43 +15,13 @@
   const signed = value => `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(number(value)).toFixed(0)}`;
   const seconds = value => Number.isFinite(Number(value)) ? `${number(value).toFixed(1)}s` : "—";
   const SECTION_STORAGE_KEY = "nickstats.quickComparisonSections.v2";
-  const sectionOptions = Object.freeze([
-    ["overview", "Overview", ["combat"], "overview"], ["opening", "Opening", ["opening"], "opening"],
-    ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "objectives"], "rounds"],
-    ["roundState", "Round state", ["roundState", "killStage", "timing"], "roundState"],
-    ["context", "Context", ["killContext"], "killContext"], ["movement", "Movement", ["movement"], "movement"],
-    ["utility", "Utility", ["utility"], "utility"]
-  ]);
-  const columnGroups = Object.freeze([
-    ["combat", "Overview"], ["opening", "Opening"], ["trades", "Trades"], ["clutches", "Clutches"],
-    ["multikills", "Kill rounds"], ["objectives", "Objectives"], ["roundState", "Man count"],
-    ["killStage", "Kill stage"], ["timing", "Round timing"], ["killContext", "Context"],
-    ["movement", "Movement"], ["utility", "Utility"]
-  ]);
-  const groupSection = Object.freeze(Object.fromEntries(sectionOptions.flatMap(([section, , groups]) => groups.map(group => [group, section]))));
+  const Scoreboard = window.NickStatsScoreboard;
+  const sectionOptions = Scoreboard.sections;
+  const columnGroups = Scoreboard.groups;
+  const groupSection = Scoreboard.groupSection;
   const sectionKeys = new Set(sectionOptions.map(([key]) => key));
   const defaultSections = ["overview", "opening", "rounds"];
-  const sectionSubgroups = Object.freeze({
-    combat: [["output", "Output", [0, 1, 2, 3, 4], "Overview"], ["damage", "Damage", [5, 6, 7, 8], "Damage"]],
-    opening: [["results", "Results", [0, 1, 24, 25, 26], "Opening results"], ["received", "Help received", [2, 3, 4, 5, 23], "Opening help received"], ["given", "Help given", [6, 7, 8, 9], "Opening help given"], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22], "Opening flash context"]],
-    multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5], "Multi-kills"], ["true", "True", [6, 7, 8, 9, 10], "True multi-kills"]],
-    killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4], "Visibility and cover"], ["readiness", "Readiness", [5, 6, 7, 8], "Readiness"]],
-    movement: [["state", "State", [0, 1, 2, 3], "Movement"], ["speed", "Speed", [4, 5, 6, 7], "Movement speed"]],
-    utility: [["damage", "Damage", [0, 1], "Utility damage"], ["usage", "Usage", [2, 3, 4, 5, 6], "Utility usage"], ["flashes", "Flash effects", [7, 8, 9, 10, 11, 12, 13], "Flash effects"], ["assists", "Assisted kills", [14, 15, 16], "Utility assisted kills"]]
-  });
-  const groupExpandedWidths = Object.freeze({
-    combat: [54, 54, 54, 62, 62, 82, 88, 76, 72],
-    opening: [58, 58, 82, 68, 72, 88, 68, 76, 76, 84, 82, 68, 68, 92, 104, 112, 112, 88, 120, 102, 92, 120, 110, 82, 62, 72, 76],
-    trades: [58, 54, 96, 58, 54, 96], clutches: [55, 55, 55, 55, 55],
-    multikills: [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], objectives: [74, 74],
-    roundState: [128, 88, 168, 104], killStage: [92, 92, 92, 92, 92], timing: [82, 82, 84, 84, 84, 112],
-    killContext: [104, 104, 98, 88, 88, 112, 104, 88, 88], movement: [88, 88, 88, 88, 116, 132, 126, 142],
-    utility: [82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90]
-  });
-  const groupCollapsedWidths = Object.freeze({
-    combat: 90, opening: 108, trades: 88, clutches: 82, multikills: 92, objectives: 128,
-    roundState: 112, killStage: 104, timing: 110, killContext: 112, movement: 112, utility: 176
-  });
+  const sectionSubgroups = Scoreboard.subgroups;
   const storedSections = () => {
     try {
       const values = JSON.parse(localStorage.getItem(SECTION_STORAGE_KEY));
@@ -82,6 +52,13 @@
     };
     const byId = suffix => document.getElementById(`${prefix}Quick${suffix}`);
     const { integer, decimal, percent, titleCase } = window.NickStatsProfile;
+    const scoreboardState = () => ({
+      expanded: state.expandedGroups,
+      subgroups: state.sectionSubgroups,
+      visibleSections: state.visibleSections,
+      valueMode: state.valueMode,
+      perGrenadeUtility: state.perGrenadeUtility
+    });
 
     function mapsFor(players) {
       return [...new Set(players.flatMap(player => player.rows || []).map(row => row.map).filter(Boolean))]
@@ -89,16 +66,11 @@
     }
 
     function focusedColumns(group, columns) {
-      if (!state.expandedGroups[group] || !sectionSubgroups[group]) return columns;
-      const subgroup = activeSubgroup(group);
-      return subgroup[2].map(index => columns[index]).filter(Boolean);
+      return Scoreboard.focus(scoreboardState(), group, columns);
     }
 
     function activeSubgroup(group) {
-      const subgroups = sectionSubgroups[group];
-      if (!subgroups) return null;
-      const active = state.sectionSubgroups[group] || subgroups[0][0];
-      return subgroups.find(([key]) => key === active) || subgroups[0];
+      return Scoreboard.activeSubgroup(scoreboardState(), group);
     }
 
     function cycleSubgroup(group, anchor) {
@@ -107,9 +79,7 @@
       const wrap = byId("Table")?.parentElement;
       const scrollLeft = wrap?.scrollLeft || 0;
       const viewportX = anchor ? anchor.getBoundingClientRect().left + anchor.offsetWidth / 2 : null;
-      const active = activeSubgroup(group);
-      const index = Math.max(0, subgroups.findIndex(([key]) => key === active[0]));
-      state.sectionSubgroups[group] = subgroups[(index + 1) % subgroups.length][0];
+      Scoreboard.cycle(scoreboardState(), group);
       if (state.sort?.group === group) state.sort = null;
       render(state.input);
       if (!wrap || viewportX == null) return;
@@ -120,20 +90,22 @@
       if (Math.abs(adjustment) >= 0.5) wrap.scrollLeft += adjustment;
     }
 
+    function toggleGroup(group) {
+      const next = !state.expandedGroups[group];
+      const sortedGroup = state.sort?.group;
+      const sortedColumnDisappears = sortedGroup === group || (next && sortedGroup && state.expandedGroups[sortedGroup]);
+      if (sortedColumnDisappears) state.sort = null;
+      Object.keys(state.expandedGroups).forEach(key => { state.expandedGroups[key] = false; });
+      state.expandedGroups[group] = next;
+      render(state.input);
+      scrollGroupIntoView(group);
+    }
+
     function scrollGroupIntoView(group) {
       const table = byId("Table");
       const wrap = table?.parentElement;
-      const header = table?.querySelector(`[data-scoreboard-header="${group}"]`);
-      if (!wrap || !header || wrap.scrollWidth <= wrap.clientWidth) return;
-      const wrapRect = wrap.getBoundingClientRect();
-      const headerRect = header.getBoundingClientRect();
-      const stickyInset = table.querySelector("thead th:first-child")?.offsetWidth || 0;
-      const left = wrap.scrollLeft + headerRect.left - wrapRect.left;
-      const right = left + headerRect.width;
-      const visibleLeft = wrap.scrollLeft + stickyInset;
-      const visibleRight = wrap.scrollLeft + wrap.clientWidth;
-      if (headerRect.width > wrap.clientWidth - stickyInset || left < visibleLeft) wrap.scrollLeft = left - stickyInset;
-      else if (right > visibleRight) wrap.scrollLeft = right - wrap.clientWidth;
+      const next = Scoreboard.scrollGroupIntoView(wrap, table, group);
+      if (next != null) wrap.scrollLeft = next;
     }
 
     function handleDetailShortcut(event) {
@@ -219,10 +191,7 @@
     }
 
     function minimumWidthsForGroup(group) {
-      if (!state.expandedGroups[group]) return [groupCollapsedWidths[group] || 58];
-      const widths = groupExpandedWidths[group] || [];
-      const subgroup = activeSubgroup(group);
-      return subgroup ? subgroup[2].map(index => widths[index] || 58) : widths;
+      return Scoreboard.minimumWidths(scoreboardState(), group);
     }
 
     function renderTable(comparison) {
@@ -273,10 +242,10 @@
         { key: "opening-deaths-to-killer-flash", label: "Killer flash D", value: item => item.stats.opening_deaths_to_killer_flash, format: item => availability.available(item.stats, "opening_deaths_to_killer_flash") ? integer(item.stats.opening_deaths_to_killer_flash) : "—" },
         { key: "opening-deaths-to-own-side-flash", label: "Own-side flash D", value: item => item.stats.opening_deaths_to_own_side_flash, format: item => availability.available(item.stats, "opening_deaths_to_own_side_flash") ? integer(item.stats.opening_deaths_to_own_side_flash) : "—" },
         { key: "opening-deaths-blind-source-unknown", label: "Unknown flash D", value: item => item.stats.opening_deaths_blind_source_unknown, format: item => availability.available(item.stats, "opening_deaths_blind_source_unknown") ? integer(item.stats.opening_deaths_blind_source_unknown) : "—" },
-        { key: "opening-assist-rate", label: "Assist %", value: item => item.stats.openingAssistRate, format: item => availability.available(item.stats, "openingAssistRate") ? percent(item.stats.openingAssistRate) : "—" },
         { key: "opening-attempt", label: "Attempt rate", value: item => item.stats.openingAttemptRate, format: item => percent(item.stats.openingAttemptRate) },
         { key: "opening-diff", label: "Diff", value: item => item.stats.openingDiff, format: item => signed(item.stats.openingDiff) },
-        { key: "opening-success", label: "Success", value: item => item.stats.openingSuccess, format: item => percent(item.stats.openingSuccess) }
+        { key: "opening-success", label: "Success", value: item => item.stats.openingSuccess, format: item => percent(item.stats.openingSuccess) },
+        { key: "opening-assist-rate", label: "Assist %", value: item => item.stats.openingAssistRate, format: item => availability.available(item.stats, "openingAssistRate") ? percent(item.stats.openingAssistRate) : "—" }
       ] : [{
         key: "opening", label: "K-D · Att%", value: item => item.stats.openingDiff,
         format: item => `${integer(item.stats.opening_kills)}-${integer(item.stats.opening_deaths)} · ${percent(item.stats.openingAttemptRate)}`
@@ -480,42 +449,22 @@
           }
           continue;
         }
-        const heading = document.createElement("th");
-        heading.colSpan = segment.columns.length;
-        heading.className = `demo-toggle-heading ${segment.group}-heading demo-group-start demo-group-end`;
-        heading.dataset.scoreboardHeader = segment.group;
-        const subgroup = state.expandedGroups[segment.group] && activeSubgroup(segment.group);
-        const toggle = element("button", `${subgroup?.[3] || segment.label} ${state.expandedGroups[segment.group] ? "▾" : "▸"}`, "demo-column-toggle");
-        toggle.type = "button"; toggle.setAttribute("aria-expanded", String(state.expandedGroups[segment.group]));
-        toggle.addEventListener("click", () => {
-          const next = !state.expandedGroups[segment.group];
-          const sortedGroup = state.sort?.group;
-          const sortedColumnDisappears = sortedGroup === segment.group || (next && sortedGroup && state.expandedGroups[sortedGroup]);
-          if (sortedColumnDisappears) state.sort = null;
-          Object.keys(state.expandedGroups).forEach(group => { state.expandedGroups[group] = false; });
-          state.expandedGroups[segment.group] = next; render(state.input); scrollGroupIntoView(segment.group);
-        });
-        const actions = element("div", null, "demo-column-heading-actions");
-        actions.appendChild(toggle);
-        if (subgroup) {
-          const subgroups = sectionSubgroups[segment.group];
-          const subgroupIndex = subgroups.findIndex(([key]) => key === subgroup[0]);
-          const next = subgroups[(subgroupIndex + 1) % subgroups.length];
-          const cycle = element("button", null, "demo-subgroup-shortcut");
-          cycle.type = "button";
-          cycle.dataset.scoreboardGroup = segment.group;
-          cycle.appendChild(element("span", "R"));
-          cycle.title = `Press R or tap to switch to ${next[1]}`;
-          cycle.setAttribute("aria-label", `${segment.label} detail: ${subgroup[1]}. Press R or tap to switch to ${next[1]}`);
-          cycle.addEventListener("click", () => cycleSubgroup(segment.group, cycle));
-          actions.appendChild(cycle);
-        }
-        heading.appendChild(actions); top.appendChild(heading);
-        segment.columns.forEach((column, index) => {
-          const cell = document.createElement("th"); cell.scope = "col"; cell.className = `demo-group-detail ${segment.group}-cell`;
-          if (index === 0) cell.classList.add("demo-group-start");
-          if (index === segment.columns.length - 1) cell.classList.add("demo-group-end");
-          sortHeader(cell, column); detail.appendChild(cell);
+        const [allLabels, collapsedLabel] = Scoreboard.columns[segment.group];
+        Scoreboard.appendGroupHeader({
+          topRow: top,
+          detailRow: detail,
+          state: scoreboardState(),
+          group: segment.group,
+          label: segment.label,
+          labels: allLabels,
+          collapsedLabel,
+          rateLabel: (_group, source) => displayedLabel(segment.columns.find(column => column.label === source) || { key: "", label: source, group: segment.group }),
+          onToggle: toggleGroup,
+          onCycle: cycleSubgroup,
+          sortHeader: (cell, _display, source) => {
+            const column = segment.columns.find(candidate => candidate.label === source) || segment.columns[0];
+            sortHeader(cell, column);
+          }
         });
       }
       head.append(top, detail);
@@ -553,40 +502,19 @@
     function renderSections() {
       const target = byId("Sections");
       if (!target) return;
-      const bar = element("div", null, "scoreboard-section-bar scoreboard-control-row");
-      bar.appendChild(element("strong", "Sections"));
-      const sectionButtons = element("div", null, "scoreboard-button-group scoreboard-section-buttons");
-      const preset = (label, values) => {
-        const button = element("button", label, "scoreboard-preset-button"); button.type = "button";
-        button.addEventListener("click", () => setSharedSections(new Set(values))); sectionButtons.appendChild(button);
-      };
-      preset("Default", defaultSections); preset("All", sectionOptions.map(([key]) => key));
-      sectionOptions.forEach(([key, label, , style]) => {
-        const button = element("button", label, `scoreboard-section-button ${style}-heading${state.visibleSections.has(key) ? " active" : ""}`); button.type = "button";
-        button.setAttribute("aria-pressed", String(state.visibleSections.has(key)));
-        button.addEventListener("click", () => { const selected = new Set(state.visibleSections); if (selected.has(key)) selected.delete(key); else selected.add(key); setSharedSections(selected); });
-        sectionButtons.appendChild(button);
-      });
-      bar.appendChild(sectionButtons);
-      const mode = element("div", null, "scoreboard-value-toggle scoreboard-control-row"); mode.appendChild(element("strong", "Values"));
-      const modeButtons = element("div", null, "scoreboard-button-group");
-      [["totals", "Totals"], ["round", "Per round"], ["match", "Per match"]].forEach(([value, label]) => {
-        const button = element("button", label, state.valueMode === value ? "active" : ""); button.type = "button"; button.setAttribute("aria-pressed", String(state.valueMode === value));
-        button.addEventListener("click", () => { state.valueMode = value; state.sort = null; render(state.input); }); modeButtons.appendChild(button);
-      });
-      mode.appendChild(modeButtons);
-      const utilityBasis = element("div", null, "scoreboard-utility-basis");
-      utilityBasis.appendChild(element("span", "Utility yields"));
-      const utilityButton = element("button", "Per grenade", state.perGrenadeUtility ? "active" : ""); utilityButton.type = "button";
-      utilityButton.disabled = state.valueMode === "totals"; utilityButton.setAttribute("aria-pressed", String(state.perGrenadeUtility));
-      utilityButton.title = "Use each relevant grenade type for damage, flash effects, and flash-assist yields";
-      utilityButton.addEventListener("click", () => { state.perGrenadeUtility = !state.perGrenadeUtility; state.sort = null; render(state.input); });
-      utilityBasis.appendChild(utilityButton); mode.appendChild(utilityBasis);
       const modeNote = state.valueMode === "totals"
         ? "Raw counts"
         : `${state.valueMode === "match" ? "Counts divided by qualifying matches" : "Counts divided by qualifying rounds"}${state.perGrenadeUtility ? "; utility yield columns use the relevant grenade" : ""}`;
-      mode.appendChild(element("small", modeNote, "scoreboard-control-note"));
-      target.replaceChildren(bar, mode);
+      Scoreboard.renderControls({
+        target,
+        state: scoreboardState(),
+        defaultSections,
+        valueModes: [["totals", "Totals"], ["round", "Per round"], ["match", "Per match"]],
+        modeNote,
+        onSections: setSharedSections,
+        onValueMode: value => { state.valueMode = value; state.sort = null; render(state.input); },
+        onUtilityBasis: () => { state.perGrenadeUtility = !state.perGrenadeUtility; state.sort = null; render(state.input); }
+      });
     }
 
     function render(input) {

@@ -5,56 +5,13 @@
   const MATCH_UPLOAD_ENDPOINT = "/nickstats/api/matches";
   const MATCH_LIST_LIMIT = 25;
   const MAX_UNCOMPRESSED_DEMO_BYTES = 768 * 1024 * 1024;
-  const SCOREBOARD_SECTIONS = Object.freeze([
-    ["overview", "Overview", ["combat"], "overview"], ["opening", "Opening", ["opening"], "opening"],
-    ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "objectives"], "rounds"],
-    ["roundState", "Round state", ["roundState", "killStage", "timing"], "roundState"],
-    ["context", "Context", ["killContext"], "killContext"], ["movement", "Movement", ["movement"], "movement"],
-    ["utility", "Utility", ["utility"], "utility"]
-  ]);
-  const SCOREBOARD_GROUPS = Object.freeze([
-    ["combat", "Overview"], ["opening", "Opening"], ["trades", "Trades"], ["clutches", "Clutches"],
-    ["multikills", "Kill rounds"], ["objectives", "Objectives"], ["roundState", "Man count"],
-    ["killStage", "Kill stage"], ["timing", "Round timing"], ["killContext", "Context"],
-    ["movement", "Movement"], ["utility", "Utility"]
-  ]);
-  const SCOREBOARD_COLUMNS = Object.freeze({
-    combat: [["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A"],
-    opening: [["K", "D", "Assisted K", "Dmg A", "Flash A", "Traded D", "Trade K", "A earned", "Dmg A earned", "Flash A earned", "Enemy blind K", "Blind K", "Blind D", "Blind killer D", "Enemy assisted D", "Enemy dmg A D", "Enemy flash A D", "Own flash K", "Victim-side flash K", "Unknown flash K", "Killer flash D", "Own-side flash D", "Unknown flash D", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
-    trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
-    clutches: [["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A"],
-    multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%", "5K", "4K", "3K", "2K", "TMK%"], "Total"],
-    objectives: [["Plants", "Defuses"], "Plants/defuses"],
-    roundState: [["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D"], "Clawback-Bozo K-D"],
-    killStage: [["5 alive K-D", "4 alive K-D", "3 alive K-D", "2 alive K-D", "1 alive K-D"], "5/1 alive K"],
-    timing: [["Avg kill", "Avg death", "Early K-D", "Mid K-D", "Late K-D", "Post-plant K-D"], "Avg K/D time"],
-    killContext: [["Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D"],
-    movement: [["Move K-D", "Still K-D", "Run K-D", "Air K-D", "Kill speed avg/max", "Kill speed avg/peak %", "Enemy speed avg/max", "Enemy speed avg/peak %"], "Move/run/air"],
-    utility: [["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Enemy sec", "TF", "Teammate sec", "SF", "Self sec", "FA", "Damage assist", "Teammate flash", "Own flash"], "Damage · thrown"]
-  });
-  const SCOREBOARD_GROUP_SECTION = Object.freeze(Object.fromEntries(SCOREBOARD_SECTIONS.flatMap(([section, , groups]) => groups.map(group => [group, section]))));
+  const Scoreboard = window.NickStatsScoreboard;
+  const SCOREBOARD_SECTIONS = Scoreboard.sections;
+  const SCOREBOARD_GROUPS = Scoreboard.groups;
+  const SCOREBOARD_COLUMNS = Scoreboard.columns;
+  const SCOREBOARD_GROUP_SECTION = Scoreboard.groupSection;
   const SCOREBOARD_DEFAULT_SECTIONS = ["overview", "opening", "trades", "rounds", "utility"];
-  const SCOREBOARD_SUBGROUPS = Object.freeze({
-    combat: [["output", "Output", [0, 1, 2, 3, 4], "Overview"], ["damage", "Damage", [5, 6, 7, 8], "Damage"]],
-    opening: [["results", "Results", [0, 1, 23, 24, 25], "Opening results"], ["received", "Help received", [2, 3, 4, 5, 26], "Opening help received"], ["given", "Help given", [6, 7, 8, 9], "Opening help given"], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22], "Opening flash context"]],
-    multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5], "Multi-kills"], ["true", "True", [6, 7, 8, 9, 10], "True multi-kills"]],
-    killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4], "Visibility and cover"], ["readiness", "Readiness", [5, 6, 7, 8], "Readiness"]],
-    movement: [["state", "State", [0, 1, 2, 3], "Movement"], ["speed", "Speed", [4, 5, 6, 7], "Movement speed"]],
-    utility: [["damage", "Damage", [0, 1], "Utility damage"], ["usage", "Usage", [2, 3, 4, 5, 6], "Utility usage"], ["flashes", "Flash effects", [7, 8, 9, 10, 11, 12, 13], "Flash effects"], ["assists", "Assisted kills", [14, 15, 16], "Utility assisted kills"]]
-  });
-  const SCOREBOARD_EXPANDED_WIDTHS = Object.freeze({
-    combat: [54, 54, 54, 62, 62, 82, 88, 76, 72],
-    opening: [58, 58, 82, 68, 72, 88, 68, 76, 76, 84, 82, 68, 68, 92, 104, 112, 112, 88, 120, 102, 92, 120, 110, 82, 62, 72, 76],
-    trades: [58, 54, 96, 58, 54, 96], clutches: [55, 55, 55, 55, 55],
-    multikills: [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], objectives: [74, 74],
-    roundState: [128, 88, 168, 104], killStage: [92, 92, 92, 92, 92], timing: [82, 82, 84, 84, 84, 112],
-    killContext: [104, 104, 98, 88, 88, 112, 104, 88, 88], movement: [88, 88, 88, 88, 116, 132, 126, 142],
-    utility: [82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90]
-  });
-  const SCOREBOARD_COLLAPSED_WIDTHS = Object.freeze({
-    combat: 90, opening: 108, trades: 88, clutches: 82, multikills: 92, objectives: 128,
-    roundState: 112, killStage: 104, timing: 110, killContext: 112, movement: 112, utility: 176
-  });
+  const SCOREBOARD_SUBGROUPS = Scoreboard.subgroups;
   const state = {
     file: null,
     files: [],
@@ -100,6 +57,13 @@
     formatLabel: value => String(value || "Unknown").replace(/^de_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase())
   });
   let demoSideControl, demoBuyControl, demoEnemyBuyControl, demoRoundResultControl;
+  const scoreboardLayoutState = () => ({
+    expanded: state.expandedGroups,
+    subgroups: state.scoreboardSubgroups,
+    visibleSections: state.visibleScoreboardSections,
+    valueMode: state.scoreboardValueMode,
+    perGrenadeUtility: state.scoreboardPerGrenadeUtility
+  });
 
   const sortSpecs = {
     player: { id: "player", modes: [{ label: "A-Z", value: player => player.name || "", direction: "asc" }] },
@@ -1535,26 +1499,16 @@
   const selfFlashMatchups = player => flashMatchupsFor(player, "self");
 
   function scoreboardFocus(group, values) {
-    if (!state.expandedGroups[group]) return values;
-    const subgroups = SCOREBOARD_SUBGROUPS[group];
-    if (!subgroups) return values;
-    const subgroup = activeScoreboardSubgroup(group);
-    return subgroup[2].map(index => values[index]).filter(value => value != null);
+    return Scoreboard.focus(scoreboardLayoutState(), group, values);
   }
 
   function activeScoreboardSubgroup(group) {
-    const subgroups = SCOREBOARD_SUBGROUPS[group];
-    if (!subgroups) return null;
-    const active = state.scoreboardSubgroups[group] || subgroups[0][0];
-    return subgroups.find(([key]) => key === active) || subgroups[0];
+    return Scoreboard.activeSubgroup(scoreboardLayoutState(), group);
   }
 
   function cycleScoreboardSubgroup(group, anchor) {
-    const subgroups = SCOREBOARD_SUBGROUPS[group];
-    if (!subgroups) return;
-    const active = activeScoreboardSubgroup(group);
-    const index = Math.max(0, subgroups.findIndex(([key]) => key === active[0]));
-    state.scoreboardSubgroups[group] = subgroups[(index + 1) % subgroups.length][0];
+    if (!SCOREBOARD_SUBGROUPS[group]) return;
+    Scoreboard.cycle(scoreboardLayoutState(), group);
     if (state.scoreboardSort?.group === group) state.scoreboardSort = null;
     rerenderScoreboard(anchor ? { group, viewportX: anchor.getBoundingClientRect().left + anchor.offsetWidth / 2 } : null);
   }
@@ -1614,51 +1568,24 @@
   function renderScoreboardControls() {
     const target = $("demoScoreboardControls");
     if (!target) return;
-    const sectionBar = document.createElement("div"); sectionBar.className = "scoreboard-section-bar scoreboard-control-row";
-    const label = document.createElement("strong"); label.textContent = "Sections"; sectionBar.appendChild(label);
-    const sectionButtons = document.createElement("div"); sectionButtons.className = "scoreboard-button-group scoreboard-section-buttons"; sectionBar.appendChild(sectionButtons);
-    const preset = (text, onClick) => {
-      const button = document.createElement("button"); button.type = "button"; button.className = "scoreboard-preset-button"; button.textContent = text; button.addEventListener("click", onClick); sectionButtons.appendChild(button);
-    };
-    preset("Default", () => {
-      state.visibleScoreboardSections = new Set(SCOREBOARD_DEFAULT_SECTIONS);
-      Object.keys(state.expandedGroups).forEach(group => { if (!scoreboardGroupVisible(group)) state.expandedGroups[group] = false; });
-      if (state.scoreboardSort?.group && !scoreboardGroupVisible(state.scoreboardSort.group)) state.scoreboardSort = null;
-      rerenderScoreboard();
-    });
-    preset("All", () => { state.visibleScoreboardSections = new Set(SCOREBOARD_SECTIONS.map(([key]) => key)); rerenderScoreboard(); });
-    for (const [key, text, groups, style] of SCOREBOARD_SECTIONS) {
-      const button = document.createElement("button"); button.type = "button"; button.className = `scoreboard-section-button ${style}-heading`;
-      const active = state.visibleScoreboardSections.has(key); button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active)); button.textContent = text;
-      button.addEventListener("click", () => {
-        if (state.visibleScoreboardSections.has(key)) {
-          state.visibleScoreboardSections.delete(key);
-          groups.forEach(group => { state.expandedGroups[group] = false; });
-        } else state.visibleScoreboardSections.add(key);
-        if (!state.visibleScoreboardSections.has(key) && state.scoreboardSort?.group && groups.includes(state.scoreboardSort.group)) state.scoreboardSort = null;
-        rerenderScoreboard();
-      });
-      sectionButtons.appendChild(button);
-    }
-    const mode = document.createElement("div"); mode.className = "scoreboard-value-toggle scoreboard-control-row"; mode.appendChild(Object.assign(document.createElement("strong"), { textContent: "Values" }));
-    const modeButtons = document.createElement("div"); modeButtons.className = "scoreboard-button-group";
-    for (const [value, text] of [["totals", "Totals"], ["round", "Per round"]]) {
-      const button = document.createElement("button"); button.type = "button"; button.textContent = text; button.classList.toggle("active", state.scoreboardValueMode === value); button.setAttribute("aria-pressed", String(state.scoreboardValueMode === value));
-      button.addEventListener("click", () => { state.scoreboardValueMode = value; state.scoreboardSort = null; rerenderScoreboard(); }); modeButtons.appendChild(button);
-    }
-    mode.appendChild(modeButtons);
-    const utilityBasis = document.createElement("div"); utilityBasis.className = "scoreboard-utility-basis";
-    utilityBasis.appendChild(Object.assign(document.createElement("span"), { textContent: "Utility yields" }));
-    const utilityButton = document.createElement("button"); utilityButton.type = "button"; utilityButton.textContent = "Per grenade"; utilityButton.disabled = state.scoreboardValueMode === "totals";
-    utilityButton.classList.toggle("active", state.scoreboardPerGrenadeUtility); utilityButton.setAttribute("aria-pressed", String(state.scoreboardPerGrenadeUtility));
-    utilityButton.title = "Use each relevant grenade type for damage, flash effects, and flash-assist yields";
-    utilityButton.addEventListener("click", () => { state.scoreboardPerGrenadeUtility = !state.scoreboardPerGrenadeUtility; state.scoreboardSort = null; rerenderScoreboard(); });
-    utilityBasis.appendChild(utilityButton); mode.appendChild(utilityBasis);
     const modeNote = state.scoreboardValueMode === "totals"
       ? "Raw counts"
       : `Counts divided by rounds played${state.scoreboardPerGrenadeUtility ? "; utility yield columns use the relevant grenade" : ""}`;
-    mode.appendChild(Object.assign(document.createElement("small"), { className: "scoreboard-control-note", textContent: modeNote }));
-    target.replaceChildren(sectionBar, mode);
+    Scoreboard.renderControls({
+      target,
+      state: scoreboardLayoutState(),
+      defaultSections: SCOREBOARD_DEFAULT_SECTIONS,
+      valueModes: [["totals", "Totals"], ["round", "Per round"]],
+      modeNote,
+      onSections: selected => {
+        state.visibleScoreboardSections = selected;
+        Object.keys(state.expandedGroups).forEach(group => { if (!scoreboardGroupVisible(group)) state.expandedGroups[group] = false; });
+        if (state.scoreboardSort?.group && !scoreboardGroupVisible(state.scoreboardSort.group)) state.scoreboardSort = null;
+        rerenderScoreboard();
+      },
+      onValueMode: value => { state.scoreboardValueMode = value; state.scoreboardSort = null; rerenderScoreboard(); },
+      onUtilityBasis: () => { state.scoreboardPerGrenadeUtility = !state.scoreboardPerGrenadeUtility; state.scoreboardSort = null; rerenderScoreboard(); }
+    });
   }
 
   function playerRow(player) {
@@ -1846,41 +1773,12 @@
   }
 
   function groupHeader(topRow, detailRow, group, label, labels, collapsedLabel = "Total") {
-    const expanded = state.expandedGroups[group];
-    const focusedLabels = expanded ? scoreboardFocus(group, labels) : labels;
-    const activeSubgroup = expanded && activeScoreboardSubgroup(group);
-    const th = document.createElement("th");
-    th.colSpan = expanded ? focusedLabels.length : 1;
-    th.className = `demo-toggle-heading ${group}-heading demo-group-start demo-group-end`;
-    th.dataset.scoreboardHeader = group;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "demo-column-toggle";
-    button.setAttribute("aria-expanded", String(expanded));
-    button.textContent = `${activeSubgroup?.[3] || label} ${expanded ? "▾" : "▸"}`;
-    button.addEventListener("click", () => toggleColumnGroup(group));
-    const actions = document.createElement("div");
-    actions.className = "demo-column-heading-actions";
-    actions.appendChild(button);
-    if (activeSubgroup) {
-      const subgroups = SCOREBOARD_SUBGROUPS[group];
-      const index = subgroups.findIndex(([key]) => key === activeSubgroup[0]);
-      const next = subgroups[(index + 1) % subgroups.length];
-      const cycle = document.createElement("button");
-      cycle.type = "button";
-      cycle.className = "demo-subgroup-shortcut";
-      cycle.dataset.scoreboardGroup = group;
-      cycle.appendChild(Object.assign(document.createElement("span"), { textContent: "R" }));
-      cycle.title = `Press R or tap to switch to ${next[1]}`;
-      cycle.setAttribute("aria-label", `${label} detail: ${activeSubgroup[1]}. Press R or tap to switch to ${next[1]}`);
-      cycle.addEventListener("click", () => cycleScoreboardSubgroup(group, cycle));
-      actions.appendChild(cycle);
-    }
-    th.appendChild(actions);
-    topRow.appendChild(th);
-    const details = (expanded ? focusedLabels : [collapsedLabel]).map(detail => scoreboardRateLabel(group, detail, expanded));
-    details.forEach((detail, index) => {
-      const child = document.createElement("th");
+    Scoreboard.appendGroupHeader({
+      topRow, detailRow, state: scoreboardLayoutState(), group, label, labels, collapsedLabel,
+      rateLabel: scoreboardRateLabel,
+      onToggle: toggleColumnGroup,
+      onCycle: cycleScoreboardSubgroup,
+      decorateDetail: (child, detail) => {
       if (detail === "EF") child.title = "Enemies flashed";
       if (detail === "TF") child.title = "Teammates flashed";
       if (detail === "SF") child.title = "Self flash effects";
@@ -1904,12 +1802,8 @@
       if (detail === "Mid K-D") child.title = "Kills and deaths from 25–75 seconds after freeze end";
       if (detail === "Late K-D") child.title = "Kills and deaths after 75 seconds but before the bomb plant";
       if (detail === "Post-plant K-D") child.title = "Kills and deaths after the bomb is planted";
-      child.className = `demo-group-detail ${group}-cell`;
-      if (index === 0) child.classList.add("demo-group-start");
-      if (index === details.length - 1) child.classList.add("demo-group-end");
-      const sourceDetail = expanded ? focusedLabels[index] : collapsedLabel;
-      sortableHeader(child, detail, groupSortSpec(group, sourceDetail), group);
-      detailRow.appendChild(child);
+      },
+      sortHeader: (cell, detail, source, sourceGroup) => sortableHeader(cell, detail, groupSortSpec(sourceGroup, source), sourceGroup)
     });
   }
 
@@ -2116,20 +2010,9 @@
   }
 
   function scrollScoreboardGroupIntoView(group, wraps) {
-    const header = document.querySelector(`[data-scoreboard-header="${group}"]`);
     const source = wraps[0];
-    if (!header || !source || source.scrollWidth <= source.clientWidth) return;
-    const wrapRect = source.getBoundingClientRect();
-    const headerRect = header.getBoundingClientRect();
-    const stickyInset = source.querySelector("thead th:first-child")?.offsetWidth || 0;
-    const left = source.scrollLeft + headerRect.left - wrapRect.left;
-    const right = left + headerRect.width;
-    const visibleLeft = source.scrollLeft + stickyInset;
-    const visibleRight = source.scrollLeft + source.clientWidth;
-    let next = source.scrollLeft;
-    if (headerRect.width > source.clientWidth - stickyInset || left < visibleLeft) next = left - stickyInset;
-    else if (right > visibleRight) next = right - source.clientWidth;
-    if (Math.abs(next - source.scrollLeft) < 0.5) return;
+    const next = Scoreboard.scrollGroupIntoView(source, source?.querySelector("table"), group);
+    if (next == null) return;
     wraps.forEach(wrap => { wrap.scrollLeft = next; });
   }
 
@@ -2140,7 +2023,6 @@
     wraps.forEach(wrap => {
       wrap.scrollLeft = scrollLeft;
     });
-    if (!anchor) return;
     if (anchor) {
       const control = document.querySelector(`.demo-subgroup-shortcut[data-scoreboard-group="${anchor.group}"]`);
       if (control) {
@@ -2201,7 +2083,7 @@
           estimatedLabelWidth(activeLabel(displayed, groupSortSpec(group, label))));
       }));
     };
-    SCOREBOARD_GROUPS.forEach(([group]) => add(group, SCOREBOARD_EXPANDED_WIDTHS[group], SCOREBOARD_COLLAPSED_WIDTHS[group]));
+    SCOREBOARD_GROUPS.forEach(([group]) => add(group, Scoreboard.expandedWidths[group], Scoreboard.collapsedWidths[group]));
     return widths;
   }
 
@@ -3016,7 +2898,7 @@
     const movement = result.kill_context_definition || {};
     return {
       schema: "nickstats.match/20",
-      nickstats_build: "2026.09.22.4",
+      nickstats_build: "2026.09.22.5",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

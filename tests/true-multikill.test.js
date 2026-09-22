@@ -11,6 +11,7 @@ const workerPath = path.join(root, "js", "demo-worker.js");
 const worker = fs.readFileSync(workerPath, "utf8");
 const demo = fs.readFileSync(path.join(root, "js", "demo.js"), "utf8");
 const quick = fs.readFileSync(path.join(root, "js", "quick-comparison.js"), "utf8");
+const scoreboard = fs.readFileSync(path.join(root, "js", "scoreboard.js"), "utf8");
 const profile = fs.readFileSync(path.join(root, "js", "profile.js"), "utf8");
 const graphs = fs.readFileSync(path.join(root, "js", "graphs.js"), "utf8");
 const models = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Models.swift"), "utf8");
@@ -55,9 +56,8 @@ test("schema 20 stores true 2K through 5K round counts in every side slice", () 
 });
 
 test("multi-kill rates and true multi-kill detail appear across profile and comparison views", () => {
-  assert.match(demo, /multikills: \[\["regular", "Regular"[\s\S]*?\["true", "True"/);
+  assert.match(scoreboard, /multikills: \[\["regular", "Regular"[\s\S]*?\["true", "True"/);
   assert.match(demo, /const multikillPercent = 100 \* \[2, 3, 4, 5\]/);
-  assert.match(quick, /multikills: \[\["regular", "Regular"[\s\S]*?\["true", "True"/);
   assert.doesNotMatch(quick, /group: "trueMultikills"/);
   assert.match(quick, /key: "multikill-percent", label: "Multi%"/);
   assert.match(profile, /`\$\{prefix\}TrueMultikillStats`/);

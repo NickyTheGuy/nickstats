@@ -9,6 +9,7 @@ const read = file => fs.readFileSync(path.join(__dirname, "..", file), "utf8");
 const queries = read("backend/Sources/NickStatsAPI/Queries.swift");
 const models = read("backend/Sources/NickStatsAPI/Models.swift");
 const demo = read("js/demo.js");
+const scoreboard = read("js/scoreboard.js");
 const profile = read("js/profile.js");
 const compare = read("js/compare.js");
 const graphs = read("js/graphs.js");
@@ -30,7 +31,7 @@ test("stored flash relationships aggregate enemy, teammate, and self effects sep
 test("match scoreboard derives teammate and self flash effects from relationship rows", () => {
   assert.match(demo, /const teammateFlashMatchups = player => flashMatchupsFor\(player, "teammate"\)/);
   assert.match(demo, /const selfFlashMatchups = player => flashMatchupsFor\(player, "self"\)/);
-  assert.match(demo, /"TF", "Teammate sec", "SF", "Self sec"/);
+  assert.match(scoreboard, /"TF", "Teammate sec", "SF", "Self sec"/);
   assert.match(demo, /teammateEffects, teammateBlindSeconds\.toFixed\(1\)/);
   assert.match(demo, /selfEffects, selfBlindSeconds\.toFixed\(1\)/);
 });

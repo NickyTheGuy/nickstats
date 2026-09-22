@@ -8,6 +8,7 @@ const test = require("node:test");
 const styles = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
 const graphs = fs.readFileSync(path.join(__dirname, "..", "js", "graphs.js"), "utf8");
 const demo = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), "utf8");
+const scoreboard = fs.readFileSync(path.join(__dirname, "..", "js", "scoreboard.js"), "utf8");
 
 test("site chrome uses the cold-white orange and gold palette", () => {
   assert.match(styles, /color-scheme: light/);
@@ -35,7 +36,7 @@ test("statistic highlights use the warm high-differentiation semantic palette", 
 });
 
 test("match scoreboard follows the player profile section order", () => {
-  assert.match(demo, /const SCOREBOARD_GROUPS = Object\.freeze\(\[[\s\S]*?\["combat", "Overview"\][\s\S]*?\["clutches", "Clutches"\][\s\S]*?\["multikills", "Kill rounds"\][\s\S]*?\["objectives", "Objectives"\][\s\S]*?\["roundState", "Man count"\][\s\S]*?\["killStage", "Kill stage"\][\s\S]*?\["timing", "Round timing"\][\s\S]*?\["killContext", "Context"\][\s\S]*?\["movement", "Movement"\][\s\S]*?\["utility", "Utility"\]/);
+  assert.match(scoreboard, /const groups = Object\.freeze\(\[[\s\S]*?\["combat", "Overview"\][\s\S]*?\["clutches", "Clutches"\][\s\S]*?\["multikills", "Kill rounds"\][\s\S]*?\["objectives", "Objectives"\][\s\S]*?\["roundState", "Man count"\][\s\S]*?\["killStage", "Kill stage"\][\s\S]*?\["timing", "Round timing"\][\s\S]*?\["killContext", "Context"\][\s\S]*?\["movement", "Movement"\][\s\S]*?\["utility", "Utility"\]/);
   assert.match(demo, /\["Player", "Rating", "Rounds P\/W", "KAST"\][\s\S]*?SCOREBOARD_GROUPS\.forEach/);
   assert.match(styles, /\.multikills-heading \{ background: rgba\(220, 65, 121, \.21\); \}/);
   assert.match(styles, /\.objectives-heading \{ background: rgba\(194, 143, 28, \.20\); \}/);
@@ -58,22 +59,25 @@ test("primary and secondary buttons have visible interaction feedback", () => {
 });
 
 test("collapsed scoreboard summaries stay within their columns", () => {
-  assert.match(demo, /objectives: \[74, 74\]/);
-  assert.match(demo, /objectives: 128/);
-  assert.match(demo, /utility: \[82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90\]/);
-  assert.match(demo, /utility: 176/);
+  assert.match(scoreboard, /objectives: \[74, 74\]/);
+  assert.match(scoreboard, /objectives: 128/);
+  assert.match(scoreboard, /utility: \[82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90\]/);
+  assert.match(scoreboard, /utility: 176/);
   assert.match(demo, /estimatedLabelWidth\(scoreboardRateLabel\(group, label, expanded\)\)|estimatedLabelWidth\(activeLabel\(displayed, groupSortSpec\(group, label\)\)\)/);
   assert.match(styles, /\.demo-score-table th,[\s\S]*?\.demo-score-table td \{[\s\S]*?overflow: hidden;[\s\S]*?text-overflow: ellipsis;/);
 });
 
 test("match scoreboard supports section, value-mode, and header detail controls", () => {
+  assert.match(demo, /const Scoreboard = window\.NickStatsScoreboard/);
+  assert.match(demo, /Scoreboard\.appendGroupHeader/);
+  assert.match(demo, /Scoreboard\.renderControls/);
   assert.match(demo, /const SCOREBOARD_DEFAULT_SECTIONS = \["overview", "opening", "trades", "rounds", "utility"\]/);
-  assert.match(demo, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
-  assert.match(demo, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
-  assert.match(demo, /const SCOREBOARD_SUBGROUPS = Object\.freeze/);
-  assert.match(demo, /className = "scoreboard-section-bar scoreboard-control-row"/);
+  assert.match(scoreboard, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
+  assert.match(scoreboard, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
+  assert.match(scoreboard, /const subgroups = Object\.freeze/);
+  assert.match(scoreboard, /element\("div", null, "scoreboard-section-bar scoreboard-control-row"\)/);
   assert.match(demo, /\[\["totals", "Totals"\], \["round", "Per round"\]\]/);
-  assert.match(demo, /utilityButton\.textContent = "Per grenade"/);
+  assert.match(scoreboard, /utilityButton = element\("button", "Per grenade"/);
   assert.match(demo, /"Teammate sec": "flash"/);
   assert.match(demo, /Counts divided by rounds played/);
   assert.match(demo, /group === "trades"[\s\S]*?countedPercent/);
@@ -83,11 +87,12 @@ test("match scoreboard supports section, value-mode, and header detail controls"
   assert.match(demo, /eventPair\(player\[`\$\{phase\}_kills`\], player\[`\$\{phase\}_deaths`\]\)/);
   assert.match(demo, /Object\.keys\(state\.expandedGroups\)\.forEach\(key => \{ state\.expandedGroups\[key\] = false; \}\)/);
   assert.match(demo, /function cycleScoreboardSubgroup\(group, anchor\)/);
-  assert.match(demo, /cycle\.className = "demo-subgroup-shortcut"/);
-  assert.match(demo, /cycle\.addEventListener\("click", \(\) => cycleScoreboardSubgroup\(group, cycle\)\)/);
-  assert.match(demo, /viewportX: anchor\.getBoundingClientRect\(\)\.left \+ anchor\.offsetWidth \/ 2/);
+  assert.match(scoreboard, /element\("button", null, "demo-subgroup-shortcut"\)/);
+  assert.match(scoreboard, /button\.addEventListener\("click", \(\) => onCycle\(group, button\)\)/);
+  assert.match(demo, /anchor\.getBoundingClientRect\(\)\.left \+ anchor\.offsetWidth \/ 2/);
   assert.match(demo, /event\.key\?\.toLowerCase\(\) !== "r"/);
   assert.match(demo, /scrollScoreboardGroupIntoView\(revealGroup, wraps\)/);
+  assert.doesNotMatch(demo, /if \(!anchor\) return;[\s\S]{0,200}scrollScoreboardGroupIntoView\(revealGroup, wraps\)/);
   assert.match(styles, /\.demo-column-heading-actions \{[\s\S]*?justify-content: center;/);
   assert.doesNotMatch(demo, /scoreboard-subgroup-bar/);
   assert.match(styles, /\.scoreboard-control-panel/);
