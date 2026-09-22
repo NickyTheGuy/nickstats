@@ -36,7 +36,7 @@ test("current schema persists opening beneficiary, assister, context, and flash-
   assert.match(frontendSource, /player\.opening_own_flash_kills[\s\S]*?player\.opening_victim_side_flash_kills[\s\S]*?player\.opening_blind_source_unknown_kills/);
   assert.match(frontendSource, /player\.opening_deaths_to_killer_flash[\s\S]*?player\.opening_deaths_to_own_side_flash[\s\S]*?player\.opening_deaths_blind_source_unknown/);
   assert.match(frontendSource, /opening: sumArray\(left\.opening, right\.opening, 23\)/);
-  assert.match(frontendSource, /schema: "nickstats\.match\/19"/);
+  assert.match(frontendSource, /schema: "nickstats\.match\/20"/);
 });
 
 test("opening blind sources distinguish killer, victim side, and missing attribution", () => {

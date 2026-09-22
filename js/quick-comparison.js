@@ -17,14 +17,14 @@
   const SECTION_STORAGE_KEY = "nickstats.quickComparisonSections.v2";
   const sectionOptions = Object.freeze([
     ["overview", "Overview", ["combat"], "overview"], ["opening", "Opening", ["opening"], "opening"],
-    ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "objectives"], "rounds"],
+    ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "trueMultikills", "objectives"], "rounds"],
     ["roundState", "Round state", ["roundState", "killStage", "timing"], "roundState"],
     ["context", "Context", ["killContext"], "killContext"], ["movement", "Movement", ["movement"], "movement"],
     ["utility", "Utility", ["utility"], "utility"]
   ]);
   const columnGroups = Object.freeze([
     ["combat", "Overview"], ["opening", "Opening"], ["trades", "Trades"], ["clutches", "Clutches"],
-    ["multikills", "Kill rounds"], ["objectives", "Objectives"], ["roundState", "Man count"],
+    ["multikills", "Kill rounds"], ["trueMultikills", "True multi-kills"], ["objectives", "Objectives"], ["roundState", "Man count"],
     ["killStage", "Kill stage"], ["timing", "Round timing"], ["killContext", "Context"],
     ["movement", "Movement"], ["utility", "Utility"]
   ]);
@@ -322,11 +322,28 @@
         key: "utility", label: "Damage · thrown", value: utilityDamage,
         format: item => `${integer(utilityDamage(item))} dmg · ${integer(utilityThrown(item))} thrown`
       }];
-      const multikillColumns = state.expandedGroups.multikills ? [5, 4, 3, 2, 1].map(kills => ({
-        key: `multikill-${kills}`, label: `${kills}K`, value: item => number(item.stats[`kill_rounds_${kills}k`]), format: item => integer(item.stats[`kill_rounds_${kills}k`])
-      })) : [{
+      const multikillRounds = item => [2, 3, 4, 5].reduce((total, kills) => total + number(item.stats[`kill_rounds_${kills}k`]), 0);
+      const multikillColumns = state.expandedGroups.multikills ? [
+        ...[5, 4, 3, 2, 1].map(kills => ({
+          key: `multikill-${kills}`, label: `${kills}K`, value: item => number(item.stats[`kill_rounds_${kills}k`]), format: item => integer(item.stats[`kill_rounds_${kills}k`])
+        })),
+        { key: "multikill-percent", label: "Multi%", value: item => 100 * multikillRounds(item) / Math.max(1, number(item.stats.rounds)), format: item => percent(100 * multikillRounds(item) / Math.max(1, number(item.stats.rounds))) }
+      ] : [{
         key: "multikills", label: "Total", value: item => [1, 2, 3, 4, 5].reduce((total, kills) => total + number(item.stats[`kill_rounds_${kills}k`]), 0),
         format: item => integer([1, 2, 3, 4, 5].reduce((total, kills) => total + number(item.stats[`kill_rounds_${kills}k`]), 0))
+      }];
+      const trueMultikillPercent = item => {
+        const scoped = availability.scope(item.stats, "trueMultikillPercent");
+        return scoped ? 100 * [2, 3, 4, 5].reduce((total, kills) => total + number(scoped[`true_kill_rounds_${kills}k`]), 0) / Math.max(1, number(scoped.rounds)) : Number.NaN;
+      };
+      const trueMultikillColumns = state.expandedGroups.trueMultikills ? [
+        ...[5, 4, 3, 2].map(kills => ({
+          key: `true-multikill-${kills}`, label: `${kills}K`, value: item => availability.value(item.stats, `true_kill_rounds_${kills}k`), format: item => availableInteger(item, `true_kill_rounds_${kills}k`)
+        })),
+        { key: "true-multikill-percent", label: "TMK%", value: trueMultikillPercent, format: item => Number.isFinite(trueMultikillPercent(item)) ? percent(trueMultikillPercent(item)) : "—" }
+      ] : [{
+        key: "true-multikill-percent", label: "TMK%", value: trueMultikillPercent,
+        format: item => Number.isFinite(trueMultikillPercent(item)) ? percent(trueMultikillPercent(item)) : "—"
       }];
       const objectiveColumns = state.expandedGroups.objectives ? [
         { key: "objective-plants", label: "Plants", value: item => number(item.stats.bomb_plants), format: item => integer(item.stats.bomb_plants) },
@@ -359,6 +376,7 @@
         { group: "trades", label: "Trades", columns: focusedColumns("trades", tradesColumns) },
         { group: "clutches", label: "Clutches", columns: focusedColumns("clutches", clutchColumns) },
         { group: "multikills", label: "Kill rounds", columns: focusedColumns("multikills", multikillColumns) },
+        { group: "trueMultikills", label: "True multi-kills", columns: focusedColumns("trueMultikills", trueMultikillColumns) },
         { group: "objectives", label: "Objectives", columns: focusedColumns("objectives", objectiveColumns) },
         { group: "roundState", label: "Man count", columns: focusedColumns("roundState", roundStateColumns) },
         { group: "killStage", label: "Kill stage", columns: focusedColumns("killStage", stageColumns) },

@@ -246,7 +246,23 @@
       const attempts = number(s[`clutch_attempt_1v${opponents}`]);
       return [`1v${opponents}`, `${integer(wins)} / ${integer(attempts)}`, `${percent(100 * ratio(wins, attempts))} won · ${integer(Math.max(0, attempts - wins))} failed`];
     }));
-    fillStrip(`${prefix}MultikillStats`, [["1 kill", s.kill_rounds_1k], ["2 kills", s.kill_rounds_2k], ["3 kills", s.kill_rounds_3k], ["4 kills", s.kill_rounds_4k], ["5 kills", s.kill_rounds_5k]].map(([label, value]) => [label, integer(value), `${decimal(ratio(value, rounds), 2)}/R`]));
+    const multikillRounds = [2, 3, 4, 5].reduce((total, kills) => total + number(s[`kill_rounds_${kills}k`]), 0);
+    fillStrip(`${prefix}MultikillStats`, [
+      ["Multi-kill %", percent(100 * ratio(multikillRounds, rounds)), `${integer(multikillRounds)} of ${integer(rounds)} rounds`],
+      ...[["1 kill", s.kill_rounds_1k], ["2 kills", s.kill_rounds_2k], ["3 kills", s.kill_rounds_3k], ["4 kills", s.kill_rounds_4k], ["5 kills", s.kill_rounds_5k]]
+        .map(([label, value]) => [label, integer(value), `${decimal(ratio(value, rounds), 2)}/R`])
+    ]);
+    const trueMultikillScope = availability.scope(rawStats, "trueMultikillPercent");
+    const trueMultikillRounds = trueMultikillScope
+      ? [2, 3, 4, 5].reduce((total, kills) => total + number(trueMultikillScope[`true_kill_rounds_${kills}k`]), 0) : 0;
+    const trueMultikillNote = trueMultikillScope && number(trueMultikillScope.rounds) < rounds
+      ? ` · ${integer(trueMultikillScope.rounds)} compatible rounds` : "";
+    fillStrip(`${prefix}TrueMultikillStats`, [
+      ["True multi %", trueMultikillScope ? percent(100 * ratio(trueMultikillRounds, trueMultikillScope.rounds)) : "—",
+        trueMultikillScope ? `${integer(trueMultikillRounds)} anti-trade rounds${trueMultikillNote}` : "Not available in these demos"],
+      ...[2, 3, 4, 5].map(kills => [`${kills} true kills`, trueMultikillScope ? integer(trueMultikillScope[`true_kill_rounds_${kills}k`]) : "—",
+        trueMultikillScope ? `${decimal(ratio(trueMultikillScope[`true_kill_rounds_${kills}k`], trueMultikillScope.rounds), 2)}/R${trueMultikillNote}` : "Not available in these demos"])
+    ]);
     fillStrip(`${prefix}KillStageStats`, [5, 4, 3, 2, 1].map(alive => [
       `${alive} enem${alive === 1 ? "y" : "ies"} alive`,
       statAvailable(`enemy_alive_${alive}_kills`)

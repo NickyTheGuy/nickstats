@@ -305,6 +305,7 @@ private func insertSideStats(
     // Older compact clients only send wins. Every win necessarily represents
     // at least one attempt, so preserve that minimum instead of writing 0/W.
     let clutchAttempts = stats.clutchAttempts ?? stats.clutches
+    let trueKillRounds = stats.trueKillRounds ?? .zero
     let utilityThrown = stats.utilityThrown ?? .zero
     let objectives = stats.objectives ?? .zero
     try await sql.raw("""
@@ -333,7 +334,9 @@ private func insertSideStats(
           death_speed_percent_total, death_speed_percent_samples, death_speed_percent_max,
           clutch_1v1, clutch_1v2, clutch_1v3, clutch_1v4, clutch_1v5,
           clutch_attempt_1v1, clutch_attempt_1v2, clutch_attempt_1v3, clutch_attempt_1v4, clutch_attempt_1v5,
-          kill_rounds_1k, kill_rounds_2k, kill_rounds_3k, kill_rounds_4k, kill_rounds_5k
+          kill_rounds_1k, kill_rounds_2k, kill_rounds_3k, kill_rounds_4k, kill_rounds_5k,
+          true_kill_rounds_1k, true_kill_rounds_2k, true_kill_rounds_3k,
+          true_kill_rounds_4k, true_kill_rounds_5k
         ) VALUES (
           \(bind: actorID), \(bind: side.rawValue), \(bind: stats.rounds.played), \(bind: stats.rounds.won),
           \(bind: stats.combat.kills), \(bind: stats.combat.deaths), \(bind: stats.combat.assists),
@@ -364,7 +367,9 @@ private func insertSideStats(
           \(bind: clutchAttempts.oneVersusOne), \(bind: clutchAttempts.oneVersusTwo), \(bind: clutchAttempts.oneVersusThree),
           \(bind: clutchAttempts.oneVersusFour), \(bind: clutchAttempts.oneVersusFive),
           \(bind: stats.killRounds.oneKill), \(bind: stats.killRounds.twoKills), \(bind: stats.killRounds.threeKills),
-          \(bind: stats.killRounds.fourKills), \(bind: stats.killRounds.fiveKills)
+          \(bind: stats.killRounds.fourKills), \(bind: stats.killRounds.fiveKills),
+          \(bind: trueKillRounds.oneKill), \(bind: trueKillRounds.twoKills), \(bind: trueKillRounds.threeKills),
+          \(bind: trueKillRounds.fourKills), \(bind: trueKillRounds.fiveKills)
         )
         """).run()
 

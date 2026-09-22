@@ -26,7 +26,7 @@ test("quick comparison sections are selectable and remain expandable", () => {
   assert.match(componentSource, /SECTION_STORAGE_KEY = "nickstats\.quickComparisonSections\.v2"/);
   assert.match(componentSource, /sectionOptions = Object\.freeze/);
   assert.match(componentSource, /\.filter\(segment => !segment\.group \|\| groupVisible\(segment\.group\)\)/);
-  assert.match(componentSource, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
+  assert.match(componentSource, /\["rounds", "Rounds", \["clutches", "multikills", "trueMultikills", "objectives"\], "rounds"\]/);
   assert.match(componentSource, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
   assert.match(componentSource, /\["context", "Context", \["killContext"\], "killContext"\]/);
   assert.match(html, /id="comboQuickSections"/);

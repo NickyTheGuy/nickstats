@@ -7,14 +7,14 @@
   const MAX_UNCOMPRESSED_DEMO_BYTES = 768 * 1024 * 1024;
   const SCOREBOARD_SECTIONS = Object.freeze([
     ["overview", "Overview", ["combat"], "overview"], ["opening", "Opening", ["opening"], "opening"],
-    ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "objectives"], "rounds"],
+    ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "trueMultikills", "objectives"], "rounds"],
     ["roundState", "Round state", ["roundState", "killStage", "timing"], "roundState"],
     ["context", "Context", ["killContext"], "killContext"], ["movement", "Movement", ["movement"], "movement"],
     ["utility", "Utility", ["utility"], "utility"]
   ]);
   const SCOREBOARD_GROUPS = Object.freeze([
     ["combat", "Overview"], ["opening", "Opening"], ["trades", "Trades"], ["clutches", "Clutches"],
-    ["multikills", "Kill rounds"], ["objectives", "Objectives"], ["roundState", "Man count"],
+    ["multikills", "Kill rounds"], ["trueMultikills", "True multi-kills"], ["objectives", "Objectives"], ["roundState", "Man count"],
     ["killStage", "Kill stage"], ["timing", "Round timing"], ["killContext", "Context"],
     ["movement", "Movement"], ["utility", "Utility"]
   ]);
@@ -23,7 +23,8 @@
     opening: [["K", "D", "Assisted K", "Dmg A", "Flash A", "Traded D", "Trade K", "A earned", "Dmg A earned", "Flash A earned", "Enemy blind K", "Blind K", "Blind D", "Blind killer D", "Enemy assisted D", "Enemy dmg A D", "Enemy flash A D", "Own flash K", "Victim-side flash K", "Unknown flash K", "Killer flash D", "Own-side flash D", "Unknown flash D", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
     trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
     clutches: [["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A"],
-    multikills: [["5K", "4K", "3K", "2K", "1K"], "Total"],
+    multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%"], "Total"],
+    trueMultikills: [["5K", "4K", "3K", "2K", "TMK%"], "TMK%"],
     objectives: [["Plants", "Defuses"], "Plants/defuses"],
     roundState: [["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D"], "Clawback-Bozo K-D"],
     killStage: [["5 alive K-D", "4 alive K-D", "3 alive K-D", "2 alive K-D", "1 alive K-D"], "5/1 alive K"],
@@ -308,6 +309,9 @@
     ] },
     clutchTotal: oneMode("clutchTotal", "Total", player => sumCounts(player.clutch_wins)),
     multikillTotal: oneMode("multikillTotal", "Total", player => sumCounts(player.kill_rounds)),
+    multikillPercent: oneMode("multikillPercent", "Multi%", player => 100 * [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0) / Math.max(1, player.rounds_played ?? 0)),
+    trueMultikillPercent: oneMode("trueMultikillPercent", "TMK%", player => player.true_multikill_available
+      ? 100 * [2, 3, 4, 5].reduce((sum, kills) => sum + (player.true_kill_rounds?.[kills] ?? 0), 0) / Math.max(1, player.rounds_played ?? 0) : -1),
     rating: oneMode("rating", "Rating", player => player.rating ?? 0)
   };
 
@@ -316,6 +320,7 @@
   }
   for (let kills = 5; kills >= 1; kills -= 1) {
     sortSpecs[`kills${kills}`] = oneMode(`kills${kills}`, `${kills}K`, player => player.kill_rounds?.[kills] ?? 0);
+    if (kills >= 2) sortSpecs[`trueKills${kills}`] = oneMode(`trueKills${kills}`, `${kills}K`, player => player.true_multikill_available ? (player.true_kill_rounds?.[kills] ?? 0) : -1);
   }
 
   function oneMode(id, label, value, direction = "desc") {
@@ -460,7 +465,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260920-3");
+      const worker = new Worker("./js/demo-worker.js?v=20260922-2");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -794,6 +799,7 @@
       clutches: sumArray(left.clutches, right.clutches, 5),
       clutch_attempts: sumArray(left.clutch_attempts, right.clutch_attempts, 5),
       kill_rounds: sumArray(left.kill_rounds, right.kill_rounds, 5),
+      true_kill_rounds: sumArray(left.true_kill_rounds, right.true_kill_rounds, 5),
       weapons: mergeCompactRows(left.weapons, right.weapons),
       duels: mergeCompactRows(left.duels, right.duels),
       trades: mergeCompactRows(left.trades, right.trades),
@@ -1059,9 +1065,9 @@
 
       return {
         ...player, ...timing,
-        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
-        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19"].includes(payload.schema),
-        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19"].includes(payload.schema),
+        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
+        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20"].includes(payload.schema),
+        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20"].includes(payload.schema),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -1192,6 +1198,8 @@
         clutch_wins: Object.fromEntries((stats.clutches || []).map((value, index) => [index + 1, numberValue(value)])),
         clutch_attempts: Object.fromEntries((stats.clutch_attempts || []).map((value, index) => [index + 1, numberValue(value)])),
         kill_rounds: Object.fromEntries((stats.kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
+        true_kill_rounds: Object.fromEntries((stats.true_kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
+        true_multikill_available: payload.schema === "nickstats.match/20",
         rating: Math.max(0, rating)
       };
     }
@@ -1694,7 +1702,12 @@
     const clutchAttempts = [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_attempts?.[opponents] ?? 0), 0);
     scoreboardCells(row, "clutches", `${clutchWins}/${clutchAttempts}`, [5, 4, 3, 2, 1].map(opponents => `${player.clutch_wins?.[opponents] ?? 0}/${player.clutch_attempts?.[opponents] ?? 0}`));
     const multikillTotal = [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0);
-    scoreboardCells(row, "multikills", multikillTotal, [5, 4, 3, 2, 1].map(kills => player.kill_rounds?.[kills] ?? 0));
+    const multikillPercent = 100 * [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0) / Math.max(1, player.rounds_played ?? 0);
+    scoreboardCells(row, "multikills", multikillTotal, [...[5, 4, 3, 2, 1].map(kills => player.kill_rounds?.[kills] ?? 0), `${multikillPercent.toFixed(1)}%`]);
+    const trueMultikillTotal = [2, 3, 4, 5].reduce((sum, kills) => sum + (player.true_kill_rounds?.[kills] ?? 0), 0);
+    const trueMultikillPercent = 100 * trueMultikillTotal / Math.max(1, player.rounds_played ?? 0);
+    scoreboardCells(row, "trueMultikills", player.true_multikill_available ? `${trueMultikillPercent.toFixed(1)}%` : "—",
+      player.true_multikill_available ? [...[5, 4, 3, 2].map(kills => player.true_kill_rounds?.[kills] ?? 0), `${trueMultikillPercent.toFixed(1)}%`] : ["—", "—", "—", "—", "—"]);
     scoreboardCells(row, "objectives", `${player.objectives?.plants ?? 0}/${player.objectives?.defuses ?? 0}`, [player.objectives?.plants ?? 0, player.objectives?.defuses ?? 0]);
     const timingAverage = kind => {
       if (!player.timing_available) return "—";
@@ -1785,6 +1798,7 @@
         trades: "K/round-D/round",
         clutches: "W/round / A/round",
         multikills: "Total / round",
+        trueMultikills: "TMK%",
         objectives: "Plants/round / defuses/round",
         roundState: "Clawback K/round-Bozo D/round",
         killStage: "5 alive K/round / 1 alive K/round",
@@ -1984,7 +1998,15 @@
         "4K": sortSpecs.kills4,
         "3K": sortSpecs.kills3,
         "2K": sortSpecs.kills2,
-        "1K": sortSpecs.kills1
+        "1K": sortSpecs.kills1,
+        "Multi%": sortSpecs.multikillPercent
+      },
+      trueMultikills: {
+        "TMK%": sortSpecs.trueMultikillPercent,
+        "5K": sortSpecs.trueKills5,
+        "4K": sortSpecs.trueKills4,
+        "3K": sortSpecs.trueKills3,
+        "2K": sortSpecs.trueKills2
       },
       objectives: {
         "Plants/defuses": sortSpecs.bombPlants,
@@ -2125,7 +2147,8 @@
     add("opening", [58, 58, 82, 68, 72, 88, 68, 76, 76, 84, 82, 68, 68, 92, 104, 112, 112, 88, 120, 102, 92, 120, 110, 82, 62, 72, 76], 108);
     add("trades", [58, 54, 96, 58, 54, 96], 88);
     add("clutches", [55, 55, 55, 55, 55], 82);
-    add("multikills", [55, 55, 55, 55, 55], 92);
+    add("multikills", [55, 55, 55, 55, 55, 72], 92);
+    add("trueMultikills", [55, 55, 55, 55, 72], 76);
     add("objectives", [74, 74], 128);
     add("roundState", [128, 88, 168, 104], 112);
     add("killStage", [92, 92, 92, 92, 92], 104);
@@ -2897,6 +2920,7 @@
         clutches: countArray(player.clutch_wins),
         clutch_attempts: countArray(player.clutch_attempts),
         kill_rounds: countArray(player.kill_rounds),
+        true_kill_rounds: countArray(player.true_kill_rounds),
         weapons: (player.weapon_stats || []).map(stat => [
           stat.weapon, number(stat.kills), number(stat.shots), number(stat.damage), number(stat.rounds_used), number(stat.hits)
         ]),
@@ -2945,8 +2969,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/19",
-      nickstats_build: "2026.09.20.3",
+      schema: "nickstats.match/20",
+      nickstats_build: "2026.09.22.2",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

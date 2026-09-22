@@ -66,7 +66,7 @@ test("collapsed scoreboard summaries stay within their columns", () => {
 
 test("match scoreboard supports section, value-mode, and header detail controls", () => {
   assert.match(demo, /const SCOREBOARD_DEFAULT_SECTIONS = \["overview", "opening", "trades", "rounds", "utility"\]/);
-  assert.match(demo, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
+  assert.match(demo, /\["rounds", "Rounds", \["clutches", "multikills", "trueMultikills", "objectives"\], "rounds"\]/);
   assert.match(demo, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
   assert.match(demo, /const SCOREBOARD_SUBGROUPS = Object\.freeze/);
   assert.match(demo, /className = "scoreboard-section-bar scoreboard-control-row"/);

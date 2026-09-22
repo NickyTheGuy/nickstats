@@ -738,6 +738,10 @@ struct KillRoundCounts: Codable, Sendable {
     var fourKills: Int
     var fiveKills: Int
 
+    static var zero: KillRoundCounts {
+        KillRoundCounts(oneKill: 0, twoKills: 0, threeKills: 0, fourKills: 0, fiveKills: 0)
+    }
+
     init(oneKill: Int, twoKills: Int, threeKills: Int, fourKills: Int, fiveKills: Int) {
         self.oneKill = oneKill
         self.twoKills = twoKills

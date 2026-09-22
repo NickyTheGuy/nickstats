@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260921-02">
+  <link rel="stylesheet" href="./styles.css?v=20260922-02">
 </head>
 <body>
   <main class="shell">
@@ -13,7 +13,7 @@
       <div>
         <div class="demo-prototype-line">
           <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.22.1</span>
+          <span class="demo-build">Build 2026.09.22.2</span>
         </div>
         <h1>NickStats</h1>
         <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
@@ -447,9 +447,10 @@
           <div class="player-profile-view" data-player-profile-view="rounds" hidden>
             <div class="player-round-sections">
               <section class="player-stat-section player-count-section"><header><span>01</span><div><h3>Clutch performance</h3><p>Wins / attempts at the initial 1vX disadvantage</p></div></header><div class="player-count-strip" id="playerClutchStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>02</span><div><h3>Multikill rounds</h3><p>Rounds grouped by total kills</p></div></header><div class="player-count-strip" id="playerMultikillStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>03</span><div><h3>Objectives</h3><p>Bomb plants and defuses</p></div></header><div class="player-count-strip" id="playerObjectiveStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>04</span><div><h3>Economy results</h3><p>Round record and average team value by buy type</p></div></header><div class="player-count-strip player-economy-strip" id="playerEconomyStats"></div></section>
+              <section class="player-stat-section player-count-section"><header><span>02</span><div><h3>Multikill rounds</h3><p>Rounds grouped by total kills</p></div></header><div class="player-count-strip player-multikill-strip" id="playerMultikillStats"></div></section>
+              <section class="player-stat-section player-count-section"><header><span>03</span><div><h3>True multi-kill rounds</h3><p>Anti-trade chains where later victims attempted to trade an earlier kill</p></div></header><div class="player-count-strip" id="playerTrueMultikillStats"></div></section>
+              <section class="player-stat-section player-count-section"><header><span>04</span><div><h3>Objectives</h3><p>Bomb plants and defuses</p></div></header><div class="player-count-strip" id="playerObjectiveStats"></div></section>
+              <section class="player-stat-section player-count-section"><header><span>05</span><div><h3>Economy results</h3><p>Round record and average team value by buy type</p></div></header><div class="player-count-strip player-economy-strip" id="playerEconomyStats"></div></section>
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="roundState" hidden>
@@ -538,12 +539,12 @@
 
   <script defer src="./js/navigation.js?v=20260920-14"></script>
   <script defer src="./js/filters.js?v=20260920-14"></script>
-  <script defer src="./js/stat-availability.js?v=20260920-14"></script>
-  <script defer src="./js/demo.js?v=20260922-01"></script>
-  <script defer src="./js/graphs.js?v=20260922-01"></script>
-  <script defer src="./js/profile.js?v=20260922-01"></script>
-  <script defer src="./js/quick-comparison.js?v=20260922-01"></script>
+  <script defer src="./js/stat-availability.js?v=20260922-02"></script>
+  <script defer src="./js/demo.js?v=20260922-02"></script>
+  <script defer src="./js/graphs.js?v=20260922-02"></script>
+  <script defer src="./js/profile.js?v=20260922-02"></script>
+  <script defer src="./js/quick-comparison.js?v=20260922-02"></script>
   <script defer src="./js/players.js?v=20260920-14"></script>
-  <script defer src="./js/compare.js?v=20260922-01"></script>
+  <script defer src="./js/compare.js?v=20260922-02"></script>
 </body>
 </html>

@@ -25,6 +25,7 @@ private func emptySide() -> SideStatsPayload {
             oneVersusFour: 0, oneVersusFive: 0
         ),
         killRounds: KillRoundCounts(oneKill: 0, twoKills: 0, threeKills: 0, fourKills: 0, fiveKills: 0),
+        trueKillRounds: .zero,
         weapons: [], duels: [], trades: [], contexts: [], assistedBy: [], flashes: []
     )
     value.profile = Array(repeating: 0, count: 16)

@@ -261,6 +261,9 @@ private func flattenedBuyStats(_ value: SideStatsPayload, flashTargets: Comparis
     for (index, count) in value.killRounds.values.enumerated() {
         output["kill_rounds_\(index + 1)k"] = Double(count)
     }
+    for (index, count) in (value.trueKillRounds ?? .zero).values.enumerated() {
+        output["true_kill_rounds_\(index + 1)k"] = Double(count)
+    }
     for trade in value.trades {
         output["trade_opportunities", default: 0] += Double(trade.opportunities)
         output["trade_attempts", default: 0] += Double(trade.attempts)
@@ -393,7 +396,10 @@ private func comparisonSideData(
             ("clutch_attempt_1v5", "clutch_attempt_1v5"),
             ("kill_rounds_1k", "kill_rounds_1k"), ("kill_rounds_2k", "kill_rounds_2k"),
             ("kill_rounds_3k", "kill_rounds_3k"), ("kill_rounds_4k", "kill_rounds_4k"),
-            ("kill_rounds_5k", "kill_rounds_5k")
+            ("kill_rounds_5k", "kill_rounds_5k"),
+            ("true_kill_rounds_1k", "true_kill_rounds_1k"), ("true_kill_rounds_2k", "true_kill_rounds_2k"),
+            ("true_kill_rounds_3k", "true_kill_rounds_3k"), ("true_kill_rounds_4k", "true_kill_rounds_4k"),
+            ("true_kill_rounds_5k", "true_kill_rounds_5k")
         ]
         for (column, name) in integerColumns { add(matchID, side, name, Double(try integer(row, column))) }
         if timingCompactSchemas.contains(try row.decode(column: "payload_schema", as: String.self)),
@@ -569,7 +575,7 @@ private func comparisonSideData(
                CAST(SUM((CASE WHEN e.killer_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 1) AS SIGNED) AS enemy_alive_1
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID) AND e.enemy_kill = TRUE
@@ -616,7 +622,7 @@ private func comparisonSideData(
                CAST(SUM(e.enemy_kill = TRUE AND (CASE WHEN e.victim_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 1) AS SIGNED) AS enemy_alive_1
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20')
         JOIN (SELECT match_id, COUNT(*) AS round_count FROM match_rounds GROUP BY match_id) rt
           ON rt.match_id = m.id AND rt.round_count = m.rounds
         WHERE mp.player_id = \(bind: playerID)
@@ -1664,6 +1670,13 @@ private func decodeSide(_ row: any SQLRow) throws -> SideStatsPayload {
             threeKills: try integer(row, "kill_rounds_3k"),
             fourKills: try integer(row, "kill_rounds_4k"),
             fiveKills: try integer(row, "kill_rounds_5k")
+        ),
+        trueKillRounds: KillRoundCounts(
+            oneKill: try integer(row, "true_kill_rounds_1k"),
+            twoKills: try integer(row, "true_kill_rounds_2k"),
+            threeKills: try integer(row, "true_kill_rounds_3k"),
+            fourKills: try integer(row, "true_kill_rounds_4k"),
+            fiveKills: try integer(row, "true_kill_rounds_5k")
         ),
         weapons: [], duels: [], trades: [], contexts: [], assistedBy: [], flashes: []
     )

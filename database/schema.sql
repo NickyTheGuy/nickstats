@@ -274,12 +274,22 @@ CREATE TABLE IF NOT EXISTS player_side_stats (
   kill_rounds_3k SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   kill_rounds_4k SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   kill_rounds_5k SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  true_kill_rounds_1k SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  true_kill_rounds_2k SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  true_kill_rounds_3k SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  true_kill_rounds_4k SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+  true_kill_rounds_5k SMALLINT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (match_player_id, side),
   CONSTRAINT fk_player_side_stats_player
     FOREIGN KEY (match_player_id) REFERENCES match_players (id)
     ON DELETE CASCADE ON UPDATE RESTRICT,
   CONSTRAINT chk_player_side_stats_rounds CHECK (rounds_won <= rounds_played),
   CONSTRAINT chk_player_side_stats_kast CHECK (kast_rounds <= rounds_played),
+  CONSTRAINT chk_player_side_stats_true_multikills CHECK (
+    true_kill_rounds_1k = 0 AND
+    true_kill_rounds_2k + true_kill_rounds_3k + true_kill_rounds_4k + true_kill_rounds_5k <=
+      kill_rounds_2k + kill_rounds_3k + kill_rounds_4k + kill_rounds_5k
+  ),
   CONSTRAINT chk_player_side_stats_opening_assists CHECK (
     opening_assisted_kills <= opening_kills AND
     opening_damage_assisted_kills <= opening_assisted_kills AND

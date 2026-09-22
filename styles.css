@@ -25,6 +25,7 @@
   --section-kill-stage: #6f671f;
   --section-movement: #784292;
   --section-multikills: #9e305c;
+  --section-true-multikills: #6f3c82;
   --section-objectives: #785400;
   --section-timing: #794a32;
   --blue: var(--section-combat);
@@ -1514,6 +1515,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .utility-heading { background: rgba(91, 128, 210, .18); }
 .clutches-heading { background: rgba(112, 155, 52, .15); }
 .multikills-heading { background: rgba(220, 65, 121, .21); }
+.trueMultikills-heading { background: rgba(132, 70, 155, .20); }
 .objectives-heading { background: rgba(194, 143, 28, .20); }
 .timing-heading { background: rgba(181, 101, 61, .21); }
 
@@ -1533,6 +1535,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .demo-toggle-heading.utility-heading { border-top: 3px double var(--blue); }
 .demo-toggle-heading.clutches-heading { border-top: 3px dotted var(--green); }
 .demo-toggle-heading.multikills-heading { border-top: 3px solid var(--section-multikills); }
+.demo-toggle-heading.trueMultikills-heading { border-top: 3px solid var(--section-true-multikills); }
 .demo-toggle-heading.objectives-heading { border-top: 3px dashed var(--section-objectives); }
 .demo-toggle-heading.timing-heading { border-top: 3px double var(--section-timing); }
 
@@ -3124,6 +3127,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 .player-timing-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 12px; }
 .player-economy-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.player-multikill-strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 
 .player-count-item {
   display: grid;

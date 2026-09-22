@@ -1,6 +1,6 @@
 # NickStats database
 
-The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/19` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
+The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/20` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
 
 ## Why it is normalized
 
@@ -47,7 +47,7 @@ Each compact player has a match-level array index. Importers first create all `m
 | `round_economy` | Equipment values, roster sizes, pistol flag, and side-to-team identity on `match_rounds` |
 | `sides[0]`, `sides[1]` | T and CT rows respectively |
 | `economy_matchups` | `player_economy_matchup_stats` |
-| `rounds`, `kda`, `kast_rounds`, `opening`, `trade_kills`, `trade_d`, `utility`, `damage_received`, `utility_thrown`, `objectives`, `speed`, `clutches`, `clutch_attempts`, `kill_rounds` | Columns in `player_side_stats` |
+| `rounds`, `kda`, `kast_rounds`, `opening`, `trade_kills`, `trade_d`, `utility`, `damage_received`, `utility_thrown`, `objectives`, `speed`, `clutches`, `clutch_attempts`, `kill_rounds`, `true_kill_rounds` | Columns in `player_side_stats` |
 | `weapons` | `weapon_side_stats` |
 | `duels` | `duel_side_stats` |
 | `trades` | `trade_side_stats` |

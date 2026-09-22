@@ -118,7 +118,7 @@ const ADDITIVE_STAT_FIELDS = [
   "openingEnemyDamageAssistedDeaths", "openingEnemyFlashAssistedDeaths",
   "openingOwnFlashKills", "openingVictimSideFlashKills", "openingBlindSourceUnknownKills",
   "openingDeathsToKillerFlash", "openingDeathsToOwnSideFlash",
-  "openingDeathsBlindSourceUnknown", "multikillRounds"
+  "openingDeathsBlindSourceUnknown", "multikillRounds", "trueMultikillRounds"
 ];
 let libraryError = null;
 
@@ -379,7 +379,9 @@ async function parseDemo(fileName, buffer) {
           openingDeathsToOwnSideFlash: 0,
           openingDeathsBlindSourceUnknown: 0,
           multikillRounds: 0,
+          trueMultikillRounds: 0,
           killRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+          trueKillRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
           clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
           clutchAttempts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
         };
@@ -627,7 +629,9 @@ async function parseDemo(fileName, buffer) {
       row.openingDeathsToOwnSideFlash = 0;
       row.openingDeathsBlindSourceUnknown = 0;
       row.multikillRounds = 0;
+      row.trueMultikillRounds = 0;
       row.killRoundsByCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+      row.trueKillRoundsByCount = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       row.clutchWins = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       row.clutchAttempts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     }
@@ -651,6 +655,7 @@ async function parseDemo(fileName, buffer) {
       tradeProximityDistances: [],
       provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0 },
       killRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      trueKillRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       clutchAttempts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       maxSpeedOnKill: 0,
@@ -729,6 +734,7 @@ async function parseDemo(fileName, buffer) {
       proximityLength: row.tradeProximityDistances.length,
       proven: { ...row.provenTradeOpportunities },
       killRounds: { ...row.killRoundsByCount },
+      trueKillRounds: { ...row.trueKillRoundsByCount },
       clutches: { ...row.clutchWins },
       clutchAttempts: { ...row.clutchAttempts },
       weapons: new Map([...row.weaponStats].map(([key, value]) => [key, { ...value }])),
@@ -806,6 +812,7 @@ async function parseDemo(fileName, buffer) {
     }
     for (const key of [1, 2, 3, 4, 5]) {
       target.killRoundsByCount[key] += (after.killRounds[key] || 0) - (before.killRounds[key] || 0);
+      target.trueKillRoundsByCount[key] += (after.trueKillRounds[key] || 0) - (before.trueKillRounds[key] || 0);
       target.clutchWins[key] += (after.clutches[key] || 0) - (before.clutches[key] || 0);
       target.clutchAttempts[key] += (after.clutchAttempts[key] || 0) - (before.clutchAttempts[key] || 0);
     }
@@ -898,6 +905,7 @@ async function parseDemo(fileName, buffer) {
       const userIds = row.userIds || new Set([row.userId]);
       const has = set => [...userIds].some(userId => set.has(userId));
       const kills = [...userIds].reduce((total, userId) => total + (round.killCounts.get(userId) || 0), 0);
+      const trueKillVictims = new Set([...userIds].flatMap(userId => [...(round.trueMultikillVictims.get(userId) || [])]));
       const hadKill = has(round.kills);
       const hadAssist = has(round.assists);
       const wasTraded = has(round.traded);
@@ -934,6 +942,10 @@ async function parseDemo(fileName, buffer) {
       }
       if (kills >= 2) row.multikillRounds += 1;
       if (kills >= 1) row.killRoundsByCount[Math.min(5, kills)] += 1;
+      if (trueKillVictims.size >= 2) {
+        row.trueMultikillRounds += 1;
+        row.trueKillRoundsByCount[Math.min(5, trueKillVictims.size)] += 1;
+      }
     }
 
     for (const candidate of round.clutchCandidates) {
@@ -1760,6 +1772,12 @@ async function parseDemo(fileName, buffer) {
       }
       round.kills.add(attackerId);
       round.killCounts.set(attackerId, (round.killCounts.get(attackerId) || 0) + 1);
+      for (const prior of round.pendingDeaths) {
+        if (prior.killer === attackerId && prior.attemptedTraders.has(victimId) &&
+            tradeIsOpen(prior, victimId, tick)) {
+          recordTrueMultikillLink(round, attackerId, prior.victim, victimId);
+        }
+      }
       if (event.headshot) attacker.headshots += 1;
 
       if (openingKill) {
@@ -2519,7 +2537,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.20.3",
+    nickstats_build: "2026.09.22.2",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -2560,6 +2578,16 @@ function faceitMatchId(fileName) {
   return match ? match[1].toLocaleLowerCase() : null;
 }
 
+function recordTrueMultikillLink(round, killerId, firstVictimId, tradingVictimId) {
+  let victims = round.trueMultikillVictims.get(killerId);
+  if (!victims) {
+    victims = new Set();
+    round.trueMultikillVictims.set(killerId, victims);
+  }
+  victims.add(firstVictimId);
+  victims.add(tradingVictimId);
+}
+
 async function sha256(buffer) {
   if (!self.crypto?.subtle) throw new Error("This browser cannot create a secure demo fingerprint.");
   const digest = await self.crypto.subtle.digest("SHA-256", buffer);
@@ -2575,6 +2603,7 @@ function freshRound() {
     clutchSides: new Set(),
     clutchCandidates: [],
     killCounts: new Map(),
+    trueMultikillVictims: new Map(),
     pendingDeaths: [],
     participants: new Set(),
     healthByUser: new Map(),
@@ -2632,6 +2661,7 @@ function finishPlayer(row) {
     round_wins: row.roundWins || 0,
     man_count_available: true,
     round_state_available: true,
+    true_multikill_available: true,
     kast_components: {
       kill_rounds: row.killRounds,
       assist_rounds: row.assistRounds,
@@ -2823,6 +2853,8 @@ function finishPlayer(row) {
     opening_deaths_blind_source_unknown: row.openingDeathsBlindSourceUnknown,
     multikill_rounds: row.multikillRounds,
     kill_rounds: row.killRoundsByCount,
+    true_multikill_rounds: row.trueMultikillRounds,
+    true_kill_rounds: row.trueKillRoundsByCount,
     clutch_wins: row.clutchWins,
     clutch_attempts: row.clutchAttempts,
     rating: Math.max(0, rating)
