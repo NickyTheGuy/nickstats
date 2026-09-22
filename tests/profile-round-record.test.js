@@ -17,6 +17,8 @@ test("utility outcomes include their relevant per-grenade yield", () => {
   assert.match(source, /perGrenade\(s\.he_damage, s\.he_grenades_thrown, "HE"/);
   assert.match(source, /perGrenade\(s\.fire_damage, s\.fire_grenades_thrown, "fire grenade"/);
   assert.match(source, /perGrenade\(s\.enemies_flashed, s\.flashbangs_thrown, "flash"/);
+  assert.match(source, /perGrenade\(s\.teammates_flashed, s\.flashbangs_thrown, "flash"/);
+  assert.match(source, /perGrenade\(s\.self_flashes, s\.flashbangs_thrown, "flash"/);
   assert.match(source, /statPerGrenadeAndRound\("flash_assists", "flashbangs_thrown", "flash"\)/);
   assert.match(source, /perGrenade\(s\.own_flash_kills, s\.flashbangs_thrown, "flash"/);
 });

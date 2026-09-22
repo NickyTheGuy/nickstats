@@ -161,9 +161,15 @@
     ]);
     fillCards(`${prefix}UtilityThrownStats`, [["HE", integer(s.he_grenades_thrown), countPerRound(s.he_grenades_thrown, rounds)], ["Flashes", integer(s.flashbangs_thrown), countPerRound(s.flashbangs_thrown, rounds)], ["Smokes", integer(s.smokes_thrown), countPerRound(s.smokes_thrown, rounds)], ["Fire", integer(s.fire_grenades_thrown), countPerRound(s.fire_grenades_thrown, rounds)], ["Decoys", integer(s.decoys_thrown), countPerRound(s.decoys_thrown, rounds)]]);
     const blindSeconds = number(s.blind_duration_ms) / 1000;
+    const teammateBlindSeconds = number(s.teammate_blind_duration_ms) / 1000;
+    const selfBlindSeconds = number(s.self_blind_duration_ms) / 1000;
     fillCards(`${prefix}FlashStats`, [
       ["Enemies flashed", integer(s.enemies_flashed), `${perGrenade(s.enemies_flashed, s.flashbangs_thrown, "flash")} · ${countPerRound(s.enemies_flashed, rounds)}`],
       ["Enemy blind time", `${decimal(blindSeconds, 1)}s`, `${perGrenade(blindSeconds, s.flashbangs_thrown, "flash", 2, "s")} · ${decimal(ratio(blindSeconds, rounds), 2)}s per round`],
+      ["Teammates flashed", integer(s.teammates_flashed), `${perGrenade(s.teammates_flashed, s.flashbangs_thrown, "flash")} · ${countPerRound(s.teammates_flashed, rounds)}`],
+      ["Teammate blind time", `${decimal(teammateBlindSeconds, 1)}s`, `${perGrenade(teammateBlindSeconds, s.flashbangs_thrown, "flash", 2, "s")} · ${decimal(ratio(teammateBlindSeconds, rounds), 2)}s per round`],
+      ["Self flash effects", integer(s.self_flashes), `${perGrenade(s.self_flashes, s.flashbangs_thrown, "flash")} · ${countPerRound(s.self_flashes, rounds)}`],
+      ["Self blind time", `${decimal(selfBlindSeconds, 1)}s`, `${perGrenade(selfBlindSeconds, s.flashbangs_thrown, "flash", 2, "s")} · ${decimal(ratio(selfBlindSeconds, rounds), 2)}s per round`],
       ["Flash assists", statInteger("flash_assists"), statPerGrenadeAndRound("flash_assists", "flashbangs_thrown", "flash")]
     ]);
     fillCards(`${prefix}AssistStats`, [["Damage-assisted kills", integer(s.damage_assisted_kills), countPerRound(s.damage_assisted_kills, rounds)], ["Teammate-flash kills", statInteger("teammate_flash_assisted_kills"), statPerRound("teammate_flash_assisted_kills")], ["Own-flash kills", integer(s.own_flash_kills), `${perGrenade(s.own_flash_kills, s.flashbangs_thrown, "flash")} · ${countPerRound(s.own_flash_kills, rounds)}`]]);

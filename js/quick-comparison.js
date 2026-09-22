@@ -36,7 +36,7 @@
     opening: [["results", "Results", [0, 1, 24, 25, 26]], ["received", "Help received", [2, 3, 4, 5, 23]], ["given", "Help given", [6, 7, 8, 9]], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]]],
     killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4]], ["readiness", "Readiness", [5, 6, 7, 8]]],
     movement: [["state", "State", [0, 1, 2, 3]], ["speed", "Speed", [4, 5, 6, 7]]],
-    utility: [["damage", "Damage", [0, 1]], ["usage", "Usage", [2, 3, 4, 5, 6]], ["flashes", "Flashes", [7, 8, 9]], ["assists", "Assisted kills", [10, 11, 12]]]
+    utility: [["damage", "Damage", [0, 1]], ["usage", "Usage", [2, 3, 4, 5, 6]], ["flashes", "Flash effects", [7, 8, 9, 10, 11, 12, 13]], ["assists", "Assisted kills", [14, 15, 16]]]
   });
   const storedSections = () => {
     try {
@@ -110,7 +110,7 @@
       if (column.group === "utility" && state.perGrenadeUtility) {
         if (["utility-he-damage"].includes(column.key)) denominator = number(item.stats.he_grenades_thrown);
         else if (["utility-fire-damage"].includes(column.key)) denominator = number(item.stats.fire_grenades_thrown);
-        else if (["utility-enemies-flashed", "utility-blind-seconds", "utility-flash-assists", "utility-own-flash"].includes(column.key)) denominator = number(item.stats.flashbangs_thrown);
+        else if (["utility-enemies-flashed", "utility-blind-seconds", "utility-teammates-flashed", "utility-teammate-blind-seconds", "utility-self-flashes", "utility-self-blind-seconds", "utility-flash-assists", "utility-own-flash"].includes(column.key)) denominator = number(item.stats.flashbangs_thrown);
       }
       if (!denominator) return "—";
       const kda = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
@@ -127,7 +127,8 @@
       if (utilitySummary) return `${decimal(number(utilitySummary[1]) / denominator, 2)} dmg · ${decimal(number(utilitySummary[2]) / denominator, 2)} thrown`;
       const countedPercent = formatted.match(/^(\d+(?:\.\d+)?) (\([^)]+\))$/);
       if (countedPercent) return `${decimal(number(countedPercent[1]) / denominator, 2)} ${countedPercent[2]}`;
-      const scaledValue = column.key === "utility-blind-seconds" ? number(value) / 1000 : number(value);
+      const scaledValue = ["utility-blind-seconds", "utility-teammate-blind-seconds", "utility-self-blind-seconds"].includes(column.key)
+        ? number(value) / 1000 : number(value);
       return decimal(scaledValue / denominator, 2);
     }
 
@@ -135,7 +136,8 @@
       if (state.valueMode === "totals" || !column.group) return column.label;
       const grenadeUnit = state.perGrenadeUtility && column.group === "utility" ? {
         "utility-he-damage": "HE", "utility-fire-damage": "fire", "utility-enemies-flashed": "flash",
-        "utility-blind-seconds": "flash", "utility-flash-assists": "flash", "utility-own-flash": "flash"
+        "utility-blind-seconds": "flash", "utility-teammates-flashed": "flash", "utility-teammate-blind-seconds": "flash",
+        "utility-self-flashes": "flash", "utility-self-blind-seconds": "flash", "utility-flash-assists": "flash", "utility-own-flash": "flash"
       }[column.key] : null;
       const unit = grenadeUnit || (state.valueMode === "match" ? "match" : "round");
       if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || (column.label.endsWith("%") && !column.label.includes("(Succ%)")) || ["timing-kill", "timing-death"].includes(column.key)) return column.label;
@@ -307,7 +309,11 @@
         { key: "utility-fire-thrown", label: "Fire thrown", value: item => number(item.stats.fire_grenades_thrown), format: item => integer(item.stats.fire_grenades_thrown) },
         { key: "utility-decoy-thrown", label: "Decoy thrown", value: item => number(item.stats.decoys_thrown), format: item => integer(item.stats.decoys_thrown) },
         { key: "utility-enemies-flashed", label: "EF", value: item => number(item.stats.enemies_flashed), format: item => integer(item.stats.enemies_flashed) },
-        { key: "utility-blind-seconds", label: "Blind sec", value: item => number(item.stats.blind_duration_ms), format: item => decimal(number(item.stats.blind_duration_ms) / 1000, 1) },
+        { key: "utility-blind-seconds", label: "Enemy sec", value: item => number(item.stats.blind_duration_ms), format: item => decimal(number(item.stats.blind_duration_ms) / 1000, 1) },
+        { key: "utility-teammates-flashed", label: "TF", value: item => number(item.stats.teammates_flashed), format: item => integer(item.stats.teammates_flashed) },
+        { key: "utility-teammate-blind-seconds", label: "Teammate sec", value: item => number(item.stats.teammate_blind_duration_ms), format: item => decimal(number(item.stats.teammate_blind_duration_ms) / 1000, 1) },
+        { key: "utility-self-flashes", label: "SF", value: item => number(item.stats.self_flashes), format: item => integer(item.stats.self_flashes) },
+        { key: "utility-self-blind-seconds", label: "Self sec", value: item => number(item.stats.self_blind_duration_ms), format: item => decimal(number(item.stats.self_blind_duration_ms) / 1000, 1) },
         { key: "utility-flash-assists", label: "FA", value: item => number(item.stats.flash_assists), format: item => availableInteger(item, "flash_assists") },
         { key: "utility-damage-assists", label: "Damage assist", value: item => number(item.stats.damage_assisted_kills), format: item => integer(item.stats.damage_assisted_kills) },
         { key: "utility-teammate-flash", label: "Teammate flash", value: item => number(item.stats.teammate_flash_assisted_kills), format: item => availableInteger(item, "teammate_flash_assisted_kills") },

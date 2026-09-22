@@ -87,6 +87,8 @@ test("quick comparison uses visible section, value-mode, and header detail contr
   assert.match(componentSource, /state\.valueMode === "match" \? item\.rows\.length : number\(item\.stats\.rounds\)/);
   assert.match(componentSource, /utilityButton = element\("button", "Per grenade"/);
   assert.match(componentSource, /"utility-enemies-flashed": "flash"/);
+  assert.match(componentSource, /"utility-teammates-flashed": "flash"/);
+  assert.match(componentSource, /key: "utility-self-flashes", label: "SF"/);
   assert.match(componentSource, /Counts divided by qualifying matches/);
   assert.match(componentSource, /combat: `K\/\$\{unit\}-D\/\$\{unit\}-A\/\$\{unit\}`/);
   assert.match(componentSource, /const kda = formatted\.match/);

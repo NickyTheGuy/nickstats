@@ -81,7 +81,13 @@
     ["Utility", [
       ["utility_dr", "Utility damage per round", stats => ratio(number(stats.he_damage) + number(stats.fire_damage), stats.rounds), 1],
       ["he_dr", "HE damage per round", rate("he_damage"), 1], ["fire_dr", "Fire damage per round", rate("fire_damage"), 1],
-      ["enemies_flashed_r", "Enemies flashed per round", rate("enemies_flashed"), 2], ["flash_assists_r", "Flash assists per round", rate("flash_assists"), 3],
+      ["enemies_flashed_r", "Enemies flashed per round", rate("enemies_flashed"), 2],
+      ["enemy_blind_seconds_r", "Enemy blind seconds per round", stats => ratio(number(stats.blind_duration_ms) / 1000, stats.rounds), 2],
+      ["teammates_flashed_r", "Teammates flashed per round", rate("teammates_flashed"), 2],
+      ["teammate_blind_seconds_r", "Teammate blind seconds per round", stats => ratio(number(stats.teammate_blind_duration_ms) / 1000, stats.rounds), 2],
+      ["self_flashes_r", "Self flash effects per round", rate("self_flashes"), 2],
+      ["self_blind_seconds_r", "Self blind seconds per round", stats => ratio(number(stats.self_blind_duration_ms) / 1000, stats.rounds), 2],
+      ["flash_assists_r", "Flash assists per round", rate("flash_assists"), 3],
       ["he_thrown_r", "HE grenades per round", rate("he_grenades_thrown"), 3], ["flashes_thrown_r", "Flashbangs per round", rate("flashbangs_thrown"), 3],
       ["smokes_thrown_r", "Smokes per round", rate("smokes_thrown"), 3], ["fire_thrown_r", "Fire grenades per round", rate("fire_grenades_thrown"), 3]
     ]],

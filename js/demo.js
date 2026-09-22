@@ -30,7 +30,7 @@
     timing: [["Avg kill", "Avg death", "Early K-D", "Mid K-D", "Late K-D", "Post-plant K-D"], "Avg K/D time"],
     killContext: [["Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D"],
     movement: [["Move K-D", "Still K-D", "Run K-D", "Air K-D", "Kill speed avg/max", "Kill speed avg/peak %", "Enemy speed avg/max", "Enemy speed avg/peak %"], "Move/run/air"],
-    utility: [["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Blind sec", "FA", "Damage assist", "Teammate flash", "Own flash"], "Damage · thrown"]
+    utility: [["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Enemy sec", "TF", "Teammate sec", "SF", "Self sec", "FA", "Damage assist", "Teammate flash", "Own flash"], "Damage · thrown"]
   });
   const SCOREBOARD_GROUP_SECTION = Object.freeze(Object.fromEntries(SCOREBOARD_SECTIONS.flatMap(([section, , groups]) => groups.map(group => [group, section]))));
   const SCOREBOARD_DEFAULT_SECTIONS = ["overview", "opening", "trades", "rounds", "utility"];
@@ -39,7 +39,7 @@
     opening: [["results", "Results", [0, 1, 23, 24, 25]], ["received", "Help received", [2, 3, 4, 5, 26]], ["given", "Help given", [6, 7, 8, 9]], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]]],
     killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4]], ["readiness", "Readiness", [5, 6, 7, 8]]],
     movement: [["state", "State", [0, 1, 2, 3]], ["speed", "Speed", [4, 5, 6, 7]]],
-    utility: [["damage", "Damage", [0, 1]], ["usage", "Usage", [2, 3, 4, 5, 6]], ["flashes", "Flashes", [7, 8, 9]], ["assists", "Assisted kills", [10, 11, 12]]]
+    utility: [["damage", "Damage", [0, 1]], ["usage", "Usage", [2, 3, 4, 5, 6]], ["flashes", "Flash effects", [7, 8, 9, 10, 11, 12, 13]], ["assists", "Assisted kills", [14, 15, 16]]]
   });
   const state = {
     file: null,
@@ -255,9 +255,13 @@
       { label: "Dmg", value: player => player.grenade_damage?.total ?? 0 },
       { label: "Thrown", value: player => ["high_explosive", "flashbang", "smoke", "fire", "decoy"].reduce((sum, key) => sum + (player.utility_thrown?.[key] ?? 0), 0) },
       { label: "EF", value: player => player.enemies_flashed ?? 0 },
+      { label: "TF", value: player => teammateFlashMatchups(player).reduce((sum, row) => sum + numberValue(row.flashes), 0) },
+      { label: "SF", value: player => selfFlashMatchups(player).reduce((sum, row) => sum + numberValue(row.flashes), 0) },
       { label: "FA", value: player => player.flash_assists ?? 0 }
     ] },
     ef: oneMode("ef", "EF", player => player.enemies_flashed ?? 0),
+    tf: oneMode("tf", "TF", player => teammateFlashMatchups(player).reduce((sum, row) => sum + numberValue(row.flashes), 0), "asc"),
+    sf: oneMode("sf", "SF", player => selfFlashMatchups(player).reduce((sum, row) => sum + numberValue(row.flashes), 0), "asc"),
     fa: oneMode("fa", "FA", player => player.flash_assists ?? 0),
     heDamage: oneMode("heDamage", "HE", player => player.grenade_damage?.high_explosive ?? 0),
     fireDamage: oneMode("fireDamage", "Fire", player => player.grenade_damage?.fire ?? 0),
@@ -267,6 +271,8 @@
     fireThrown: oneMode("fireThrown", "Fire", player => player.utility_thrown?.fire ?? 0),
     decoyThrown: oneMode("decoyThrown", "Decoy", player => player.utility_thrown?.decoy ?? 0),
     blindDuration: oneMode("blindDuration", "Blind sec", player => enemyFlashMatchups(player).reduce((sum, row) => sum + (row.blind_duration || 0), 0)),
+    teammateBlindDuration: oneMode("teammateBlindDuration", "Teammate sec", player => teammateFlashMatchups(player).reduce((sum, row) => sum + numberValue(row.blind_duration), 0), "asc"),
+    selfBlindDuration: oneMode("selfBlindDuration", "Self sec", player => selfFlashMatchups(player).reduce((sum, row) => sum + numberValue(row.blind_duration), 0), "asc"),
     bombPlants: oneMode("bombPlants", "Plants", player => player.objectives?.plants ?? 0),
     bombDefuses: oneMode("bombDefuses", "Defuses", player => player.objectives?.defuses ?? 0),
     timingSummary: { id: "timingSummary", modes: [
@@ -1005,6 +1011,13 @@
       const incomingContext = stats.profile?.length ? stats.profile.slice(0, 13) : contextTotals(incomingRows(playerIndex, side, "contexts"));
       const assistedRows = stats.assisted_by || [];
       const enemyFlashRows = (stats.flashes || []).filter(row => teamByPlayer.get(numberValue(row[0])) !== teamByPlayer.get(playerIndex));
+      const teammateFlashRows = (stats.flashes || []).filter(row => {
+        const victimIndex = numberValue(row[0]);
+        return victimIndex !== playerIndex && teamByPlayer.get(victimIndex) === teamByPlayer.get(playerIndex);
+      });
+      const selfFlashRows = (stats.flashes || []).filter(row => numberValue(row[0]) === playerIndex);
+      const flashEffects = rows => rows.reduce((sum, row) => sum + numberValue(row[1]), 0);
+      const flashDuration = rows => rows.reduce((sum, row) => sum + numberValue(row[2]), 0) / 1000;
       const damageAssistedKills = assistedRows.reduce((sum, row) => sum + numberValue(row[1]), 0);
       const flashAssistedKills = assistedRows.reduce((sum, row) => sum + numberValue(row[2]), 0);
       const ownFlashKills = assistedRows.reduce((sum, row) => sum + numberValue(row[3]), 0);
@@ -1095,6 +1108,10 @@
         },
         enemies_flashed: stats.profile?.length ? numberValue(stats.profile[13]) : enemyFlashRows.reduce((sum, row) => sum + numberValue(row[1]), 0),
         enemy_blind_duration: stats.profile?.length ? numberValue(stats.profile[14]) / 1000 : enemyFlashRows.reduce((sum, row) => sum + numberValue(row[2]), 0) / 1000,
+        teammates_flashed: flashEffects(teammateFlashRows),
+        teammate_blind_duration: flashDuration(teammateFlashRows),
+        self_flashes: flashEffects(selfFlashRows),
+        self_blind_duration: flashDuration(selfFlashRows),
         flash_assists: stats.profile?.length ? numberValue(stats.profile[15]) : flashAssists,
         grenade_damage: {
           high_explosive: numberValue(stats.utility?.[0]),
@@ -1477,17 +1494,24 @@
     return Number.isFinite(value) ? `${value.toFixed(0)}%` : "—";
   }
 
-  function enemyFlashMatchups(player) {
+  function flashMatchupsFor(player, relation) {
     const playerKey = duelIdentity(player.steam_id, player.name);
     const ownTeam = (state.result?.teams || []).find(team =>
       (team.players || []).some(member => duelIdentity(member.steam_id, member.name) === playerKey)
     );
-    if (!ownTeam) return player.flash_matchups || [];
+    if (!ownTeam) return relation === "enemy" ? (player.flash_matchups || []) : [];
     const teammates = new Set((ownTeam.players || []).map(member => duelIdentity(member.steam_id, member.name)));
-    return (player.flash_matchups || []).filter(matchup =>
-      !teammates.has(duelIdentity(matchup.victim_steam_id, matchup.victim))
-    );
+    return (player.flash_matchups || []).filter(matchup => {
+      const victim = duelIdentity(matchup.victim_steam_id, matchup.victim);
+      if (relation === "self") return victim === playerKey;
+      if (relation === "teammate") return victim !== playerKey && teammates.has(victim);
+      return !teammates.has(victim);
+    });
   }
+
+  const enemyFlashMatchups = player => flashMatchupsFor(player, "enemy");
+  const teammateFlashMatchups = player => flashMatchupsFor(player, "teammate");
+  const selfFlashMatchups = player => flashMatchupsFor(player, "self");
 
   function scoreboardFocus(group, values) {
     if (!state.expandedGroups[group]) return values;
@@ -1693,23 +1717,30 @@
     const utilityThrown = player.utility_thrown || {};
     const totalThrown = ["high_explosive", "flashbang", "smoke", "fire", "decoy"].reduce((sum, key) => sum + (utilityThrown[key] ?? 0), 0);
     const blindSeconds = enemyFlashMatchups(player).reduce((sum, matchup) => sum + (matchup.blind_duration || 0), 0);
+    const teammateFlashes = teammateFlashMatchups(player);
+    const selfFlashes = selfFlashMatchups(player);
+    const teammateEffects = teammateFlashes.reduce((sum, matchup) => sum + numberValue(matchup.flashes), 0);
+    const teammateBlindSeconds = teammateFlashes.reduce((sum, matchup) => sum + numberValue(matchup.blind_duration), 0);
+    const selfEffects = selfFlashes.reduce((sum, matchup) => sum + numberValue(matchup.flashes), 0);
+    const selfBlindSeconds = selfFlashes.reduce((sum, matchup) => sum + numberValue(matchup.blind_duration), 0);
     const utilityTotals = [
       player.grenade_damage?.high_explosive ?? 0, player.grenade_damage?.fire ?? 0,
       utilityThrown.high_explosive ?? 0, utilityThrown.flashbang ?? 0, utilityThrown.smoke ?? 0,
       utilityThrown.fire ?? 0, utilityThrown.decoy ?? 0, player.enemies_flashed ?? 0,
-      blindSeconds.toFixed(1), player.flash_assists ?? 0, player.assisted_kills?.damage ?? 0,
+      blindSeconds.toFixed(1), teammateEffects, teammateBlindSeconds.toFixed(1),
+      selfEffects, selfBlindSeconds.toFixed(1), player.flash_assists ?? 0, player.assisted_kills?.damage ?? 0,
       player.assisted_kills?.flash ?? 0, player.assisted_kills?.own_flash ?? 0
     ];
     const per = (value, denominator) => denominator ? (numberValue(value) / denominator).toFixed(2) : "—";
     const utilityRates = [
       per(utilityTotals[0], utilityThrown.high_explosive), per(utilityTotals[1], utilityThrown.fire),
       ...utilityTotals.slice(2, 7).map(value => per(value, player.rounds_played)),
-      per(utilityTotals[7], utilityThrown.flashbang), per(utilityTotals[8], utilityThrown.flashbang), per(utilityTotals[9], utilityThrown.flashbang),
-      per(utilityTotals[10], player.rounds_played), per(utilityTotals[11], player.rounds_played), per(utilityTotals[12], utilityThrown.flashbang)
+      ...utilityTotals.slice(7, 14).map(value => per(value, utilityThrown.flashbang)),
+      per(utilityTotals[14], player.rounds_played), per(utilityTotals[15], player.rounds_played), per(utilityTotals[16], utilityThrown.flashbang)
     ];
     const utilityRoundRates = [
       ...utilityTotals.slice(0, 2).map(value => per(value, player.rounds_played)),
-      ...utilityTotals.slice(2, 13).map(value => per(value, player.rounds_played))
+      ...utilityTotals.slice(2, 17).map(value => per(value, player.rounds_played))
     ];
     const displayedUtility = state.scoreboardValueMode === "round"
       ? (state.scoreboardPerGrenadeUtility ? utilityRates : utilityRoundRates)
@@ -1769,7 +1800,7 @@
     if (detail.includes("(Succ%)")) return detail.replace(/^([KD])/, "$1 / round");
     if (/K\/D|%|rate|Success|speed|Avg /.test(detail)) return detail;
     if (group === "utility" && state.scoreboardPerGrenadeUtility) {
-      const unit = { "HE Dmg": "HE", "Fire Dmg": "fire", EF: "flash", "Blind sec": "flash", FA: "flash", "Own flash": "flash" }[detail];
+      const unit = { "HE Dmg": "HE", "Fire Dmg": "fire", EF: "flash", "Enemy sec": "flash", TF: "flash", "Teammate sec": "flash", SF: "flash", "Self sec": "flash", FA: "flash", "Own flash": "flash" }[detail];
       if (unit) return `${detail} / ${unit}`;
     }
     return `${detail} / round`;
@@ -1810,6 +1841,8 @@
     details.forEach((detail, index) => {
       const child = document.createElement("th");
       if (detail === "EF") child.title = "Enemies flashed";
+      if (detail === "TF") child.title = "Teammates flashed";
+      if (detail === "SF") child.title = "Self flash effects";
       if (detail === "FA") child.title = "Flash assists";
       if (detail === "Own-flash K") child.title = "Kills on enemies actively blinded by a flash you threw; this does not mean you blinded yourself";
       if (detail === "Enemy blind K-D") child.title = "Kills against blinded enemies – deaths while blinded";
@@ -1919,6 +1952,8 @@
       utility: {
         "Damage · thrown": sortSpecs.utilitySummary,
         EF: sortSpecs.ef,
+        TF: sortSpecs.tf,
+        SF: sortSpecs.sf,
         FA: sortSpecs.fa,
         "HE Dmg": sortSpecs.heDamage,
         "Fire Dmg": sortSpecs.fireDamage,
@@ -1927,7 +1962,9 @@
         "Smoke thrown": sortSpecs.smokeThrown,
         "Fire thrown": sortSpecs.fireThrown,
         "Decoy thrown": sortSpecs.decoyThrown,
-        "Blind sec": sortSpecs.blindDuration,
+        "Enemy sec": sortSpecs.blindDuration,
+        "Teammate sec": sortSpecs.teammateBlindDuration,
+        "Self sec": sortSpecs.selfBlindDuration,
         "Damage assist": sortSpecs.assistedDamage,
         "Teammate flash": sortSpecs.assistedFlash,
         "Own flash": sortSpecs.assistedOwnFlash
@@ -2095,7 +2132,7 @@
     add("timing", [82, 82, 84, 84, 84, 112], 110);
     add("killContext", [104, 104, 98, 88, 88, 112, 104, 88, 88], 112);
     add("movement", [88, 88, 88, 88, 116, 132, 126, 142], 112);
-    add("utility", [82, 82, 86, 94, 94, 94, 94, 58, 86, 58, 100, 112, 90], 176);
+    add("utility", [82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90], 176);
     return widths;
   }
 

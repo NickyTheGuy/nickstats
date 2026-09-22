@@ -195,7 +195,13 @@ private struct ComparisonSideAccumulator {
     var weapons: [ComparisonWeaponStats] = []
 }
 
-func flattenedBuyStats(_ value: SideStatsPayload) -> [String: Double] {
+private struct ComparisonFlashTargets {
+    var ownPlayerSlot: Int
+    var ownTeamID: Int64
+    var teamByPlayerSlot: [Int: Int64]
+}
+
+private func flattenedBuyStats(_ value: SideStatsPayload, flashTargets: ComparisonFlashTargets? = nil) -> [String: Double] {
     let attempts = value.clutchAttempts ?? value.clutches
     let thrown = value.utilityThrown ?? .zero
     let objectives = value.objectives ?? .zero
@@ -272,12 +278,53 @@ func flattenedBuyStats(_ value: SideStatsPayload) -> [String: Double] {
         output["teammate_flash_assisted_kills", default: 0] += Double(row.teammateFlashAssistedKills)
         output["own_flash_kills", default: 0] += Double(row.ownFlashKills)
     }
+    if let targets = flashTargets {
+        output["enemies_flashed"] = 0
+        output["blind_duration_ms"] = 0
+        output["teammates_flashed"] = 0
+        output["teammate_blind_duration_ms"] = 0
+        output["self_flashes"] = 0
+        output["self_blind_duration_ms"] = 0
+        for flash in value.flashes {
+            if flash.victimPlayerIndex == targets.ownPlayerSlot {
+                output["self_flashes", default: 0] += Double(flash.effects)
+                output["self_blind_duration_ms", default: 0] += Double(flash.blindDurationMilliseconds)
+            } else if targets.teamByPlayerSlot[flash.victimPlayerIndex] == targets.ownTeamID {
+                output["teammates_flashed", default: 0] += Double(flash.effects)
+                output["teammate_blind_duration_ms", default: 0] += Double(flash.blindDurationMilliseconds)
+            } else {
+                output["enemies_flashed", default: 0] += Double(flash.effects)
+                output["blind_duration_ms", default: 0] += Double(flash.blindDurationMilliseconds)
+            }
+        }
+    }
     return output
 }
 
 private func comparisonSideData(
     playerID: Int64, sql: any SQLDatabase
 ) async throws -> [Int64: [ComparisonSideStats]] {
+    let flashTargetRows = try await sql.raw("""
+        SELECT owner.match_id, owner.player_slot AS own_player_slot,
+               owner.match_team_id AS own_team_id, target.player_slot AS target_player_slot,
+               target.match_team_id AS target_team_id
+        FROM match_players owner
+        JOIN match_players target ON target.match_id = owner.match_id
+        WHERE owner.player_id = \(bind: playerID)
+        """).all()
+    var flashTargetsByMatch: [Int64: ComparisonFlashTargets] = [:]
+    for row in flashTargetRows {
+        let matchID = try int64(row, "match_id")
+        let targetSlot = try integer(row, "target_player_slot")
+        if flashTargetsByMatch[matchID] == nil {
+            flashTargetsByMatch[matchID] = ComparisonFlashTargets(
+                ownPlayerSlot: try integer(row, "own_player_slot"),
+                ownTeamID: try int64(row, "own_team_id"),
+                teamByPlayerSlot: [:]
+            )
+        }
+        flashTargetsByMatch[matchID]?.teamByPlayerSlot[targetSlot] = try int64(row, "target_team_id")
+    }
     let rows = try await sql.raw("""
         SELECT mp.match_id, m.payload_schema, m.rounds AS match_round_count,
                COALESCE(rt.timed_round_count, 0) AS timed_round_count, s.*
@@ -412,18 +459,26 @@ private func comparisonSideData(
 
     let flashes = try await sql.raw("""
         SELECT f.match_id, f.thrower_side AS side,
-               CAST(SUM(f.flash_effects) AS SIGNED) AS effects,
-               CAST(SUM(f.blind_duration_ms) AS SIGNED) AS duration
+               CAST(SUM(CASE WHEN victim.match_team_id <> mp.match_team_id THEN f.flash_effects ELSE 0 END) AS SIGNED) AS enemy_effects,
+               CAST(SUM(CASE WHEN victim.match_team_id <> mp.match_team_id THEN f.blind_duration_ms ELSE 0 END) AS SIGNED) AS enemy_duration,
+               CAST(SUM(CASE WHEN victim.match_team_id = mp.match_team_id AND victim.id <> mp.id THEN f.flash_effects ELSE 0 END) AS SIGNED) AS teammate_effects,
+               CAST(SUM(CASE WHEN victim.match_team_id = mp.match_team_id AND victim.id <> mp.id THEN f.blind_duration_ms ELSE 0 END) AS SIGNED) AS teammate_duration,
+               CAST(SUM(CASE WHEN victim.id = mp.id THEN f.flash_effects ELSE 0 END) AS SIGNED) AS self_effects,
+               CAST(SUM(CASE WHEN victim.id = mp.id THEN f.blind_duration_ms ELSE 0 END) AS SIGNED) AS self_duration
         FROM flash_side_stats f
         JOIN match_players mp ON mp.id = f.thrower_match_player_id
         JOIN match_players victim ON victim.id = f.victim_match_player_id
-        WHERE mp.player_id = \(bind: playerID) AND victim.match_team_id <> mp.match_team_id
+        WHERE mp.player_id = \(bind: playerID)
         GROUP BY f.match_id, f.thrower_side
         """).all()
     for row in flashes {
         let id = try int64(row, "match_id"), side = try playerSide(row, "side")
-        add(id, side, "enemies_flashed", Double(try integer(row, "effects")))
-        add(id, side, "blind_duration_ms", Double(try integer(row, "duration")))
+        add(id, side, "enemies_flashed", Double(try integer(row, "enemy_effects")))
+        add(id, side, "blind_duration_ms", Double(try integer(row, "enemy_duration")))
+        add(id, side, "teammates_flashed", Double(try integer(row, "teammate_effects")))
+        add(id, side, "teammate_blind_duration_ms", Double(try integer(row, "teammate_duration")))
+        add(id, side, "self_flashes", Double(try integer(row, "self_effects")))
+        add(id, side, "self_blind_duration_ms", Double(try integer(row, "self_duration")))
     }
 
     let beneficiaries = try await sql.raw("""
@@ -623,7 +678,7 @@ private func comparisonSideData(
             buyType: try row.decode(column: "buy_type", as: String.self),
             opponentBuyType: "ALL",
             roundResult: "ALL",
-            stats: flattenedBuyStats(stats),
+            stats: flattenedBuyStats(stats, flashTargets: flashTargetsByMatch[matchID]),
             weapons: stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
         ))
     }
@@ -641,7 +696,7 @@ private func comparisonSideData(
             buyType: try row.decode(column: "buy_type", as: String.self),
             opponentBuyType: "ALL",
             roundResult: try row.decode(column: "round_result", as: String.self),
-            stats: flattenedBuyStats(stats),
+            stats: flattenedBuyStats(stats, flashTargets: flashTargetsByMatch[matchID]),
             weapons: stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
         ))
     }
@@ -660,7 +715,7 @@ private func comparisonSideData(
             buyType: try row.decode(column: "buy_type", as: String.self),
             opponentBuyType: try row.decode(column: "opponent_buy_type", as: String.self),
             roundResult: try row.decode(column: "round_result", as: String.self),
-            stats: flattenedBuyStats(stats),
+            stats: flattenedBuyStats(stats, flashTargets: flashTargetsByMatch[matchID]),
             weapons: stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
         ))
     }
@@ -1144,12 +1199,16 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
         WHERE mp.player_id = \(bind: playerID)
         """).first()!
     let flashRow = try await sql.raw("""
-        SELECT CAST(COALESCE(SUM(f.flash_effects), 0) AS SIGNED) AS enemies_flashed,
-               CAST(COALESCE(SUM(f.blind_duration_ms), 0) AS SIGNED) AS blind_duration_ms
+        SELECT CAST(COALESCE(SUM(CASE WHEN victim.match_team_id <> mp.match_team_id THEN f.flash_effects ELSE 0 END), 0) AS SIGNED) AS enemies_flashed,
+               CAST(COALESCE(SUM(CASE WHEN victim.match_team_id <> mp.match_team_id THEN f.blind_duration_ms ELSE 0 END), 0) AS SIGNED) AS blind_duration_ms,
+               CAST(COALESCE(SUM(CASE WHEN victim.match_team_id = mp.match_team_id AND victim.id <> mp.id THEN f.flash_effects ELSE 0 END), 0) AS SIGNED) AS teammates_flashed,
+               CAST(COALESCE(SUM(CASE WHEN victim.match_team_id = mp.match_team_id AND victim.id <> mp.id THEN f.blind_duration_ms ELSE 0 END), 0) AS SIGNED) AS teammate_blind_duration_ms,
+               CAST(COALESCE(SUM(CASE WHEN victim.id = mp.id THEN f.flash_effects ELSE 0 END), 0) AS SIGNED) AS self_flashes,
+               CAST(COALESCE(SUM(CASE WHEN victim.id = mp.id THEN f.blind_duration_ms ELSE 0 END), 0) AS SIGNED) AS self_blind_duration_ms
         FROM match_players mp
         JOIN flash_side_stats f ON f.thrower_match_player_id = mp.id
         JOIN match_players victim ON victim.id = f.victim_match_player_id
-        WHERE mp.player_id = \(bind: playerID) AND victim.match_team_id <> mp.match_team_id
+        WHERE mp.player_id = \(bind: playerID)
         """).first()!
     let assistRow = try await sql.raw("""
         SELECT CAST(COALESCE(SUM(a.teammate_flash_assisted_kills), 0) AS SIGNED) AS flash_assists
@@ -1210,6 +1269,10 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
             fireDamage: totals.fireDamage,
             enemiesFlashed: try integer(flashRow, "enemies_flashed"),
             blindDurationSeconds: Double(try integer(flashRow, "blind_duration_ms")) / 1000,
+            teammatesFlashed: try integer(flashRow, "teammates_flashed"),
+            teammateBlindDurationSeconds: Double(try integer(flashRow, "teammate_blind_duration_ms")) / 1000,
+            selfFlashes: try integer(flashRow, "self_flashes"),
+            selfBlindDurationSeconds: Double(try integer(flashRow, "self_blind_duration_ms")) / 1000,
             flashAssists: try integer(assistRow, "flash_assists"),
             highExplosiveThrown: totals.highExplosiveThrown,
             flashbangsThrown: totals.flashbangsThrown, smokesThrown: totals.smokesThrown,

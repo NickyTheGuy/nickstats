@@ -322,6 +322,10 @@ struct PlayerUtilityStats: Content {
     var fireDamage: Int
     var enemiesFlashed: Int
     var blindDurationSeconds: Double
+    var teammatesFlashed: Int
+    var teammateBlindDurationSeconds: Double
+    var selfFlashes: Int
+    var selfBlindDurationSeconds: Double
     var flashAssists: Int
     var highExplosiveThrown: Int
     var flashbangsThrown: Int
@@ -334,6 +338,10 @@ struct PlayerUtilityStats: Content {
         case fireDamage = "fire_damage"
         case enemiesFlashed = "enemies_flashed"
         case blindDurationSeconds = "blind_duration_seconds"
+        case teammatesFlashed = "teammates_flashed"
+        case teammateBlindDurationSeconds = "teammate_blind_duration_seconds"
+        case selfFlashes = "self_flashes"
+        case selfBlindDurationSeconds = "self_blind_duration_seconds"
         case flashAssists = "flash_assists"
         case highExplosiveThrown = "he_grenades_thrown"
         case flashbangsThrown = "flashbangs_thrown"
