@@ -196,12 +196,16 @@ test("quick comparison uses every open profile while graphs auto-select new prof
   assert.match(playersSource, /renderGraphPlayers\(\); renderGraphs\(\); renderQuickComparison\(\);/);
 });
 
-test("player filters are shared across every open profile", () => {
+test("player filters and detail tab are shared across every open profile", () => {
+  assert.match(playersSource, /display: "profile", view: "overview"/);
   assert.match(playersSource, /side: "ALL", buy: "ALL", opponentBuy: "ALL", roundResult: "ALL", result: "ALL", maps: \[\]/);
+  assert.match(playersSource, /function setPlayerView\(view\) \{\s*state\.view = view/);
+  assert.match(playersSource, /renderProfile\(\); setPlayerView\(state\.view\); setPlayerDisplay\(state\.display\)/);
   assert.match(playersSource, /function matchesFor\(payload\)[\s\S]*?new Set\(state\.maps\)[\s\S]*?state\.result/);
   assert.match(playersSource, /aggregate\(matches, state\.side, state\.buy, state\.roundResult, state\.opponentBuy\)/);
   assert.match(playersSource, /mapFilter\.setOptions\(availableMaps\); state\.maps = mapFilter\.values\(\)/);
-  assert.match(playersSource, /state\.profiles\.set\(key, \{ payload, view: "overview" \}\)/);
+  assert.match(playersSource, /state\.profiles\.set\(key, \{ payload \}\)/);
+  assert.doesNotMatch(playersSource, /profile\.view|activeProfile\(\)\.view/);
   assert.doesNotMatch(playersSource, /profile\.(?:side|buy|opponentBuy|roundResult|result|maps)/);
 });
 

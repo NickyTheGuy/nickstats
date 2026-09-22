@@ -18,7 +18,7 @@
 
   const state = {
     profiles: new Map(), activeId: null, graphPlayers: new Set(), recent: readRecent(),
-    display: "profile", searchController: null, profileController: null, searchTimer: null,
+    display: "profile", view: "overview", searchController: null, profileController: null, searchTimer: null,
     side: "ALL", buy: "ALL", opponentBuy: "ALL", roundResult: "ALL", result: "ALL", maps: []
   };
   const activeProfile = () => state.profiles.get(state.activeId) || null;
@@ -37,8 +37,8 @@
     $("playerSearchStatus").textContent = message;
     $("playerSearchStatus").classList.toggle("error", error);
   }
-  function setPlayerView(view, { remember = true } = {}) {
-    if (remember && activeProfile()) activeProfile().view = view;
+  function setPlayerView(view) {
+    state.view = view;
     document.querySelectorAll("[data-player-view]").forEach(button => {
       const active = button.dataset.playerView === view;
       button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
@@ -250,7 +250,7 @@
     state.activeId = id;
     const availableMaps = [...state.profiles.values()].flatMap(candidate => (candidate.payload.matches || []).map(match => match.map));
     mapFilter.setOptions(availableMaps); state.maps = mapFilter.values();
-    renderProfile(); setPlayerView(profile.view, { remember: false }); setPlayerDisplay(state.display);
+    renderProfile(); setPlayerView(state.view); setPlayerDisplay(state.display);
   }
   function closeProfile(id) {
     id = String(id); const ids = [...state.profiles.keys()], index = ids.indexOf(id);
@@ -269,7 +269,7 @@
     try {
       const payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}`, { headers: { Accept: "application/json" }, signal: state.profileController.signal }));
       const key = String(payload.player?.id ?? id);
-      state.profiles.set(key, { payload, view: "overview" });
+      state.profiles.set(key, { payload });
       if (state.graphPlayers.size < MAX_GRAPH_PLAYERS) state.graphPlayers.add(key);
       activateProfile(key); rememberPlayer(payload.player || { id: key });
       $("playerProfile").scrollIntoView({ behavior: "smooth", block: "start" });
