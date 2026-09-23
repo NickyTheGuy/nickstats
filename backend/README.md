@@ -33,6 +33,8 @@ Match-list query parameters are `steam_id`, `map`, `maps`, `from`, `to`, `limit`
 
 The API joins the server's existing external `web_default` and `mysql_default` Docker networks. It reaches MySQL through the private `mysql` network alias and Nginx reaches the API through `nickstats-api`. The API container is not published directly to the internet; Nginx is the only intended entry point. Do not publish MySQL port 3306.
 
+Compact player-profile responses include a `Server-Timing` header with each database query group, total side-data construction, response construction, JSON encoding, and total API time. The same header value is written to the API log as `Compact player profile timing`, together with the player ID. In browser developer tools, select the profile request and inspect its **Timing** or **Headers** panel. On the server, use `docker logs nickstats-api` to compare requests over time.
+
 Generate separate upload and FACEIT date-sync tokens on the server, for example:
 
 ```bash

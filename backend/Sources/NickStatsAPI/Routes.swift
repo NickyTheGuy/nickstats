@@ -96,8 +96,21 @@ func routes(_ app: Application) throws {
         }
         let response = Response(status: .ok)
         if request.query[Bool.self, at: "compact"] == true {
-            let payload = try await getPlayerProfileData(playerID, on: request.db)
+            let timing = ProfileTimingRecorder()
+            let totalStart = timing.start()
+            let buildStart = timing.start()
+            let payload = try await getPlayerProfileData(playerID, on: request.db, timing: timing)
+            timing.record("build", since: buildStart)
+            let encodeStart = timing.start()
             try response.content.encode(payload)
+            timing.record("encode", since: encodeStart)
+            timing.record("total", since: totalStart)
+            let serverTiming = timing.serverTimingHeader()
+            response.headers.replaceOrAdd(name: "Server-Timing", value: serverTiming)
+            request.logger.info("Compact player profile timing", metadata: [
+                "player_id": "\(playerID)",
+                "server_timing": "\(serverTiming)"
+            ])
         } else {
             let payload = try await getPlayerProfile(playerID, on: request.db)
             try response.content.encode(payload)
