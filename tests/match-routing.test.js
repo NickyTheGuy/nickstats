@@ -31,7 +31,7 @@ test("match loading reserves page height and cancels obsolete requests", () => {
   assert.match(demo, /state\.matchDetailController\?\.abort\(\)/);
   assert.match(demo, /signal: controller\.signal/);
   assert.match(demo, /if \(error\.name === "AbortError"\) return/);
-  assert.match(html, /Build 2026\.09\.23\.8/);
+  assert.match(html, /Build 2026\.09\.23\.9/);
 });
 
 test("match details use a stable, filter-independent map banner", () => {
@@ -40,6 +40,9 @@ test("match details use a stable, filter-independent map banner", () => {
   assert.match(demo, /function renderMatchBanner\(result\)/);
   assert.match(demo, /const teams = Array\.isArray\(result\.teams\) \? result\.teams : \[\]/);
   assert.match(demo, /applyMapArtwork\(banner, mapName, true\)/);
+  assert.match(demo, /const matchID = result\.provider_match_id \|\|/);
+  assert.match(demo, /identity\.textContent = matchID/);
+  assert.doesNotMatch(demo, /match-banner-map/);
   assert.match(demo, /date\.textContent = playedAt === "Unknown" \? "Date unavailable" : playedAt/);
   assert.match(demo, /renderMatchBanner\(result\);/);
   assert.doesNotMatch(demo, /function summaryCard/);

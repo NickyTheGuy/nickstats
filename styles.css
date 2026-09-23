@@ -1028,8 +1028,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .match-banner-identity,
-.match-banner-date,
-.match-banner-map {
+.match-banner-date {
   font-size: 12px;
   font-weight: 850;
   letter-spacing: .08em;
@@ -1048,9 +1047,10 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .match-banner-date { color: rgba(255, 255, 255, .82); }
 
-.match-banner-map {
-  align-self: flex-start;
-  color: rgba(255, 255, 255, .72);
+.match-banner-identity {
+  letter-spacing: .03em;
+  overflow-wrap: anywhere;
+  text-transform: none;
 }
 
 .match-banner-scoreline {
@@ -1063,7 +1063,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .match-banner-team {
   min-width: 0;
-  color: rgba(255, 255, 255, .92);
+  color: #fff;
   font-size: clamp(18px, 2.3vw, 32px);
   font-weight: 900;
   line-height: 1.05;
@@ -1074,8 +1074,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .match-banner-team.first { text-align: right; }
 .match-banner-team.second { text-align: left; }
-.match-banner-team.winner { color: #fff; }
-.match-banner-team.loser { color: rgba(255, 255, 255, .64); }
 
 .match-banner-score {
   color: #fff;
@@ -1088,7 +1086,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .match-banner-score.winner { color: #d9f7b2; }
-.match-banner-score.loser { color: rgba(255, 255, 255, .67); }
 
 .match-banner-score-separator {
   color: rgba(255, 255, 255, .52);
@@ -3287,8 +3284,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   }
 
   .match-banner-date { text-align: right; }
-
-  .match-banner-map { font-size: 10px; }
 
   .match-banner-scoreline { gap: 7px; }
 

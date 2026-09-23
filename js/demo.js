@@ -1548,6 +1548,8 @@
     const secondTeam = teams[1];
     const mapName = result.map || "Unknown map";
     const playedAt = formatMatchTime(result.played_at);
+    const fullMatchID = result.provider_match_id || (result.demo_sha256 ? `SHA ${result.demo_sha256}` : "Match ID unavailable");
+    const matchID = result.provider_match_id || (result.demo_sha256 ? `SHA ${String(result.demo_sha256).slice(0, 12)}…` : "Match ID unavailable");
     const firstResult = matchTeamResult(firstTeam, secondTeam);
     const secondResult = matchTeamResult(secondTeam, firstTeam);
 
@@ -1561,7 +1563,8 @@
     top.className = "match-banner-top";
     const identity = document.createElement("span");
     identity.className = "match-banner-identity";
-    identity.textContent = state.selectedMatchID ? `Match #${state.selectedMatchID}` : state.file?.name || "Uploaded match";
+    identity.textContent = matchID;
+    identity.title = fullMatchID;
     const date = document.createElement("time");
     date.className = "match-banner-date";
     date.textContent = playedAt === "Unknown" ? "Date unavailable" : playedAt;
@@ -1572,10 +1575,6 @@
 
     const bottom = document.createElement("div");
     bottom.className = "match-banner-bottom";
-    const map = document.createElement("span");
-    map.className = "match-banner-map";
-    map.textContent = mapName.replace(/^de_/i, "");
-
     const scoreline = document.createElement("div");
     scoreline.className = "match-banner-scoreline";
     const firstName = document.createElement("span");
@@ -1594,9 +1593,9 @@
     secondName.className = `match-banner-team second${secondResult ? ` ${secondResult}` : ""}`;
     secondName.textContent = secondTeam?.name || "Unknown team";
     scoreline.append(firstName, firstScore, separator, secondScore, secondName);
-    bottom.append(map, scoreline);
+    bottom.append(scoreline);
     banner.replaceChildren(top, bottom);
-    banner.setAttribute("aria-label", `${firstName.textContent} ${firstScore.textContent} to ${secondScore.textContent} ${secondName.textContent} on ${map.textContent}`);
+    banner.setAttribute("aria-label", `${firstName.textContent} ${firstScore.textContent} to ${secondScore.textContent} ${secondName.textContent} on ${mapName.replace(/^de_/i, "")}`);
   }
 
   function cell(row, value, className) {
