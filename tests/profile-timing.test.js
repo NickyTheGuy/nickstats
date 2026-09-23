@@ -11,6 +11,7 @@ const queries = fs.readFileSync(path.join(root, "backend", "Sources", "NickStats
 const timing = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "ProfileTiming.swift"), "utf8");
 const models = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Models.swift"), "utf8");
 const players = fs.readFileSync(path.join(root, "js", "players.js"), "utf8");
+const cache = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "ProfileResponseCache.swift"), "utf8");
 
 test("compact player profiles expose and log server timing", () => {
   assert.match(routes, /getPlayerProfileData\(playerID, on: request\.db, timing: timing\)/);
@@ -49,7 +50,8 @@ test("profile aggregation updates indexed slices in place", () => {
 });
 
 test("player profiles use a backwards-compatible dense wire format", () => {
-  assert.match(routes, /request\.query\[Int\.self, at: "wire"\] == 2/);
+  assert.match(routes, /let wireVersion = request\.query\[Int\.self, at: "wire"\]/);
+  assert.match(routes, /if wireVersion == 2/);
   assert.match(routes, /DensePlayerProfileDataResponse\(payload\)/);
   assert.match(routes, /timing\.record\("dense_wire"/);
   assert.match(models, /struct DensePlayerProfileDataResponse: Content/);
@@ -57,4 +59,16 @@ test("player profiles use a backwards-compatible dense wire format", () => {
   assert.match(models, /stats = statKeys\.map \{ value\.stats\[\$0\] \}/);
   assert.match(players, /compact=true&wire=2/);
   assert.match(players, /if \(values\[index\] != null\) stats\[keys\[index\]\] = values\[index\]/);
+});
+
+test("encoded dense profiles use a bounded invalidated LRU cache", () => {
+  assert.match(cache, /actor ProfileResponseCache/);
+  assert.match(cache, /maximumEntries: 16/);
+  assert.match(cache, /guard generation == self\.generation else \{ return \}/);
+  assert.match(cache, /entries\.min\(by: \{ \$0\.value\.lastAccess < \$1\.value\.lastAccess \}\)/);
+  assert.match(routes, /profileResponseCache\.lookup\(playerID: playerID, wireVersion: 2\)/);
+  assert.match(routes, /timing\.record\("cache_hit"/);
+  assert.match(routes, /JSONEncoder\(\)\.encode\(densePayload\)/);
+  assert.match(routes, /profileResponseCache\.insert\(/);
+  assert.equal((routes.match(/await profileResponseCache\.removeAll\(\)/g) || []).length, 2);
 });

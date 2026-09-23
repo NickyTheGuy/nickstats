@@ -1,3 +1,4 @@
+import Foundation
 import Fluent
 import SQLKit
 import Vapor
@@ -51,6 +52,7 @@ func routes(_ app: Application) throws {
         let result = try await request.db.transaction { database in
             try await importMatch(payload, replacingExisting: replaceExisting, on: database)
         }
+        await profileResponseCache.removeAll()
         let response = Response(status: result.created ? .created : .ok)
         try response.content.encode(UploadResponse(id: result.id, created: result.created, replaced: result.replaced))
         return response
@@ -70,9 +72,11 @@ func routes(_ app: Application) throws {
             throw Abort(.badRequest, reason: "The request body is not valid \(faceitDateSyncSchema) JSON.")
         }
         try payload.validate()
-        return try await request.db.transaction { database in
+        let result = try await request.db.transaction { database in
             try await syncFaceitDates(payload, on: database)
         }
+        await profileResponseCache.removeAll()
+        return result
     }
 
     app.get("matches") { request async throws -> MatchListResponse in
@@ -98,10 +102,31 @@ func routes(_ app: Application) throws {
         if request.query[Bool.self, at: "compact"] == true {
             let timing = ProfileTimingRecorder()
             let totalStart = timing.start()
+            let wireVersion = request.query[Int.self, at: "wire"]
+            var cacheGeneration: UInt64?
+            if wireVersion == 2 {
+                let cacheStart = timing.start()
+                let lookup = await profileResponseCache.lookup(playerID: playerID, wireVersion: 2)
+                cacheGeneration = lookup.generation
+                if let data = lookup.data {
+                    timing.record("cache_hit", since: cacheStart)
+                    response.headers.contentType = .json
+                    response.body = .init(data: data)
+                    timing.record("total", since: totalStart)
+                    let serverTiming = timing.serverTimingHeader()
+                    response.headers.replaceOrAdd(name: "Server-Timing", value: serverTiming)
+                    request.logger.info("Compact player profile timing", metadata: [
+                        "player_id": "\(playerID)",
+                        "server_timing": "\(serverTiming)"
+                    ])
+                    return response
+                }
+                timing.record("cache_miss", since: cacheStart)
+            }
             let buildStart = timing.start()
             let payload = try await getPlayerProfileData(playerID, on: request.db, timing: timing)
             let densePayload: DensePlayerProfileDataResponse?
-            if request.query[Int.self, at: "wire"] == 2 {
+            if wireVersion == 2 {
                 let denseStart = timing.start()
                 densePayload = DensePlayerProfileDataResponse(payload)
                 timing.record("dense_wire", since: denseStart)
@@ -111,11 +136,24 @@ func routes(_ app: Application) throws {
             timing.record("build", since: buildStart)
             let encodeStart = timing.start()
             if let densePayload {
-                try response.content.encode(densePayload)
+                let data = try JSONEncoder().encode(densePayload)
+                response.headers.contentType = .json
+                response.body = .init(data: data)
+                timing.record("encode", since: encodeStart)
+                let cacheStoreStart = timing.start()
+                if let cacheGeneration {
+                    await profileResponseCache.insert(
+                        data,
+                        playerID: playerID,
+                        wireVersion: 2,
+                        generation: cacheGeneration
+                    )
+                }
+                timing.record("cache_store", since: cacheStoreStart)
             } else {
                 try response.content.encode(payload)
+                timing.record("encode", since: encodeStart)
             }
-            timing.record("encode", since: encodeStart)
             timing.record("total", since: totalStart)
             let serverTiming = timing.serverTimingHeader()
             response.headers.replaceOrAdd(name: "Server-Timing", value: serverTiming)
