@@ -2606,8 +2606,6 @@
       summaryCard(state.sideFilter === "ALL" && state.buyFilter === "ALL" && state.enemyBuyFilter === "ALL" && state.roundResultFilter === "ALL" ? "Rounds" : "Filtered rounds", String(state.sideFilter === "ALL" && state.buyFilter === "ALL" && state.enemyBuyFilter === "ALL" && state.roundResultFilter === "ALL" ? result.rounds || 0 : sideRounds)),
       summaryCard(state.sideFilter === "ALL" && state.buyFilter === "ALL" && state.enemyBuyFilter === "ALL" && state.roundResultFilter === "ALL" ? "Score" : filteredOutcomeLabel, score)
     );
-    renderRoundCloseness(result);
-    renderRoundEconomy(result);
     renderScoreboardControls();
     const finiteScores = teams.map(team => team.score).filter(Number.isFinite);
     const highScore = finiteScores.length ? Math.max(...finiteScores) : null;
@@ -2625,78 +2623,10 @@
     $("demoResults").hidden = false;
   }
 
-  function renderRoundCloseness(result) {
-    const section = $("demoRoundCloseness");
-    const economyByRound = new Map((result.round_economy || []).map(row => [numberValue(row.round), row]));
-    const rows = (result.round_survivors || []).map(row => {
-      const economy = economyByRound.get(numberValue(row.round));
-      const teamID = row.winner_side === "T" ? economy?.t_team_id : row.winner_side === "CT" ? economy?.ct_team_id : null;
-      return { ...row, teamID };
-    }).filter(row => row.teamID != null && (state.sideFilter === "ALL" || row.winner_side === state.sideFilter));
-    section.hidden = rows.length === 0;
-    if (!rows.length) {
-      $("demoSurvivorTeams").replaceChildren();
-      return;
-    }
-    $("demoRoundClosenessTitle").textContent = state.sideFilter === "ALL" ? "Winning-round survivors" : `${state.sideFilter} winning-round survivors`;
-    $("demoRoundClosenessSummary").textContent = state.sideFilter === "ALL" ? "Team comparison" : `${state.sideFilter} wins only`;
-    $("demoSurvivorTeams").replaceChildren(...(result.teams || []).map(team => {
-      const teamRows = rows.filter(row => String(row.teamID) === String(team.id));
-      const values = teamRows.map(row => row.winner_side === "T" ? numberValue(row.t_alive_end) : numberValue(row.ct_alive_end));
-      const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
-      const card = document.createElement("article"); card.className = "demo-survivor-team";
-      const title = document.createElement("h4");
-      const name = document.createElement("strong"); name.textContent = team.name;
-      const summary = document.createElement("span"); summary.textContent = average == null ? "No wins" : `${average.toFixed(2)} avg · ${values.length} win${values.length === 1 ? "" : "s"}`;
-      title.append(name, summary);
-      const distribution = document.createElement("div"); distribution.className = "demo-survivor-distribution";
-      distribution.replaceChildren(...[0, 1, 2, 3, 4, 5].map(bucket => {
-        const count = values.filter(value => bucket === 5 ? value >= 5 : value === bucket).length;
-        const item = document.createElement("div");
-        const strong = document.createElement("strong"); strong.textContent = String(count);
-        const label = document.createElement("span"); label.textContent = `${bucket === 5 ? "5+" : bucket} alive`;
-        const share = document.createElement("small"); share.textContent = values.length ? `${(100 * count / values.length).toFixed(0)}% of wins` : "No rounds";
-        item.append(strong, label, share); return item;
-      }));
-      card.append(title, distribution); return card;
-    }));
-  }
-
   function economyBuyType(value, players, pistolRound) {
     if (pistolRound) return "pistol";
     const perPlayer = numberValue(value) / Math.max(1, numberValue(players));
     return perPlayer <= 1000 ? "eco" : perPlayer >= 3500 ? "full" : "force";
-  }
-
-  function renderRoundEconomy(result) {
-    const section = $("demoRoundEconomy"), rows = result.round_economy || [];
-    section.hidden = rows.length === 0;
-    if (!rows.length) { $("demoEconomyTeams").replaceChildren(); return; }
-    $("demoRoundEconomySummary").textContent = state.sideFilter === "ALL" ? "All sides" : `${state.sideFilter} side`;
-    const labels = { pistol: "Pistol", eco: "Eco", force: "Force buy", full: "Full buy" };
-    $("demoEconomyTeams").replaceChildren(...(result.teams || []).map(team => {
-      const totals = Object.fromEntries(Object.keys(labels).map(key => [key, { rounds: 0, wins: 0, value: 0 }]));
-      for (const row of rows) {
-        const side = String(row.t_team_id) === String(team.id) ? "T" : String(row.ct_team_id) === String(team.id) ? "CT" : null;
-        if (!side || (state.sideFilter !== "ALL" && side !== state.sideFilter)) continue;
-        const value = side === "T" ? row.t_equipment_value : row.ct_equipment_value;
-        const players = side === "T" ? row.t_players : row.ct_players;
-        const type = economyBuyType(value, players, row.pistol_round);
-        totals[type].rounds += 1; totals[type].value += numberValue(value);
-        if (row.winner_side === side) totals[type].wins += 1;
-      }
-      const card = document.createElement("article"); card.className = "demo-economy-team";
-      const title = document.createElement("h4"); title.textContent = team.name;
-      const grid = document.createElement("div"); grid.className = "demo-economy-team-grid";
-      grid.replaceChildren(...Object.entries(labels).map(([key, label]) => {
-        const stat = totals[key], item = document.createElement("div");
-        const strong = document.createElement("strong"); strong.textContent = stat.rounds ? `${stat.wins}/${stat.rounds}` : "—";
-        const name = document.createElement("span"); name.textContent = label;
-        const note = document.createElement("small"); note.textContent = stat.rounds ? `${(100 * stat.wins / stat.rounds).toFixed(0)}% · $${Math.round(stat.value / stat.rounds).toLocaleString()}` : "No rounds";
-        item.append(strong, name, note); return item;
-      }));
-      card.append(title, grid); return card;
-    }));
   }
 
   async function parseDemo() {

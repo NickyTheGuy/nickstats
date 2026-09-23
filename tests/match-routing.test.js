@@ -31,5 +31,5 @@ test("match loading reserves page height and cancels obsolete requests", () => {
   assert.match(demo, /state\.matchDetailController\?\.abort\(\)/);
   assert.match(demo, /signal: controller\.signal/);
   assert.match(demo, /if \(error\.name === "AbortError"\) return/);
-  assert.match(html, /Build 2026\.09\.23\.6/);
+  assert.match(html, /Build 2026\.09\.23\.7/);
 });
