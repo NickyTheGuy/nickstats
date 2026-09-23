@@ -52,7 +52,11 @@ func routes(_ app: Application) throws {
         let result = try await request.db.transaction { database in
             try await importMatch(payload, replacingExisting: replaceExisting, on: database)
         }
-        await profileResponseCache.removeAll()
+        if !result.affectedPlayerIDs.isEmpty {
+            await profileResponseCache.markChanged([
+                ProfileMatchChange(matchID: result.id, playerIDs: result.affectedPlayerIDs)
+            ])
+        }
         let response = Response(status: result.created ? .created : .ok)
         try response.content.encode(UploadResponse(id: result.id, created: result.created, replaced: result.replaced))
         return response
@@ -75,8 +79,8 @@ func routes(_ app: Application) throws {
         let result = try await request.db.transaction { database in
             try await syncFaceitDates(payload, on: database)
         }
-        await profileResponseCache.removeAll()
-        return result
+        await profileResponseCache.markChanged(result.changes)
+        return result.response
     }
 
     app.get("matches") { request async throws -> MatchListResponse in
@@ -103,15 +107,57 @@ func routes(_ app: Application) throws {
             let timing = ProfileTimingRecorder()
             let totalStart = timing.start()
             let wireVersion = request.query[Int.self, at: "wire"]
-            var cacheGeneration: UInt64?
+            var cacheVersion: UInt64?
             if wireVersion == 2 {
                 let cacheStart = timing.start()
                 let lookup = await profileResponseCache.lookup(playerID: playerID, wireVersion: 2)
-                cacheGeneration = lookup.generation
-                if let data = lookup.data {
+                cacheVersion = lookup.version
+                if let data = lookup.data, lookup.staleMatchIDs.isEmpty {
                     timing.record("cache_hit", since: cacheStart)
                     response.headers.contentType = .json
                     response.body = .init(data: data)
+                    timing.record("total", since: totalStart)
+                    let serverTiming = timing.serverTimingHeader()
+                    response.headers.replaceOrAdd(name: "Server-Timing", value: serverTiming)
+                    request.logger.info("Compact player profile timing", metadata: [
+                        "player_id": "\(playerID)",
+                        "server_timing": "\(serverTiming)"
+                    ])
+                    return response
+                }
+                if let cachedProfile = lookup.profile, !lookup.staleMatchIDs.isEmpty {
+                    timing.record("cache_stale", since: cacheStart)
+                    let refreshStart = timing.start()
+                    let player = try await getPlayerProfileIdentity(
+                        playerID, on: request.db, timing: timing
+                    )
+                    let refreshedMatches = try await getPlayerProfileMatches(
+                        playerID,
+                        matchIDs: lookup.staleMatchIDs,
+                        on: request.db,
+                        timing: timing
+                    )
+                    let densePayload = DensePlayerProfileDataResponse(
+                        refreshing: cachedProfile,
+                        player: player,
+                        replacingMatchIDs: lookup.staleMatchIDs,
+                        with: refreshedMatches
+                    )
+                    timing.record("incremental_refresh", since: refreshStart)
+                    let encodeStart = timing.start()
+                    let data = try JSONEncoder().encode(densePayload)
+                    response.headers.contentType = .json
+                    response.body = .init(data: data)
+                    timing.record("encode", since: encodeStart)
+                    let cacheStoreStart = timing.start()
+                    await profileResponseCache.insert(
+                        data,
+                        profile: densePayload,
+                        playerID: playerID,
+                        wireVersion: 2,
+                        version: lookup.version
+                    )
+                    timing.record("cache_store", since: cacheStoreStart)
                     timing.record("total", since: totalStart)
                     let serverTiming = timing.serverTimingHeader()
                     response.headers.replaceOrAdd(name: "Server-Timing", value: serverTiming)
@@ -141,12 +187,13 @@ func routes(_ app: Application) throws {
                 response.body = .init(data: data)
                 timing.record("encode", since: encodeStart)
                 let cacheStoreStart = timing.start()
-                if let cacheGeneration {
+                if let cacheVersion {
                     await profileResponseCache.insert(
                         data,
+                        profile: densePayload,
                         playerID: playerID,
                         wireVersion: 2,
-                        generation: cacheGeneration
+                        version: cacheVersion
                     )
                 }
                 timing.record("cache_store", since: cacheStoreStart)

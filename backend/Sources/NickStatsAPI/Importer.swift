@@ -8,6 +8,7 @@ struct ImportResult: Sendable {
     let id: Int64
     let created: Bool
     let replaced: Bool
+    let affectedPlayerIDs: [Int64]
 }
 
 private func integerID(_ row: any SQLRow, column: String = "id") throws -> Int64 {
@@ -97,14 +98,23 @@ func importMatch(
     let sha256 = payload.id.sha256.lowercased()
     let existingMatchID = try await findExisting(sql, sha256: sha256, faceitID: payload.id.faceit)
     if let existingMatchID, !replacingExisting {
-        return ImportResult(id: existingMatchID, created: false, replaced: false)
+        return ImportResult(id: existingMatchID, created: false, replaced: false, affectedPlayerIDs: [])
     }
+
+    var affectedPlayerIDs = Set<Int64>()
 
     let configID = try await parserConfigurationID(sql, rules: payload.rules)
     let playedAt = payload.playedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
     let provider: String? = payload.id.faceit == nil ? nil : "faceit"
     let matchID: Int64
     if let existingMatchID {
+        let previousPlayers = try await sql.raw("""
+            SELECT player_id FROM match_players
+            WHERE match_id = \(bind: existingMatchID) AND player_id IS NOT NULL
+            """).all()
+        for row in previousPlayers {
+            affectedPlayerIDs.insert(try integerID(row, column: "player_id"))
+        }
         // Relationship rows must go first because they also reference match_players.
         try await sql.raw("DELETE FROM match_rounds WHERE match_id = \(bind: existingMatchID)").run()
         try await sql.raw("DELETE FROM duel_side_stats WHERE match_id = \(bind: existingMatchID)").run()
@@ -164,9 +174,11 @@ func importMatch(
         if isBot {
             playerID = nil
         } else {
-            playerID = try await globalPlayerID(
+            let globalID = try await globalPlayerID(
                 sql, steamID: UInt64(player.steamID!)!, name: player.name, playedAt: playedAt
             )
+            playerID = globalID
+            affectedPlayerIDs.insert(globalID)
         }
         let teamID = teamIDs[playerTeam[playerSlot]!]
         try await sql.raw("""
@@ -295,7 +307,12 @@ func importMatch(
             }
         }
     }
-    return ImportResult(id: matchID, created: existingMatchID == nil, replaced: existingMatchID != nil)
+    return ImportResult(
+        id: matchID,
+        created: existingMatchID == nil,
+        replaced: existingMatchID != nil,
+        affectedPlayerIDs: affectedPlayerIDs.sorted()
+    )
 }
 
 private func insertSideStats(

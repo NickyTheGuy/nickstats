@@ -12,6 +12,8 @@ const timing = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsA
 const models = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Models.swift"), "utf8");
 const players = fs.readFileSync(path.join(root, "js", "players.js"), "utf8");
 const cache = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "ProfileResponseCache.swift"), "utf8");
+const importer = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Importer.swift"), "utf8");
+const faceitDates = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "FaceitDateSync.swift"), "utf8");
 
 test("compact player profiles expose and log server timing", () => {
   assert.match(routes, /getPlayerProfileData\(playerID, on: request\.db, timing: timing\)/);
@@ -61,14 +63,24 @@ test("player profiles use a backwards-compatible dense wire format", () => {
   assert.match(players, /if \(values\[index\] != null\) stats\[keys\[index\]\] = values\[index\]/);
 });
 
-test("encoded dense profiles use a bounded invalidated LRU cache", () => {
+test("encoded dense profiles use a bounded lazily refreshed LRU cache", () => {
   assert.match(cache, /actor ProfileResponseCache/);
   assert.match(cache, /maximumEntries: 16/);
-  assert.match(cache, /guard generation == self\.generation else \{ return \}/);
+  assert.match(cache, /var staleMatchIDs: Set<Int64>/);
+  assert.match(cache, /entry\.staleMatchIDs\.insert\(change\.matchID\)/);
+  assert.match(cache, /guard version == versions\[key, default: 0\] else \{ return \}/);
   assert.match(cache, /entries\.min\(by: \{ \$0\.value\.lastAccess < \$1\.value\.lastAccess \}\)/);
   assert.match(routes, /profileResponseCache\.lookup\(playerID: playerID, wireVersion: 2\)/);
   assert.match(routes, /timing\.record\("cache_hit"/);
+  assert.match(routes, /timing\.record\("cache_stale"/);
+  assert.match(routes, /getPlayerProfileMatches\(/);
   assert.match(routes, /JSONEncoder\(\)\.encode\(densePayload\)/);
   assert.match(routes, /profileResponseCache\.insert\(/);
-  assert.equal((routes.match(/await profileResponseCache\.removeAll\(\)/g) || []).length, 2);
+  assert.equal((routes.match(/await profileResponseCache\.markChanged\(/g) || []).length, 2);
+  assert.doesNotMatch(routes, /profileResponseCache\.removeAll/);
+  assert.match(queries, /func matchIDFilter/);
+  assert.match(queries, /\\\(binds: matchIDs\)/);
+  assert.match(models, /refreshing cached: DensePlayerProfileDataResponse/);
+  assert.match(importer, /affectedPlayerIDs: affectedPlayerIDs\.sorted\(\)/);
+  assert.match(faceitDates, /changes\.append\(ProfileMatchChange/);
 });

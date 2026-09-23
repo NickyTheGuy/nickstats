@@ -329,8 +329,14 @@ private func flattenedBuyStats(_ value: SideStatsPayload, flashTargets: Comparis
     return output
 }
 
+private func matchIDFilter(_ matchIDs: [Int64]?, column: String) -> SQLQueryString {
+    guard let matchIDs, !matchIDs.isEmpty else { return "" }
+    return " AND \(unsafeRaw: column) IN (\(binds: matchIDs))"
+}
+
 private func comparisonSideData(
-    playerID: Int64, sql: any SQLDatabase, timing: ProfileTimingRecorder? = nil
+    playerID: Int64, matchIDs: [Int64]? = nil,
+    sql: any SQLDatabase, timing: ProfileTimingRecorder? = nil
 ) async throws -> [Int64: [ComparisonSideStats]] {
     let sideDataStart = timing?.start()
     defer { timing?.record("side_data", since: sideDataStart) }
@@ -341,7 +347,7 @@ private func comparisonSideData(
                target.match_team_id AS target_team_id
         FROM match_players owner
         JOIN match_players target ON target.match_id = owner.match_id
-        WHERE owner.player_id = \(bind: playerID)
+        WHERE owner.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "owner.match_id"))
         """).all()
     timing?.record("flash_targets", since: flashTargetsStart)
     var flashTargetsByMatch: [Int64: ComparisonFlashTargets] = [:]
@@ -365,7 +371,7 @@ private func comparisonSideData(
         FROM match_players mp
         JOIN player_side_stats s ON s.match_player_id = mp.id
         JOIN matches m ON m.id = mp.match_id
-        WHERE mp.player_id = \(bind: playerID)
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "mp.match_id"))
         """).all()
     timing?.record("side_stats", since: sideStatsStart)
     var values: [String: ComparisonSideAccumulator] = [:]
@@ -458,7 +464,8 @@ private func comparisonSideData(
         FROM match_players mp
         JOIN match_rounds r ON r.match_id = mp.match_id
           AND mp.match_team_id IN (r.t_match_team_id, r.ct_match_team_id)
-        WHERE mp.player_id = \(bind: playerID) AND r.pistol_round IS NOT NULL
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "mp.match_id"))
+          AND r.pistol_round IS NOT NULL
         """).all()
     timing?.record("economy", since: economyStart)
     for row in economyRows {
@@ -482,7 +489,8 @@ private func comparisonSideData(
                CAST(SUM(t.attempts) AS SIGNED) AS attempts,
                CAST(SUM(t.successes) AS SIGNED) AS successes
         FROM trade_side_stats t JOIN match_players mp ON mp.id = t.trader_match_player_id
-        WHERE mp.player_id = \(bind: playerID) GROUP BY t.match_id, t.trader_side
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "t.match_id"))
+        GROUP BY t.match_id, t.trader_side
         """).all()
     timing?.record("trades", since: tradesStart)
     for row in trades {
@@ -504,7 +512,7 @@ private func comparisonSideData(
         FROM flash_side_stats f
         JOIN match_players mp ON mp.id = f.thrower_match_player_id
         JOIN match_players victim ON victim.id = f.victim_match_player_id
-        WHERE mp.player_id = \(bind: playerID)
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "f.match_id"))
         GROUP BY f.match_id, f.thrower_side
         """).all()
     timing?.record("flashes", since: flashesStart)
@@ -526,7 +534,8 @@ private func comparisonSideData(
                CAST(SUM(a.own_flash_kills) AS SIGNED) AS own_flash
         FROM assisted_kill_side_stats a
         JOIN match_players mp ON mp.id = a.beneficiary_match_player_id
-        WHERE mp.player_id = \(bind: playerID) GROUP BY a.match_id, a.beneficiary_side
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "a.match_id"))
+        GROUP BY a.match_id, a.beneficiary_side
         """).all()
     timing?.record("assisted_kills", since: assistedKillsStart)
     for row in beneficiaries {
@@ -542,7 +551,8 @@ private func comparisonSideData(
                CAST(SUM(a.teammate_flash_assisted_kills) AS SIGNED) AS flash_assists
         FROM assisted_kill_side_stats a
         JOIN match_players mp ON mp.id = a.assister_match_player_id
-        WHERE mp.player_id = \(bind: playerID) GROUP BY a.match_id, a.beneficiary_side
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "a.match_id"))
+        GROUP BY a.match_id, a.beneficiary_side
         """).all()
     timing?.record("flash_assists", since: flashAssistsStart)
     for row in assisters {
@@ -569,7 +579,7 @@ private func comparisonSideData(
     let contexts = try await sql.raw("""
         SELECT c.* FROM kill_context_side_stats c
         JOIN match_players mp ON mp.id = c.killer_match_player_id
-        WHERE mp.player_id = \(bind: playerID)
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "c.match_id"))
         """).all()
     timing?.record("contexts_out", since: outgoingContextsStart)
     for row in contexts {
@@ -583,7 +593,7 @@ private func comparisonSideData(
         FROM kill_context_side_stats c
         JOIN match_players victim ON victim.id = c.victim_match_player_id
         JOIN match_players killer ON killer.id = c.killer_match_player_id
-        WHERE victim.player_id = \(bind: playerID)
+        WHERE victim.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "c.match_id"))
         """).all()
     timing?.record("contexts_in", since: incomingContextsStart)
     for row in incomingContexts {
@@ -616,7 +626,8 @@ private func comparisonSideData(
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
         JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20')
-        WHERE mp.player_id = \(bind: playerID) AND e.enemy_kill = TRUE
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "e.match_id"))
+          AND e.enemy_kill = TRUE
           AND (SELECT COUNT(*) FROM match_rounds rt WHERE rt.match_id = m.id) = m.rounds
         GROUP BY e.match_id, e.killer_side
         """).all()
@@ -664,7 +675,7 @@ private func comparisonSideData(
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
         JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20')
-        WHERE mp.player_id = \(bind: playerID)
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "e.match_id"))
           AND (SELECT COUNT(*) FROM match_rounds rt WHERE rt.match_id = m.id) = m.rounds
         GROUP BY e.match_id, e.victim_side
         """).all()
@@ -691,7 +702,7 @@ private func comparisonSideData(
                CAST(SUM(w.hits) AS SIGNED) AS hits, CAST(SUM(w.damage) AS SIGNED) AS damage,
                CAST(SUM(w.rounds_used) AS SIGNED) AS rounds_used
         FROM weapon_side_stats w JOIN match_players mp ON mp.id = w.match_player_id
-        WHERE mp.player_id = \(bind: playerID)
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "mp.match_id"))
         GROUP BY mp.match_id, w.side, w.weapon
         """).all()
     timing?.record("weapons", since: weaponsStart)
@@ -722,7 +733,7 @@ private func comparisonSideData(
     let buyRows = try await sql.raw("""
         SELECT b.match_id, b.side, b.buy_type, CAST(b.stats_json AS CHAR) AS stats_json
         FROM player_side_buy_stats b JOIN match_players mp ON mp.id = b.match_player_id
-        WHERE mp.player_id = \(bind: playerID)
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "b.match_id"))
         """).all()
     timing?.record("buy_slices", since: buySlicesStart)
     let buyProcessingStart = timing?.start()
@@ -744,7 +755,7 @@ private func comparisonSideData(
     let roundResultRows = try await sql.raw("""
         SELECT r.match_id, r.side, r.buy_type, r.round_result, CAST(r.stats_json AS CHAR) AS stats_json
         FROM player_round_result_stats r JOIN match_players mp ON mp.id = r.match_player_id
-        WHERE mp.player_id = \(bind: playerID)
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "r.match_id"))
         """).all()
     timing?.record("result_slices", since: resultSlicesStart)
     let resultProcessingStart = timing?.start()
@@ -767,7 +778,7 @@ private func comparisonSideData(
         SELECT e.match_id, e.side, e.buy_type, e.opponent_buy_type, e.round_result,
                CAST(e.stats_json AS CHAR) AS stats_json
         FROM player_economy_matchup_stats e JOIN match_players mp ON mp.id = e.match_player_id
-        WHERE mp.player_id = \(bind: playerID)
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "e.match_id"))
         """).all()
     timing?.record("matchup_slices", since: matchupSlicesStart)
     let matchupProcessingStart = timing?.start()
@@ -807,7 +818,7 @@ private func comparisonSideData(
         FROM match_players mp
         JOIN match_rounds r ON r.match_id = mp.match_id
           AND mp.match_team_id IN (r.t_match_team_id, r.ct_match_team_id)
-        WHERE mp.player_id = \(bind: playerID)
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "r.match_id"))
           AND r.winner_side IS NOT NULL
           AND r.t_alive_end IS NOT NULL AND r.ct_alive_end IS NOT NULL
           AND r.pistol_round IS NOT NULL
@@ -892,7 +903,8 @@ private func comparisonSideData(
               FROM death_events e
               JOIN match_rounds r ON r.id = e.match_round_id
               JOIN match_players mp ON mp.id = e.\(unsafeRaw: playerColumn)
-              WHERE mp.player_id = \(bind: playerID) \(unsafeRaw: kind == "killer" ? "AND e.enemy_kill = TRUE" : "")
+              WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "e.match_id"))
+                \(unsafeRaw: kind == "killer" ? "AND e.enemy_kill = TRUE" : "")
             ) source
             GROUP BY source.match_id, source.side, source.buy_type, source.opponent_buy_type, source.round_result
             """).all()
@@ -931,9 +943,13 @@ private func comparisonSideData(
 }
 
 private func comparisonMatches(
-    playerID: Int64, sql: any SQLDatabase, timing: ProfileTimingRecorder? = nil
+    playerID: Int64, matchIDs: [Int64]? = nil,
+    sql: any SQLDatabase, timing: ProfileTimingRecorder? = nil
 ) async throws -> [ComparisonMatch] {
-    let sideData = try await comparisonSideData(playerID: playerID, sql: sql, timing: timing)
+    if let matchIDs, matchIDs.isEmpty { return [] }
+    let sideData = try await comparisonSideData(
+        playerID: playerID, matchIDs: matchIDs, sql: sql, timing: timing
+    )
     let matchListStart = timing?.start()
     let rows = try await sql.raw("""
             SELECT m.id, m.payload_schema, m.played_at, m.map_name,
@@ -957,7 +973,7 @@ private func comparisonMatches(
             LEFT JOIN match_teams other_team
               ON other_team.match_id = mp.match_id AND other_team.id <> mp.match_team_id
             JOIN player_side_stats s ON s.match_player_id = mp.id
-            WHERE mp.player_id = \(bind: playerID)
+            WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "m.id"))
             GROUP BY m.id, m.payload_schema, m.played_at, m.map_name, mp.id, mp.match_team_id,
                      own_team.score, other_team.score
             ORDER BY m.played_at IS NULL, m.played_at DESC, m.id DESC
@@ -1397,9 +1413,9 @@ func getPlayerProfile(_ playerID: Int64, on database: any Database) async throws
     )
 }
 
-func getPlayerProfileData(
+func getPlayerProfileIdentity(
     _ playerID: Int64, on database: any Database, timing: ProfileTimingRecorder? = nil
-) async throws -> PlayerProfileDataResponse {
+) async throws -> PlayerProfileIdentity {
     guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
     let identityStart = timing?.start()
     guard let player = try await sql.raw("""
@@ -1407,14 +1423,31 @@ func getPlayerProfileData(
         FROM players WHERE id = \(bind: playerID)
         """).first() else { throw Abort(.notFound, reason: "Player not found.") }
     timing?.record("identity", since: identityStart)
+    return PlayerProfileIdentity(
+        id: try int64(player, "id"),
+        steamID: try player.decode(column: "steam_id", as: String.self),
+        name: try player.decode(column: "current_name", as: String.self),
+        firstSeenAt: unix(try optionalDate(player, "first_seen_at")),
+        lastSeenAt: unix(try optionalDate(player, "last_seen_at"))
+    )
+}
+
+func getPlayerProfileMatches(
+    _ playerID: Int64, matchIDs: [Int64],
+    on database: any Database, timing: ProfileTimingRecorder? = nil
+) async throws -> [ComparisonMatch] {
+    guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
+    return try await comparisonMatches(
+        playerID: playerID, matchIDs: matchIDs, sql: sql, timing: timing
+    )
+}
+
+func getPlayerProfileData(
+    _ playerID: Int64, on database: any Database, timing: ProfileTimingRecorder? = nil
+) async throws -> PlayerProfileDataResponse {
+    guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
     return PlayerProfileDataResponse(
-        player: PlayerProfileIdentity(
-            id: try int64(player, "id"),
-            steamID: try player.decode(column: "steam_id", as: String.self),
-            name: try player.decode(column: "current_name", as: String.self),
-            firstSeenAt: unix(try optionalDate(player, "first_seen_at")),
-            lastSeenAt: unix(try optionalDate(player, "last_seen_at"))
-        ),
+        player: try await getPlayerProfileIdentity(playerID, on: database, timing: timing),
         matches: try await comparisonMatches(playerID: playerID, sql: sql, timing: timing)
     )
 }

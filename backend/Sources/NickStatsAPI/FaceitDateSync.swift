@@ -37,6 +37,11 @@ struct FaceitDateSyncResponse: Content, Sendable {
     }
 }
 
+struct FaceitDateSyncResult: Sendable {
+    var response: FaceitDateSyncResponse
+    var changes: [ProfileMatchChange]
+}
+
 extension FaceitDateSyncPayload {
     func validate(now: Date = Date()) throws {
         guard schema == faceitDateSyncSchema else {
@@ -74,12 +79,13 @@ extension FaceitDateSyncPayload {
 func syncFaceitDates(
     _ payload: FaceitDateSyncPayload,
     on database: any Database
-) async throws -> FaceitDateSyncResponse {
+) async throws -> FaceitDateSyncResult {
     guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
     var updated = 0
     var unchanged = 0
     var notFoundIDs: [String] = []
     var affectedPlayerIDs = Set<Int64>()
+    var changes: [ProfileMatchChange] = []
 
     for metadata in payload.matches {
         guard let row = try await sql.raw("""
@@ -114,9 +120,13 @@ func syncFaceitDates(
         let playerRows = try await sql.raw("""
             SELECT player_id FROM match_players WHERE match_id = \(bind: matchID) AND player_id IS NOT NULL
             """).all()
+        var matchPlayerIDs: [Int64] = []
         for playerRow in playerRows {
-            affectedPlayerIDs.insert(try decodeSignedID(playerRow, column: "player_id"))
+            let playerID = try decodeSignedID(playerRow, column: "player_id")
+            affectedPlayerIDs.insert(playerID)
+            matchPlayerIDs.append(playerID)
         }
+        changes.append(ProfileMatchChange(matchID: matchID, playerIDs: matchPlayerIDs))
     }
 
     for playerID in affectedPlayerIDs {
@@ -136,12 +146,15 @@ func syncFaceitDates(
             """).run()
     }
 
-    return FaceitDateSyncResponse(
-        received: payload.matches.count,
-        updated: updated,
-        unchanged: unchanged,
-        notFound: notFoundIDs.count,
-        notFoundIDs: notFoundIDs
+    return FaceitDateSyncResult(
+        response: FaceitDateSyncResponse(
+            received: payload.matches.count,
+            updated: updated,
+            unchanged: unchanged,
+            notFound: notFoundIDs.count,
+            notFoundIDs: notFoundIDs
+        ),
+        changes: changes
     )
 }
 

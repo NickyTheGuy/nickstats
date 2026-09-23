@@ -94,8 +94,94 @@ private func validPayload() -> MatchPayload {
     )
 }
 
+private func comparisonMatch(id: Int64, playedAt: Int64, kills: Double) -> ComparisonMatch {
+    ComparisonMatch(
+        id: id,
+        schema: compactSchema,
+        playedAt: playedAt,
+        map: "de_mirage",
+        result: "w",
+        scoreFor: 13,
+        scoreAgainst: 7,
+        teammateIDs: [],
+        rounds: 20,
+        kills: Int(kills),
+        deaths: 10,
+        assists: 3,
+        headshots: 5,
+        damage: 1_500,
+        kastRounds: 15,
+        sides: [ComparisonSideStats(
+            side: .terrorist,
+            buyType: "ALL",
+            opponentBuyType: "ALL",
+            roundResult: "ALL",
+            stats: ["kills": kills],
+            weapons: []
+        )]
+    )
+}
+
 @Test func acceptsValidCompactMatch() throws {
     try validPayload().validate()
+}
+
+@Test func profileCacheAccumulatesMatchesAndRejectsAnOutdatedRefresh() async throws {
+    let cache = ProfileResponseCache(maximumEntries: 2)
+    let identity = PlayerProfileIdentity(
+        id: 7, steamID: "76561198000000007", name: "Seven",
+        firstSeenAt: 100, lastSeenAt: 200
+    )
+    let dense = DensePlayerProfileDataResponse(PlayerProfileDataResponse(
+        player: identity,
+        matches: [comparisonMatch(id: 10, playedAt: 100, kills: 10)]
+    ))
+    let data = try JSONEncoder().encode(dense)
+    let initial = await cache.lookup(playerID: 7, wireVersion: 2)
+    await cache.insert(data, profile: dense, playerID: 7, wireVersion: 2, version: initial.version)
+
+    await cache.markChanged([
+        ProfileMatchChange(matchID: 11, playerIDs: [7]),
+        ProfileMatchChange(matchID: 12, playerIDs: [7])
+    ])
+    let stale = await cache.lookup(playerID: 7, wireVersion: 2)
+    #expect(stale.staleMatchIDs == [11, 12])
+
+    await cache.markChanged([ProfileMatchChange(matchID: 13, playerIDs: [7])])
+    await cache.insert(data, profile: dense, playerID: 7, wireVersion: 2, version: stale.version)
+    let stillStale = await cache.lookup(playerID: 7, wireVersion: 2)
+    #expect(stillStale.staleMatchIDs == [11, 12, 13])
+}
+
+@Test func denseProfileRefreshReplacesAllPendingMatchesAndPreservesOrdering() {
+    let oldIdentity = PlayerProfileIdentity(
+        id: 7, steamID: "76561198000000007", name: "Old",
+        firstSeenAt: 100, lastSeenAt: 200
+    )
+    let cached = DensePlayerProfileDataResponse(PlayerProfileDataResponse(
+        player: oldIdentity,
+        matches: [
+            comparisonMatch(id: 10, playedAt: 100, kills: 10),
+            comparisonMatch(id: 11, playedAt: 200, kills: 11)
+        ]
+    ))
+    let newIdentity = PlayerProfileIdentity(
+        id: 7, steamID: "76561198000000007", name: "New",
+        firstSeenAt: 100, lastSeenAt: 300
+    )
+    let refreshed = DensePlayerProfileDataResponse(
+        refreshing: cached,
+        player: newIdentity,
+        replacingMatchIDs: [11, 12],
+        with: [
+            comparisonMatch(id: 11, playedAt: 250, kills: 21),
+            comparisonMatch(id: 12, playedAt: 300, kills: 12)
+        ]
+    )
+
+    #expect(refreshed.player.name == "New")
+    #expect(refreshed.matches.map(\.id) == [12, 11, 10])
+    #expect(refreshed.matches.count == 3)
 }
 
 @Test func rejectsOpeningAssistCountsThatExceedOpeningKills() {

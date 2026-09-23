@@ -271,7 +271,7 @@ struct PlayerProfileDataResponse: Content {
 /// A wire-efficient profile response. Statistic names are sent once and each
 /// side row carries only an aligned value array; null preserves unavailable
 /// statistics without repeating hundreds of JSON object keys per row.
-struct DensePlayerProfileDataResponse: Content {
+struct DensePlayerProfileDataResponse: Content, Sendable {
     var player: PlayerProfileIdentity
     var statKeys: [String]
     var matches: [DenseComparisonMatch]
@@ -289,9 +289,36 @@ struct DensePlayerProfileDataResponse: Content {
         statKeys = keys
         matches = value.matches.map { DenseComparisonMatch($0, statKeys: keys) }
     }
+
+    init(
+        refreshing cached: DensePlayerProfileDataResponse,
+        player: PlayerProfileIdentity,
+        replacingMatchIDs: [Int64],
+        with refreshedMatches: [ComparisonMatch]
+    ) {
+        self.player = player
+        let refreshedKeys = refreshedMatches.flatMap { match in
+            match.sides.flatMap { $0.stats.keys }
+        }
+        let keys = Array(Set(cached.statKeys).union(refreshedKeys)).sorted()
+        statKeys = keys
+        let replaced = Set(replacingMatchIDs)
+        let retained = cached.matches
+            .filter { !replaced.contains($0.id) }
+            .map { $0.remappingStatKeys(from: cached.statKeys, to: keys) }
+        matches = retained + refreshedMatches.map { DenseComparisonMatch($0, statKeys: keys) }
+        matches.sort {
+            switch ($0.playedAt, $1.playedAt) {
+            case let (left?, right?) where left != right: return left > right
+            case (nil, .some(_)): return false
+            case (.some(_), nil): return true
+            default: return $0.id > $1.id
+            }
+        }
+    }
 }
 
-struct DenseComparisonMatch: Content {
+struct DenseComparisonMatch: Content, Sendable {
     var id: Int64
     var schema: String
     var playedAt: Int64?
@@ -336,9 +363,16 @@ struct DenseComparisonMatch: Content {
         kastRounds = value.kastRounds
         sides = value.sides.map { DenseComparisonSideStats($0, statKeys: statKeys) }
     }
+
+    func remappingStatKeys(from oldKeys: [String], to newKeys: [String]) -> DenseComparisonMatch {
+        guard oldKeys != newKeys else { return self }
+        var value = self
+        value.sides = sides.map { $0.remappingStatKeys(from: oldKeys, to: newKeys) }
+        return value
+    }
 }
 
-struct DenseComparisonSideStats: Content {
+struct DenseComparisonSideStats: Content, Sendable {
     var side: PlayerSide
     var buyType: String
     var opponentBuyType: String
@@ -361,9 +395,19 @@ struct DenseComparisonSideStats: Content {
         stats = statKeys.map { value.stats[$0] }
         weapons = value.weapons
     }
+
+    func remappingStatKeys(from oldKeys: [String], to newKeys: [String]) -> DenseComparisonSideStats {
+        let oldIndexes = Dictionary(uniqueKeysWithValues: oldKeys.enumerated().map { ($0.element, $0.offset) })
+        var value = self
+        value.stats = newKeys.map { key in
+            guard let index = oldIndexes[key], index < stats.count else { return nil }
+            return stats[index]
+        }
+        return value
+    }
 }
 
-struct PlayerProfileIdentity: Content {
+struct PlayerProfileIdentity: Content, Sendable {
     var id: Int64
     var steamID: String
     var name: String
@@ -620,7 +664,7 @@ struct ComparisonSideStats: Content {
     }
 }
 
-struct ComparisonWeaponStats: Content {
+struct ComparisonWeaponStats: Content, Sendable {
     var weapon: String
     var kills: Int
     var shots: Int
