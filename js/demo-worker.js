@@ -279,7 +279,7 @@ async function parseDemo(fileName, buffer) {
           tradedTradeableDeaths: 0,
           tradedBy: new Map(),
           tradeProximityDistances: [],
-          provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0 },
+          provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0, death: 0 },
           damageAssistedKills: 0,
           flashAssistedKills: 0,
           ownFlashAssistedKills: 0,
@@ -535,7 +535,7 @@ async function parseDemo(fileName, buffer) {
       row.tradedTradeableDeaths = 0;
       row.tradedBy = new Map();
       row.tradeProximityDistances = [];
-      row.provenTradeOpportunities = { bullet_path: 0, damage: 0, kill: 0 };
+      row.provenTradeOpportunities = { bullet_path: 0, damage: 0, kill: 0, death: 0 };
       row.damageAssistedKills = 0;
       row.flashAssistedKills = 0;
       row.ownFlashAssistedKills = 0;
@@ -653,7 +653,7 @@ async function parseDemo(fileName, buffer) {
       flashMatchups: new Map(),
       tradedBy: new Map(),
       tradeProximityDistances: [],
-      provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0 },
+      provenTradeOpportunities: { bullet_path: 0, damage: 0, kill: 0, death: 0 },
       killRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       trueKillRoundsByCount: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
       clutchWins: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
@@ -1773,6 +1773,13 @@ async function parseDemo(fileName, buffer) {
       round.kills.add(attackerId);
       round.killCounts.set(attackerId, (round.killCounts.get(attackerId) || 0) + 1);
       for (const prior of round.pendingDeaths) {
+        if (prior.killer === attackerId && prior.victim !== victimId && prior.victimTeam === victimTeam &&
+            tradeIsOpen(prior, victimId, tick)) {
+          // Being killed by the original killer proves the teammate was in a
+          // position to contest the trade, even if they never fired or dealt damage.
+          recordTradeAttempt(prior, victim, "death");
+          refreshTradeEngagement(prior, victimId, tick);
+        }
         if (prior.killer === attackerId && prior.attemptedTraders.has(victimId) &&
             tradeIsOpen(prior, victimId, tick)) {
           recordTrueMultikillLink(round, attackerId, prior.victim, victimId);
@@ -2518,8 +2525,8 @@ async function parseDemo(fileName, buffer) {
       proximity_units: TRADE_PROXIMITY_UNITS,
       engagement_lull_seconds: TRADE_ENGAGEMENT_LULL_SECONDS,
       bullet_path_tolerance_units: BULLET_PATH_TOLERANCE_UNITS,
-      opportunity: "Living teammate within the proximity radius when a teammate dies, or a teammate whose shot path, damage, or kill later proves engagement with the killer",
-      attempt: "An eligible teammate damages the killer or fires a shot path near the killer during the initial trade window",
+      opportunity: "Living teammate within the proximity radius when a teammate dies, or a teammate whose shot path, damage, kill, or death to the same killer later proves engagement",
+      attempt: "An eligible teammate damages the killer, fires a shot path near the killer, kills the killer, or is killed by that killer during the initial trade window",
       success: "An eligible teammate kills the killer before the active engagement expires",
       he_damage_caps: {
         unarmored: HE_MAX_DAMAGE_UNARMORED,
@@ -2537,7 +2544,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.23.1",
+    nickstats_build: "2026.09.23.2",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
