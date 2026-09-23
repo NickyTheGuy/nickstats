@@ -11,7 +11,7 @@ const models = read("backend/Sources/NickStatsAPI/Models.swift");
 const demo = read("js/demo.js");
 const scoreboard = read("js/scoreboard.js");
 const profile = read("js/profile.js");
-const compare = read("js/compare.js");
+const compare = read("js/groups.js");
 const graphs = read("js/graphs.js");
 
 test("stored flash relationships aggregate enemy, teammate, and self effects separately", () => {
@@ -36,13 +36,13 @@ test("match scoreboard derives teammate and self flash effects from relationship
   assert.match(demo, /selfEffects, selfBlindSeconds\.toFixed\(1\)/);
 });
 
-test("profiles, comparisons, and graphs expose teammate and self blind outcomes", () => {
+test("profiles, groups, and graphs expose teammate and self blind outcomes", () => {
   assert.match(profile, /"Teammates flashed"/);
   assert.match(profile, /"Teammate blind time"/);
   assert.match(profile, /"Self flash effects"/);
   assert.match(profile, /"Self blind time"/);
-  assert.match(compare, /"Teammate blind sec", "teammateBlindSeconds"/);
-  assert.match(compare, /"Self blind sec", "selfBlindSeconds"/);
+  assert.match(compare, /teammateBlindSeconds: num\(stats\.teammate_blind_duration_ms\) \/ 1000/);
+  assert.match(compare, /selfBlindSeconds: num\(stats\.self_blind_duration_ms\) \/ 1000/);
   assert.match(graphs, /"Teammates flashed per round"/);
   assert.match(graphs, /"Self blind seconds per round"/);
 });

@@ -1,13 +1,12 @@
 (() => {
   "use strict";
 
-  const pages = new Set(["match", "compare", "players"]);
+  const pages = new Set(["match", "players", "groups"]);
   const routePage = route => String(route || "").split("/")[0];
 
   function showPage(page, updateHash = true) {
     const requestedPage = routePage(page);
-    const requested = requestedPage === "matrix" ? "compare" : requestedPage;
-    const next = pages.has(requested) ? requested : "match";
+    const next = pages.has(requestedPage) ? requestedPage : "match";
     document.querySelectorAll("[data-app-page]").forEach(button => {
       const active = button.dataset.appPage === next;
       button.setAttribute("aria-selected", String(active));

@@ -7,7 +7,7 @@ const test = require("node:test");
 
 const componentSource = fs.readFileSync(path.join(__dirname, "..", "js", "quick-comparison.js"), "utf8");
 const scoreboardSource = fs.readFileSync(path.join(__dirname, "..", "js", "scoreboard.js"), "utf8");
-const compareSource = fs.readFileSync(path.join(__dirname, "..", "js", "compare.js"), "utf8");
+const compareSource = fs.readFileSync(path.join(__dirname, "..", "js", "groups.js"), "utf8");
 const playersSource = fs.readFileSync(path.join(__dirname, "..", "js", "players.js"), "utf8");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const styles = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
@@ -79,11 +79,16 @@ test("quick comparison sections are selectable and remain expandable", () => {
   assert.match(styles, /\.player-profile-table\.quick-comparison-table \.player-table-sort-button \{[\s\S]*?min-height: 38px;[\s\S]*?text-align: center;/);
 });
 
-test("the standalone Matrix navigation tab is removed", () => {
-  assert.doesNotMatch(html, /data-app-page="matrix"|id="matrixPageTab"/);
+test("Groups is its own page with no old Compare or Matrix workspace", () => {
+  assert.match(html, /data-app-page="groups"/);
+  assert.doesNotMatch(html, /data-app-page="(?:compare|matrix)"|id="(?:compare|matrix)PageTab"/);
   const navigation = fs.readFileSync(path.join(__dirname, "..", "js", "navigation.js"), "utf8");
-  assert.match(navigation, /requestedPage === "matrix" \? "compare" : requestedPage/);
-  assert.doesNotMatch(navigation, /new Set\(\["match", "compare", "matrix", "players"\]\)/);
+  assert.match(navigation, /new Set\(\["match", "players", "groups"\]\)/);
+  assert.doesNotMatch(navigation, /matrix|requestedPage === "compare"/);
+  assert.doesNotMatch(compareSource, /workspace|buildAnalysis|renderMatrix|setCompareMode|setWorkspace/);
+  assert.match(compareSource, /GROUP_DATA_ENDPOINT = "\/nickstats\/api\/groups"/);
+  assert.doesNotMatch(compareSource, /\/nickstats\/api\/compare/);
+  assert.doesNotMatch(html, /matrixMapFilter|data-compare-mode|data-compare-view|compareMetricGroup/);
 });
 
 test("quick comparison puts summary columns before collapsible combat", () => {
@@ -172,7 +177,7 @@ test("player and group quick-comparison switches sit above shared filters", () =
 });
 
 test("player, group, and match views share a two-row economy matchup control", () => {
-  for (const attribute of ["data-player-buy", "data-player-enemy-buy", "data-compare-buy", "data-compare-enemy-buy", "data-demo-buy", "data-demo-enemy-buy"]) {
+  for (const attribute of ["data-player-buy", "data-player-enemy-buy", "data-group-buy", "data-group-enemy-buy", "data-demo-buy", "data-demo-enemy-buy"]) {
     assert.match(html, new RegExp(attribute));
   }
   assert.match(html, /economy-matchup-title">Economy matchup/);

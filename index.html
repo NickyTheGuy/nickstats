@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260922-08">
+  <link rel="stylesheet" href="./styles.css?v=20260923-06">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.09.23.5</span>
+          <span class="demo-build">Build 2026.09.23.6</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -21,7 +21,7 @@
     <nav class="data-tabs app-tabs" role="tablist" aria-label="NickStats sections">
       <button class="data-tab" id="matchPageTab" type="button" role="tab" aria-selected="true" aria-controls="matchPage" data-app-page="match">Match</button>
       <button class="data-tab" id="playersPageTab" type="button" role="tab" aria-selected="false" aria-controls="playersPage" data-app-page="players">Player</button>
-      <button class="data-tab" id="comparePageTab" type="button" role="tab" aria-selected="false" aria-controls="comparePage" data-app-page="compare">Groups</button>
+      <button class="data-tab" id="groupsPageTab" type="button" role="tab" aria-selected="false" aria-controls="groupsPage" data-app-page="groups">Groups</button>
     </nav>
 
     <section class="app-view" id="matchPage" role="tabpanel" aria-labelledby="matchPageTab" data-app-view="match">
@@ -180,88 +180,42 @@
       </div>
     </section>
 
-    <section class="app-view" id="comparePage" role="tabpanel" aria-labelledby="comparePageTab" data-app-view="compare" hidden>
-      <div class="compare-page-stack">
-        <section class="panel compare-builder-panel">
-          <div class="section-head compare-builder-heading">
+    <section class="app-view" id="groupsPage" role="tabpanel" aria-labelledby="groupsPageTab" data-app-view="groups" hidden>
+      <div class="group-page-stack">
+        <section class="panel group-builder-panel">
+          <div class="section-head group-builder-heading">
             <div>
-              <div class="eyebrow" id="compareBuilderEyebrow">Conditional groups</div>
-              <h2 id="compareBuilderTitle">Add players, then mark each one Include or Exclude for the group condition.</h2>
+              <div class="eyebrow">Conditional groups</div>
+              <h2>Add players, then mark each one Include or Exclude for the group condition.</h2>
             </div>
-            <form class="compare-search-form" id="compareSearchForm" role="search">
-              <label class="visually-hidden" for="compareSearchInput">Player name or Steam ID</label>
-              <input id="compareSearchInput" type="search" placeholder="Name or Steam ID" autocomplete="off" spellcheck="false">
+            <form class="group-search-form" id="groupSearchForm" role="search">
+              <label class="visually-hidden" for="groupSearchInput">Player name or Steam ID</label>
+              <input id="groupSearchInput" type="search" placeholder="Name or Steam ID" autocomplete="off" spellcheck="false">
               <button class="button button-secondary" type="submit">Find player</button>
             </form>
           </div>
-          <div class="compare-search-status" id="compareSearchStatus" role="status" aria-live="polite">Search and add at least two players.</div>
-          <div class="compare-search-results" id="compareSearchResults"></div>
-          <div class="compare-selected-roster" id="compareSelectedRoster"></div>
-          <div class="actions compare-builder-actions">
-            <button class="button button-primary" id="compareAnalyzeButton" type="button" disabled>Build profiles</button>
-            <button class="button button-secondary" id="compareClearButton" type="button" disabled>Clear</button>
-            <div class="status" id="compareStatus" role="status" aria-live="polite">Choose at least two players.</div>
+          <div class="group-search-status" id="groupSearchStatus" role="status" aria-live="polite">Search and add at least two players.</div>
+          <div class="group-search-results" id="groupSearchResults"></div>
+          <div class="group-selected-roster" id="groupSelectedRoster"></div>
+          <div class="actions group-builder-actions">
+            <button class="button button-primary" id="groupBuildButton" type="button" disabled>Build profiles</button>
+            <button class="button button-secondary" id="groupClearButton" type="button" disabled>Clear</button>
+            <div class="status" id="groupStatus" role="status" aria-live="polite">Choose at least two players.</div>
           </div>
         </section>
 
-        <div class="compare-results" id="compareResults" hidden>
-          <div class="stats-toolbar compare-stats-toolbar">
-            <label for="compareMetricGroup">Statistics</label>
-            <select id="compareMetricGroup">
-              <option value="core">Core</option><option value="openings">Openings</option>
-              <option value="trades">Trades</option><option value="utility">Utility</option>
-              <option value="context">Kill context</option><option value="contextDeaths">Death context</option><option value="killStage">Kill stage</option><option value="rounds">Rounds</option><option value="economy">Economy</option><option value="timing">Round timing</option>
-              <option value="movement">Movement</option><option value="weapons">Weapons</option>
-            </select>
-            <select id="compareWeapon" aria-label="Weapon" hidden></select>
-            <span>Map</span><div class="map-multiselect" id="matrixMapFilter"></div>
-            <span>Side</span>
-            <div class="side-toggle" role="group" aria-label="Comparison side">
-              <button class="active" type="button" aria-pressed="true" data-matrix-side="ALL">All</button>
-              <button type="button" aria-pressed="false" data-matrix-side="T">T</button>
-              <button type="button" aria-pressed="false" data-matrix-side="CT">CT</button>
-            </div>
-          </div>
-          <nav class="mode-tabs compare-mode-tabs" role="tablist" aria-label="Comparison mode" hidden>
-            <button class="tab-button" type="button" role="tab" aria-selected="true" data-compare-mode="group">Group matrix</button>
-            <button class="tab-button" type="button" role="tab" aria-selected="false" data-compare-mode="combination">Lineup conditions</button>
-          </nav>
-
-          <div class="mode-view" data-compare-view="group" hidden>
-            <section class="panel section-panel">
-              <div class="section-head">
-                <div><h2>Group impact</h2><p>How each player's presence changes the other selected players' results.</p></div>
-              </div>
-              <div class="verdict-grid" id="compareVerdicts"></div>
-            </section>
-
-            <section class="panel table-panel">
-              <div class="table-heading"><div><h2>Lifter / Dragger matrix</h2><p>Rows are measured players; columns are the teammate present.</p></div></div>
-              <div class="table-wrap">
-                <table class="matrix-table"><thead id="compareMatrixHead"></thead><tbody id="compareMatrixBody"></tbody></table>
-              </div>
-            </section>
-
-            <section class="panel table-panel">
-              <div class="table-heading"><div><h2>Pair details</h2><p>With-versus-without changes, sample size, and confidence for every direction.</p></div></div>
-              <div class="table-wrap">
-                <table><thead id="compareDetailsHead"></thead><tbody id="compareDetailsBody"></tbody></table>
-              </div>
-            </section>
-          </div>
-
-          <div class="mode-view" data-compare-view="combination">
+        <div class="group-results" id="groupResults" hidden>
             <div class="warning-list" id="comboWarnings"></div>
             <div class="combo-results" id="comboResults" hidden>
               <nav class="player-open-profiles unified-profile-tabs" id="comboProfilePlayers" role="tablist" aria-label="Included player profiles and quick comparison"></nav>
 
               <div class="stats-toolbar combo-profile-toolbar">
-                <span>Map</span><div class="map-multiselect" id="compareMapFilter"></div>
+                <span>Map</span><div class="map-multiselect" id="groupMapFilter"></div>
                 <span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div>
                 <span>Result</span><div class="side-toggle" role="group" aria-label="Profile match result"><button class="active" type="button" aria-pressed="true" data-combo-result="ALL">All</button><button type="button" aria-pressed="false" data-combo-result="w">Wins</button><button type="button" aria-pressed="false" data-combo-result="l">Losses</button></div>
-                <span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-compare-side="ALL">All</button><button type="button" aria-pressed="false" data-compare-side="T">T</button><button type="button" aria-pressed="false" data-compare-side="CT">CT</button></div>
-                <div class="economy-matchup-filter"><span class="economy-matchup-title">Economy matchup</span><div class="economy-matchup-row"><span>Your buy</span><div class="side-toggle" role="group" aria-label="Profile own buy"><button class="active" type="button" aria-pressed="true" data-compare-buy="ALL">All</button><button type="button" aria-pressed="false" data-compare-buy="full">Full</button><button type="button" aria-pressed="false" data-compare-buy="force">Force</button><button type="button" aria-pressed="false" data-compare-buy="eco">Eco</button><button type="button" aria-pressed="false" data-compare-buy="pistol">Pistol</button></div></div><div class="economy-matchup-row"><span>Enemy buy</span><div class="side-toggle" role="group" aria-label="Profile enemy buy"><button class="active" type="button" aria-pressed="true" data-compare-enemy-buy="ALL">All</button><button type="button" aria-pressed="false" data-compare-enemy-buy="full">Full</button><button type="button" aria-pressed="false" data-compare-enemy-buy="force">Force</button><button type="button" aria-pressed="false" data-compare-enemy-buy="eco">Eco</button><button type="button" aria-pressed="false" data-compare-enemy-buy="pistol">Pistol</button></div></div></div>
-                <span>Rounds</span><div class="side-toggle" role="group" aria-label="Profile round result"><button class="active" type="button" aria-pressed="true" data-compare-round-result="ALL">All</button><button type="button" aria-pressed="false" data-compare-round-result="win">Won</button><button type="button" aria-pressed="false" data-compare-round-result="loss">Lost</button></div>
+                <span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-group-side="ALL">All</button><button type="button" aria-pressed="false" data-group-side="T">T</button><button type="button" aria-pressed="false" data-group-side="CT">CT</button></div>
+                <div class="economy-matchup-filter"><span class="economy-matchup-title">Economy matchup</span><div class="economy-matchup-row"><span>Your buy</span><div class="side-toggle" role="group" aria-label="Profile own buy"><button class="active" type="button" aria-pressed="true" data-group-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-buy="full">Full</button><button type="button" aria-pressed="false" data-group-buy="force">Force</button><button type="button" aria-pressed="false" data-group-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-buy="pistol">Pistol</button></div></div><div class="economy-matchup-row"><span>Enemy buy</span><div class="side-toggle" role="group" aria-label="Profile enemy buy"><button class="active" type="button" aria-pressed="true" data-group-enemy-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-enemy-buy="full">Full</button><button type="button" aria-pressed="false" data-group-enemy-buy="force">Force</button><button type="button" aria-pressed="false" data-group-enemy-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-enemy-buy="pistol">Pistol</button></div></div></div>
+                <span>Rounds</span><div class="side-toggle" role="group" aria-label="Profile round result"><button class="active" type="button" aria-pressed="true" data-group-round-result="ALL">All</button><button type="button" aria-pressed="false" data-group-round-result="win">Won</button><button type="button" aria-pressed="false" data-group-round-result="loss">Lost</button></div>
               </div>
 
               <div class="combo-display-panel" data-combo-display-panel="profile">
@@ -285,7 +239,6 @@
                 </div>
                 <p class="quick-comparison-empty" id="comboQuickEmpty" hidden>No qualifying matches for this map and filter combination.</p>
               </section>
-            </div>
           </div>
         </div>
       </div>
@@ -516,7 +469,7 @@
     </form>
   </dialog>
 
-  <script defer src="./js/navigation.js?v=20260922-08"></script>
+  <script defer src="./js/navigation.js?v=20260923-06"></script>
   <script defer src="./js/filters.js?v=20260920-14"></script>
   <script defer src="./js/stat-availability.js?v=20260922-08"></script>
   <script defer src="./js/scoreboard.js?v=20260923-01"></script>
@@ -525,6 +478,6 @@
   <script defer src="./js/profile.js?v=20260922-08"></script>
   <script defer src="./js/quick-comparison.js?v=20260923-01"></script>
   <script defer src="./js/players.js?v=20260923-04"></script>
-  <script defer src="./js/compare.js?v=20260922-08"></script>
+  <script defer src="./js/groups.js?v=20260923-06"></script>
 </body>
 </html>

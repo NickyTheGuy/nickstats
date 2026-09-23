@@ -215,7 +215,7 @@ func routes(_ app: Application) throws {
         return response
     }
 
-    app.get("compare") { request async throws -> ComparisonResponse in
+    app.get("groups") { request async throws -> ComparisonResponse in
         try await comparisonData(request)
     }
 }
