@@ -1334,17 +1334,17 @@
     return Number(match.playedAt ?? match.played_at);
   }
 
-  const mapArtworkPositions = {
-    mirage: "0% 0%",
-    inferno: "100% 0%",
-    nuke: "0% 25%",
-    dust2: "100% 25%",
-    ancient: "0% 50%",
-    anubis: "100% 50%",
-    overpass: "0% 75%",
-    train: "100% 75%",
-    vertigo: "0% 100%",
-    cache: "100% 100%"
+  const mapArtworkLocations = {
+    mirage: { column: 0, row: 0 },
+    inferno: { column: 1, row: 0 },
+    nuke: { column: 0, row: 1 },
+    dust2: { column: 1, row: 1 },
+    ancient: { column: 0, row: 2 },
+    anubis: { column: 1, row: 2 },
+    overpass: { column: 0, row: 3 },
+    train: { column: 1, row: 3 },
+    vertigo: { column: 0, row: 4 },
+    cache: { column: 1, row: 4 }
   };
 
   function mapArtworkKey(name) {
@@ -1356,6 +1356,19 @@
       .replace(/^de_/, "")
       .replace(/[^a-z0-9]/g, "");
     return normalized === "dustii" ? "dust2" : normalized;
+  }
+
+  function applyMapArtwork(element, mapName, banner = false) {
+    const location = mapArtworkLocations[mapArtworkKey(mapName)];
+    element.classList.toggle("unknown", !location);
+    if (!location) return;
+    if (banner) {
+      element.style.setProperty("--map-column", `${location.column * 100}%`);
+      element.style.setProperty("--map-row-offset", `${location.row * 22.326}%`);
+      element.style.setProperty("--map-mobile-row-offset", `${location.row * 24.615}%`);
+      return;
+    }
+    element.style.backgroundPosition = `${location.column * 100}% ${location.row * 25}%`;
   }
 
   function matchScore(team) {
@@ -1397,12 +1410,7 @@
       const mapName = match.map || "Unknown map";
       const artwork = document.createElement("span");
       artwork.className = "match-list-map-art";
-      const artworkKey = mapArtworkKey(mapName);
-      if (mapArtworkPositions[artworkKey]) {
-        artwork.style.backgroundPosition = mapArtworkPositions[artworkKey];
-      } else {
-        artwork.classList.add("unknown");
-      }
+      applyMapArtwork(artwork, mapName);
       const artworkLabel = document.createElement("span");
       artworkLabel.textContent = mapName.replace(/^de_/i, "");
       artwork.append(artworkLabel);
@@ -1533,15 +1541,62 @@
     });
   }
 
-  function summaryCard(label, value) {
-    const card = document.createElement("div");
-    card.className = "demo-summary-card";
-    const name = document.createElement("span");
-    name.textContent = label;
-    const strong = document.createElement("strong");
-    strong.textContent = value;
-    card.append(name, strong);
-    return card;
+  function renderMatchBanner(result) {
+    const banner = $("demoMatchBanner");
+    const teams = Array.isArray(result.teams) ? result.teams : [];
+    const firstTeam = teams[0];
+    const secondTeam = teams[1];
+    const mapName = result.map || "Unknown map";
+    const playedAt = formatMatchTime(result.played_at);
+    const firstResult = matchTeamResult(firstTeam, secondTeam);
+    const secondResult = matchTeamResult(secondTeam, firstTeam);
+
+    banner.className = "match-banner";
+    banner.style.removeProperty("--map-column");
+    banner.style.removeProperty("--map-row-offset");
+    banner.style.removeProperty("--map-mobile-row-offset");
+    applyMapArtwork(banner, mapName, true);
+
+    const top = document.createElement("div");
+    top.className = "match-banner-top";
+    const identity = document.createElement("span");
+    identity.className = "match-banner-identity";
+    identity.textContent = state.selectedMatchID ? `Match #${state.selectedMatchID}` : state.file?.name || "Uploaded match";
+    const date = document.createElement("time");
+    date.className = "match-banner-date";
+    date.textContent = playedAt === "Unknown" ? "Date unavailable" : playedAt;
+    if (Number.isFinite(result.played_at) && result.played_at > 0) {
+      date.dateTime = new Date(result.played_at * 1000).toISOString();
+    }
+    top.append(identity, date);
+
+    const bottom = document.createElement("div");
+    bottom.className = "match-banner-bottom";
+    const map = document.createElement("span");
+    map.className = "match-banner-map";
+    map.textContent = mapName.replace(/^de_/i, "");
+
+    const scoreline = document.createElement("div");
+    scoreline.className = "match-banner-scoreline";
+    const firstName = document.createElement("span");
+    firstName.className = `match-banner-team first${firstResult ? ` ${firstResult}` : ""}`;
+    firstName.textContent = firstTeam?.name || "Unknown team";
+    const firstScore = document.createElement("strong");
+    firstScore.className = `match-banner-score first${firstResult ? ` ${firstResult}` : ""}`;
+    firstScore.textContent = matchScore(firstTeam) ?? "—";
+    const separator = document.createElement("span");
+    separator.className = "match-banner-score-separator";
+    separator.textContent = "–";
+    const secondScore = document.createElement("strong");
+    secondScore.className = `match-banner-score second${secondResult ? ` ${secondResult}` : ""}`;
+    secondScore.textContent = matchScore(secondTeam) ?? "—";
+    const secondName = document.createElement("span");
+    secondName.className = `match-banner-team second${secondResult ? ` ${secondResult}` : ""}`;
+    secondName.textContent = secondTeam?.name || "Unknown team";
+    scoreline.append(firstName, firstScore, separator, secondScore, secondName);
+    bottom.append(map, scoreline);
+    banner.replaceChildren(top, bottom);
+    banner.setAttribute("aria-label", `${firstName.textContent} ${firstScore.textContent} to ${secondScore.textContent} ${secondName.textContent} on ${map.textContent}`);
   }
 
   function cell(row, value, className) {
@@ -2589,23 +2644,7 @@
 
   function render(result) {
     const teams = teamsForSide(result);
-    const sideRounds = teams.reduce((maximum, team) => Math.max(
-      maximum,
-      ...(team.players || []).map(player => player.rounds_played || 0)
-    ), 0);
-    const teamRoundCounts = teams.map(team => Math.max(0, ...(team.players || []).map(player => player.rounds_played || 0)));
-    const score = state.roundResultFilter !== "ALL" && teamRoundCounts.length >= 2
-      ? `${teamRoundCounts[0]}–${teamRoundCounts[1]}`
-      : teams.length >= 2 && teams.every(team => Number.isFinite(team.score)) ? `${teams[0].score}–${teams[1].score}` : "Unknown";
-    const filteredOutcomeLabel = state.roundResultFilter === "win" ? "Winning rounds" : state.roundResultFilter === "loss" ? "Losing rounds" : "Filtered wins";
-    $("demoSummary").replaceChildren(
-      summaryCard(state.selectedMatchID ? "Stored match" : "File", state.selectedMatchID ? `#${state.selectedMatchID}` : state.file?.name || "Demo"),
-      summaryCard("Match ID", result.provider_match_id || `SHA ${String(result.demo_sha256 || "").slice(0, 12)}…`),
-      summaryCard("Played", formatMatchTime(result.played_at)),
-      summaryCard("Map", result.map || "Unknown"),
-      summaryCard(state.sideFilter === "ALL" && state.buyFilter === "ALL" && state.enemyBuyFilter === "ALL" && state.roundResultFilter === "ALL" ? "Rounds" : "Filtered rounds", String(state.sideFilter === "ALL" && state.buyFilter === "ALL" && state.enemyBuyFilter === "ALL" && state.roundResultFilter === "ALL" ? result.rounds || 0 : sideRounds)),
-      summaryCard(state.sideFilter === "ALL" && state.buyFilter === "ALL" && state.enemyBuyFilter === "ALL" && state.roundResultFilter === "ALL" ? "Score" : filteredOutcomeLabel, score)
-    );
+    renderMatchBanner(result);
     renderScoreboardControls();
     const finiteScores = teams.map(team => team.score).filter(Number.isFinite);
     const highScore = finiteScores.length ? Math.max(...finiteScores) : null;
