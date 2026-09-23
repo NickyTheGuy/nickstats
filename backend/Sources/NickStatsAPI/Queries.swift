@@ -226,7 +226,7 @@ private struct ComparisonFlashTargets {
     var teamByPlayerSlot: [Int: Int64]
 }
 
-private func flattenedBuyStats(_ value: SideStatsPayload, flashTargets: ComparisonFlashTargets? = nil) -> [String: Double] {
+func flattenedBuyStats(_ value: SideStatsPayload, flashTargets: ComparisonFlashTargets? = nil) -> [String: Double] {
     let attempts = value.clutchAttempts ?? value.clutches
     let thrown = value.utilityThrown ?? .zero
     let objectives = value.objectives ?? .zero
