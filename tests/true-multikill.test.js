@@ -43,6 +43,8 @@ test("true multi-kill links deduplicate victims and extend connected anti-trade 
 });
 
 test("death to the original killer proves a trade opportunity and failed attempt", () => {
+  assert.match(worker, /const TRADE_WINDOW_SECONDS = 3;/);
+  assert.match(worker, /const TRADE_ENGAGEMENT_LULL_SECONDS = 2;/);
   assert.match(worker, /prior\.killer === attackerId && prior\.victim !== victimId && prior\.victimTeam === victimTeam[\s\S]*?tradeIsOpen\(prior, victimId, tick\)[\s\S]*?recordTradeAttempt\(prior, victim, "death"\)/);
   assert.match(worker, /provenTradeOpportunities: \{ bullet_path: 0, damage: 0, kill: 0, death: 0 \}/);
   assert.match(worker, /attempt: "[^"]*is killed by that killer during the initial trade window"/);

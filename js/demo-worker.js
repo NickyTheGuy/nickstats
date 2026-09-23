@@ -17,7 +17,7 @@ const equipmentBuyType = (value, players, pistolRound = false) => {
   return perPlayer <= ECO_MAX_EQUIPMENT_PER_PLAYER ? "eco" :
     perPlayer >= FULL_BUY_MIN_EQUIPMENT_PER_PLAYER ? "full" : "force";
 };
-const TRADE_WINDOW_SECONDS = 5;
+const TRADE_WINDOW_SECONDS = 3;
 const TRADE_PROXIMITY_UNITS = 250;
 const TRADE_ENGAGEMENT_LULL_SECONDS = 2;
 const BULLET_PATH_TOLERANCE_UNITS = 96;
@@ -2544,7 +2544,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.23.2",
+    nickstats_build: "2026.09.23.3",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
