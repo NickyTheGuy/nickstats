@@ -199,6 +199,27 @@ private struct ComparisonSideAccumulator {
     var weapons: [ComparisonWeaponStats] = []
 }
 
+private struct ComparisonSliceKey: Hashable {
+    var side: String
+    var buyType: String
+    var opponentBuyType: String
+    var roundResult: String
+
+    init(side: PlayerSide, buyType: String, opponentBuyType: String, roundResult: String) {
+        self.side = side.rawValue
+        self.buyType = buyType
+        self.opponentBuyType = opponentBuyType
+        self.roundResult = roundResult
+    }
+
+    init(_ value: ComparisonSideStats) {
+        self.init(
+            side: value.side, buyType: value.buyType,
+            opponentBuyType: value.opponentBuyType, roundResult: value.roundResult
+        )
+    }
+}
+
 private struct ComparisonFlashTargets {
     var ownPlayerSlot: Int
     var ownTeamID: Int64
@@ -350,10 +371,7 @@ private func comparisonSideData(
     var values: [String: ComparisonSideAccumulator] = [:]
     func storageKey(_ matchID: Int64, _ side: PlayerSide) -> String { "\(matchID):\(side.rawValue)" }
     func add(_ matchID: Int64, _ side: PlayerSide, _ name: String, _ amount: Double) {
-        let key = storageKey(matchID, side)
-        guard var value = values[key] else { return }
-        value.stats[name, default: 0] += amount
-        values[key] = value
+        values[storageKey(matchID, side)]?.stats[name, default: 0] += amount
     }
     for row in rows {
         let matchID = try int64(row, "match_id")
@@ -680,20 +698,25 @@ private func comparisonSideData(
     for row in weapons {
         let id = try int64(row, "match_id"), side = try playerSide(row, "side")
         let key = storageKey(id, side)
-        guard var value = values[key] else { continue }
-        value.weapons.append(ComparisonWeaponStats(
+        values[key]?.weapons.append(ComparisonWeaponStats(
             weapon: try row.decode(column: "weapon", as: String.self),
             kills: try integer(row, "kills"), shots: try integer(row, "shots"), hits: try integer(row, "hits"),
             damage: try integer(row, "damage"), roundsUsed: try integer(row, "rounds_used")
         ))
-        values[key] = value
     }
 
     var result: [Int64: [ComparisonSideStats]] = [:]
+    var resultIndexes: [Int64: [ComparisonSliceKey: Int]] = [:]
+    func appendSlice(_ matchID: Int64, _ value: ComparisonSideStats) {
+        let index = result[matchID]?.count ?? 0
+        result[matchID, default: []].append(value)
+        resultIndexes[matchID, default: [:]][ComparisonSliceKey(value)] = index
+    }
+    let statsDecoder = JSONDecoder()
     for row in rows {
         let matchID = try int64(row, "match_id"), side = try playerSide(row, "side")
         guard let value = values[storageKey(matchID, side)] else { continue }
-        result[matchID, default: []].append(ComparisonSideStats(side: side, buyType: "ALL", opponentBuyType: "ALL", roundResult: "ALL", stats: value.stats, weapons: value.weapons))
+        appendSlice(matchID, ComparisonSideStats(side: side, buyType: "ALL", opponentBuyType: "ALL", roundResult: "ALL", stats: value.stats, weapons: value.weapons))
     }
     let buySlicesStart = timing?.start()
     let buyRows = try await sql.raw("""
@@ -702,11 +725,12 @@ private func comparisonSideData(
         WHERE mp.player_id = \(bind: playerID)
         """).all()
     timing?.record("buy_slices", since: buySlicesStart)
+    let buyProcessingStart = timing?.start()
     for row in buyRows {
         let matchID = try int64(row, "match_id")
         let json = try row.decode(column: "stats_json", as: String.self)
-        let stats = try JSONDecoder().decode(SideStatsPayload.self, from: Data(json.utf8))
-        result[matchID, default: []].append(ComparisonSideStats(
+        let stats = try statsDecoder.decode(SideStatsPayload.self, from: Data(json.utf8))
+        appendSlice(matchID, ComparisonSideStats(
             side: try playerSide(row, "side"),
             buyType: try row.decode(column: "buy_type", as: String.self),
             opponentBuyType: "ALL",
@@ -715,6 +739,7 @@ private func comparisonSideData(
             weapons: stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
         ))
     }
+    timing?.record("buy_processing", since: buyProcessingStart)
     let resultSlicesStart = timing?.start()
     let roundResultRows = try await sql.raw("""
         SELECT r.match_id, r.side, r.buy_type, r.round_result, CAST(r.stats_json AS CHAR) AS stats_json
@@ -722,11 +747,12 @@ private func comparisonSideData(
         WHERE mp.player_id = \(bind: playerID)
         """).all()
     timing?.record("result_slices", since: resultSlicesStart)
+    let resultProcessingStart = timing?.start()
     for row in roundResultRows {
         let matchID = try int64(row, "match_id")
         let json = try row.decode(column: "stats_json", as: String.self)
-        let stats = try JSONDecoder().decode(SideStatsPayload.self, from: Data(json.utf8))
-        result[matchID, default: []].append(ComparisonSideStats(
+        let stats = try statsDecoder.decode(SideStatsPayload.self, from: Data(json.utf8))
+        appendSlice(matchID, ComparisonSideStats(
             side: try playerSide(row, "side"),
             buyType: try row.decode(column: "buy_type", as: String.self),
             opponentBuyType: "ALL",
@@ -735,6 +761,7 @@ private func comparisonSideData(
             weapons: stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
         ))
     }
+    timing?.record("result_processing", since: resultProcessingStart)
     let matchupSlicesStart = timing?.start()
     let matchupRows = try await sql.raw("""
         SELECT e.match_id, e.side, e.buy_type, e.opponent_buy_type, e.round_result,
@@ -743,11 +770,12 @@ private func comparisonSideData(
         WHERE mp.player_id = \(bind: playerID)
         """).all()
     timing?.record("matchup_slices", since: matchupSlicesStart)
+    let matchupProcessingStart = timing?.start()
     for row in matchupRows {
         let matchID = try int64(row, "match_id")
         let json = try row.decode(column: "stats_json", as: String.self)
-        let stats = try JSONDecoder().decode(SideStatsPayload.self, from: Data(json.utf8))
-        result[matchID, default: []].append(ComparisonSideStats(
+        let stats = try statsDecoder.decode(SideStatsPayload.self, from: Data(json.utf8))
+        appendSlice(matchID, ComparisonSideStats(
             side: try playerSide(row, "side"),
             buyType: try row.decode(column: "buy_type", as: String.self),
             opponentBuyType: try row.decode(column: "opponent_buy_type", as: String.self),
@@ -756,12 +784,11 @@ private func comparisonSideData(
             weapons: stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
         ))
     }
+    timing?.record("matchup_processing", since: matchupProcessingStart)
     func addBuyMetric(_ matchID: Int64, _ side: PlayerSide, _ buy: String, _ roundResult: String, _ name: String, _ amount: Double, opponentBuy: String = "ALL") {
-        guard var rows = result[matchID], let index = rows.firstIndex(where: {
-            $0.side == side && $0.buyType == buy && $0.opponentBuyType == opponentBuy && $0.roundResult == roundResult
-        }) else { return }
-        rows[index].stats[name, default: 0] += amount
-        result[matchID] = rows
+        let key = ComparisonSliceKey(side: side, buyType: buy, opponentBuyType: opponentBuy, roundResult: roundResult)
+        guard let index = resultIndexes[matchID]?[key] else { return }
+        result[matchID]?[index].stats[name, default: 0] += amount
     }
     let survivorsStart = timing?.start()
     let survivorRows = try await sql.raw("""
@@ -788,6 +815,7 @@ private func comparisonSideData(
           AND r.t_player_count IS NOT NULL AND r.ct_player_count IS NOT NULL
         """).all()
     timing?.record("survivors", since: survivorsStart)
+    let survivorProcessingStart = timing?.start()
     for row in survivorRows {
         let id = try int64(row, "match_id"), side = try playerSide(row, "side")
         let winner = try row.decode(column: "winner_side", as: String.self)
@@ -811,6 +839,7 @@ private func comparisonSideData(
         addBuyMetric(id, side, buy, resultName, "\(prefix)_survivor_rounds", 1, opponentBuy: opponentBuy)
         addBuyMetric(id, side, buy, resultName, "\(prefix)_survivor_total", survivors, opponentBuy: opponentBuy)
     }
+    timing?.record("survivor_processing", since: survivorProcessingStart)
     for kind in ["killer", "victim"] {
         let playerColumn = kind == "killer" ? "killer_match_player_id" : "victim_match_player_id"
         let sideColumn = kind == "killer" ? "killer_side" : "victim_side"
@@ -868,6 +897,7 @@ private func comparisonSideData(
             GROUP BY source.match_id, source.side, source.buy_type, source.opponent_buy_type, source.round_result
             """).all()
         timing?.record(kind == "killer" ? "event_kills" : "event_deaths", since: eventTimingStart)
+        let eventProcessingStart = timing?.start()
         for row in rows {
             let id = try int64(row, "match_id"), side = try playerSide(row, "side")
             let buy = try row.decode(column: "buy_type", as: String.self)
@@ -894,6 +924,7 @@ private func comparisonSideData(
                 addBuyMetric(id, side, buy, roundResult, name, amount, opponentBuy: opponentBuy)
             }
         }
+        timing?.record(kind == "killer" ? "event_kills_processing" : "event_deaths_processing", since: eventProcessingStart)
     }
     for matchID in Array(result.keys) { result[matchID]?.sort { $0.side.rawValue < $1.side.rawValue } }
     return result

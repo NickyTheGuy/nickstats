@@ -30,4 +30,18 @@ test("profile timing identifies every sequential query group", () => {
     assert.match(queries, new RegExp(`record\\("${metric}"`));
   }
   assert.match(queries, /kind == "killer" \? "event_kills" : "event_deaths"/);
+  for (const metric of [
+    "buy_processing", "result_processing", "matchup_processing", "survivor_processing",
+    "event_kills_processing", "event_deaths_processing"
+  ]) {
+    assert.match(queries, new RegExp(`"${metric}"`));
+  }
+});
+
+test("profile aggregation updates indexed slices in place", () => {
+  assert.match(queries, /var resultIndexes: \[Int64: \[ComparisonSliceKey: Int\]\]/);
+  assert.match(queries, /resultIndexes\[matchID, default: \[:\]\]\[ComparisonSliceKey\(value\)\] = index/);
+  assert.match(queries, /result\[matchID\]\?\[index\]\.stats\[name, default: 0\] \+= amount/);
+  assert.doesNotMatch(queries, /guard var rows = result\[matchID\]/);
+  assert.match(queries, /let statsDecoder = JSONDecoder\(\)/);
 });
