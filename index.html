@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Local-first Counter-Strike 2 match and teammate analysis.">
+  <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
   <link rel="stylesheet" href="./styles.css?v=20260922-08">
 </head>
@@ -12,13 +12,10 @@
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <div class="eyebrow">Counter-Strike 2 analysis</div>
-          <span class="demo-build">Build 2026.09.23.4</span>
+          <span class="demo-build">Build 2026.09.23.5</span>
         </div>
         <h1>NickStats</h1>
-        <p class="lede">Match breakdowns, player profiles, and teammate comparisons built from CS2 demos.</p>
       </div>
-      <div class="privacy"><span class="privacy-dot" aria-hidden="true"></span>Demos are parsed locally</div>
     </header>
 
     <nav class="data-tabs app-tabs" role="tablist" aria-label="NickStats sections">
@@ -34,7 +31,6 @@
           <div>
             <div class="eyebrow">Upload</div>
             <h2>Add a match</h2>
-            <p>Parse a CS2 or FACEIT demo locally and save its statistics.</p>
           </div>
           <div class="demo-session-controls">
             <button class="button button-secondary demo-auth-button" id="demoAuthButton" type="button">Enter upload token</button>
@@ -44,7 +40,7 @@
         <div class="demo-drop" id="demoDropZone">
           <div>
             <strong id="demoFileLabel">Choose one or more demos</strong>
-            <span><code>.dem</code>, <code>.zst</code>, <code>.gz</code>, or <code>.zip</code> · batches parse one at a time in this browser</span>
+            <span><code>.dem</code>, <code>.zst</code>, <code>.gz</code>, or <code>.zip</code> · batches parse one at a time in the browser</span>
           </div>
           <label class="button button-primary" for="demoInput">Choose demos</label>
           <input class="file-input" id="demoInput" type="file" multiple accept=".dem,.gz,.dem.gz,.zst,.dem.zst,.zip,application/gzip,application/zstd,application/zip">
@@ -77,7 +73,7 @@
           <div>
             <div class="eyebrow">Database</div>
             <h2>Your matches</h2>
-            <p>Open a stored match to inspect its scoreboard, duels, trades, and weapons.</p>
+            <p>Open a stored match to inspect its stats.</p>
           </div>
           <button class="button button-secondary" id="matchListRefreshButton" type="button">Refresh</button>
         </div>
@@ -105,21 +101,6 @@
 
         <div class="demo-results" id="demoResults" hidden>
           <div class="demo-summary" id="demoSummary"></div>
-          <section class="demo-round-closeness" id="demoRoundCloseness" hidden>
-            <div class="demo-round-closeness-head">
-              <div><strong id="demoRoundClosenessTitle">Winning-round survivors</strong><span id="demoRoundClosenessSummary"></span></div>
-              <small>Players alive when each team won a round</small>
-            </div>
-            <div class="demo-survivor-teams" id="demoSurvivorTeams"></div>
-          </section>
-          <section class="demo-round-economy" id="demoRoundEconomy" hidden>
-            <div class="demo-round-closeness-head">
-              <div><strong>Round economy</strong><span id="demoRoundEconomySummary"></span></div>
-              <small>Freeze-time team value · wins / rounds and win rate</small>
-            </div>
-            <div class="demo-economy-teams" id="demoEconomyTeams"></div>
-          </section>
-          <div class="warning" id="demoWarning">Rating uses a published HLTV-style approximation and may differ from other statistics services.</div>
           <div class="demo-side-filter" role="group" aria-label="Filter match statistics by player side">
             <span>Player side</span>
             <div class="demo-side-buttons">
@@ -205,8 +186,7 @@
           <div class="section-head compare-builder-heading">
             <div>
               <div class="eyebrow" id="compareBuilderEyebrow">Conditional groups</div>
-              <h2 id="compareBuilderTitle">Build a player group</h2>
-              <p id="compareBuilderDescription">Add players, then mark each one Include or Exclude for the group condition.</p>
+              <h2 id="compareBuilderTitle">Add players, then mark each one Include or Exclude for the group condition.</h2>
             </div>
             <form class="compare-search-form" id="compareSearchForm" role="search">
               <label class="visually-hidden" for="compareSearchInput">Player name or Steam ID</label>
@@ -317,8 +297,7 @@
           <div class="section-head player-search-heading">
             <div>
               <div class="eyebrow">Player profiles</div>
-              <h2>Find a player</h2>
-              <p>Search everyone found in your uploaded matches.</p>
+              <h2>Search for anyone in any uploaded match.</h2>
             </div>
             <form class="player-search-form" id="playerSearchForm" role="search">
               <label class="visually-hidden" for="playerSearchInput">Player name or Steam ID</label>
@@ -326,7 +305,7 @@
               <button class="button button-primary" type="submit">Search</button>
             </form>
           </div>
-          <div class="player-search-status" id="playerSearchStatus" role="status" aria-live="polite">Search for a player to open their profile.</div>
+          <div class="player-search-status" id="playerSearchStatus" role="status" aria-live="polite"></div>
           <div class="player-search-results" id="playerSearchResults"></div>
           <section class="player-recent" id="playerRecent" hidden>
             <header><h3>Recently viewed</h3><button id="playerRecentClear" type="button">Clear</button></header>
@@ -526,12 +505,12 @@
     <form class="demo-auth-form" id="demoAuthForm">
       <div class="eyebrow">Database access</div>
       <h2 id="demoAuthTitle">Authenticate automatic uploads</h2>
-      <p id="demoAuthDescription">Enter the private upload token configured on the NickStats server. It stays only in this page's memory and is sent only to the NickStats API.</p>
+      <p id="demoAuthDescription">Enter the private upload token configured on the NickStats server</p>
       <label for="demoAuthToken">Upload token</label>
       <input id="demoAuthToken" name="upload-token" type="password" autocomplete="off" spellcheck="false" required autofocus>
       <p class="demo-auth-error" id="demoAuthError" role="alert" hidden></p>
       <div class="demo-auth-actions">
-        <button class="button button-primary" type="submit">Enable automatic uploads</button>
+        <button class="button button-primary" type="submit">Authenticate</button>
         <button class="button button-secondary" id="demoAuthCancelButton" type="button">Not now</button>
       </div>
     </form>
