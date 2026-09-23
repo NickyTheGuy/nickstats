@@ -268,6 +268,100 @@ struct PlayerProfileDataResponse: Content {
     var matches: [ComparisonMatch]
 }
 
+/// A wire-efficient profile response. Statistic names are sent once and each
+/// side row carries only an aligned value array; null preserves unavailable
+/// statistics without repeating hundreds of JSON object keys per row.
+struct DensePlayerProfileDataResponse: Content {
+    var player: PlayerProfileIdentity
+    var statKeys: [String]
+    var matches: [DenseComparisonMatch]
+
+    enum CodingKeys: String, CodingKey {
+        case player, matches
+        case statKeys = "stat_keys"
+    }
+
+    init(_ value: PlayerProfileDataResponse) {
+        player = value.player
+        statKeys = Array(Set(value.matches.flatMap { match in
+            match.sides.flatMap { $0.stats.keys }
+        })).sorted()
+        matches = value.matches.map { DenseComparisonMatch($0, statKeys: statKeys) }
+    }
+}
+
+struct DenseComparisonMatch: Content {
+    var id: Int64
+    var schema: String
+    var playedAt: Int64?
+    var map: String
+    var result: String
+    var scoreFor: Int?
+    var scoreAgainst: Int?
+    var teammateIDs: [Int64]
+    var rounds: Int
+    var kills: Int
+    var deaths: Int
+    var assists: Int
+    var headshots: Int
+    var damage: Int
+    var kastRounds: Int
+    var sides: [DenseComparisonSideStats]
+
+    enum CodingKeys: String, CodingKey {
+        case id, schema, map, result, rounds, kills, deaths, assists, headshots, damage, sides
+        case playedAt = "played_at"
+        case scoreFor = "score_for"
+        case scoreAgainst = "score_against"
+        case teammateIDs = "teammate_ids"
+        case kastRounds = "kast_rounds"
+    }
+
+    init(_ value: ComparisonMatch, statKeys: [String]) {
+        id = value.id
+        schema = value.schema
+        playedAt = value.playedAt
+        map = value.map
+        result = value.result
+        scoreFor = value.scoreFor
+        scoreAgainst = value.scoreAgainst
+        teammateIDs = value.teammateIDs
+        rounds = value.rounds
+        kills = value.kills
+        deaths = value.deaths
+        assists = value.assists
+        headshots = value.headshots
+        damage = value.damage
+        kastRounds = value.kastRounds
+        sides = value.sides.map { DenseComparisonSideStats($0, statKeys: statKeys) }
+    }
+}
+
+struct DenseComparisonSideStats: Content {
+    var side: PlayerSide
+    var buyType: String
+    var opponentBuyType: String
+    var roundResult: String
+    var stats: [Double?]
+    var weapons: [ComparisonWeaponStats]
+
+    enum CodingKeys: String, CodingKey {
+        case side, stats, weapons
+        case buyType = "buy_type"
+        case opponentBuyType = "opponent_buy_type"
+        case roundResult = "round_result"
+    }
+
+    init(_ value: ComparisonSideStats, statKeys: [String]) {
+        side = value.side
+        buyType = value.buyType
+        opponentBuyType = value.opponentBuyType
+        roundResult = value.roundResult
+        stats = statKeys.map { value.stats[$0] }
+        weapons = value.weapons
+    }
+}
+
 struct PlayerProfileIdentity: Content {
     var id: Int64
     var steamID: String

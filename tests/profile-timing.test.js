@@ -9,6 +9,8 @@ const root = path.join(__dirname, "..");
 const routes = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Routes.swift"), "utf8");
 const queries = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Queries.swift"), "utf8");
 const timing = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "ProfileTiming.swift"), "utf8");
+const models = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Models.swift"), "utf8");
+const players = fs.readFileSync(path.join(root, "js", "players.js"), "utf8");
 
 test("compact player profiles expose and log server timing", () => {
   assert.match(routes, /getPlayerProfileData\(playerID, on: request\.db, timing: timing\)/);
@@ -44,4 +46,15 @@ test("profile aggregation updates indexed slices in place", () => {
   assert.match(queries, /result\[matchID\]\?\[index\]\.stats\[name, default: 0\] \+= amount/);
   assert.doesNotMatch(queries, /guard var rows = result\[matchID\]/);
   assert.match(queries, /let statsDecoder = JSONDecoder\(\)/);
+});
+
+test("player profiles use a backwards-compatible dense wire format", () => {
+  assert.match(routes, /request\.query\[Int\.self, at: "wire"\] == 2/);
+  assert.match(routes, /DensePlayerProfileDataResponse\(payload\)/);
+  assert.match(routes, /timing\.record\("dense_wire"/);
+  assert.match(models, /struct DensePlayerProfileDataResponse: Content/);
+  assert.match(models, /case statKeys = "stat_keys"/);
+  assert.match(models, /stats = statKeys\.map \{ value\.stats\[\$0\] \}/);
+  assert.match(players, /compact=true&wire=2/);
+  assert.match(players, /if \(values\[index\] != null\) stats\[keys\[index\]\] = values\[index\]/);
 });

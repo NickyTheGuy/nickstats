@@ -33,6 +33,22 @@
     if (!response.ok) throw new Error(body?.reason || `The API returned HTTP ${response.status}.`);
     return body;
   }
+  function expandDenseProfile(payload) {
+    const keys = Array.isArray(payload?.stat_keys) ? payload.stat_keys : [];
+    if (!keys.length) return payload;
+    for (const match of payload.matches || []) {
+      for (const row of match.sides || []) {
+        if (!Array.isArray(row.stats)) continue;
+        const values = row.stats, stats = {};
+        for (let index = 0; index < keys.length && index < values.length; index += 1) {
+          if (values[index] != null) stats[keys[index]] = values[index];
+        }
+        row.stats = stats;
+      }
+    }
+    delete payload.stat_keys;
+    return payload;
+  }
   function setSearchStatus(message, error = false) {
     $("playerSearchStatus").textContent = message;
     $("playerSearchStatus").classList.toggle("error", error);
@@ -299,7 +315,7 @@
     state.profileController?.abort(); state.profileController = new AbortController();
     $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "Loading player profile…"; $("playerProfileStatus").classList.remove("error");
     try {
-      const payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true`, { headers: { Accept: "application/json" }, signal: state.profileController.signal }));
+      const payload = expandDenseProfile(await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=2`, { headers: { Accept: "application/json" }, signal: state.profileController.signal })));
       const key = String(payload.player?.id ?? id);
       state.profiles.set(key, { payload });
       if (state.graphPlayers.size < MAX_GRAPH_PLAYERS) state.graphPlayers.add(key);

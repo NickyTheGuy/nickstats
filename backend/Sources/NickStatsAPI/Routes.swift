@@ -100,9 +100,21 @@ func routes(_ app: Application) throws {
             let totalStart = timing.start()
             let buildStart = timing.start()
             let payload = try await getPlayerProfileData(playerID, on: request.db, timing: timing)
+            let densePayload: DensePlayerProfileDataResponse?
+            if request.query[Int.self, at: "wire"] == 2 {
+                let denseStart = timing.start()
+                densePayload = DensePlayerProfileDataResponse(payload)
+                timing.record("dense_wire", since: denseStart)
+            } else {
+                densePayload = nil
+            }
             timing.record("build", since: buildStart)
             let encodeStart = timing.start()
-            try response.content.encode(payload)
+            if let densePayload {
+                try response.content.encode(densePayload)
+            } else {
+                try response.content.encode(payload)
+            }
             timing.record("encode", since: encodeStart)
             timing.record("total", since: totalStart)
             let serverTiming = timing.serverTimingHeader()
