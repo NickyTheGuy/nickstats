@@ -283,10 +283,11 @@ struct DensePlayerProfileDataResponse: Content {
 
     init(_ value: PlayerProfileDataResponse) {
         player = value.player
-        statKeys = Array(Set(value.matches.flatMap { match in
+        let keys = Array(Set(value.matches.flatMap { match in
             match.sides.flatMap { $0.stats.keys }
         })).sorted()
-        matches = value.matches.map { DenseComparisonMatch($0, statKeys: statKeys) }
+        statKeys = keys
+        matches = value.matches.map { DenseComparisonMatch($0, statKeys: keys) }
     }
 }
 
