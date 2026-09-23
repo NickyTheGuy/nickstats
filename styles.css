@@ -1085,7 +1085,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   text-shadow: 0 3px 14px rgba(0, 0, 0, .9);
 }
 
-.match-banner-score.winner { color: #d9f7b2; }
+.match-banner-score.winner { color: var(--green); }
+.match-banner-score.loser { color: var(--red); }
 
 .match-banner-score-separator {
   color: rgba(255, 255, 255, .52);
