@@ -121,19 +121,36 @@
 
     const groupVisible = group => state.visibleSections.has(groupSection[group]);
 
+    function columnScalesWithValueMode(column, formatted) {
+      if (state.valueMode === "totals" || !column.group) return false;
+      return !(/rate|success|percent|\bkd\b|adr|speed/.test(column.key) ||
+        /^[-+−]?\d+(?:\.\d+)?%$/.test(formatted) || ["timing-kill", "timing-death"].includes(column.key));
+    }
+
+    function columnDenominator(column, item) {
+      let denominator = state.valueMode === "match" ? item.rows.length : number(item.stats.rounds);
+      if (column.group === "utility" && state.perGrenadeUtility) {
+        if (column.key === "utility-he-damage") denominator = number(item.stats.he_grenades_thrown);
+        else if (column.key === "utility-fire-damage") denominator = number(item.stats.fire_grenades_thrown);
+        else if (["utility-enemies-flashed", "utility-blind-seconds", "utility-teammates-flashed", "utility-teammate-blind-seconds", "utility-self-flashes", "utility-self-blind-seconds", "utility-flash-assists", "utility-own-flash"].includes(column.key)) denominator = number(item.stats.flashbangs_thrown);
+      }
+      return denominator;
+    }
+
+    function columnSortValue(column, item) {
+      const formatted = column.format(item);
+      return Scoreboard.normalizedSortValue(column.value(item), columnDenominator(column, item),
+        columnScalesWithValueMode(column, formatted));
+    }
+
     function displayedValue(column, item) {
       if (state.valueMode === "totals" || !column.group) return column.format(item);
       const formatted = column.format(item);
       if (formatted === "—" || formatted === "Not parsed") return formatted;
       const value = column.value(item);
       if (!Number.isFinite(Number(value))) return column.format(item);
-      if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || (/^[-+−]?\d+(?:\.\d+)?%$/.test(formatted)) || ["timing-kill", "timing-death"].includes(column.key)) return formatted;
-      let denominator = state.valueMode === "match" ? item.rows.length : number(item.stats.rounds);
-      if (column.group === "utility" && state.perGrenadeUtility) {
-        if (["utility-he-damage"].includes(column.key)) denominator = number(item.stats.he_grenades_thrown);
-        else if (["utility-fire-damage"].includes(column.key)) denominator = number(item.stats.fire_grenades_thrown);
-        else if (["utility-enemies-flashed", "utility-blind-seconds", "utility-teammates-flashed", "utility-teammate-blind-seconds", "utility-self-flashes", "utility-self-blind-seconds", "utility-flash-assists", "utility-own-flash"].includes(column.key)) denominator = number(item.stats.flashbangs_thrown);
-      }
+      if (!columnScalesWithValueMode(column, formatted)) return formatted;
+      const denominator = columnDenominator(column, item);
       if (!denominator) return "—";
       const kda = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
       if (kda) return kda.slice(1).map(part => decimal(number(part) / denominator, 2)).join("-");
@@ -462,10 +479,8 @@
       if (sort) {
         const column = columns.find(candidate => candidate.key === sort.key);
         if (column) ordered.sort((left, right) => {
-          const a = column.value(left.item), b = column.value(right.item);
-          const result = typeof a === "number" && typeof b === "number"
-            ? a - b : String(a ?? "").localeCompare(String(b ?? ""), undefined, { numeric: true, sensitivity: "base" });
-          return (sort.direction === "asc" ? result : -result) || left.index - right.index;
+          const a = columnSortValue(column, left.item), b = columnSortValue(column, right.item);
+          return Scoreboard.compareSortValues(a, b, sort.direction, left.index, right.index);
         });
       }
 

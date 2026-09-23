@@ -86,6 +86,26 @@
     return subgroup ? subgroup[2].map(index => widths[index] || 58) : widths;
   }
 
+  function normalizedSortValue(value, denominator = 1, scaled = false) {
+    if (!scaled) return value;
+    const numeric = Number(value), divisor = Number(denominator);
+    return Number.isFinite(numeric) && Number.isFinite(divisor) && divisor > 0 ? numeric / divisor : null;
+  }
+
+  function compareSortValues(left, right, direction = "desc", leftIndex = 0, rightIndex = 0) {
+    const leftMissing = left == null || (typeof left === "number" && !Number.isFinite(left));
+    const rightMissing = right == null || (typeof right === "number" && !Number.isFinite(right));
+    if (leftMissing || rightMissing) {
+      if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+      return leftIndex - rightIndex;
+    }
+    let comparison = typeof left === "string" || typeof right === "string"
+      ? String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: "base" })
+      : Number(left) - Number(right);
+    if (direction !== "asc") comparison *= -1;
+    return comparison || leftIndex - rightIndex;
+  }
+
   function appendGroupHeader({ topRow, detailRow, state, group, label, labels, collapsedLabel = "Total", rateLabel = (_group, value) => value, sortHeader, decorateDetail, onToggle, onCycle }) {
     const expanded = state.expanded[group];
     const focusedLabels = expanded ? focus(state, group, labels) : labels;
@@ -196,6 +216,7 @@
 
   window.NickStatsScoreboard = {
     sections, groups, columns, subgroups, expandedWidths, collapsedWidths, groupSection,
-    activeSubgroup, focus, cycle, minimumWidths, appendGroupHeader, scrollGroupIntoView, renderControls
+    activeSubgroup, focus, cycle, minimumWidths, normalizedSortValue, compareSortValues,
+    appendGroupHeader, scrollGroupIntoView, renderControls
   };
 })();

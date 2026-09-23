@@ -2072,17 +2072,34 @@
     if (!state.scoreboardSort) return players;
     const mode = state.scoreboardSort.spec.modes[state.scoreboardSort.mode];
     return players.map((player, index) => ({ player, index })).sort((a, b) => {
-      const left = mode.value(a.player);
-      const right = mode.value(b.player);
-      let comparison;
-      if (typeof left === "string" || typeof right === "string") {
-        comparison = String(left).localeCompare(String(right));
-      } else {
-        comparison = Number(left) - Number(right);
-      }
-      if (mode.direction !== "asc") comparison *= -1;
-      return comparison || a.index - b.index;
+      const left = scoreboardSortValue(state.scoreboardSort.spec, mode, a.player, state.scoreboardSort.group);
+      const right = scoreboardSortValue(state.scoreboardSort.spec, mode, b.player, state.scoreboardSort.group);
+      return Scoreboard.compareSortValues(left, right, mode.direction || "desc", a.index, b.index);
     }).map(item => item.player);
+  }
+
+  const roundInvariantSorts = new Set([
+    "kd", "hs", "adr", "openingAttempts", "openingSuccess", "openingAssistRate",
+    "multikillPercent", "trueMultikillPercent", "timingSummary", "averageKillTime", "averageDeathTime",
+    "killSpeedUnits", "killSpeedPercents", "deathSpeedUnits", "deathSpeedPercents"
+  ]);
+
+  function scoreboardSortValue(spec, mode, player, group) {
+    const raw = mode.value(player);
+    if (state.scoreboardValueMode !== "round" || !group) return raw;
+    const rateMode = roundInvariantSorts.has(spec.id) ||
+      (spec.id === "opening" && ["Attempt rate", "Success", "Assist %"].includes(mode.label)) ||
+      (["tradeKResult", "tradeDResult"].includes(spec.id) && mode.label.endsWith("%"));
+    if (rateMode) return raw;
+    let denominator = numberValue(player.rounds_played);
+    if (group === "utility" && state.scoreboardPerGrenadeUtility) {
+      if (spec.id === "heDamage") denominator = numberValue(player.utility_thrown?.high_explosive);
+      else if (spec.id === "fireDamage") denominator = numberValue(player.utility_thrown?.fire);
+      else if (["ef", "tf", "sf", "fa", "blindDuration", "teammateBlindDuration", "selfBlindDuration", "assistedOwnFlash"].includes(spec.id)) {
+        denominator = numberValue(player.utility_thrown?.flashbang);
+      }
+    }
+    return Scoreboard.normalizedSortValue(raw, denominator, true);
   }
 
   function scrollScoreboardGroupIntoView(group, wraps) {
