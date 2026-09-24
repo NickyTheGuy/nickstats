@@ -58,14 +58,16 @@ test("opening flash-source context excludes schema 18 and preserves schema 19 ze
   assert.equal(availability.scope(mixed, "opening_own_flash_kills").opening_blinded_enemy_kills, 2);
 });
 
-test("true multi-kills use only schema 20 rounds", () => {
+test("true chain counts and their distinct-round rate use only schema 21 rounds", () => {
   const mixed = {};
   availability.add(mixed, { rounds: 20, true_kill_rounds_2k: 0 }, "nickstats.match/19");
-  availability.add(mixed, { rounds: 10, true_kill_rounds_2k: 2 }, "nickstats.match/20");
+  availability.add(mixed, { rounds: 10, true_kill_rounds_2k: 1, true_multikill_rounds: 1 }, "nickstats.match/20");
+  availability.add(mixed, { rounds: 5, true_kill_rounds_2k: 2, true_multikill_rounds: 1 }, "nickstats.match/21");
 
-  assert.equal(availability.rounds(mixed, "true_kill_rounds_2k"), 10);
+  assert.equal(availability.rounds(mixed, "true_kill_rounds_2k"), 5);
   assert.equal(availability.value(mixed, "true_kill_rounds_2k"), 2);
-  assert.equal(availability.scope(mixed, "trueMultikillPercent").rounds, 10);
+  assert.equal(availability.scope(mixed, "trueMultikillPercent").rounds, 5);
+  assert.equal(availability.value(mixed, "true_multikill_rounds"), 1);
 });
 
 test("man-count context reuses schema 10 death events without reparsing", () => {

@@ -144,7 +144,7 @@
     const trueMultikills = availability.scope(stats, "trueMultikillPercent");
     const multikillRounds = [2, 3, 4, 5].reduce((total, kills) => total + num(stats[`kill_rounds_${kills}k`]), 0);
     const trueMultikillRounds = trueMultikills
-      ? [2, 3, 4, 5].reduce((total, kills) => total + num(trueMultikills[`true_kill_rounds_${kills}k`]), 0) : 0;
+      ? num(trueMultikills.true_multikill_rounds) : 0;
     const result = {
       ...materialized,
       n, wins, losses, ties,

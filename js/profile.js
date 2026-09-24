@@ -254,13 +254,13 @@
     ]);
     const trueMultikillScope = availability.scope(rawStats, "trueMultikillPercent");
     const trueMultikillRounds = trueMultikillScope
-      ? [2, 3, 4, 5].reduce((total, kills) => total + number(trueMultikillScope[`true_kill_rounds_${kills}k`]), 0) : 0;
+      ? number(trueMultikillScope.true_multikill_rounds) : 0;
     const trueMultikillNote = trueMultikillScope && number(trueMultikillScope.rounds) < rounds
       ? ` · ${integer(trueMultikillScope.rounds)} compatible rounds` : "";
     fillStrip(`${prefix}TrueMultikillStats`, [
       ["True multi %", trueMultikillScope ? percent(100 * ratio(trueMultikillRounds, trueMultikillScope.rounds)) : "—",
         trueMultikillScope ? `${integer(trueMultikillRounds)} anti-trade rounds${trueMultikillNote}` : "Not available in these demos"],
-      ...[2, 3, 4, 5].map(kills => [`${kills} true kills`, trueMultikillScope ? integer(trueMultikillScope[`true_kill_rounds_${kills}k`]) : "—",
+      ...[2, 3, 4, 5].map(kills => [`${kills}K true chains`, trueMultikillScope ? integer(trueMultikillScope[`true_kill_rounds_${kills}k`]) : "—",
         trueMultikillScope ? `${decimal(ratio(trueMultikillScope[`true_kill_rounds_${kills}k`], trueMultikillScope.rounds), 2)}/R${trueMultikillNote}` : "Not available in these demos"])
     ]);
     fillStrip(`${prefix}KillStageStats`, [5, 4, 3, 2, 1].map(alive => [

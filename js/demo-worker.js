@@ -905,7 +905,7 @@ async function parseDemo(fileName, buffer) {
       const userIds = row.userIds || new Set([row.userId]);
       const has = set => [...userIds].some(userId => set.has(userId));
       const kills = [...userIds].reduce((total, userId) => total + (round.killCounts.get(userId) || 0), 0);
-      const trueKillCount = largestTrueMultikillChain(round, userIds);
+      const trueKillChains = trueMultikillChains(round, userIds);
       const hadKill = has(round.kills);
       const hadAssist = has(round.assists);
       const wasTraded = has(round.traded);
@@ -942,9 +942,9 @@ async function parseDemo(fileName, buffer) {
       }
       if (kills >= 2) row.multikillRounds += 1;
       if (kills >= 1) row.killRoundsByCount[Math.min(5, kills)] += 1;
-      if (trueKillCount >= 2) {
+      if (trueKillChains.length) {
         row.trueMultikillRounds += 1;
-        row.trueKillRoundsByCount[Math.min(5, trueKillCount)] += 1;
+        for (const size of trueKillChains) row.trueKillRoundsByCount[Math.min(5, size)] += 1;
       }
     }
 
@@ -2597,7 +2597,7 @@ function recordTrueMultikillLink(round, killerId, firstVictimId, tradingVictimId
   links.get(tradingVictimId).add(firstVictimId);
 }
 
-function largestTrueMultikillChain(round, killerIds) {
+function trueMultikillChains(round, killerIds) {
   const links = new Map();
   for (const killerId of killerIds) {
     for (const [victimId, neighbors] of round.trueMultikillLinks.get(killerId) || []) {
@@ -2606,7 +2606,7 @@ function largestTrueMultikillChain(round, killerIds) {
     }
   }
   const seen = new Set();
-  let largest = 0;
+  const chains = [];
   for (const victimId of links.keys()) {
     if (seen.has(victimId)) continue;
     let count = 0;
@@ -2621,9 +2621,9 @@ function largestTrueMultikillChain(round, killerIds) {
         pending.push(neighbor);
       }
     }
-    largest = Math.max(largest, count);
+    if (count >= 2) chains.push(count);
   }
-  return largest;
+  return chains;
 }
 
 async function sha256(buffer) {

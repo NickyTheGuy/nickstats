@@ -18,6 +18,7 @@ const models = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsA
 const importer = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Importer.swift"), "utf8");
 const schema = fs.readFileSync(path.join(root, "database", "schema.sql"), "utf8");
 const migration = fs.readFileSync(path.join(root, "database", "migrations", "013_true_multikills.sql"), "utf8");
+const chainsMigration = fs.readFileSync(path.join(root, "database", "migrations", "016_true_multikill_chains.sql"), "utf8");
 
 function workerContext() {
   const context = vm.createContext({
@@ -29,33 +30,35 @@ function workerContext() {
   return context;
 }
 
-test("true multi-kills count the largest connected chain within a round", () => {
+test("true multi-kills count each connected chain once", () => {
   const sizes = vm.runInContext(`(() => {
     const round = freshRound();
     recordTrueMultikillLink(round, 7, 11, 12);
     recordTrueMultikillLink(round, 7, 11, 12);
-    const duplicated = largestTrueMultikillChain(round, [7]);
+    const duplicated = trueMultikillChains(round, [7]);
     recordTrueMultikillLink(round, 7, 12, 13);
-    const connected = largestTrueMultikillChain(round, [7]);
+    const connected = trueMultikillChains(round, [7]);
     recordTrueMultikillLink(round, 7, 14, 15);
-    const separate = largestTrueMultikillChain(round, [7]);
+    const separate = trueMultikillChains(round, [7]);
     recordTrueMultikillLink(round, 8, 21, 22);
-    return [duplicated, connected, separate, largestTrueMultikillChain(round, [8])];
+    return [duplicated, connected, separate, trueMultikillChains(round, [8])];
   })()`, workerContext());
-  assert.deepEqual(Array.from(sizes), [2, 3, 3, 2]);
+  assert.deepEqual(JSON.parse(JSON.stringify(sizes)), [[2], [3], [3, 2], [2]]);
   assert.match(worker, /prior\.killer === attackerId && prior\.attemptedTraders\.has\(victimId\)/);
   assert.match(worker, /tradeIsOpen\(prior, victimId, tick\)/);
 });
 
-test("two separate true 2K chains in one 4K round remain a true 2K round", () => {
-  const size = vm.runInContext(`(() => {
+test("two separate 2Ks in one round count twice; a separate 2K and 3K count in both buckets", () => {
+  const sizes = vm.runInContext(`(() => {
     const round = freshRound();
     recordTrueMultikillLink(round, 7, 11, 12);
     recordTrueMultikillLink(round, 7, 13, 14);
-    return largestTrueMultikillChain(round, [7]);
+    const twoTwos = trueMultikillChains(round, [7]);
+    recordTrueMultikillLink(round, 7, 14, 15);
+    return [twoTwos, trueMultikillChains(round, [7])];
   })()`, workerContext());
-  assert.equal(size, 2);
-  assert.match(worker, /if \(trueKillCount >= 2\) \{[\s\S]*?trueMultikillRounds \+= 1;[\s\S]*?trueKillRoundsByCount\[Math\.min\(5, trueKillCount\)\] \+= 1/);
+  assert.deepEqual(JSON.parse(JSON.stringify(sizes)), [[2, 2], [2, 3]]);
+  assert.match(worker, /if \(trueKillChains\.length\) \{[\s\S]*?trueMultikillRounds \+= 1;[\s\S]*?for \(const size of trueKillChains\) row\.trueKillRoundsByCount\[Math\.min\(5, size\)\] \+= 1/);
 });
 
 test("death to the original killer proves a trade opportunity and failed attempt", () => {
@@ -66,12 +69,16 @@ test("death to the original killer proves a trade opportunity and failed attempt
   assert.match(worker, /attempt: "[^"]*is killed by that killer during the initial trade window"/);
 });
 
-test("schema 20 stores true 2K through 5K round counts in every side slice", () => {
-  assert.match(demo, /schema: "nickstats\.match\/20"/);
+test("schema 21 stores each true chain plus the number of distinct rounds", () => {
+  assert.match(demo, /schema: "nickstats\.match\/21"/);
   assert.match(demo, /true_kill_rounds: countArray\(player\.true_kill_rounds\)/);
-  assert.match(worker, /trueKillRoundsByCount\[Math\.min\(5, trueKillCount\)\] \+= 1/);
+  assert.match(demo, /true_multikill_rounds: number\(player\.true_multikill_rounds\)/);
+  assert.match(worker, /for \(const size of trueKillChains\) row\.trueKillRoundsByCount\[Math\.min\(5, size\)\] \+= 1/);
   assert.match(models, /case trueKillRounds = "true_kill_rounds"/);
+  assert.match(models, /case trueMultikillRounds = "true_multikill_rounds"/);
   assert.match(importer, /true_kill_rounds_1k, true_kill_rounds_2k, true_kill_rounds_3k/);
+  assert.match(importer, /true_kill_rounds_5k, true_multikill_rounds/);
+  assert.match(chainsMigration, /true_multikill_rounds <= true_kill_rounds_2k/);
   for (const count of [1, 2, 3, 4, 5]) {
     assert.match(schema, new RegExp(`true_kill_rounds_${count}k`));
     assert.match(migration, new RegExp(`true_kill_rounds_${count}k`));

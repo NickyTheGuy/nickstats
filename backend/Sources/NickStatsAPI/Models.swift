@@ -1,8 +1,8 @@
 import Vapor
 
-let compactSchema = "nickstats.match/20"
-let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", compactSchema])
-let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", compactSchema])
+let compactSchema = "nickstats.match/21"
+let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", compactSchema])
+let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
@@ -123,6 +123,7 @@ struct SideStatsPayload: Content, Sendable {
     var clutchAttempts: ClutchWins? = nil
     var killRounds: KillRoundCounts
     var trueKillRounds: KillRoundCounts? = nil
+    var trueMultikillRounds: Int? = nil
     var weapons: [WeaponPayload]
     var duels: [DuelStats]
     var trades: [TradeStats]
@@ -142,6 +143,7 @@ struct SideStatsPayload: Content, Sendable {
         case clutchAttempts = "clutch_attempts"
         case killRounds = "kill_rounds"
         case trueKillRounds = "true_kill_rounds"
+        case trueMultikillRounds = "true_multikill_rounds"
         case assistedBy = "assisted_by"
     }
 }

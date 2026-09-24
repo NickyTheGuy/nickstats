@@ -96,7 +96,7 @@
       ["multikill_rate", "Multi-kill round rate", stats => 100 * ratio([2, 3, 4, 5].reduce((sum, n) => sum + number(stats[`kill_rounds_${n}k`]), 0), stats.rounds), 1, "%"],
       ["true_multikill_rate", "True multi-kill round rate", stats => {
         const scoped = availableStats(stats, "trueMultikillPercent");
-        return scoped ? 100 * ratio([2, 3, 4, 5].reduce((sum, n) => sum + number(scoped[`true_kill_rounds_${n}k`]), 0), scoped.rounds) : Number.NaN;
+        return scoped ? 100 * ratio(scoped.true_multikill_rounds, scoped.rounds) : Number.NaN;
       }, 1, "%"],
       ["team_win_survivors", "Team survivors in won rounds", stats => number(stats.team_win_survivor_rounds) > 0 ? ratio(stats.team_win_survivor_total, stats.team_win_survivor_rounds) : Number.NaN, 2],
       ["opponent_win_survivors", "Opponent survivors in lost rounds", stats => number(stats.opponent_win_survivor_rounds) > 0 ? ratio(stats.opponent_win_survivor_total, stats.opponent_win_survivor_rounds) : Number.NaN, 2],

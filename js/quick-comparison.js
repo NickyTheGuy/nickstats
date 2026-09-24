@@ -414,7 +414,7 @@
       ];
       const trueMultikillPercent = item => {
         const scoped = availability.scope(item.stats, "trueMultikillPercent");
-        return scoped ? 100 * [2, 3, 4, 5].reduce((total, kills) => total + number(scoped[`true_kill_rounds_${kills}k`]), 0) / Math.max(1, number(scoped.rounds)) : Number.NaN;
+        return scoped ? 100 * number(scoped.true_multikill_rounds) / Math.max(1, number(scoped.rounds)) : Number.NaN;
       };
       const trueMultikillColumns = [
         ...[5, 4, 3, 2].map(kills => ({

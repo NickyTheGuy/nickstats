@@ -6,7 +6,7 @@ A local-first Counter-Strike 2 analysis application organized around three produ
 - **Player** — reusable personal profiles, splits, graphs, and match history.
 - **Groups** — Included/Excluded teammate conditions and With/Without player profiles.
 
-Demo files are processed in the browser and are never uploaded. All three views remain publicly browsable; saving parsed matches requires a NickStats login. Login creates a signed, HttpOnly 30-day session cookie, so trusted friends can upload without receiving or repeatedly entering the server's private upload token. After a successful parse, the frontend automatically sends the compact `nickstats.match/20` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
+Demo files are processed in the browser and are never uploaded. All three views remain publicly browsable; saving parsed matches requires a NickStats login. Login creates a signed, HttpOnly 30-day session cookie, so trusted friends can upload without receiving or repeatedly entering the server's private upload token. After a successful parse, the frontend automatically sends the compact `nickstats.match/21` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
 
 The demo picker accepts multiple files. Batch parsing processes them sequentially to keep browser memory bounded, reports each file's result independently, continues after individual parse or upload failures, and refreshes the match list once at the end. Because batches are intended for reparsing, a demo already in the database is replaced automatically with the newly parsed statistics; single-file parsing keeps the explicit replacement confirmation.
 
@@ -78,11 +78,11 @@ Trade calibration traces remain available while a demo is being parsed but are d
 
 ## Compact match JSON
 
-**Download compact JSON** writes the versioned `nickstats.match/20` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index.
+**Download compact JSON** writes the versioned `nickstats.match/21` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index.
 
 Schema 19 attributes the active flash sources on blinded opening kills and deaths. The categories are the killer's own flash, a killer teammate's flash, a victim-side or self flash, and source unavailable. Source categories can overlap when multiple flashes are active; the unavailable counter is used only when the demo reports blindness without an attributable active source.
 
-Schema 20 adds **true multi-kills**. A true chain begins when a player kills an enemy, another enemy makes a qualified trade attempt against that player under the existing trade rules, and the original player then kills the trader while that engagement remains open. The first victim and attempted trader form a true 2K; further attempted traders killed in connected anti-trade exchanges extend the round through true 3K–5K. Separate anti-trade chains in the same round stay separate; the largest chain determines that round's true 2K–5K category. Unrelated kills in the same round remain part of the ordinary multi-kill count but do not inflate the true count. Multi-kill percentage is the share of played rounds with at least two kills; true multi-kill percentage uses the same denominator and requires a true chain.
+Schema 21 counts **true multi-kill chains**. A true chain begins when a player kills an enemy, another enemy makes a qualified trade attempt against that player under the existing trade rules, and the original player then kills the trader while that engagement remains open. The first victim and attempted trader form a true 2K; further attempted traders killed in connected anti-trade exchanges extend that chain through true 3K–5K. Separate anti-trade chains in the same round each count: two true 2Ks add two to the 2K bucket; a true 2K and a true 3K add one to each bucket. Unrelated kills remain part of the ordinary multi-kill count. Multi-kill percentage is the share of played rounds with at least two kills; true multi-kill percentage counts distinct rounds with one or more true chains, so one round is never counted twice toward its percentage. Schema 20 remains readable, but its largest-chain buckets are excluded from schema 21 true-chain aggregates until those demos are reparsed.
 
 Profile, group, quick-comparison, and graph aggregations retain each match's compact schema. Statistics introduced by a newer schema use only compatible matches and rounds; older demos show those fields as unavailable rather than contributing false zeroes. Register future parser-derived fields in `js/stat-availability.js` when their schema ships.
 
@@ -111,7 +111,8 @@ Each player has a `sides` array in T, CT order. The full-match view is deliberat
 - `clutches`: 1v1 through 1v5 wins
 - `clutch_attempts`: 1v1 through 1v5 attempts, classified once at the initial disadvantage
 - `kill_rounds`: 1K through 5K rounds
-- `true_kill_rounds`: reserved 1K zero, then true 2K through 5K anti-trade-chain rounds
+- `true_kill_rounds`: reserved 1K zero, then counts of distinct true 2K through 5K anti-trade chains; multiple chains may occur in one round
+- `true_multikill_rounds`: distinct rounds containing at least one true chain, used for the percentage of rounds
 - `weapons`: weapon, kills, shots, damage, rounds used, hits
 - `duels`: opponent player index, kills
 - `trades`: teammate player index, opportunities, attempts, successes

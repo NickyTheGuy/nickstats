@@ -46,12 +46,13 @@
     opening_deaths_to_killer_flash: 19,
     opening_deaths_to_own_side_flash: 19,
     opening_deaths_blind_source_unknown: 19,
-    true_kill_rounds_1k: 20,
-    true_kill_rounds_2k: 20,
-    true_kill_rounds_3k: 20,
-    true_kill_rounds_4k: 20,
-    true_kill_rounds_5k: 20,
-    trueMultikillPercent: 20
+    true_kill_rounds_1k: 21,
+    true_kill_rounds_2k: 21,
+    true_kill_rounds_3k: 21,
+    true_kill_rounds_4k: 21,
+    true_kill_rounds_5k: 21,
+    true_multikill_rounds: 21,
+    trueMultikillPercent: 21
   });
   const thresholds = [...new Set(Object.values(minimumSchema))].sort((left, right) => left - right);
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;

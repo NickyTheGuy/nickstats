@@ -305,6 +305,7 @@ private func flattenedBuyStats(_ value: SideStatsPayload, flashTargets: Comparis
     for (index, count) in (value.trueKillRounds ?? .zero).values.enumerated() {
         output["true_kill_rounds_\(index + 1)k"] = Double(count)
     }
+    output["true_multikill_rounds"] = Double(value.trueMultikillRounds ?? 0)
     for trade in value.trades {
         output["trade_opportunities", default: 0] += Double(trade.opportunities)
         output["trade_attempts", default: 0] += Double(trade.attempts)
@@ -446,7 +447,8 @@ private func comparisonSideData(
             ("kill_rounds_5k", "kill_rounds_5k"),
             ("true_kill_rounds_1k", "true_kill_rounds_1k"), ("true_kill_rounds_2k", "true_kill_rounds_2k"),
             ("true_kill_rounds_3k", "true_kill_rounds_3k"), ("true_kill_rounds_4k", "true_kill_rounds_4k"),
-            ("true_kill_rounds_5k", "true_kill_rounds_5k")
+            ("true_kill_rounds_5k", "true_kill_rounds_5k"),
+            ("true_multikill_rounds", "true_multikill_rounds")
         ]
         for (column, name) in integerColumns { add(matchID, side, name, Double(try integer(row, column))) }
         if timingCompactSchemas.contains(try row.decode(column: "payload_schema", as: String.self)),
@@ -641,7 +643,7 @@ private func comparisonSideData(
                CAST(SUM((CASE WHEN e.killer_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 1) AS SIGNED) AS enemy_alive_1
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20', 'nickstats.match/21')
         WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "e.match_id"))
           AND e.enemy_kill = TRUE
           AND (SELECT COUNT(*) FROM match_rounds rt WHERE rt.match_id = m.id) = m.rounds
@@ -690,7 +692,7 @@ private func comparisonSideData(
                CAST(SUM(e.enemy_kill = TRUE AND (CASE WHEN e.victim_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 1) AS SIGNED) AS enemy_alive_1
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20', 'nickstats.match/21')
         WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "e.match_id"))
           AND (SELECT COUNT(*) FROM match_rounds rt WHERE rt.match_id = m.id) = m.rounds
         GROUP BY e.match_id, e.victim_side
@@ -1819,6 +1821,7 @@ private func decodeSide(_ row: any SQLRow) throws -> SideStatsPayload {
             fourKills: try integer(row, "true_kill_rounds_4k"),
             fiveKills: try integer(row, "true_kill_rounds_5k")
         ),
+        trueMultikillRounds: try integer(row, "true_multikill_rounds"),
         weapons: [], duels: [], trades: [], contexts: [], assistedBy: [], flashes: []
     )
 }
