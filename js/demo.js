@@ -1335,16 +1335,16 @@
   }
 
   const mapArtworkLocations = {
-    mirage: { column: 0, row: 0 },
-    inferno: { column: 1, row: 0 },
-    nuke: { column: 0, row: 1 },
-    dust2: { column: 1, row: 1 },
-    ancient: { column: 0, row: 2 },
-    anubis: { column: 1, row: 2 },
-    overpass: { column: 0, row: 3 },
-    train: { column: 1, row: 3 },
-    vertigo: { column: 0, row: 4 },
-    cache: { column: 1, row: 4 }
+    mirage: { file: "mirage.webp", position: "center 54%" },
+    inferno: { file: "inferno.webp", position: "center 54%" },
+    nuke: { file: "nuke.webp", position: "center 38%" },
+    dust2: { file: "dust2.webp", position: "center 52%" },
+    ancient: { file: "ancient.webp", position: "center 48%" },
+    anubis: { file: "anubis.webp", position: "center 50%" },
+    overpass: { file: "overpass.webp", position: "center 45%" },
+    train: { file: "train.webp", position: "center 52%" },
+    vertigo: { file: "vertigo.webp", position: "center 45%" },
+    cache: { file: "cache.webp", position: "center 45%" }
   };
 
   function mapArtworkKey(name) {
@@ -1358,17 +1358,14 @@
     return normalized === "dustii" ? "dust2" : normalized;
   }
 
-  function applyMapArtwork(element, mapName, banner = false) {
+  function applyMapArtwork(element, mapName) {
     const location = mapArtworkLocations[mapArtworkKey(mapName)];
+    element.style.removeProperty("background-image");
+    element.style.removeProperty("background-position");
     element.classList.toggle("unknown", !location);
     if (!location) return;
-    if (banner) {
-      element.style.setProperty("--map-column", `${location.column * 100}%`);
-      element.style.setProperty("--map-row-offset", `${location.row * 22.326}%`);
-      element.style.setProperty("--map-mobile-row-offset", `${location.row * 24.615}%`);
-      return;
-    }
-    element.style.backgroundPosition = `${location.column * 100}% ${location.row * 25}%`;
+    element.style.backgroundImage = `url("./assets/maps-v2/${location.file}")`;
+    element.style.backgroundPosition = location.position;
   }
 
   function matchScore(team) {
@@ -1554,10 +1551,7 @@
     const secondResult = matchTeamResult(secondTeam, firstTeam);
 
     banner.className = "match-banner";
-    banner.style.removeProperty("--map-column");
-    banner.style.removeProperty("--map-row-offset");
-    banner.style.removeProperty("--map-mobile-row-offset");
-    applyMapArtwork(banner, mapName, true);
+    applyMapArtwork(banner, mapName);
 
     const top = document.createElement("div");
     top.className = "match-banner-top";
