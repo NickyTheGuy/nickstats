@@ -14,7 +14,7 @@ Derived values are not stored. ALL-side totals are calculated from T + CT; ADR i
 |---|---|
 | `schema_migrations` | Applied database schema versions |
 | `parser_configs` | Deduplicated parser-rule JSON, identified by a canonical SHA-256 |
-| `auth_users` | Login usernames with salted one-way password hashes |
+| `auth_users` | Login usernames with salted one-way password hashes and an optional representative player |
 | `matches` | Match identity, parser version, map, date, and round count |
 | `players` | Stable human identity keyed by Steam ID |
 | `match_teams` | The two teams, final scores, and side-win totals |
@@ -109,3 +109,5 @@ Migration 011 adds sparse player statistics keyed by both teams' buy types, roun
 Migration 012 adds the active flash source behind blinded opening kills and deaths: the killer, a killer-side teammate, the victim's side (including self-flashes), or unavailable. Source categories may overlap when multiple flashes are active. Existing matches remain readable but are excluded from these schema-19 source metrics until reparsed.
 
 Migration 014 adds database-backed login accounts. Accounts listed in `NICKSTATS_LOGIN_USERS` are inserted with a salted PBKDF2-HMAC-SHA256 password hash on their first successful login. Once inserted, the database password is authoritative and can be changed by the user without editing `.env`.
+
+Migration 015 lets each login select the database player that represents them. The nullable foreign key is cleared automatically if that player is ever deleted.

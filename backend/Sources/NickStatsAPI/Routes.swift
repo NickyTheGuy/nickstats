@@ -39,14 +39,16 @@ func routes(_ app: Application) throws {
         let login = try request.content.decode(LoginRequest.self)
         let session = try await authenticateLogin(login, on: request.db)
         let response = Response(status: .ok)
-        try response.content.encode(AuthSessionResponse(authenticated: true, username: session.username))
+        try response.content.encode(try await accountSession(username: session.username, on: request.db))
         setSessionCookie(response, token: session.token, maxAge: session.expiresAt - Int64(Date().timeIntervalSince1970))
         return response
     }
 
-    app.get("auth", "session") { request -> AuthSessionResponse in
-        let username = authenticatedUsername(request)
-        return AuthSessionResponse(authenticated: username != nil, username: username)
+    app.get("auth", "session") { request async throws -> AuthSessionResponse in
+        guard let username = authenticatedUsername(request) else {
+            return AuthSessionResponse(authenticated: false, username: nil, playerID: nil, playerName: nil)
+        }
+        return try await accountSession(username: username, on: request.db)
     }
 
     app.post("auth", "logout") { _ -> Response in
@@ -62,6 +64,14 @@ func routes(_ app: Application) throws {
         let change = try request.content.decode(ChangePasswordRequest.self)
         try await changePassword(username: username, change: change, on: request.db)
         return Response(status: .noContent)
+    }
+
+    app.post("auth", "player") { request async throws -> AuthSessionResponse in
+        guard let username = authenticatedUsername(request) else {
+            throw Abort(.unauthorized, reason: "Log in before changing your player.")
+        }
+        let selection = try request.content.decode(AccountPlayerRequest.self)
+        return try await setAccountPlayer(username: username, playerID: selection.playerID, on: request.db)
     }
 
     app.on(.POST, "matches", body: .collect(maxSize: "8mb")) { request async throws -> Response in

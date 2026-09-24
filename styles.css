@@ -753,13 +753,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   font-weight: 800;
 }
 
-.demo-session-controls {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 9px;
-}
-
 .demo-auth-button {
   min-height: 34px;
   padding: 6px 11px;
@@ -775,12 +768,14 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .demo-auth-dialog {
   width: min(460px, calc(100% - 32px));
+  max-height: calc(100vh - 32px);
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: 18px;
   background: var(--panel);
   color: var(--text);
   box-shadow: 0 30px 100px rgba(45, 31, 36, .22);
+  overflow-y: auto;
 }
 
 .demo-auth-dialog::backdrop {
@@ -835,6 +830,92 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.demo-account-section {
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.demo-account-section h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.demo-account-player-current {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text) !important;
+  font-weight: 800;
+}
+
+.demo-account-player-search {
+  display: grid;
+  gap: 7px;
+}
+
+.demo-account-player-search > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.demo-account-player-status {
+  font-size: 13px;
+}
+
+.demo-account-player-results {
+  display: grid;
+  gap: 7px;
+}
+
+.demo-account-player-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.demo-account-player-result:hover,
+.demo-account-player-result:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  outline: none;
+}
+
+.demo-account-player-result span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demo-account-player-result strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demo-account-player-clear {
+  justify-self: start;
+}
+
+.demo-account-password label {
+  margin-bottom: -7px;
+}
+
+.demo-account-password .button {
+  justify-self: start;
 }
 
 .demo-drop {
@@ -1539,10 +1620,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
     margin-left: 0;
   }
 
-  .demo-session-controls {
-    justify-content: flex-start;
-  }
-
   .demo-side-filter {
     align-items: stretch;
     flex-direction: column;
@@ -1559,11 +1636,17 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .app-hero {
-  align-items: end;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
 }
 
 .app-hero h1 {
   margin-top: 8px;
+}
+
+.app-account-button {
+  justify-self: end;
+  margin-top: 2px;
 }
 
 .app-tabs {
@@ -3255,6 +3338,17 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   .player-graph-controls label:nth-child(2) select { width: 100%; min-width: 0; }
   .app-hero {
     align-items: start;
+  }
+
+  .app-account-button {
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .demo-account-player-search > div {
+    grid-template-columns: 1fr;
   }
 
   .app-tabs {

@@ -4,6 +4,7 @@
   const $ = id => document.getElementById(id);
   const MATCH_UPLOAD_ENDPOINT = "/nickstats/api/matches";
   const AUTH_ENDPOINT = "/nickstats/api/auth";
+  const PLAYER_ENDPOINT = "/nickstats/api/players";
   const MATCH_LIST_LIMIT = 25;
   const MAX_UNCOMPRESSED_DEMO_BYTES = 768 * 1024 * 1024;
   const Scoreboard = window.NickStatsScoreboard;
@@ -31,6 +32,8 @@
     diagnostics: null,
     authenticated: false,
     authUsername: null,
+    accountPlayerID: null,
+    accountPlayerName: null,
     uploadPending: false,
     uploading: false,
     duplicateMatchID: null,
@@ -327,10 +330,18 @@
     return `Parsed ${result.rounds} rounds and ${result.player_count} players.`;
   }
 
-  function updateUploadAuthenticationDisplay() {
+  function updateAuthenticationDisplay() {
     const button = $("demoAuthButton");
-    button.textContent = state.authenticated ? `${state.authUsername} · Log out` : "Log in to upload";
+    button.textContent = state.authenticated ? `${state.authUsername} · Account` : "Log in";
     button.classList.toggle("authenticated", state.authenticated);
+  }
+
+  function applyAccountSession(session) {
+    state.authenticated = Boolean(session?.authenticated);
+    state.authUsername = session?.username || null;
+    state.accountPlayerID = session?.player_id == null ? null : String(session.player_id);
+    state.accountPlayerName = session?.player_name || null;
+    updateAuthenticationDisplay();
   }
 
   function openUploadAuthentication(message = "") {
@@ -345,33 +356,100 @@
 
   function openAccountSettings() {
     $("demoAccountUsername").textContent = state.authUsername || "";
+    $("demoAccountPlayerSearch").value = "";
+    $("demoAccountPlayerResults").replaceChildren();
+    $("demoAccountPlayerStatus").textContent = "";
+    renderAccountPlayer();
     $("demoCurrentPassword").value = "";
     $("demoNewPassword").value = "";
     $("demoConfirmPassword").value = "";
     $("demoPasswordError").hidden = true;
     const dialog = $("demoAccountDialog");
     if (!dialog.open) dialog.showModal();
-    $("demoCurrentPassword").focus();
+    $("demoAccountPlayerSearch").focus();
+  }
+
+  function renderAccountPlayer() {
+    $("demoAccountPlayerCurrent").textContent = state.accountPlayerID
+      ? `${state.accountPlayerName || "Selected player"} · player #${state.accountPlayerID}`
+      : "No player selected.";
+    $("demoAccountPlayerClear").hidden = state.accountPlayerID == null;
+  }
+
+  function renderAccountPlayerResults(players) {
+    const results = $("demoAccountPlayerResults");
+    results.replaceChildren();
+    for (const player of players) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "demo-account-player-result";
+      const name = document.createElement("strong");
+      name.textContent = player.name || "Unknown player";
+      const details = document.createElement("span");
+      details.textContent = player.steam_id || `Player #${player.id}`;
+      button.append(name, details);
+      button.addEventListener("click", () => setAccountPlayer(player));
+      results.appendChild(button);
+    }
+  }
+
+  async function searchAccountPlayers() {
+    const query = $("demoAccountPlayerSearch").value.trim();
+    const status = $("demoAccountPlayerStatus");
+    if (!query) {
+      status.textContent = "Enter a player name or Steam ID.";
+      renderAccountPlayerResults([]);
+      return;
+    }
+    status.textContent = "Searching…";
+    try {
+      const parameters = new URLSearchParams({ q: query, limit: "10", offset: "0" });
+      const response = await fetch(`${PLAYER_ENDPOINT}?${parameters}`, { headers: { Accept: "application/json" } });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.reason || `Search failed with HTTP ${response.status}.`);
+      const players = Array.isArray(body?.players) ? body.players : [];
+      renderAccountPlayerResults(players);
+      status.textContent = players.length ? `Choose from ${players.length} matching player${players.length === 1 ? "" : "s"}.` : "No players matched that search.";
+    } catch (error) {
+      renderAccountPlayerResults([]);
+      status.textContent = error.message || "Could not search players.";
+    }
+  }
+
+  async function setAccountPlayer(player) {
+    const status = $("demoAccountPlayerStatus");
+    status.textContent = player ? "Saving player…" : "Clearing player…";
+    try {
+      const response = await fetch(`${AUTH_ENDPOINT}/player`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ player_id: player?.id ?? null })
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.reason || `Player update failed with HTTP ${response.status}.`);
+      applyAccountSession(body);
+      renderAccountPlayer();
+      renderAccountPlayerResults([]);
+      $("demoAccountPlayerSearch").value = "";
+      status.textContent = player ? `${body.player_name || player.name} now represents this account.` : "Selected player cleared.";
+    } catch (error) {
+      status.textContent = error.message || "Could not update the account player.";
+    }
   }
 
   async function loadAuthSession() {
     try {
       const response = await fetch(`${AUTH_ENDPOINT}/session`, { headers: { "Accept": "application/json" } });
       const session = response.ok ? await response.json() : null;
-      state.authenticated = Boolean(session?.authenticated);
-      state.authUsername = session?.username || null;
+      applyAccountSession(session);
     } catch (_) {
-      state.authenticated = false;
-      state.authUsername = null;
+      applyAccountSession(null);
     }
-    updateUploadAuthenticationDisplay();
   }
 
   async function logOut() {
     await fetch(`${AUTH_ENDPOINT}/logout`, { method: "POST" }).catch(() => null);
-    state.authenticated = false;
-    state.authUsername = null;
-    updateUploadAuthenticationDisplay();
+    applyAccountSession(null);
     if ($("demoAccountDialog").open) $("demoAccountDialog").close();
     setStatus("Logged out. Log in again to upload matches.");
   }
@@ -436,7 +514,9 @@
       if (error.status === 401) {
         state.authenticated = false;
         state.authUsername = null;
-        updateUploadAuthenticationDisplay();
+        state.accountPlayerID = null;
+        state.accountPlayerName = null;
+        updateAuthenticationDisplay();
         openUploadAuthentication("Your login expired. Log in again to continue.");
       }
     } finally {
@@ -2793,9 +2873,7 @@
           updateBatchItem(index, "error", reason);
           failed += 1;
           if (error.status === 401) {
-            state.authenticated = false;
-            state.authUsername = null;
-            updateUploadAuthenticationDisplay();
+            applyAccountSession(null);
             for (let pending = index + 1; pending < state.files.length; pending += 1) {
               updateBatchItem(pending, "waiting", "Not started — login expired");
             }
@@ -3136,9 +3214,7 @@
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) throw new Error(body?.reason || `Login failed with HTTP ${response.status}.`);
-      state.authenticated = true;
-      state.authUsername = body?.username || username;
-      updateUploadAuthenticationDisplay();
+      applyAccountSession(body || { authenticated: true, username });
       $("demoAuthDialog").close();
     } catch (loginError) {
       error.textContent = loginError.message || "Could not log in.";
@@ -3164,6 +3240,11 @@
   $("demoAuthDialog").addEventListener("cancel", () => {
     state.parsePending = false;
   });
+  $("demoAccountPlayerForm").addEventListener("submit", event => {
+    event.preventDefault();
+    searchAccountPlayers();
+  });
+  $("demoAccountPlayerClear").addEventListener("click", () => setAccountPlayer(null));
   $("demoPasswordForm").addEventListener("submit", async event => {
     event.preventDefault();
     const currentPassword = $("demoCurrentPassword").value;
@@ -3221,7 +3302,7 @@
   }));
   drop.addEventListener("drop", event => chooseFiles(event.dataTransfer.files));
   window.addEventListener("hashchange", syncMatchRoute);
-  updateUploadAuthenticationDisplay();
+  updateAuthenticationDisplay();
   authSessionReady = loadAuthSession();
   loadMatches(0);
   syncMatchRoute();

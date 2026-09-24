@@ -16,6 +16,14 @@ struct LoginRequest: Content {
 struct AuthSessionResponse: Content {
     var authenticated: Bool
     var username: String?
+    var playerID: Int64?
+    var playerName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case authenticated, username
+        case playerID = "player_id"
+        case playerName = "player_name"
+    }
 }
 
 struct ChangePasswordRequest: Content {
@@ -25,6 +33,14 @@ struct ChangePasswordRequest: Content {
     enum CodingKeys: String, CodingKey {
         case currentPassword = "current_password"
         case newPassword = "new_password"
+    }
+}
+
+struct AccountPlayerRequest: Content {
+    var playerID: Int64?
+
+    enum CodingKeys: String, CodingKey {
+        case playerID = "player_id"
     }
 }
 
@@ -240,6 +256,41 @@ func changePassword(username: String, change: ChangePasswordRequest, on database
         throw Abort(.badRequest, reason: "Choose a password different from the current password.")
     }
     try await savePassword(username, password: change.newPassword, create: false, on: database)
+}
+
+func accountSession(username: String, on database: any Database) async throws -> AuthSessionResponse {
+    guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
+    let row = try await sql.raw("""
+        SELECT CAST(au.representative_player_id AS SIGNED) AS representative_player_id,
+               p.current_name AS representative_player_name
+        FROM auth_users au
+        LEFT JOIN players p ON p.id = au.representative_player_id
+        WHERE au.username = \(bind: username)
+        """).first()
+    let playerID = try row?.decode(column: "representative_player_id", as: Int64?.self) ?? nil
+    let playerName = try row?.decode(column: "representative_player_name", as: String?.self) ?? nil
+    return AuthSessionResponse(
+        authenticated: row != nil,
+        username: row == nil ? nil : username,
+        playerID: playerID,
+        playerName: playerName
+    )
+}
+
+func setAccountPlayer(username: String, playerID: Int64?, on database: any Database) async throws -> AuthSessionResponse {
+    guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
+    if let playerID {
+        guard playerID > 0,
+              try await sql.raw("SELECT id FROM players WHERE id = \(bind: playerID)").first() != nil else {
+            throw Abort(.notFound, reason: "That player no longer exists.")
+        }
+    }
+    try await sql.raw("""
+        UPDATE auth_users
+        SET representative_player_id = \(bind: playerID)
+        WHERE username = \(bind: username)
+        """).run()
+    return try await accountSession(username: username, on: database)
 }
 
 func setSessionCookie(_ response: Response, token: String, maxAge: Int64) {

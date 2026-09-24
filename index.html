@@ -5,17 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260924-02">
+  <link rel="stylesheet" href="./styles.css?v=20260924-03">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.09.24.3</span>
+          <span class="demo-build">Build 2026.09.24.4</span>
         </div>
         <h1>NickStats</h1>
       </div>
+      <button class="button button-secondary demo-auth-button app-account-button" id="demoAuthButton" type="button">Log in</button>
     </header>
 
     <nav class="data-tabs app-tabs" role="tablist" aria-label="NickStats sections">
@@ -31,9 +32,6 @@
           <div>
             <div class="eyebrow">Upload</div>
             <h2>Add a match</h2>
-          </div>
-          <div class="demo-session-controls">
-            <button class="button button-secondary demo-auth-button" id="demoAuthButton" type="button">Log in to upload</button>
           </div>
         </div>
 
@@ -458,7 +456,7 @@
     <form class="demo-auth-form" id="demoAuthForm">
       <div class="eyebrow">Database access</div>
       <h2 id="demoAuthTitle">Log in to NickStats</h2>
-      <p id="demoAuthDescription">Log in to parse demos and save matches to the shared database.</p>
+      <p id="demoAuthDescription">Log in to access your NickStats account and upload matches.</p>
       <label for="demoAuthUsername">Username</label>
       <input id="demoAuthUsername" name="username" type="text" autocomplete="username" spellcheck="false" required autofocus>
       <label for="demoAuthPassword">Password</label>
@@ -472,30 +470,50 @@
   </dialog>
 
   <dialog class="demo-auth-dialog" id="demoAccountDialog" aria-labelledby="demoAccountTitle">
-    <form class="demo-auth-form" id="demoPasswordForm">
+    <div class="demo-auth-form">
       <div class="eyebrow">Account</div>
       <h2 id="demoAccountTitle">Account settings</h2>
       <p>Logged in as <strong id="demoAccountUsername"></strong></p>
-      <label for="demoCurrentPassword">Current password</label>
-      <input id="demoCurrentPassword" name="current-password" type="password" autocomplete="current-password" required>
-      <label for="demoNewPassword">New password</label>
-      <input id="demoNewPassword" name="new-password" type="password" autocomplete="new-password" minlength="12" required>
-      <label for="demoConfirmPassword">Confirm new password</label>
-      <input id="demoConfirmPassword" name="confirm-password" type="password" autocomplete="new-password" minlength="12" required>
-      <p class="demo-auth-error" id="demoPasswordError" role="alert" hidden></p>
-      <div class="demo-auth-actions">
+
+      <section class="demo-account-section" aria-labelledby="demoAccountPlayerTitle">
+        <h3 id="demoAccountPlayerTitle">Your player</h3>
+        <p class="demo-account-player-current" id="demoAccountPlayerCurrent">No player selected.</p>
+        <form class="demo-account-player-search" id="demoAccountPlayerForm">
+          <label for="demoAccountPlayerSearch">Find yourself by name or Steam ID</label>
+          <div>
+            <input id="demoAccountPlayerSearch" type="search" autocomplete="off" spellcheck="false">
+            <button class="button button-secondary" type="submit">Search</button>
+          </div>
+        </form>
+        <p class="demo-account-player-status" id="demoAccountPlayerStatus" role="status" aria-live="polite"></p>
+        <div class="demo-account-player-results" id="demoAccountPlayerResults"></div>
+        <button class="button button-secondary demo-account-player-clear" id="demoAccountPlayerClear" type="button" hidden>Clear selected player</button>
+      </section>
+
+      <form class="demo-account-section demo-account-password" id="demoPasswordForm">
+        <h3>Change password</h3>
+        <label for="demoCurrentPassword">Current password</label>
+        <input id="demoCurrentPassword" name="current-password" type="password" autocomplete="current-password" required>
+        <label for="demoNewPassword">New password</label>
+        <input id="demoNewPassword" name="new-password" type="password" autocomplete="new-password" minlength="12" required>
+        <label for="demoConfirmPassword">Confirm new password</label>
+        <input id="demoConfirmPassword" name="confirm-password" type="password" autocomplete="new-password" minlength="12" required>
+        <p class="demo-auth-error" id="demoPasswordError" role="alert" hidden></p>
         <button class="button button-primary" type="submit">Change password</button>
+      </form>
+
+      <div class="demo-auth-actions">
         <button class="button button-secondary" id="demoLogoutButton" type="button">Log out</button>
         <button class="button button-secondary" id="demoAccountCloseButton" type="button">Close</button>
       </div>
-    </form>
+    </div>
   </dialog>
 
   <script defer src="./js/navigation.js?v=20260923-06"></script>
   <script defer src="./js/filters.js?v=20260920-14"></script>
   <script defer src="./js/stat-availability.js?v=20260922-08"></script>
   <script defer src="./js/scoreboard.js?v=20260923-01"></script>
-  <script defer src="./js/demo.js?v=20260924-03"></script>
+  <script defer src="./js/demo.js?v=20260924-04"></script>
   <script defer src="./js/graphs.js?v=20260922-08"></script>
   <script defer src="./js/profile.js?v=20260922-08"></script>
   <script defer src="./js/quick-comparison.js?v=20260923-01"></script>
