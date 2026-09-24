@@ -66,7 +66,7 @@ test("removed survivor summary has no stale match renderer", () => {
 
 test("freeze end captures authoritative team equipment values", () => {
   assert.match(source, /m_unFreezetimeEndEquipmentValue/);
-  assert.match(source, /round\.economySnapshot = \{ values, players \}/);
+  assert.match(source, /round\.economySnapshot = \{ values, players, individual \}/);
   assert.match(source, /roundEconomies\.push\(/);
   assert.match(source, /pistol_round: pistolRound/);
 });
@@ -112,7 +112,7 @@ test("round survivor migration extends round facts without rewriting timing migr
 });
 
 test("current schema uploads survivor rows separately from stable timing rows", () => {
-  assert.match(frontendSource, /schema: "nickstats\.match\/22"/);
+  assert.match(frontendSource, /schema: "nickstats\.match\/23"/);
   assert.match(frontendSource, /round_survivors: \(result\.round_timing \|\| \[\]\)\.map/);
   assert.match(frontendSource, /round_economy: \(result\.round_economy \|\| \[\]\)\.map/);
 });

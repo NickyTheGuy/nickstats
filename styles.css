@@ -2508,6 +2508,10 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   border-radius: 11px;
   background: rgba(255, 255, 255, .48);
 }
+.hero-subfilter { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 7px; color: var(--text); font-size: 13px; font-weight: 750; cursor: pointer; }
+.hero-subfilter[hidden] { display: none; }
+.hero-subfilter input { accent-color: var(--accent); }
+.hero-subfilter small { color: var(--muted); font-weight: 450; }
 
 .economy-matchup-title {
   grid-column: 1 / -1;

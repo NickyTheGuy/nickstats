@@ -90,6 +90,17 @@ test("phase selection composes with side, buys, and result without double counti
   assert.equal(samplesForMatches(source, "T", "full", "loss", "eco", "OVERTIME").length, 0);
 });
 
+test("hero scope selects only its holder and preserves the force total", () => {
+  const source = [{ id: 13, schema: "nickstats.match/23", sides: [
+    { side: "T", buy_type: "force", opponent_buy_type: "ALL", round_result: "ALL", stats: { rounds: 3, kills: 5 } },
+    { side: "T", buy_type: "force", opponent_buy_type: "ALL", round_result: "ALL", round_phase: "ALL", hero: true, stats: { rounds: 1, kills: 2 } },
+    { side: "T", buy_type: "force", opponent_buy_type: "ALL", round_result: "ALL", round_phase: "OVERTIME", hero: true, stats: { rounds: 1, kills: 2 } }
+  ] }];
+  assert.equal(statsForMatch(source[0], "T", "force").rounds, 3);
+  assert.equal(statsForMatch(source[0], "T", "force", "ALL", "ALL", "ALL", true).kills, 2);
+  assert.equal(samplesForMatches(source, "T", "force", "ALL", "ALL", "OVERTIME", true)[0].stats.rounds, 1);
+});
+
 test("graph metric registry calculates per-match rates from matching denominators", () => {
   const stats = statsForMatch(match, "ALL");
 

@@ -142,9 +142,15 @@ private func comparisonMatch(id: Int64, playedAt: Int64, kills: Double) -> Compa
         ownBuyIndex: 0, opponentBuyIndex: 0, resultIndex: 0, sideIndex: 0, stats: played
     )]
     let slice = PlayerRoundSlice(round: 1, side: .terrorist, buy: "pistol",
-                                 opponentBuy: "pistol", result: "win", stats: played)
+                                 opponentBuy: "pistol", result: "win", stats: played, hero: false)
     payload.players[0].roundSlices = [slice]
     try payload.validate()
+    payload.players[0].roundSlices![0].hero = nil
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+    payload.schema = "nickstats.match/22"
+    try payload.validate()
+    payload.schema = compactSchema
+    payload.players[0].roundSlices![0].hero = false
     payload.players[0].roundSlices = [slice, slice]
     #expect(throws: MatchValidationError.self) { try payload.validate() }
 }

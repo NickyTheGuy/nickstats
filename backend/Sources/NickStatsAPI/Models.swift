@@ -1,8 +1,8 @@
 import Vapor
 
-let compactSchema = "nickstats.match/22"
-let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", compactSchema])
-let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", compactSchema])
+let compactSchema = "nickstats.match/23"
+let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", compactSchema])
+let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
@@ -116,9 +116,10 @@ struct PlayerRoundSlice: Content, Sendable {
     var opponentBuy: String?
     var result: String?
     var stats: SideStatsPayload
+    var hero: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
-        case round, side, buy, result, stats
+        case round, side, buy, result, stats, hero
         case opponentBuy = "opponent_buy"
     }
 }
@@ -147,9 +148,10 @@ struct SideStatsPayload: Content, Sendable {
     var assistedBy: [AssistedKillStats]
     var flashes: [FlashStats]
     var profile: [Int]? = nil
+    var hero: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
-        case rounds, opening, utility, objectives, speed, clutches, weapons, duels, trades, contexts, flashes, profile
+        case rounds, opening, utility, objectives, speed, clutches, weapons, duels, trades, contexts, flashes, profile, hero
         case combat = "kda"
         case kastRounds = "kast_rounds"
         case tradeKills = "trade_kills"
@@ -401,11 +403,12 @@ struct DenseComparisonSideStats: Content, Sendable {
     var opponentBuyType: String
     var roundResult: String
     var roundPhase: String? = nil
+    var hero: Bool = false
     var stats: [Double?]
     var weapons: [ComparisonWeaponStats]
 
     enum CodingKeys: String, CodingKey {
-        case side, stats, weapons
+        case side, stats, weapons, hero
         case buyType = "buy_type"
         case opponentBuyType = "opponent_buy_type"
         case roundResult = "round_result"
@@ -418,6 +421,7 @@ struct DenseComparisonSideStats: Content, Sendable {
         opponentBuyType = value.opponentBuyType
         roundResult = value.roundResult
         roundPhase = value.roundPhase
+        hero = value.hero
         stats = statKeys.map { value.stats[$0] }
         weapons = value.weapons
     }
@@ -683,9 +687,10 @@ struct ComparisonRoundKill: Content, Sendable {
     var buy: String?
     var opponentBuy: String?
     var result: String?
+    var hero: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
-        case round, kills, side, buy, result
+        case round, kills, side, buy, result, hero
         case opponentBuy = "opponent_buy"
     }
 }
@@ -696,11 +701,12 @@ struct ComparisonSideStats: Content {
     var opponentBuyType: String
     var roundResult: String
     var roundPhase: String? = nil
+    var hero: Bool = false
     var stats: [String: Double]
     var weapons: [ComparisonWeaponStats]
 
     enum CodingKeys: String, CodingKey {
-        case side, stats, weapons
+        case side, stats, weapons, hero
         case buyType = "buy_type"
         case opponentBuyType = "opponent_buy_type"
         case roundResult = "round_result"

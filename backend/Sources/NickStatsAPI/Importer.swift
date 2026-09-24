@@ -239,7 +239,9 @@ func importMatch(
 
     for (playerSlot, player) in payload.players.enumerated() {
         for slice in player.roundSlices ?? [] {
-            let data = try JSONEncoder().encode(slice.stats)
+            var roundStats = slice.stats
+            roundStats.hero = slice.hero
+            let data = try JSONEncoder().encode(roundStats)
             guard let json = String(data: data, encoding: .utf8) else {
                 throw Abort(.internalServerError, reason: "Could not encode round statistics.")
             }

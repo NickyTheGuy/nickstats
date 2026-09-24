@@ -19,6 +19,8 @@ test("exact numbered rounds average only appearances, including zero kills and a
   ]);
   assert.deepEqual(Array.from(timeline.averages(matches, { phase: "OVERTIME" }), point => point.round), [25]);
   assert.deepEqual(Array.from(timeline.averages(matches, { side: "CT" })), []);
+  matches[0].round_kills[2].hero = true;
+  assert.deepEqual(Array.from(timeline.averages(matches, { phase: "OVERTIME", heroOnly: true }), point => [point.round, point.appearances]), [[25, 1]]);
 });
 
 test("match timeline reads kills, deaths, damage and AWP kills from one played round", () => {

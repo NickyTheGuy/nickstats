@@ -30,7 +30,7 @@
     selected: new Map(savedRoster.map(({ player }) => [String(player.id), player])), players: [],
     choices: new Map(savedRoster.map(({ player, choice }) => [String(player.id), choice])),
     searchController: null, groupController: null, searchTimer: null,
-    side: "ALL", buy: "ALL", opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL",
+    side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL",
     comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile"
   };
 
@@ -99,7 +99,7 @@
         : rowOpponentBuy === "ALL" &&
           (state.buy === "ALL" ? (side.buy_type || "ALL") === "ALL" : side.buy_type === state.buy) &&
           (state.roundResult === "ALL" ? (side.round_result || "ALL") === "ALL" : side.round_result === state.roundResult);
-      return economyMatches && (side.round_phase || "ALL") === state.roundPhase && (state.side === "ALL" || side.side === state.side);
+      return economyMatches && Boolean(side.hero) === state.heroOnly && (side.round_phase || "ALL") === state.roundPhase && (state.side === "ALL" || side.side === state.side);
     });
     const stats = {}, weapons = new Map();
     selected.forEach(side => {
@@ -109,7 +109,7 @@
         current.kills += num(weapon.kills); current.damage += num(weapon.damage); current.shots += num(weapon.shots); current.hits += num(weapon.hits); current.rounds_used += num(weapon.rounds_used); weapons.set(weapon.weapon, current);
       });
     });
-    if (!selected.length && state.roundPhase === "ALL" && state.side === "ALL" && state.buy === "ALL" && state.opponentBuy === "ALL" && state.roundResult === "ALL") mergeStats(stats, row.legacy);
+    if (!selected.length && !state.heroOnly && state.roundPhase === "ALL" && state.side === "ALL" && state.buy === "ALL" && state.opponentBuy === "ALL" && state.roundResult === "ALL") mergeStats(stats, row.legacy);
     return { stats, weapons };
   }
 
@@ -131,7 +131,7 @@
   }
 
   function summarize(rows) {
-    const qualifyingRows = state.roundPhase === "ALL" ? rows : rows.filter(row => num(selectedView(row).stats.rounds) > 0);
+    const qualifyingRows = state.roundPhase === "ALL" && !state.heroOnly ? rows : rows.filter(row => num(selectedView(row).stats.rounds) > 0);
     const n = qualifyingRows.length;
     const stats = {}, weapons = new Map();
     rows.forEach(row => { const view = selectedView(row); availability.add(stats, view.stats, row.schema); view.weapons.forEach((weapon, name) => { const current = weapons.get(name) || { kills: 0, damage: 0, shots: 0, hits: 0, rounds_used: 0 }; Object.keys(current).forEach(key => current[key] += num(weapon[key])); weapons.set(name, current); }); });
@@ -151,7 +151,7 @@
       ...materialized,
       n, wins, losses, ties,
       scores: scoreBreakdown(qualifyingRows, { scoreFor: row => row.score?.[0], scoreAgainst: row => row.score?.[1] }),
-      winRate: state.roundPhase === "ALL" && state.side === "ALL" && state.buy === "ALL" && state.opponentBuy === "ALL" ? (n ? 100 * wins / n : 0) : (rounds ? 100 * num(stats.round_wins) / rounds : 0),
+      winRate: !state.heroOnly && state.roundPhase === "ALL" && state.side === "ALL" && state.buy === "ALL" && state.opponentBuy === "ALL" ? (n ? 100 * wins / n : 0) : (rounds ? 100 * num(stats.round_wins) / rounds : 0),
       kd: deaths ? kills / deaths : kills,
       avgK: n ? kills / n : 0,
       avgD: n ? deaths / n : 0,
@@ -443,7 +443,7 @@
     const rows = comboProfileRows(current, player), stats = summarize(rows);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("comboProfileTitle").textContent = player.label;
-    const buyLabel = state.buy === "ALL" ? "All buys" : `${titleCase(state.buy)} buys`;
+    const buyLabel = state.buy === "ALL" ? "All buys" : `${titleCase(state.buy)} buys${state.heroOnly ? " · Hero only" : ""}`;
     const opponentBuyLabel = state.opponentBuy === "ALL" ? "All enemy buys" : `vs ${titleCase(state.opponentBuy)}`;
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
     $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(stats.n)} qualifying match${stats.n === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}`;
@@ -451,7 +451,7 @@
     const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate, scores: source.scores });
     const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches)) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "combo", headlineId: "comboProfileHeadline", summary: normalize(stats), side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
-    window.NickStatsGraphs.render({ prefix: "combo", series: current.included.map(candidate => ({ label: candidate.label, samples: window.NickStatsGraphs.samplesForMatches(comboProfileRows(current, candidate), state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase) })) });
+    window.NickStatsGraphs.render({ prefix: "combo", series: current.included.map(candidate => ({ label: candidate.label, samples: window.NickStatsGraphs.samplesForMatches(comboProfileRows(current, candidate), state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly) })) });
     setComboProfileView(state.comboView);
   }
 
@@ -477,6 +477,9 @@
     persistRoster();
     state.result = "ALL";
     state.buy = "ALL";
+    state.heroOnly = false;
+    $("groupHeroControl").hidden = true;
+    $("groupHeroOnly").checked = false;
     state.opponentBuy = "ALL";
     state.roundResult = "ALL";
     state.roundPhase = "ALL";
@@ -507,7 +510,8 @@
     state.comboCondition = button.dataset.comboCondition; runCombination();
   }));
   window.NickStatsFilters.bindSideToggle({ selector: "[data-group-side]", valueFor: button => button.dataset.groupSide, onChange: side => { state.side = side; runCombination(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-buy]", valueFor: button => button.dataset.groupBuy, onChange: buy => { state.buy = buy; runCombination(); } });
+  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-buy]", valueFor: button => button.dataset.groupBuy, onChange: buy => { state.buy = buy; if (buy !== "eco" && buy !== "force") state.heroOnly = false; $("groupHeroControl").hidden = buy !== "eco" && buy !== "force"; $("groupHeroOnly").checked = state.heroOnly; runCombination(); } });
+  $("groupHeroOnly").addEventListener("change", event => { state.heroOnly = event.target.checked; runCombination(); });
   window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-enemy-buy]", valueFor: button => button.dataset.groupEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; runCombination(); } });
   window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-round-result]", valueFor: button => button.dataset.groupRoundResult, onChange: roundResult => { state.roundResult = roundResult; runCombination(); } });
   const groupRoundPhaseFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-round-phase]", valueFor: button => button.dataset.groupRoundPhase, onChange: phase => { state.roundPhase = phase; runCombination(); } });

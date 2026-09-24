@@ -6,7 +6,7 @@ A local-first Counter-Strike 2 analysis application organized around three produ
 - **Player** — reusable personal profiles, splits, graphs, and match history.
 - **Groups** — Included/Excluded teammate conditions and With/Without player profiles.
 
-Demo files are processed in the browser and are never uploaded. All three views remain publicly browsable; saving parsed matches requires a NickStats login. Login creates a signed, HttpOnly 30-day session cookie, so trusted friends can upload without receiving or repeatedly entering the server's private upload token. After a successful parse, the frontend automatically sends the compact `nickstats.match/22` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
+Demo files are processed in the browser and are never uploaded. All three views remain publicly browsable; saving parsed matches requires a NickStats login. Login creates a signed, HttpOnly 30-day session cookie, so trusted friends can upload without receiving or repeatedly entering the server's private upload token. After a successful parse, the frontend automatically sends the compact `nickstats.match/23` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
 
 The demo picker accepts multiple files. Batch parsing processes them sequentially to keep browser memory bounded, reports each file's result independently, continues after individual parse or upload failures, and refreshes the match list once at the end. Because batches are intended for reparsing, a demo already in the database is replaced automatically with the newly parsed statistics; single-file parsing keeps the explicit replacement confirmation.
 
@@ -78,7 +78,7 @@ Trade calibration traces remain available while a demo is being parsed but are d
 
 ## Compact match JSON
 
-**Download compact JSON** writes the versioned `nickstats.match/22` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index.
+**Download compact JSON** writes the versioned `nickstats.match/23` storage schema. It is minified and normalized for the match database rather than being a dump of the browser's display object. Player identity is stored once, while relationship and death-event entries reference the match-level player index. Each played round also records whether that player was the sole rifle or AWP holder on an eco or force buy; older matches need reparsing for the Hero only filter.
 
 Schema 19 attributes the active flash sources on blinded opening kills and deaths. The categories are the killer's own flash, a killer teammate's flash, a victim-side or self flash, and source unavailable. Source categories can overlap when multiple flashes are active; the unavailable counter is used only when the demo reports blindness without an attributable active source.
 

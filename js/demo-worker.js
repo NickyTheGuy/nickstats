@@ -52,6 +52,13 @@ const PRIMARY_WEAPONS = new Set([
   "negev", "nova", "p90", "sawedoff", "scar20", "sg556", "ssg08",
   "ump45", "xm1014"
 ]);
+const HERO_RIFLES = new Set(["ak47", "aug", "awp", "famas", "g3sg1", "galilar", "m4a1", "m4a1_silencer", "scar20", "sg556"]);
+const heroHolder = (players, buy) => {
+  if (buy !== "eco" && buy !== "force" || players.length < 2 || players.some(player => player.value == null || !player.weapons)) return null;
+  const armed = players.filter(player => [...player.weapons].some(weapon => PRIMARY_WEAPONS.has(weapon)));
+  return armed.length === 1 && [...armed[0].weapons].some(weapon => HERO_RIFLES.has(weapon)) && armed[0].value >= 2000
+    ? armed[0].row : null;
+};
 const WEAPON_ITEM_DEFINITIONS = new Map(Object.entries({
   1: "deagle", 2: "elite", 3: "fiveseven", 4: "glock", 7: "ak47", 8: "aug",
   9: "awp", 10: "famas", 11: "g3sg1", 13: "galilar", 14: "m249", 16: "m4a1",
@@ -466,6 +473,7 @@ async function parseDemo(fileName, buffer) {
     for (const row of new Set(stats.values())) byName.set(normalizeName(row.name), row);
     const values = { T: 0, CT: 0 };
     const players = { T: 0, CT: 0 };
+    const individual = { T: [], CT: [] };
     for (const pawn of demo.getEntitiesByClassNameIterator("CCSPlayerPawn")) {
       const controllerHandle = safePawnField(pawn, "m_hController");
       const controller = Number.isInteger(controllerHandle) ? demo.getEntityByHandle(controllerHandle) : null;
@@ -478,10 +486,17 @@ async function parseDemo(fileName, buffer) {
       const equipmentValue = numberOrNull(safePawnField(pawn, "m_unFreezetimeEndEquipmentValue")) ??
         numberOrNull(safePawnField(pawn, "m_unCurrentEquipmentValue"));
       if (equipmentValue === null) continue;
-      values[key] += Math.max(0, Math.round(equipmentValue));
+      const value = Math.max(0, Math.round(equipmentValue));
+      values[key] += value;
       players[key] += 1;
+      const handles = new Set([
+        ...entityHandles(safePawnField(pawn, "m_pWeaponServices.m_hMyWeapons")),
+        ...entityHandles(safePawnField(pawn, "m_pWeaponServices.m_hActiveWeapon"))
+      ]);
+      const weapons = new Set([...handles].map(handle => weaponEntityId(demo.getEntityByHandle(handle))).filter(Boolean));
+      individual[key].push({ row, value, weapons: handles.size ? weapons : null });
     }
-    if (players.T && players.CT) round.economySnapshot = { values, players };
+    if (players.T && players.CT) round.economySnapshot = { values, players, individual };
   }
 
   function resetMatchCounters() {
@@ -838,7 +853,7 @@ async function parseDemo(fileName, buffer) {
     if (awardedWin) target.roundWins += 1;
   }
 
-  function allocateRoundToSides(participants, winningSide, buys = {}) {
+  function allocateRoundToSides(participants, winningSide, buys = {}, heroes = new Set()) {
     // Keep the assignment captured when the round went live. A delayed
     // official-end event can arrive after the next regulation/OT side swap.
     refreshRoundSideAssignments(false);
@@ -864,6 +879,7 @@ async function parseDemo(fileName, buffer) {
         const slice = emptySideRow(row);
         applyRoundDelta(slice, row, after, before, awardedWin);
         playerRoundSlices.push({ round: completedRounds + 1, row, side, buy: buys[side] || null,
+          hero: heroes.has(row),
           opponentBuy: buys[side === 2 ? 3 : 2] || null,
           result: winningSide === 2 || winningSide === 3 ? (awardedWin ? "win" : "loss") : null,
           stats: slice });
@@ -972,7 +988,12 @@ async function parseDemo(fileName, buffer) {
       const key = side === 2 ? "T" : "CT";
       return equipmentBuyType(round.economySnapshot.values[key], round.economySnapshot.players[key], pistolRound);
     };
-    const allocations = allocateRoundToSides(participants, winningSide, { 2: buyFor(2), 3: buyFor(3) });
+    const heroes = new Set();
+    for (const [side, key] of [[2, "T"], [3, "CT"]]) {
+      const hero = heroHolder(round.economySnapshot?.individual[key] || [], buyFor(side));
+      if (hero) heroes.add(hero);
+    }
+    const allocations = allocateRoundToSides(participants, winningSide, { 2: buyFor(2), 3: buyFor(3) }, heroes);
     const aliveAtEnd = { T: 0, CT: 0 };
     for (const row of participants) {
       const died = [...row.userIds].some(userId => round.deaths.has(userId));
@@ -2478,6 +2499,7 @@ async function parseDemo(fileName, buffer) {
     player_index: outputPlayerIndexes.get(outputPlayerByRow.get(slice.row)),
     side: slice.side === 2 ? "T" : "CT",
     buy: slice.buy,
+    hero: slice.hero,
     opponent_buy: slice.opponentBuy,
     result: slice.result,
     stats: finishPlayer(slice.stats)
