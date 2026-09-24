@@ -6,7 +6,7 @@ A local-first Counter-Strike 2 analysis application organized around three produ
 - **Player** — reusable personal profiles, splits, graphs, and match history.
 - **Groups** — Included/Excluded teammate conditions and With/Without player profiles.
 
-Demo files are processed in the browser and are never uploaded. All three views remain publicly browsable; the Match view requests the private upload token only when someone starts parsing a demo for automatic upload, and holds it only in memory. After a successful parse, the frontend automatically sends the compact `nickstats.match/20` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
+Demo files are processed in the browser and are never uploaded. All three views remain publicly browsable; saving parsed matches requires a NickStats login. Login creates a signed, HttpOnly 30-day session cookie, so trusted friends can upload without receiving or repeatedly entering the server's private upload token. After a successful parse, the frontend automatically sends the compact `nickstats.match/20` result to the same-origin API; failed uploads can be retried and the JSON can still be downloaded manually.
 
 The demo picker accepts multiple files. Batch parsing processes them sequentially to keep browser memory bounded, reports each file's result independently, continues after individual parse or upload failures, and refreshes the match list once at the end. Because batches are intended for reparsing, a demo already in the database is replaced automatically with the newly parsed statistics; single-file parsing keeps the explicit replacement confirmation.
 

@@ -3,6 +3,7 @@
 
   const $ = id => document.getElementById(id);
   const MATCH_UPLOAD_ENDPOINT = "/nickstats/api/matches";
+  const AUTH_ENDPOINT = "/nickstats/api/auth";
   const MATCH_LIST_LIMIT = 25;
   const MAX_UNCOMPRESSED_DEMO_BYTES = 768 * 1024 * 1024;
   const Scoreboard = window.NickStatsScoreboard;
@@ -28,7 +29,8 @@
     matchDetailLoading: false,
     matchDetailController: null,
     diagnostics: null,
-    uploadToken: "",
+    authenticated: false,
+    authUsername: null,
     uploadPending: false,
     uploading: false,
     duplicateMatchID: null,
@@ -58,6 +60,7 @@
     formatLabel: value => String(value || "Unknown").replace(/^de_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase())
   });
   let demoSideControl, demoBuyControl, demoEnemyBuyControl, demoRoundResultControl;
+  let authSessionReady = Promise.resolve();
   const scoreboardLayoutState = () => ({
     expanded: state.expandedGroups,
     subgroups: state.scoreboardSubgroups,
@@ -325,10 +328,9 @@
   }
 
   function updateUploadAuthenticationDisplay() {
-    const authenticated = Boolean(state.uploadToken);
     const button = $("demoAuthButton");
-    button.textContent = authenticated ? "Change upload token" : "Enter upload token";
-    button.classList.toggle("authenticated", authenticated);
+    button.textContent = state.authenticated ? `${state.authUsername} · Log out` : "Log in to upload";
+    button.classList.toggle("authenticated", state.authenticated);
   }
 
   function openUploadAuthentication(message = "") {
@@ -336,16 +338,36 @@
     const error = $("demoAuthError");
     error.textContent = message;
     error.hidden = !message;
-    $("demoAuthToken").value = "";
+    $("demoAuthPassword").value = "";
     if (!dialog.open) dialog.showModal();
-    $("demoAuthToken").focus();
+    $("demoAuthUsername").focus();
+  }
+
+  async function loadAuthSession() {
+    try {
+      const response = await fetch(`${AUTH_ENDPOINT}/session`, { headers: { "Accept": "application/json" } });
+      const session = response.ok ? await response.json() : null;
+      state.authenticated = Boolean(session?.authenticated);
+      state.authUsername = session?.username || null;
+    } catch (_) {
+      state.authenticated = false;
+      state.authUsername = null;
+    }
+    updateUploadAuthenticationDisplay();
+  }
+
+  async function logOut() {
+    await fetch(`${AUTH_ENDPOINT}/logout`, { method: "POST" }).catch(() => null);
+    state.authenticated = false;
+    state.authUsername = null;
+    updateUploadAuthenticationDisplay();
+    setStatus("Logged out. Log in again to upload matches.");
   }
 
   async function postParsedMatch(result, replace = false) {
     const response = await fetch(replace ? `${MATCH_UPLOAD_ENDPOINT}?replace=true` : MATCH_UPLOAD_ENDPOINT, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${state.uploadToken}`,
         "Content-Type": "application/json",
         "Accept": "application/json"
       },
@@ -362,10 +384,10 @@
 
   async function uploadParsedMatch(result = state.parsedResult, { replace = false } = {}) {
     if (!result || state.uploading) return;
-    if (!state.uploadToken) {
+    if (!state.authenticated) {
       state.uploadPending = true;
       $("demoRetryUploadButton").hidden = false;
-      openUploadAuthentication("Enter the upload token before this match can be saved.");
+      openUploadAuthentication("Log in before this match can be saved.");
       return;
     }
 
@@ -400,9 +422,10 @@
       setStatus(`${parsedMatchDescription(result)} Database upload failed: ${reason}`, true);
       showDiagnosticsDownload(true);
       if (error.status === 401) {
-        state.uploadToken = "";
+        state.authenticated = false;
+        state.authUsername = null;
         updateUploadAuthenticationDisplay();
-        openUploadAuthentication("That upload token was rejected. Enter the current server token.");
+        openUploadAuthentication("Your login expired. Log in again to continue.");
       }
     } finally {
       state.uploading = false;
@@ -2663,9 +2686,10 @@
 
   async function parseDemo() {
     if (!state.file) return;
-    if (!state.uploadToken) {
+    await authSessionReady;
+    if (!state.authenticated) {
       state.parsePending = true;
-      openUploadAuthentication("Enter the upload token to parse and automatically save this match.");
+      openUploadAuthentication("Log in to parse and automatically save this match.");
       return;
     }
     if (state.files.length > 1) {
@@ -2757,12 +2781,13 @@
           updateBatchItem(index, "error", reason);
           failed += 1;
           if (error.status === 401) {
-            state.uploadToken = "";
+            state.authenticated = false;
+            state.authUsername = null;
             updateUploadAuthenticationDisplay();
             for (let pending = index + 1; pending < state.files.length; pending += 1) {
-              updateBatchItem(pending, "waiting", "Not started — upload token rejected");
+              updateBatchItem(pending, "waiting", "Not started — login expired");
             }
-            openUploadAuthentication("That upload token was rejected. Enter the current server token, then start the batch again.");
+            openUploadAuthentication("Your login expired. Log in again, then start the batch again.");
             completed += 1;
             break;
           }
@@ -3080,17 +3105,34 @@
     if (!confirm(`Replace match #${state.duplicateMatchID} with these newly parsed statistics?`)) return;
     uploadParsedMatch(state.parsedResult, { replace: true });
   });
-  $("demoAuthButton").addEventListener("click", () => openUploadAuthentication());
-  $("demoAuthForm").addEventListener("submit", event => {
+  $("demoAuthButton").addEventListener("click", () => state.authenticated ? logOut() : openUploadAuthentication());
+  $("demoAuthForm").addEventListener("submit", async event => {
     event.preventDefault();
-    const token = $("demoAuthToken").value.trim();
-    if (!token) {
-      openUploadAuthentication("Enter the upload token.");
+    const username = $("demoAuthUsername").value.trim();
+    const password = $("demoAuthPassword").value;
+    if (!username || !password) {
+      openUploadAuthentication("Enter your username and password.");
       return;
     }
-    state.uploadToken = token;
-    updateUploadAuthenticationDisplay();
-    $("demoAuthDialog").close();
+    const error = $("demoAuthError");
+    error.hidden = true;
+    try {
+      const response = await fetch(`${AUTH_ENDPOINT}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.reason || `Login failed with HTTP ${response.status}.`);
+      state.authenticated = true;
+      state.authUsername = body?.username || username;
+      updateUploadAuthenticationDisplay();
+      $("demoAuthDialog").close();
+    } catch (loginError) {
+      error.textContent = loginError.message || "Could not log in.";
+      error.hidden = false;
+      return;
+    }
     if (state.uploadPending && state.parsedResult) {
       uploadParsedMatch();
     } else if (state.parsePending) {
@@ -3104,7 +3146,7 @@
     state.parsePending = false;
     $("demoAuthDialog").close();
     if (state.file && !state.parsedResult) {
-      setStatus("Ready to parse. Automatic upload requires the private token.");
+      setStatus("Ready to parse. Log in to upload the result automatically.");
     }
   });
   $("demoAuthDialog").addEventListener("cancel", () => {
@@ -3140,6 +3182,7 @@
   drop.addEventListener("drop", event => chooseFiles(event.dataTransfer.files));
   window.addEventListener("hashchange", syncMatchRoute);
   updateUploadAuthenticationDisplay();
+  authSessionReady = loadAuthSession();
   loadMatches(0);
   syncMatchRoute();
 })();

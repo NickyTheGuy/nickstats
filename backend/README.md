@@ -9,7 +9,10 @@ The compact format intentionally uses fixed-position arrays to keep uploads smal
 | Method | Route | Authentication | Purpose |
 |---|---|---|---|
 | `GET` | `/health` | Public | Database health check |
-| `POST` | `/matches` | Bearer token | Validate and atomically import one compact match |
+| `POST` | `/auth/login` | Username/password | Create a persistent browser session |
+| `GET` | `/auth/session` | Session cookie | Report the current login |
+| `POST` | `/auth/logout` | Session cookie | Clear the current login |
+| `POST` | `/matches` | Session cookie or bearer token | Validate and atomically import one compact match |
 | `POST` | `/matches/faceit-dates` | Scoped bearer token | Update FACEIT match start times in batches |
 | `GET` | `/matches` | Public | Match list and filters |
 | `GET` | `/matches/<id>` | Public | Reconstruct compact match JSON from normalized rows |
@@ -42,6 +45,16 @@ openssl rand -hex 32
 ```
 
 Set the second value as `NICKSTATS_FACEIT_SYNC_TOKEN`. It grants access only to the date-sync route and is the token stored by the private browser extension.
+
+Browser logins are configured in `.env` with a JSON username/password map and an independent signing secret:
+
+```dotenv
+NICKSTATS_LOGIN_USERS={"nick":"use-a-long-random-password","friend":"another-long-random-password"}
+NICKSTATS_SESSION_SECRET=replace-with-output-from-openssl-rand-hex-32
+NICKSTATS_COOKIE_SECURE=true
+```
+
+Usernames are case-insensitive. Successful logins receive a signed, HttpOnly, SameSite=Strict cookie that lasts 30 days and survives browser restarts. `NICKSTATS_COOKIE_SECURE` should remain `true` on the HTTPS production site; set it to `false` only for plain-HTTP local development. The initial account list intentionally lives in server configuration so login can ship without a user-management database. The existing `NICKSTATS_UPLOAD_TOKEN` remains accepted for command-line imports and compatibility.
 
 Keep `.env` out of Git. Upload a compact file with:
 

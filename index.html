@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260924-01">
+  <link rel="stylesheet" href="./styles.css?v=20260924-02">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.09.24.1</span>
+          <span class="demo-build">Build 2026.09.24.2</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -33,7 +33,7 @@
             <h2>Add a match</h2>
           </div>
           <div class="demo-session-controls">
-            <button class="button button-secondary demo-auth-button" id="demoAuthButton" type="button">Enter upload token</button>
+            <button class="button button-secondary demo-auth-button" id="demoAuthButton" type="button">Log in to upload</button>
           </div>
         </div>
 
@@ -457,13 +457,15 @@
   <dialog class="demo-auth-dialog" id="demoAuthDialog" aria-labelledby="demoAuthTitle" aria-describedby="demoAuthDescription">
     <form class="demo-auth-form" id="demoAuthForm">
       <div class="eyebrow">Database access</div>
-      <h2 id="demoAuthTitle">Authenticate automatic uploads</h2>
-      <p id="demoAuthDescription">Enter the private upload token configured on the NickStats server</p>
-      <label for="demoAuthToken">Upload token</label>
-      <input id="demoAuthToken" name="upload-token" type="password" autocomplete="off" spellcheck="false" required autofocus>
+      <h2 id="demoAuthTitle">Log in to NickStats</h2>
+      <p id="demoAuthDescription">Log in to parse demos and save matches to the shared database.</p>
+      <label for="demoAuthUsername">Username</label>
+      <input id="demoAuthUsername" name="username" type="text" autocomplete="username" spellcheck="false" required autofocus>
+      <label for="demoAuthPassword">Password</label>
+      <input id="demoAuthPassword" name="password" type="password" autocomplete="current-password" required>
       <p class="demo-auth-error" id="demoAuthError" role="alert" hidden></p>
       <div class="demo-auth-actions">
-        <button class="button button-primary" type="submit">Authenticate</button>
+        <button class="button button-primary" type="submit">Log in</button>
         <button class="button button-secondary" id="demoAuthCancelButton" type="button">Not now</button>
       </div>
     </form>
@@ -473,7 +475,7 @@
   <script defer src="./js/filters.js?v=20260920-14"></script>
   <script defer src="./js/stat-availability.js?v=20260922-08"></script>
   <script defer src="./js/scoreboard.js?v=20260923-01"></script>
-  <script defer src="./js/demo.js?v=20260924-01"></script>
+  <script defer src="./js/demo.js?v=20260924-02"></script>
   <script defer src="./js/graphs.js?v=20260922-08"></script>
   <script defer src="./js/profile.js?v=20260922-08"></script>
   <script defer src="./js/quick-comparison.js?v=20260923-01"></script>

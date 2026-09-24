@@ -3,15 +3,6 @@ import Fluent
 import SQLKit
 import Vapor
 
-private func constantTimeEqual(_ supplied: String, _ expected: String) -> Bool {
-    let left = Array(supplied.utf8)
-    let right = Array(expected.utf8)
-    guard left.count == right.count else { return false }
-    var difference: UInt8 = 0
-    for index in left.indices { difference |= left[index] ^ right[index] }
-    return difference == 0
-}
-
 private func requireToken(
     _ request: Request,
     environmentName: String,
@@ -27,6 +18,16 @@ private func requireToken(
     }
 }
 
+private func requireUploadAuthorization(_ request: Request) throws {
+    if authenticatedUsername(request) != nil { return }
+    try requireToken(
+        request,
+        environmentName: "NICKSTATS_UPLOAD_TOKEN",
+        unavailableReason: "Match uploads are not configured.",
+        unauthorizedReason: "Login or a valid upload token is required."
+    )
+}
+
 func routes(_ app: Application) throws {
     app.get("health") { request async throws -> HealthResponse in
         guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
@@ -34,13 +35,28 @@ func routes(_ app: Application) throws {
         return HealthResponse(status: "ok")
     }
 
+    app.post("auth", "login") { request throws -> Response in
+        let login = try request.content.decode(LoginRequest.self)
+        let session = try authenticateLogin(login)
+        let response = Response(status: .ok)
+        try response.content.encode(AuthSessionResponse(authenticated: true, username: session.username))
+        setSessionCookie(response, token: session.token, maxAge: session.expiresAt - Int64(Date().timeIntervalSince1970))
+        return response
+    }
+
+    app.get("auth", "session") { request -> AuthSessionResponse in
+        let username = authenticatedUsername(request)
+        return AuthSessionResponse(authenticated: username != nil, username: username)
+    }
+
+    app.post("auth", "logout") { _ -> Response in
+        let response = Response(status: .noContent)
+        clearSessionCookie(response)
+        return response
+    }
+
     app.on(.POST, "matches", body: .collect(maxSize: "8mb")) { request async throws -> Response in
-        try requireToken(
-            request,
-            environmentName: "NICKSTATS_UPLOAD_TOKEN",
-            unavailableReason: "Match uploads are not configured.",
-            unauthorizedReason: "A valid upload token is required."
-        )
+        try requireUploadAuthorization(request)
         let replaceExisting = request.query[Bool.self, at: "replace"] ?? false
         let payload: MatchPayload
         do {
