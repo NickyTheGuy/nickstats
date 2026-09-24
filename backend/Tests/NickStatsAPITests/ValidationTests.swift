@@ -136,6 +136,7 @@ private func comparisonMatch(id: Int64, playedAt: Int64, kills: Double) -> Compa
     payload.players[0].sides.terrorist = played
     payload.players[0].buys![0] = played
     payload.players[0].roundResults![0] = played
+    payload.players[0].roundResults![4] = played
     payload.players[0].economyMatchups = [EconomyMatchupStats(
         ownBuyIndex: 0, opponentBuyIndex: 0, resultIndex: 0, sideIndex: 0, stats: played
     )]
