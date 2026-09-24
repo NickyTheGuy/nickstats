@@ -76,6 +76,20 @@ test("graph samples compose own and opponent economy filters", () => {
   assert.equal(allVsEco.stats.kills, 9);
 });
 
+test("phase selection composes with side, buys, and result without double counting All", () => {
+  const source = [{ id: 12, schema: "nickstats.match/22", sides: [
+    { side: "T", buy_type: "ALL", opponent_buy_type: "ALL", round_result: "ALL", stats: { rounds: 25, kills: 26 } },
+    { side: "T", buy_type: "ALL", opponent_buy_type: "ALL", round_result: "ALL", round_phase: "REGULATION", stats: { rounds: 24, kills: 24 } },
+    { side: "T", buy_type: "ALL", opponent_buy_type: "ALL", round_result: "ALL", round_phase: "OVERTIME", stats: { rounds: 1, kills: 2 } },
+    { side: "T", buy_type: "full", opponent_buy_type: "eco", round_result: "win", round_phase: "OVERTIME", stats: { rounds: 1, kills: 2 } }
+  ] }];
+  assert.equal(statsForMatch(source[0]).rounds, 25);
+  assert.equal(statsForMatch(source[0], "T", "ALL", "ALL", "ALL", "REGULATION").rounds, 24);
+  assert.equal(statsForMatch(source[0], "T", "ALL", "ALL", "ALL", "OVERTIME").kills, 2);
+  assert.equal(statsForMatch(source[0], "T", "ALL", "ALL", "eco", "OVERTIME").rounds, 1);
+  assert.equal(samplesForMatches(source, "T", "full", "loss", "eco", "OVERTIME").length, 0);
+});
+
 test("graph metric registry calculates per-match rates from matching denominators", () => {
   const stats = statsForMatch(match, "ALL");
 

@@ -70,7 +70,7 @@ test("death to the original killer proves a trade opportunity and failed attempt
 });
 
 test("schema 21 stores each true chain plus the number of distinct rounds", () => {
-  assert.match(demo, /schema: "nickstats\.match\/21"/);
+  assert.match(demo, /schema: "nickstats\.match\/22"/);
   assert.match(demo, /true_kill_rounds: countArray\(player\.true_kill_rounds\)/);
   assert.match(demo, /true_multikill_rounds: number\(player\.true_multikill_rounds\)/);
   assert.match(worker, /for \(const size of trueKillChains\) row\.trueKillRoundsByCount\[Math\.min\(5, size\)\] \+= 1/);

@@ -238,6 +238,25 @@ func importMatch(
     }
 
     for (playerSlot, player) in payload.players.enumerated() {
+        for slice in player.roundSlices ?? [] {
+            let data = try JSONEncoder().encode(slice.stats)
+            guard let json = String(data: data, encoding: .utf8) else {
+                throw Abort(.internalServerError, reason: "Could not encode round statistics.")
+            }
+            try await sql.raw("""
+                INSERT INTO player_round_phase_stats
+                  (match_id, match_player_id, round_number, side, buy_type,
+                   opponent_buy_type, round_result, stats_json)
+                VALUES (
+                  \(bind: matchID), \(bind: matchPlayerIDs[playerSlot]), \(bind: slice.round),
+                  \(bind: slice.side.rawValue), \(bind: slice.buy), \(bind: slice.opponentBuy),
+                  \(bind: slice.result), CAST(\(bind: json) AS JSON)
+                )
+                """).run()
+        }
+    }
+
+    for (playerSlot, player) in payload.players.enumerated() {
         for side in PlayerSide.allCases {
             try await insertSideStats(
                 player.sides[side], side: side, actorID: matchPlayerIDs[playerSlot],

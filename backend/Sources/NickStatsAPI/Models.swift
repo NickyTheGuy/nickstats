@@ -1,8 +1,8 @@
 import Vapor
 
-let compactSchema = "nickstats.match/21"
-let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", compactSchema])
-let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", compactSchema])
+let compactSchema = "nickstats.match/22"
+let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", compactSchema])
+let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
@@ -98,12 +98,28 @@ struct PlayerPayload: Content, Sendable {
     var buys: [SideStatsPayload]? = nil
     var roundResults: [SideStatsPayload]? = nil
     var economyMatchups: [EconomyMatchupStats]? = nil
+    var roundSlices: [PlayerRoundSlice]? = nil
 
     enum CodingKeys: String, CodingKey {
         case name, bot, sides, buys
         case roundResults = "round_results"
         case economyMatchups = "economy_matchups"
+        case roundSlices = "round_slices"
         case steamID = "steam_id"
+    }
+}
+
+struct PlayerRoundSlice: Content, Sendable {
+    var round: Int
+    var side: PlayerSide
+    var buy: String?
+    var opponentBuy: String?
+    var result: String?
+    var stats: SideStatsPayload
+
+    enum CodingKeys: String, CodingKey {
+        case round, side, buy, result, stats
+        case opponentBuy = "opponent_buy"
     }
 }
 
@@ -381,6 +397,7 @@ struct DenseComparisonSideStats: Content, Sendable {
     var buyType: String
     var opponentBuyType: String
     var roundResult: String
+    var roundPhase: String? = nil
     var stats: [Double?]
     var weapons: [ComparisonWeaponStats]
 
@@ -389,6 +406,7 @@ struct DenseComparisonSideStats: Content, Sendable {
         case buyType = "buy_type"
         case opponentBuyType = "opponent_buy_type"
         case roundResult = "round_result"
+        case roundPhase = "round_phase"
     }
 
     init(_ value: ComparisonSideStats, statKeys: [String]) {
@@ -396,6 +414,7 @@ struct DenseComparisonSideStats: Content, Sendable {
         buyType = value.buyType
         opponentBuyType = value.opponentBuyType
         roundResult = value.roundResult
+        roundPhase = value.roundPhase
         stats = statKeys.map { value.stats[$0] }
         weapons = value.weapons
     }
@@ -657,6 +676,7 @@ struct ComparisonSideStats: Content {
     var buyType: String
     var opponentBuyType: String
     var roundResult: String
+    var roundPhase: String? = nil
     var stats: [String: Double]
     var weapons: [ComparisonWeaponStats]
 
@@ -665,6 +685,7 @@ struct ComparisonSideStats: Content {
         case buyType = "buy_type"
         case opponentBuyType = "opponent_buy_type"
         case roundResult = "round_result"
+        case roundPhase = "round_phase"
     }
 }
 

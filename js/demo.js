@@ -55,6 +55,7 @@
     buyFilter: "ALL",
     enemyBuyFilter: "ALL",
     roundResultFilter: "ALL",
+    roundPhaseFilter: "ALL",
     resultView: "scoreboard",
     expandedWeaponPlayers: new Set(),
     weaponSorts: new Map()
@@ -63,7 +64,7 @@
     onChange: () => loadMatches(0),
     formatLabel: value => String(value || "Unknown").replace(/^de_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase())
   });
-  let demoSideControl, demoBuyControl, demoEnemyBuyControl, demoRoundResultControl;
+  let demoSideControl, demoBuyControl, demoEnemyBuyControl, demoRoundResultControl, demoRoundPhaseControl;
   let authSessionReady = Promise.resolve();
   const scoreboardLayoutState = () => ({
     expanded: state.expandedGroups,
@@ -935,7 +936,7 @@
     return totals;
   }
 
-  function expandStoredMatch(payload, matchID) {
+  function expandStoredMatch(payload, matchID, roundPhase = "ALL") {
     if (!payload || !Array.isArray(payload.players) || !Array.isArray(payload.teams)) {
       throw new Error("The stored match response is incomplete.");
     }
@@ -951,6 +952,14 @@
     const buyOffset = { pistol: 0, eco: 2, force: 4, full: 6 };
     const matchupBuys = ["pistol", "eco", "force", "full"];
     const statsFor = (index, side, buy = "ALL", roundResult = "ALL", enemyBuy = "ALL") => {
+      if (roundPhase !== "ALL") {
+        return (sourcePlayers[index]?.round_slices || [])
+          .filter(row => (roundPhase === "REGULATION" ? row.round <= 24 : row.round > 24) &&
+            (side === "ALL" || row.side === side) && (buy === "ALL" || row.buy === buy) &&
+            (enemyBuy === "ALL" || row.opponent_buy === enemyBuy) &&
+            (roundResult === "ALL" || row.result === roundResult))
+          .reduce((total, row) => mergeCompactSides(total, row.stats), {});
+      }
       if (enemyBuy !== "ALL") {
         const rows = sourcePlayers[index]?.economy_matchups || [];
         const ownBuys = buy === "ALL" ? matchupBuys : [buy];
@@ -1017,6 +1026,7 @@
     };
     const phaseForEvent = event => event?.[13] != null ? "postplant" : numberValue(event?.[3]) < 25000 ? "early" : numberValue(event?.[3]) < 75000 ? "mid" : "late";
     const addTiming = (playerIndex, side, kind, event) => {
+      if (roundPhase !== "ALL" && (roundPhase === "REGULATION" ? numberValue(event?.[0]) > 24 : numberValue(event?.[0]) <= 24)) return;
       const timing = timingByPlayer[playerIndex]?.[side];
       if (!timing) return;
       const terroristAlive = numberValue(event[11]), counterTerroristAlive = numberValue(event[12]);
@@ -1165,9 +1175,9 @@
 
       return {
         ...player, ...timing,
-        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
-        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21"].includes(payload.schema),
-        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21"].includes(payload.schema),
+        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
+        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22"].includes(payload.schema),
+        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22"].includes(payload.schema),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -1300,7 +1310,7 @@
         kill_rounds: Object.fromEntries((stats.kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
         true_kill_rounds: Object.fromEntries((stats.true_kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
         true_multikill_rounds: numberValue(stats.true_multikill_rounds),
-        true_multikill_available: payload.schema === "nickstats.match/21",
+        true_multikill_available: ["nickstats.match/21", "nickstats.match/22"].includes(payload.schema),
         rating: Math.max(0, rating)
       };
     }
@@ -1333,7 +1343,13 @@
     const teams = payload.teams.map((team, index) => ({
       id: team.id || String(index),
       name: team.name || `Team ${index + 1}`,
-      score: team.score,
+      score: roundPhase === "ALL" ? team.score : payload.schema !== "nickstats.match/22" ? null : (payload.round_timing || []).filter(timing => {
+        const round = numberValue(timing?.[0]);
+        if (roundPhase === "REGULATION" ? round > 24 : round <= 24) return false;
+        const economy = economyByRound.get(round);
+        const winningTeamIndex = timing?.[4] === "T" ? economy?.[6] : economy?.[7];
+        return winningTeamIndex === index;
+      }).length,
       side_scores: { T: numberValue(team.side_scores?.[0]), CT: numberValue(team.side_scores?.[1]) },
       players: (team.players || []).map(playerIndex => expandedPlayers[playerIndex]).filter(Boolean)
     }));
@@ -2693,6 +2709,10 @@
 
   function teamsForSide(result) {
     let teams = Array.isArray(result.teams) ? result.teams : [];
+    if (state.roundPhaseFilter !== "ALL") {
+      const payload = state.storedPayload || compactMatchResult(result);
+      teams = expandStoredMatch(payload, state.selectedMatchID || 0, state.roundPhaseFilter).teams;
+    }
     if ((state.buyFilter !== "ALL" || state.enemyBuyFilter !== "ALL" || state.roundResultFilter !== "ALL") &&
         !teams.some(team => (team.players || []).some(player => player.by_economy_matchup?.eco || (state.enemyBuyFilter === "ALL" && player.by_round_result?.win?.ALL)))) {
       try { teams = expandStoredMatch(compactMatchResult(result), state.selectedMatchID || 0).teams || teams; } catch (_) {}
@@ -2717,7 +2737,7 @@
       const filteredWins = Math.max(0, ...players.map(player => player.round_wins || 0));
       return {
         ...team,
-        score: state.roundResultFilter !== "ALL" ? null : (state.buyFilter !== "ALL" || state.enemyBuyFilter !== "ALL") ? filteredWins : state.sideFilter === "ALL" ? null :
+        score: state.roundResultFilter !== "ALL" ? null : (state.buyFilter !== "ALL" || state.enemyBuyFilter !== "ALL" || state.roundPhaseFilter !== "ALL") ? filteredWins : state.sideFilter === "ALL" ? null :
           Number.isFinite(team.side_scores?.[state.sideFilter]) ? team.side_scores[state.sideFilter] : null,
         players
       };
@@ -2749,6 +2769,13 @@
     if (!["ALL", "win", "loss"].includes(result)) return;
     state.roundResultFilter = result;
     demoRoundResultControl?.set(result, { notify: false });
+    if (shouldRender && state.result) render(state.result);
+  }
+
+  function setRoundPhaseFilter(phase, shouldRender = true) {
+    if (!["ALL", "REGULATION", "OVERTIME"].includes(phase)) return;
+    state.roundPhaseFilter = phase;
+    demoRoundPhaseControl?.set(phase, { notify: false });
     if (shouldRender && state.result) render(state.result);
   }
 
@@ -3089,8 +3116,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/21",
-      nickstats_build: "2026.09.24.8",
+      schema: "nickstats.match/22",
+      nickstats_build: "2026.09.24.9",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,
@@ -3151,6 +3178,10 @@
             compactStats(buy === "ALL" ? player.by_round_result?.[roundResult]?.T : player.by_buy_result?.[buy]?.[roundResult]?.T, playerIndex.get(player)),
             compactStats(buy === "ALL" ? player.by_round_result?.[roundResult]?.CT : player.by_buy_result?.[buy]?.[roundResult]?.CT, playerIndex.get(player))
           ])),
+        round_slices: (result.player_round_slices || []).filter(slice => slice.player_index === playerIndex.get(player)).map(slice => ({
+          round: slice.round, side: slice.side, buy: slice.buy, opponent_buy: slice.opponent_buy,
+          result: slice.result, stats: compactStats(slice.stats, playerIndex.get(player))
+        })),
         economy_matchups: ["pistol", "eco", "force", "full"].flatMap((ownBuy, ownIndex) =>
           ["pistol", "eco", "force", "full"].flatMap((enemyBuy, opponentIndex) =>
             ["win", "loss"].flatMap((roundResult, resultIndex) => ["T", "CT"].map((side, sideIndex) => [
@@ -3299,6 +3330,7 @@
   demoBuyControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-buy]", valueFor: button => button.dataset.demoBuy, onChange: buy => setBuyFilter(buy) });
   demoEnemyBuyControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-enemy-buy]", valueFor: button => button.dataset.demoEnemyBuy, onChange: buy => setEnemyBuyFilter(buy) });
   demoRoundResultControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-result]", valueFor: button => button.dataset.demoRoundResult, onChange: result => setRoundResultFilter(result) });
+  demoRoundPhaseControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-phase]", valueFor: button => button.dataset.demoRoundPhase, onChange: phase => setRoundPhaseFilter(phase) });
   document.querySelectorAll("[data-demo-result-view]").forEach(button => {
     button.addEventListener("click", () => setResultView(button.dataset.demoResultView));
   });

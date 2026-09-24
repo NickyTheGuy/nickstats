@@ -213,6 +213,7 @@ async function parseDemo(fileName, buffer) {
   const roundSideAudit = [];
   const roundTimings = [];
   const roundEconomies = [];
+  const playerRoundSlices = [];
   const deathEvents = [];
   const ignoredRoundEndEvents = [];
   const packetCounts = {
@@ -492,6 +493,7 @@ async function parseDemo(fileName, buffer) {
     roundSideAudit.length = 0;
     roundTimings.length = 0;
     roundEconomies.length = 0;
+    playerRoundSlices.length = 0;
     deathEvents.length = 0;
     ignoredRoundEndEvents.length = 0;
     blindUntilTick.clear();
@@ -858,6 +860,14 @@ async function parseDemo(fileName, buffer) {
       const target = ensureSideRow(row, side);
       const after = playerStatsSnapshot(row);
       const awardedWin = participants.has(row) && side === winningSide;
+      if (participated) {
+        const slice = emptySideRow(row);
+        applyRoundDelta(slice, row, after, before, awardedWin);
+        playerRoundSlices.push({ round: completedRounds + 1, row, side, buy: buys[side] || null,
+          opponentBuy: buys[side === 2 ? 3 : 2] || null,
+          result: winningSide === 2 || winningSide === 3 ? (awardedWin ? "win" : "loss") : null,
+          stats: slice });
+      }
       // Damage is already attributed to the live side in handleDamage. Avoid
       // adding the same round delta to the side aggregate a second time.
       applyRoundDelta(target, row, after, before, awardedWin, true);
@@ -2463,6 +2473,16 @@ async function parseDemo(fileName, buffer) {
     since_plant_ms: event.since_plant_ms
   })).filter(event => event.victim_index !== null && event.victim_side !== null);
 
+  const outputRoundSlices = playerRoundSlices.map(slice => ({
+    round: slice.round,
+    player_index: outputPlayerIndexes.get(outputPlayerByRow.get(slice.row)),
+    side: slice.side === 2 ? "T" : "CT",
+    buy: slice.buy,
+    opponent_buy: slice.opponentBuy,
+    result: slice.result,
+    stats: finishPlayer(slice.stats)
+  })).filter(slice => slice.player_index != null);
+
   const result = {
     format_version: 1,
     parser: "@deademx/cs2",
@@ -2476,6 +2496,7 @@ async function parseDemo(fileName, buffer) {
     rounds: completedRounds,
     round_timing: roundTimings,
     round_economy: outputRoundEconomies,
+    player_round_slices: outputRoundSlices,
     death_events: outputDeathEvents,
     side_definition: {
       T: 2,

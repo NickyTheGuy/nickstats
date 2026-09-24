@@ -1,6 +1,6 @@
 # NickStats database
 
-The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/21` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
+The initial database targets MySQL 8.0 and stores normalized, demo-derived match data. The browser's compact `nickstats.match/22` JSON is an import format, not a database document. A backend import must validate the complete payload first and insert all rows in one transaction.
 
 ## Why it is normalized
 
@@ -111,3 +111,5 @@ Migration 012 adds the active flash source behind blinded opening kills and deat
 Migration 014 adds database-backed login accounts. Accounts listed in `NICKSTATS_LOGIN_USERS` are inserted with a salted PBKDF2-HMAC-SHA256 password hash on their first successful login. Once inserted, the database password is authoritative and can be changed by the user without editing `.env`.
 
 Migration 015 lets each login select the database player that represents them. The nullable foreign key is cleared automatically if that player is ever deleted.
+
+Migration 017 stores one statistics slice per played player round for Regulation (rounds 1–24) and Overtime (round 25 onward). Apply it before deploying the schema-22 backend. Existing matches remain available under All; reparse their demos to populate phase filters. The normal replace flow deletes old player rows and their phase slices in one transaction.

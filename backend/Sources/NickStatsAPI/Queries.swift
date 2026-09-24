@@ -216,18 +216,20 @@ private struct ComparisonSliceKey: Hashable {
     var buyType: String
     var opponentBuyType: String
     var roundResult: String
+    var roundPhase: String?
 
-    init(side: PlayerSide, buyType: String, opponentBuyType: String, roundResult: String) {
+    init(side: PlayerSide, buyType: String, opponentBuyType: String, roundResult: String, roundPhase: String? = nil) {
         self.side = side.rawValue
         self.buyType = buyType
         self.opponentBuyType = opponentBuyType
         self.roundResult = roundResult
+        self.roundPhase = roundPhase
     }
 
     init(_ value: ComparisonSideStats) {
         self.init(
             side: value.side, buyType: value.buyType,
-            opponentBuyType: value.opponentBuyType, roundResult: value.roundResult
+            opponentBuyType: value.opponentBuyType, roundResult: value.roundResult, roundPhase: value.roundPhase
         )
     }
 }
@@ -643,7 +645,7 @@ private func comparisonSideData(
                CAST(SUM((CASE WHEN e.killer_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 1) AS SIGNED) AS enemy_alive_1
         FROM death_events e
         JOIN match_players mp ON mp.id = e.killer_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20', 'nickstats.match/21')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20', 'nickstats.match/21', 'nickstats.match/22')
         WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "e.match_id"))
           AND e.enemy_kill = TRUE
           AND (SELECT COUNT(*) FROM match_rounds rt WHERE rt.match_id = m.id) = m.rounds
@@ -692,7 +694,7 @@ private func comparisonSideData(
                CAST(SUM(e.enemy_kill = TRUE AND (CASE WHEN e.victim_side = 'T' THEN e.ct_alive_before ELSE e.t_alive_before END) = 1) AS SIGNED) AS enemy_alive_1
         FROM death_events e
         JOIN match_players mp ON mp.id = e.victim_match_player_id
-        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20', 'nickstats.match/21')
+        JOIN matches m ON m.id = e.match_id AND m.payload_schema IN ('nickstats.match/10', 'nickstats.match/11', 'nickstats.match/12', 'nickstats.match/13', 'nickstats.match/14', 'nickstats.match/15', 'nickstats.match/16', 'nickstats.match/17', 'nickstats.match/18', 'nickstats.match/19', 'nickstats.match/20', 'nickstats.match/21', 'nickstats.match/22')
         WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "e.match_id"))
           AND (SELECT COUNT(*) FROM match_rounds rt WHERE rt.match_id = m.id) = m.rounds
         GROUP BY e.match_id, e.victim_side
@@ -819,9 +821,25 @@ private func comparisonSideData(
         guard let index = resultIndexes[matchID]?[key] else { return }
         result[matchID]?[index].stats[name, default: 0] += amount
     }
+    let playedPhaseRows = try await sql.raw("""
+        SELECT r.match_id, r.round_number FROM player_round_phase_stats r
+        JOIN match_players mp ON mp.id = r.match_player_id
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "r.match_id"))
+        """).all()
+    var playedPhaseRounds = Set<String>()
+    for row in playedPhaseRows {
+        playedPhaseRounds.insert("\(try int64(row, "match_id")):\(try integer(row, "round_number"))")
+    }
+    var phaseMetrics: [Int64: [ComparisonSliceKey: [String: Double]]] = [:]
+    func addPhaseMetric(_ matchID: Int64, _ side: PlayerSide, _ buy: String, _ opponentBuy: String,
+                        _ resultName: String, _ phase: String, _ name: String, _ amount: Double) {
+        let key = ComparisonSliceKey(side: side, buyType: buy, opponentBuyType: opponentBuy,
+                                     roundResult: resultName, roundPhase: phase)
+        phaseMetrics[matchID, default: [:]][key, default: [:]][name, default: 0] += amount
+    }
     let survivorsStart = timing?.start()
     let survivorRows = try await sql.raw("""
-        SELECT r.match_id,
+        SELECT r.match_id, r.round_number,
                CASE WHEN r.t_match_team_id = mp.match_team_id THEN 'T' ELSE 'CT' END AS side,
                r.winner_side, r.pistol_round,
                CASE WHEN r.t_match_team_id = mp.match_team_id
@@ -861,12 +879,21 @@ private func comparisonSideData(
             equipmentValue >= playerCount * 3_500 ? "full" : "force"
         let opponentBuy = isPistol ? "pistol" : opponentEquipmentValue <= opponentPlayerCount * 1_000 ? "eco" :
             opponentEquipmentValue >= opponentPlayerCount * 3_500 ? "full" : "force"
+        let phase = try integer(row, "round_number") <= 24 ? "REGULATION" : "OVERTIME"
         for (buyScope, resultScope) in [("ALL", "ALL"), (buy, "ALL"), ("ALL", resultName), (buy, resultName)] {
             addBuyMetric(id, side, buyScope, resultScope, "\(prefix)_survivor_rounds", 1)
             addBuyMetric(id, side, buyScope, resultScope, "\(prefix)_survivor_total", survivors)
+            if playedPhaseRounds.contains("\(id):\(try integer(row, "round_number"))") {
+                addPhaseMetric(id, side, buyScope, "ALL", resultScope, phase, "\(prefix)_survivor_rounds", 1)
+                addPhaseMetric(id, side, buyScope, "ALL", resultScope, phase, "\(prefix)_survivor_total", survivors)
+            }
         }
         addBuyMetric(id, side, buy, resultName, "\(prefix)_survivor_rounds", 1, opponentBuy: opponentBuy)
         addBuyMetric(id, side, buy, resultName, "\(prefix)_survivor_total", survivors, opponentBuy: opponentBuy)
+        if playedPhaseRounds.contains("\(id):\(try integer(row, "round_number"))") {
+            addPhaseMetric(id, side, buy, opponentBuy, resultName, phase, "\(prefix)_survivor_rounds", 1)
+            addPhaseMetric(id, side, buy, opponentBuy, resultName, phase, "\(prefix)_survivor_total", survivors)
+        }
     }
     timing?.record("survivor_processing", since: survivorProcessingStart)
     for kind in ["killer", "victim"] {
@@ -885,7 +912,7 @@ private func comparisonSideData(
             : "source.enemy_kill = TRUE AND \(ownAlive) = 1 AND \(enemyAlive) >= 3"
         let eventTimingStart = timing?.start()
         let rows = try await sql.raw("""
-            SELECT source.match_id, source.side, source.buy_type, source.opponent_buy_type, source.round_result,
+            SELECT source.match_id, source.side, source.buy_type, source.opponent_buy_type, source.round_result, source.round_phase,
                    CAST(COUNT(*) AS SIGNED) AS samples,
                    CAST(SUM(source.elapsed_ms) AS SIGNED) AS elapsed_total,
                    CAST(SUM(source.since_plant_ms IS NULL AND source.elapsed_ms < 25000) AS SIGNED) AS early_count,
@@ -904,6 +931,7 @@ private func comparisonSideData(
                    CAST(SUM(source.enemy_kill = TRUE AND \(unsafeRaw: enemyAlive) = 1) AS SIGNED) AS enemy_alive_1
             FROM (
               SELECT e.match_id, e.\(unsafeRaw: sideColumn) AS side, e.elapsed_ms, e.since_plant_ms,
+                     CASE WHEN r.round_number <= 24 THEN 'REGULATION' ELSE 'OVERTIME' END AS round_phase,
                      e.enemy_kill, e.t_alive_before, e.ct_alive_before,
                      CASE WHEN r.winner_side = e.\(unsafeRaw: sideColumn) THEN 'win' ELSE 'loss' END AS round_result,
                      CASE WHEN r.pistol_round THEN 'pistol'
@@ -924,7 +952,7 @@ private func comparisonSideData(
               WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "e.match_id"))
                 \(unsafeRaw: kind == "killer" ? "AND e.enemy_kill = TRUE" : "")
             ) source
-            GROUP BY source.match_id, source.side, source.buy_type, source.opponent_buy_type, source.round_result
+            GROUP BY source.match_id, source.side, source.buy_type, source.opponent_buy_type, source.round_result, source.round_phase
             """).all()
         timing?.record(kind == "killer" ? "event_kills" : "event_deaths", since: eventTimingStart)
         let eventProcessingStart = timing?.start()
@@ -933,6 +961,7 @@ private func comparisonSideData(
             let buy = try row.decode(column: "buy_type", as: String.self)
             let opponentBuy = try row.decode(column: "opponent_buy_type", as: String.self)
             let roundResult = try row.decode(column: "round_result", as: String.self)
+            let phase = try row.decode(column: "round_phase", as: String.self)
             let prefix = kind == "killer" ? "kill" : "death"
             let manCountName = kind == "killer" ? "clawback_kills" : "bozo_deaths"
             let secondaryStateName = kind == "killer" ? "advantage_kills" : "disadvantage_deaths"
@@ -952,9 +981,74 @@ private func comparisonSideData(
                 addBuyMetric(id, side, buy, roundResult, name, amount)
                 addBuyMetric(id, side, "ALL", roundResult, name, amount)
                 addBuyMetric(id, side, buy, roundResult, name, amount, opponentBuy: opponentBuy)
+                for (ownBuy, enemyBuy, selectedResult) in [("ALL", "ALL", "ALL"), (buy, "ALL", "ALL"), (buy, "ALL", roundResult),
+                                                             ("ALL", "ALL", roundResult), (buy, opponentBuy, roundResult)] {
+                    addPhaseMetric(id, side, ownBuy, enemyBuy, selectedResult, phase, name, amount)
+                }
             }
         }
         timing?.record(kind == "killer" ? "event_kills_processing" : "event_deaths_processing", since: eventProcessingStart)
+    }
+    // Phase rows are assembled from one played player round each. Build each
+    // selection scope once so the profile response stays small for long histories.
+    let phaseRows = try await sql.raw("""
+        SELECT r.match_id, r.round_number, r.side, r.buy_type, r.opponent_buy_type,
+               r.round_result, CAST(r.stats_json AS CHAR) AS stats_json
+        FROM player_round_phase_stats r JOIN match_players mp ON mp.id = r.match_player_id
+        WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "r.match_id"))
+        """).all()
+    var phaseValues: [Int64: [ComparisonSliceKey: ComparisonSideStats]] = [:]
+    for row in phaseRows {
+        let matchID = try int64(row, "match_id")
+        let side = try playerSide(row, "side")
+        let buy = try optionalString(row, "buy_type")
+        let opponentBuy = try optionalString(row, "opponent_buy_type")
+        let roundResult = try optionalString(row, "round_result")
+        let phase = try integer(row, "round_number") <= 24 ? "REGULATION" : "OVERTIME"
+        let json = try row.decode(column: "stats_json", as: String.self)
+        let stats = try statsDecoder.decode(SideStatsPayload.self, from: Data(json.utf8))
+        let flat = flattenedBuyStats(stats, flashTargets: flashTargetsByMatch[matchID])
+        let weapons = stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
+        var scopes: [(String, String, String)] = [("ALL", "ALL", "ALL")]
+        if let buy {
+            scopes.append((buy, "ALL", "ALL"))
+            if let roundResult { scopes.append((buy, "ALL", roundResult)) }
+        }
+        if let roundResult { scopes.append(("ALL", "ALL", roundResult)) }
+        if let buy, let opponentBuy, let roundResult {
+            scopes.append((buy, opponentBuy, roundResult))
+        }
+        for (ownBuy, enemyBuy, selectedResult) in scopes {
+            let key = ComparisonSliceKey(side: side, buyType: ownBuy, opponentBuyType: enemyBuy,
+                                         roundResult: selectedResult, roundPhase: phase)
+            var value = phaseValues[matchID]?[key] ?? ComparisonSideStats(
+                side: side, buyType: ownBuy, opponentBuyType: enemyBuy, roundResult: selectedResult,
+                roundPhase: phase, stats: [:], weapons: []
+            )
+            for (name, amount) in flat {
+                if name.hasSuffix("_max") { value.stats[name] = max(value.stats[name] ?? 0, amount) }
+                else { value.stats[name, default: 0] += amount }
+            }
+            for weapon in weapons {
+                if let index = value.weapons.firstIndex(where: { $0.weapon == weapon.weapon }) {
+                    value.weapons[index].kills += weapon.kills
+                    value.weapons[index].shots += weapon.shots
+                    value.weapons[index].hits += weapon.hits
+                    value.weapons[index].damage += weapon.damage
+                    value.weapons[index].roundsUsed += weapon.roundsUsed
+                } else { value.weapons.append(weapon) }
+            }
+            phaseValues[matchID, default: [:]][key] = value
+        }
+    }
+    for (matchID, slices) in phaseValues {
+        result[matchID, default: []].append(contentsOf: slices.values)
+    }
+    for (matchID, slices) in phaseMetrics {
+        for (key, metrics) in slices {
+            guard let index = result[matchID]?.firstIndex(where: { ComparisonSliceKey($0) == key }) else { continue }
+            for (name, amount) in metrics { result[matchID]?[index].stats[name, default: 0] += amount }
+        }
     }
     for matchID in Array(result.keys) { result[matchID]?.sort { $0.side.rawValue < $1.side.rawValue } }
     return result
@@ -1587,6 +1681,24 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
     }
     for slot in players.indices where matchupStats[slot] != nil {
         players[slot].economyMatchups = matchupStats[slot]
+    }
+
+    let phaseRows = try await sql.raw("""
+        SELECT match_player_id, round_number, side, buy_type, opponent_buy_type,
+               round_result, CAST(stats_json AS CHAR) AS stats_json
+        FROM player_round_phase_stats WHERE match_id = \(bind: matchID)
+        ORDER BY round_number
+        """).all()
+    for row in phaseRows {
+        guard let slot = internalToSlot[try int64(row, "match_player_id")] else { continue }
+        let json = try row.decode(column: "stats_json", as: String.self)
+        players[slot].roundSlices = (players[slot].roundSlices ?? []) + [PlayerRoundSlice(
+            round: try integer(row, "round_number"), side: try playerSide(row, "side"),
+            buy: try optionalString(row, "buy_type"),
+            opponentBuy: try optionalString(row, "opponent_buy_type"),
+            result: try optionalString(row, "round_result"),
+            stats: try JSONDecoder().decode(SideStatsPayload.self, from: Data(json.utf8))
+        )]
     }
 
     let roundRows = try await sql.raw("""
