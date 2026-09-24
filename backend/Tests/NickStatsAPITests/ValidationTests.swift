@@ -119,7 +119,8 @@ private func comparisonMatch(id: Int64, playedAt: Int64, kills: Double) -> Compa
             roundResult: "ALL",
             stats: ["kills": kills],
             weapons: []
-        )]
+        )],
+        roundKills: []
     )
 }
 

@@ -353,6 +353,44 @@
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, metric.label));
   }
 
+  function drawRounds(svg, prepared) {
+    const all = prepared.flatMap(series => series.roundValues);
+    const lastRound = Math.max(...all.map(point => point.round)), maxKills = Math.max(1, ...all.map(point => point.value));
+    const left = 68, top = 24, width = 796, height = 318;
+    drawAxes(svg, { left, top, width, height, min: 0, max: maxKills, metric: { digits: 2, suffix: "" } });
+    const xFor = round => left + width * (round - 1) / Math.max(1, lastRound - 1);
+    const tickStep = lastRound <= 36 ? 1 : Math.ceil(lastRound / 36);
+    for (let round = 1; round <= lastRound; round += 1) {
+      const x = xFor(round);
+      if (round === 13 || round === 25) setLine(svg, x, top, x, top + height, "graph-bucket-divider");
+      if (round === 1 || round === lastRound || round % tickStep === 0) {
+        svg.appendChild(svgElement("text", { x, y: top + height + 19, class: "graph-bucket-label", "text-anchor": "middle" }, String(round)));
+      }
+    }
+    prepared.forEach((series, index) => {
+      const color = colors[(series.colorIndex ?? index) % colors.length];
+      let segment = [], previous = null;
+      const flush = () => {
+        if (segment.length > 1) svg.appendChild(svgElement("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: color }));
+        segment = [];
+      };
+      series.roundValues.forEach(point => {
+        if (previous !== null && point.round !== previous + 1) flush();
+        const x = xFor(point.round), y = top + height - height * point.value / maxKills;
+        segment.push(`${x},${y}`); previous = point.round;
+      });
+      flush();
+      series.roundValues.forEach(point => {
+        const x = xFor(point.round), y = top + height - height * point.value / maxKills;
+        const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: color, class: "graph-point" });
+        svg.appendChild(dot);
+        attachTooltip(svg, dot, `${series.label} · Round ${point.round}: ${point.value.toFixed(2)} kills (${point.appearances} played)`, x, y);
+      });
+    });
+    svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, "Round number"));
+    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, "Average kills"));
+  }
+
   function populateMetrics(select) {
     if (select.options.length) return;
     metrics.forEach(([group, entries]) => {
@@ -372,9 +410,13 @@
     const bucketControl = document.getElementById(`${prefix}GraphBucketControl`), bucketCount = document.getElementById(`${prefix}GraphBucketCount`);
     const bucketLess = document.getElementById(`${prefix}GraphBucketsLess`), bucketMore = document.getElementById(`${prefix}GraphBucketsMore`);
     if (!type || !metricSelect || !svg || !summary || !legend || !note) return;
+    const roundsMode = type.value === "rounds";
+    const metricControl = document.getElementById(`${prefix}GraphMetricControl`);
+    if (metricControl) metricControl.hidden = roundsMode;
     const metric = registry.get(metricSelect.value) || registry.get("rating");
     const prepared = state.series.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
     const domainPrepared = state.domainSeries.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
+    const roundPrepared = state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || []) })).filter(series => series.roundValues.length);
     if (distributionStyleControl) distributionStyleControl.hidden = type.value !== "distribution";
     if (bucketControl) bucketControl.hidden = type.value !== "distribution";
     if (bucketCount) bucketCount.textContent = String(state.bucketCount);
@@ -383,13 +425,28 @@
     svg.setAttribute("viewBox", type.value === "distribution" ? "0 0 900 460" : "0 0 900 420");
     svg.replaceChildren(); summary.replaceChildren(); legend.replaceChildren();
     const multiTrendNeedsDates = type.value === "trend" && state.independent && independentTrendNeedsDates(prepared);
-    note.textContent = type.value === "distribution"
+    note.textContent = roundsMode
+      ? "Each point is the average kills in that exact numbered round, among matches where the player played it. Hover for the number of played rounds. Gaps mean no appearances; older demos need reparsing."
+      : type.value === "distribution"
       ? "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity."
       : multiTrendNeedsDates
         ? "Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for match order, or use Distribution for comparisons now."
         : "Points follow match date when available and match order otherwise. Hover a point for its match and value.";
-    if (!prepared.length) {
-      const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = "No qualifying match samples for this statistic."; summary.appendChild(empty); return;
+    if (!(roundsMode ? roundPrepared : prepared).length) {
+      const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = roundsMode ? "No per-round data for these matches. Reparse older demos to add round data." : "No qualifying match samples for this statistic."; summary.appendChild(empty); return;
+    }
+    if (roundsMode) {
+      roundPrepared.forEach((series, index) => {
+        const item = document.createElement("div"); item.className = "graph-summary-card";
+        item.style.setProperty("--series-color", colors[(series.colorIndex ?? index) % colors.length]);
+        const label = document.createElement("strong"); label.textContent = series.label;
+        const details = document.createElement("span");
+        details.textContent = `${series.roundValues.length} numbered rounds · ${series.roundValues.reduce((sum, point) => sum + point.appearances, 0)} played rounds`;
+        item.append(label, details); summary.appendChild(item);
+        const key = document.createElement("span"); key.className = "graph-legend-item";
+        key.style.setProperty("--series-color", colors[(series.colorIndex ?? index) % colors.length]); key.textContent = series.label; legend.appendChild(key);
+      });
+      drawRounds(svg, roundPrepared); return;
     }
     prepared.forEach((series, index) => {
       const colorIndex = series.colorIndex ?? index;

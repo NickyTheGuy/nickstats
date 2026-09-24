@@ -356,7 +356,7 @@ private func matchIDFilter(_ matchIDs: [Int64]?, column: String) -> SQLQueryStri
 private func comparisonSideData(
     playerID: Int64, matchIDs: [Int64]? = nil,
     sql: any SQLDatabase, timing: ProfileTimingRecorder? = nil
-) async throws -> [Int64: [ComparisonSideStats]] {
+) async throws -> (sides: [Int64: [ComparisonSideStats]], roundKills: [Int64: [ComparisonRoundKill]]) {
     let sideDataStart = timing?.start()
     defer { timing?.record("side_data", since: sideDataStart) }
     let flashTargetsStart = timing?.start()
@@ -998,6 +998,7 @@ private func comparisonSideData(
         WHERE mp.player_id = \(bind: playerID) \(matchIDFilter(matchIDs, column: "r.match_id"))
         """).all()
     var phaseValues: [Int64: [ComparisonSliceKey: ComparisonSideStats]] = [:]
+    var roundKills: [Int64: [ComparisonRoundKill]] = [:]
     for row in phaseRows {
         let matchID = try int64(row, "match_id")
         let side = try playerSide(row, "side")
@@ -1007,6 +1008,10 @@ private func comparisonSideData(
         let phase = try integer(row, "round_number") <= 24 ? "REGULATION" : "OVERTIME"
         let json = try row.decode(column: "stats_json", as: String.self)
         let stats = try statsDecoder.decode(SideStatsPayload.self, from: Data(json.utf8))
+        roundKills[matchID, default: []].append(ComparisonRoundKill(
+            round: try integer(row, "round_number"), kills: stats.combat.kills,
+            side: side, buy: buy, opponentBuy: opponentBuy, result: roundResult
+        ))
         let flat = flattenedBuyStats(stats, flashTargets: flashTargetsByMatch[matchID])
         let weapons = stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
         var scopes: [(String, String, String)] = [("ALL", "ALL", "ALL")]
@@ -1051,7 +1056,8 @@ private func comparisonSideData(
         }
     }
     for matchID in Array(result.keys) { result[matchID]?.sort { $0.side.rawValue < $1.side.rawValue } }
-    return result
+    for matchID in Array(roundKills.keys) { roundKills[matchID]?.sort { $0.round < $1.round } }
+    return (result, roundKills)
 }
 
 private func comparisonMatches(
@@ -1111,7 +1117,8 @@ private func comparisonMatches(
                 rounds: try integer(row, "rounds"), kills: try integer(row, "kills"),
                 deaths: try integer(row, "deaths"), assists: try integer(row, "assists"),
                 headshots: try integer(row, "headshots"), damage: try integer(row, "damage"),
-                kastRounds: try integer(row, "kast_rounds"), sides: sideData[matchID] ?? []
+                kastRounds: try integer(row, "kast_rounds"), sides: sideData.sides[matchID] ?? [],
+                roundKills: sideData.roundKills[matchID] ?? []
             )
         }
 }

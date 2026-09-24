@@ -2784,7 +2784,8 @@
       scoreboard: "demoScoreboardView",
       duels: "demoDuelsView",
       trades: "demoTradesView",
-      weapons: "demoWeaponsView"
+      weapons: "demoWeaponsView",
+      timeline: "demoTimelineView"
     };
     if (!panels[view]) return;
     state.resultView = view;
@@ -2815,6 +2816,10 @@
     $("demoWeapons").replaceChildren(...teams.map(renderWeaponTeam));
     $("demoTrades").replaceChildren(renderTradeMatrix(teams));
     $("demoDuels").replaceChildren(renderDuelMatrix(teams));
+    window.NickStatsRoundTimeline.render($("demoTimeline"), state.storedPayload || compactMatchResult(result), $("demoTimelineMetric").value, {
+      side: state.sideFilter, buy: state.buyFilter, opponentBuy: state.enemyBuyFilter,
+      result: state.roundResultFilter, phase: state.roundPhaseFilter
+    });
     $("demoResults").hidden = false;
   }
 
@@ -3331,6 +3336,7 @@
   demoEnemyBuyControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-enemy-buy]", valueFor: button => button.dataset.demoEnemyBuy, onChange: buy => setEnemyBuyFilter(buy) });
   demoRoundResultControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-result]", valueFor: button => button.dataset.demoRoundResult, onChange: result => setRoundResultFilter(result) });
   demoRoundPhaseControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-phase]", valueFor: button => button.dataset.demoRoundPhase, onChange: phase => setRoundPhaseFilter(phase) });
+  $("demoTimelineMetric").addEventListener("change", () => { if (state.result) render(state.result); });
   document.querySelectorAll("[data-demo-result-view]").forEach(button => {
     button.addEventListener("click", () => setResultView(button.dataset.demoResultView));
   });

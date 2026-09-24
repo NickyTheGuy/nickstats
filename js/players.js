@@ -323,7 +323,10 @@
       if (!candidate.graphCache.has(key)) {
         candidate.graphCache.set(key, window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase));
       }
-      return { id, colorIndex, label: candidate.payload.player?.name || "Unknown player", samples: candidate.graphCache.get(key) };
+      return { id, colorIndex, label: candidate.payload.player?.name || "Unknown player", samples: candidate.graphCache.get(key),
+        roundMatches: matches.map(match => ({ round_kills: (match.round_kills || []).filter(row => window.NickStatsRoundTimeline.matchesFilters(row, {
+          side: state.side, buy: state.buy, opponentBuy: state.opponentBuy, result: state.roundResult, phase: state.roundPhase
+        })) })) };
     });
     const series = availableSeries.filter(candidate => state.graphPlayers.has(candidate.id));
     window.NickStatsGraphs.render({ prefix: "player", series, domainSeries: availableSeries, independent: true });

@@ -124,6 +124,7 @@
         score: [match.score_for, match.score_against],
         teammateIds: (match.teammate_ids || []).map(String),
         sideRows: Array.isArray(match.sides) ? match.sides : [],
+        round_kills: Array.isArray(match.round_kills) ? match.round_kills : [],
         legacy: { rounds: num(match.rounds), kills: num(match.kills), deaths: num(match.deaths), assists: num(match.assists), headshots: num(match.headshots), damage: num(match.damage), kast_rounds: num(match.kast_rounds) }
       }))
     };

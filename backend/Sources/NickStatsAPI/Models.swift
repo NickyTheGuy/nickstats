@@ -355,6 +355,7 @@ struct DenseComparisonMatch: Content, Sendable {
     var damage: Int
     var kastRounds: Int
     var sides: [DenseComparisonSideStats]
+    var roundKills: [ComparisonRoundKill]
 
     enum CodingKeys: String, CodingKey {
         case id, schema, map, result, rounds, kills, deaths, assists, headshots, damage, sides
@@ -363,6 +364,7 @@ struct DenseComparisonMatch: Content, Sendable {
         case scoreAgainst = "score_against"
         case teammateIDs = "teammate_ids"
         case kastRounds = "kast_rounds"
+        case roundKills = "round_kills"
     }
 
     init(_ value: ComparisonMatch, statKeys: [String]) {
@@ -382,6 +384,7 @@ struct DenseComparisonMatch: Content, Sendable {
         damage = value.damage
         kastRounds = value.kastRounds
         sides = value.sides.map { DenseComparisonSideStats($0, statKeys: statKeys) }
+        roundKills = value.roundKills
     }
 
     func remappingStatKeys(from oldKeys: [String], to newKeys: [String]) -> DenseComparisonMatch {
@@ -659,6 +662,7 @@ struct ComparisonMatch: Content {
     var damage: Int
     var kastRounds: Int
     var sides: [ComparisonSideStats]
+    var roundKills: [ComparisonRoundKill]
 
     enum CodingKeys: String, CodingKey {
         case id, schema, map, result, rounds, kills, deaths, assists, headshots, damage
@@ -668,6 +672,21 @@ struct ComparisonMatch: Content {
         case teammateIDs = "teammate_ids"
         case kastRounds = "kast_rounds"
         case sides
+        case roundKills = "round_kills"
+    }
+}
+
+struct ComparisonRoundKill: Content, Sendable {
+    var round: Int
+    var kills: Int
+    var side: PlayerSide
+    var buy: String?
+    var opponentBuy: String?
+    var result: String?
+
+    enum CodingKeys: String, CodingKey {
+        case round, kills, side, buy, result
+        case opponentBuy = "opponent_buy"
     }
 }
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260924-04">
+  <link rel="stylesheet" href="./styles.css?v=20260924-10">
 </head>
 <body>
   <main class="shell">
@@ -140,6 +140,7 @@
             <button class="demo-result-tab" id="demoDuelsTab" type="button" role="tab" aria-selected="false" aria-controls="demoDuelsView" data-demo-result-view="duels">Duels</button>
             <button class="demo-result-tab" id="demoTradesTab" type="button" role="tab" aria-selected="false" aria-controls="demoTradesView" data-demo-result-view="trades">Trades</button>
             <button class="demo-result-tab" id="demoWeaponsTab" type="button" role="tab" aria-selected="false" aria-controls="demoWeaponsView" data-demo-result-view="weapons">Weapons</button>
+            <button class="demo-result-tab" id="demoTimelineTab" type="button" role="tab" aria-selected="false" aria-controls="demoTimelineView" data-demo-result-view="timeline">Timeline</button>
           </nav>
           <div class="demo-analysis-panel" id="demoScoreboardView" role="tabpanel" aria-labelledby="demoScoreboardTab">
             <div class="scoreboard-control-panel" id="demoScoreboardControls" aria-label="Scoreboard display controls"></div>
@@ -165,6 +166,13 @@
               <p>Kills, damage, shots, hits, rates, and distinct rounds used. RU means rounds in which that weapon was used.</p>
             </div>
             <div class="demo-weapon-teams" id="demoWeapons"></div>
+          </section>
+          <section class="demo-analysis-panel" id="demoTimelineView" role="tabpanel" aria-labelledby="demoTimelineTab" hidden>
+            <div class="round-timeline-heading">
+              <div><h3>Round timeline</h3><p>Each column is one round. A dot means the player participated without recording the selected statistic; a dash means no qualifying participation.</p></div>
+              <label>Statistic<select id="demoTimelineMetric"><option value="kills">Kills</option><option value="deaths">Deaths</option><option value="damage">Damage</option><option value="awp">AWP kills</option></select></label>
+            </div>
+            <div id="demoTimeline"></div>
           </section>
           <div class="actions">
             <button class="button button-primary" id="demoDownloadButton" type="button">Download match JSON</button>
@@ -438,8 +446,8 @@
             </section>
             <section class="player-graph-builder">
               <div class="player-graph-controls">
-                <label>Graph type<select id="playerGraphType"><option value="distribution">Distribution</option><option value="trend">Trend</option></select></label>
-                <label>Statistic<select id="playerGraphMetric"></select></label>
+                <label>Graph type<select id="playerGraphType"><option value="distribution">Distribution</option><option value="trend">Trend</option><option value="rounds">Kills by round</option></select></label>
+                <label id="playerGraphMetricControl">Statistic<select id="playerGraphMetric"></select></label>
                 <label id="playerGraphDistributionStyleControl">Display<select id="playerGraphDistributionStyle"><option value="bars">Bars</option><option value="line">Line</option></select></label>
                 <div class="graph-bucket-control" id="playerGraphBucketControl">
                   <span>Buckets</span>
@@ -534,11 +542,12 @@
   <script defer src="./js/filters.js?v=20260920-14"></script>
   <script defer src="./js/stat-availability.js?v=20260924-08"></script>
   <script defer src="./js/scoreboard.js?v=20260923-01"></script>
-  <script defer src="./js/demo.js?v=20260924-09"></script>
-  <script defer src="./js/graphs.js?v=20260924-09"></script>
+  <script defer src="./js/round-timeline.js?v=20260924-10"></script>
+  <script defer src="./js/demo.js?v=20260924-10"></script>
+  <script defer src="./js/graphs.js?v=20260924-10"></script>
   <script defer src="./js/profile.js?v=20260924-08"></script>
   <script defer src="./js/quick-comparison.js?v=20260924-08"></script>
-  <script defer src="./js/players.js?v=20260924-09"></script>
-  <script defer src="./js/groups.js?v=20260924-09"></script>
+  <script defer src="./js/players.js?v=20260924-10"></script>
+  <script defer src="./js/groups.js?v=20260924-10"></script>
 </body>
 </html>
