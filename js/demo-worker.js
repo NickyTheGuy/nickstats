@@ -905,7 +905,7 @@ async function parseDemo(fileName, buffer) {
       const userIds = row.userIds || new Set([row.userId]);
       const has = set => [...userIds].some(userId => set.has(userId));
       const kills = [...userIds].reduce((total, userId) => total + (round.killCounts.get(userId) || 0), 0);
-      const trueKillVictims = new Set([...userIds].flatMap(userId => [...(round.trueMultikillVictims.get(userId) || [])]));
+      const trueKillCount = largestTrueMultikillChain(round, userIds);
       const hadKill = has(round.kills);
       const hadAssist = has(round.assists);
       const wasTraded = has(round.traded);
@@ -942,9 +942,9 @@ async function parseDemo(fileName, buffer) {
       }
       if (kills >= 2) row.multikillRounds += 1;
       if (kills >= 1) row.killRoundsByCount[Math.min(5, kills)] += 1;
-      if (trueKillVictims.size >= 2) {
+      if (trueKillCount >= 2) {
         row.trueMultikillRounds += 1;
-        row.trueKillRoundsByCount[Math.min(5, trueKillVictims.size)] += 1;
+        row.trueKillRoundsByCount[Math.min(5, trueKillCount)] += 1;
       }
     }
 
@@ -2586,13 +2586,44 @@ function faceitMatchId(fileName) {
 }
 
 function recordTrueMultikillLink(round, killerId, firstVictimId, tradingVictimId) {
-  let victims = round.trueMultikillVictims.get(killerId);
-  if (!victims) {
-    victims = new Set();
-    round.trueMultikillVictims.set(killerId, victims);
+  let links = round.trueMultikillLinks.get(killerId);
+  if (!links) {
+    links = new Map();
+    round.trueMultikillLinks.set(killerId, links);
   }
-  victims.add(firstVictimId);
-  victims.add(tradingVictimId);
+  if (!links.has(firstVictimId)) links.set(firstVictimId, new Set());
+  if (!links.has(tradingVictimId)) links.set(tradingVictimId, new Set());
+  links.get(firstVictimId).add(tradingVictimId);
+  links.get(tradingVictimId).add(firstVictimId);
+}
+
+function largestTrueMultikillChain(round, killerIds) {
+  const links = new Map();
+  for (const killerId of killerIds) {
+    for (const [victimId, neighbors] of round.trueMultikillLinks.get(killerId) || []) {
+      if (!links.has(victimId)) links.set(victimId, new Set());
+      for (const neighbor of neighbors) links.get(victimId).add(neighbor);
+    }
+  }
+  const seen = new Set();
+  let largest = 0;
+  for (const victimId of links.keys()) {
+    if (seen.has(victimId)) continue;
+    let count = 0;
+    const pending = [victimId];
+    seen.add(victimId);
+    while (pending.length) {
+      const current = pending.pop();
+      count += 1;
+      for (const neighbor of links.get(current) || []) {
+        if (seen.has(neighbor)) continue;
+        seen.add(neighbor);
+        pending.push(neighbor);
+      }
+    }
+    largest = Math.max(largest, count);
+  }
+  return largest;
 }
 
 async function sha256(buffer) {
@@ -2610,7 +2641,7 @@ function freshRound() {
     clutchSides: new Set(),
     clutchCandidates: [],
     killCounts: new Map(),
-    trueMultikillVictims: new Map(),
+    trueMultikillLinks: new Map(),
     pendingDeaths: [],
     participants: new Set(),
     healthByUser: new Map(),

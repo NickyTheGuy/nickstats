@@ -29,17 +29,33 @@ function workerContext() {
   return context;
 }
 
-test("true multi-kill links deduplicate victims and extend connected anti-trade chains", () => {
-  const victims = vm.runInContext(`(() => {
+test("true multi-kills count the largest connected chain within a round", () => {
+  const sizes = vm.runInContext(`(() => {
     const round = freshRound();
     recordTrueMultikillLink(round, 7, 11, 12);
     recordTrueMultikillLink(round, 7, 11, 12);
+    const duplicated = largestTrueMultikillChain(round, [7]);
     recordTrueMultikillLink(round, 7, 12, 13);
-    return [...round.trueMultikillVictims.get(7)].sort((a, b) => a - b);
+    const connected = largestTrueMultikillChain(round, [7]);
+    recordTrueMultikillLink(round, 7, 14, 15);
+    const separate = largestTrueMultikillChain(round, [7]);
+    recordTrueMultikillLink(round, 8, 21, 22);
+    return [duplicated, connected, separate, largestTrueMultikillChain(round, [8])];
   })()`, workerContext());
-  assert.deepEqual(Array.from(victims), [11, 12, 13]);
+  assert.deepEqual(Array.from(sizes), [2, 3, 3, 2]);
   assert.match(worker, /prior\.killer === attackerId && prior\.attemptedTraders\.has\(victimId\)/);
   assert.match(worker, /tradeIsOpen\(prior, victimId, tick\)/);
+});
+
+test("two separate true 2K chains in one 4K round remain a true 2K round", () => {
+  const size = vm.runInContext(`(() => {
+    const round = freshRound();
+    recordTrueMultikillLink(round, 7, 11, 12);
+    recordTrueMultikillLink(round, 7, 13, 14);
+    return largestTrueMultikillChain(round, [7]);
+  })()`, workerContext());
+  assert.equal(size, 2);
+  assert.match(worker, /if \(trueKillCount >= 2\) \{[\s\S]*?trueMultikillRounds \+= 1;[\s\S]*?trueKillRoundsByCount\[Math\.min\(5, trueKillCount\)\] \+= 1/);
 });
 
 test("death to the original killer proves a trade opportunity and failed attempt", () => {
@@ -53,7 +69,7 @@ test("death to the original killer proves a trade opportunity and failed attempt
 test("schema 20 stores true 2K through 5K round counts in every side slice", () => {
   assert.match(demo, /schema: "nickstats\.match\/20"/);
   assert.match(demo, /true_kill_rounds: countArray\(player\.true_kill_rounds\)/);
-  assert.match(worker, /trueKillRoundsByCount\[Math\.min\(5, trueKillVictims\.size\)\] \+= 1/);
+  assert.match(worker, /trueKillRoundsByCount\[Math\.min\(5, trueKillCount\)\] \+= 1/);
   assert.match(models, /case trueKillRounds = "true_kill_rounds"/);
   assert.match(importer, /true_kill_rounds_1k, true_kill_rounds_2k, true_kill_rounds_3k/);
   for (const count of [1, 2, 3, 4, 5]) {
