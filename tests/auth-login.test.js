@@ -29,4 +29,6 @@ test("upload authorization accepts signed sessions and retains bearer compatibil
   assert.match(auth, /HMAC<SHA256>/);
   assert.match(auth, /passwordHash/);
   assert.match(auth, /INSERT INTO auth_users/);
+  assert.match(auth, /HEX\(password_hash\)/);
+  assert.match(auth, /UNHEX\(\\\(bind: hashHex\)\)/);
 });

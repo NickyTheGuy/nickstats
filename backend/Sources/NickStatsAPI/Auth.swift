@@ -85,6 +85,24 @@ private func decodeBase64URL(_ value: String) -> Data? {
     return Data(base64Encoded: base64)
 }
 
+private func hexEncoded(_ data: Data) -> String {
+    data.map { String(format: "%02x", $0) }.joined()
+}
+
+private func decodeHex(_ value: String) -> Data? {
+    guard value.count.isMultiple(of: 2) else { return nil }
+    var bytes: [UInt8] = []
+    bytes.reserveCapacity(value.count / 2)
+    var index = value.startIndex
+    while index < value.endIndex {
+        let next = value.index(index, offsetBy: 2)
+        guard let byte = UInt8(value[index..<next], radix: 16) else { return nil }
+        bytes.append(byte)
+        index = next
+    }
+    return Data(bytes)
+}
+
 private func sign(_ payload: Data, secret: String) -> Data {
     let key = SymmetricKey(data: Data(secret.utf8))
     return Data(HMAC<SHA256>.authenticationCode(for: payload, using: key))
@@ -122,13 +140,20 @@ private func normalizedUsername(_ value: String) throws -> String {
 private func storedUser(_ username: String, on database: any Database) async throws -> StoredUser? {
     guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
     guard let row = try await sql.raw("""
-        SELECT password_salt, password_hash, password_iterations
+        SELECT HEX(password_salt) AS password_salt_hex,
+               HEX(password_hash) AS password_hash_hex,
+               password_iterations
         FROM auth_users
         WHERE username = \(bind: username)
         """).first() else { return nil }
+    let saltHex = try row.decode(column: "password_salt_hex", as: String.self)
+    let hashHex = try row.decode(column: "password_hash_hex", as: String.self)
+    guard let salt = decodeHex(saltHex), let hash = decodeHex(hashHex) else {
+        throw Abort(.internalServerError, reason: "Stored password data is invalid.")
+    }
     return StoredUser(
-        salt: try row.decode(column: "password_salt", as: Data.self),
-        hash: try row.decode(column: "password_hash", as: Data.self),
+        salt: salt,
+        hash: hash,
         iterations: try row.decode(column: "password_iterations", as: Int.self)
     )
 }
@@ -137,15 +162,17 @@ private func savePassword(_ username: String, password: String, create: Bool, on
     guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
     let salt = randomSalt()
     let hash = passwordHash(password, salt: salt, iterations: passwordIterations)
+    let saltHex = hexEncoded(salt)
+    let hashHex = hexEncoded(hash)
     if create {
         try await sql.raw("""
             INSERT INTO auth_users (username, password_salt, password_hash, password_iterations)
-            VALUES (\(bind: username), \(bind: salt), \(bind: hash), \(bind: passwordIterations))
+            VALUES (\(bind: username), UNHEX(\(bind: saltHex)), UNHEX(\(bind: hashHex)), \(bind: passwordIterations))
             """).run()
     } else {
         try await sql.raw("""
             UPDATE auth_users
-            SET password_salt = \(bind: salt), password_hash = \(bind: hash),
+            SET password_salt = UNHEX(\(bind: saltHex)), password_hash = UNHEX(\(bind: hashHex)),
                 password_iterations = \(bind: passwordIterations)
             WHERE username = \(bind: username)
             """).run()
