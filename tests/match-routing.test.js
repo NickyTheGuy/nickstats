@@ -15,7 +15,7 @@ test("stored matches use nested hash routes without requiring server rewrites", 
   assert.match(navigation, /validMatchDetail = next === "match" && \/\^match\\\/\\d\+\$\//);
   assert.match(demo, /location\.hash\.match\(\/\^#match\\\/\(\\d\+\)\$\//);
   assert.match(demo, /history\[replace \? "replaceState" : "pushState"\]\(routeState, "", route\)/);
-  assert.match(demo, /button\.addEventListener\("click", \(\) => openStoredMatch\(match\.id\)\)/);
+  assert.match(demo, /renderMatchListInto\(\$\("matchList"\), matches, match => openStoredMatch\(match\.id\)\)/);
   assert.match(demo, /window\.addEventListener\("hashchange", syncMatchRoute\)/);
 });
 
@@ -31,7 +31,7 @@ test("match loading reserves page height and cancels obsolete requests", () => {
   assert.match(demo, /state\.matchDetailController\?\.abort\(\)/);
   assert.match(demo, /signal: controller\.signal/);
   assert.match(demo, /if \(error\.name === "AbortError"\) return/);
-  assert.match(html, /Build 2026\.09\.24\.4/);
+  assert.match(html, /Build 2026\.09\.24\.5/);
 });
 
 test("match details use a stable, filter-independent map banner", () => {

@@ -1511,8 +1511,7 @@
     return item;
   }
 
-  function renderMatchList(matches) {
-    const list = $("matchList");
+  function renderMatchListInto(list, matches, onOpen) {
     list.replaceChildren();
     for (const match of matches) {
       const button = document.createElement("button");
@@ -1553,9 +1552,13 @@
         ? `${teamRows[0].name || "Unknown team"} ${matchScore(teamRows[0]) ?? "unknown"} to ${matchScore(teamRows[1]) ?? "unknown"} ${teamRows[1].name || "Unknown team"}`
         : "score unavailable";
       button.setAttribute("aria-label", `Open match ${match.id} on ${mapName}: ${scoreDescription}`);
-      button.addEventListener("click", () => openStoredMatch(match.id));
+      button.addEventListener("click", () => onOpen(match));
       list.appendChild(button);
     }
+  }
+
+  function renderMatchList(matches) {
+    renderMatchListInto($("matchList"), matches, match => openStoredMatch(match.id));
   }
 
   async function apiJson(response) {
@@ -3302,6 +3305,7 @@
   }));
   drop.addEventListener("drop", event => chooseFiles(event.dataTransfer.files));
   window.addEventListener("hashchange", syncMatchRoute);
+  window.NickStatsMatchList = Object.freeze({ render: renderMatchListInto });
   updateAuthenticationDisplay();
   authSessionReady = loadAuthSession();
   loadMatches(0);

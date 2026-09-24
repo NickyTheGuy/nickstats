@@ -7,6 +7,18 @@ const test = require("node:test");
 
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const profile = fs.readFileSync(path.join(__dirname, "..", "js", "profile.js"), "utf8");
+const players = fs.readFileSync(path.join(__dirname, "..", "js", "players.js"), "utf8");
+const demo = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), "utf8");
+
+test("player match history loads only when its profile tab is opened", () => {
+  assert.match(html, /data-player-view="matches">Matches<\/button>/);
+  assert.match(html, /data-player-profile-view="matches"[\s\S]*?id="playerMatchesList"/);
+  assert.match(players, /if \(view === "matches" && state\.display === "profile" && activeProfile\(\)\) renderPlayerMatches\(\)/);
+  assert.match(players, /steam_id: steamID,[\s\S]*?fetch\(`\$\{MATCH_ENDPOINT\}\?\$\{parameters\}`/);
+  assert.match(players, /profile\.matchHistory = \{ loaded: false/);
+  assert.match(players, /location\.hash = `#match\/\$\{encodeURIComponent\(match\.id\)\}`/);
+  assert.match(demo, /window\.NickStatsMatchList = Object\.freeze\(\{ render: renderMatchListInto \}\)/);
+});
 
 test("round state has its own shared player and group profile tab", () => {
   assert.match(html, /data-player-view="roundState">Round state<\/button>/);

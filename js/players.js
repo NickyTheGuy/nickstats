@@ -1,6 +1,8 @@
 (() => {
   "use strict";
   const PLAYER_ENDPOINT = "/nickstats/api/players";
+  const MATCH_ENDPOINT = "/nickstats/api/matches";
+  const MATCH_HISTORY_LIMIT = 25;
   const RECENT_KEY = "nickstats.recentPlayers.v1";
   const MAX_RECENT = 10;
   const MAX_GRAPH_PLAYERS = 5;
@@ -8,6 +10,7 @@
   const { number, integer, ratio, titleCase } = window.NickStatsProfile;
   const { matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
   const availability = window.NickStatsAvailability;
+  const matchList = window.NickStatsMatchList;
 
   function readRecent() {
     try {
@@ -60,6 +63,8 @@
       button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
     });
     document.querySelectorAll("[data-player-profile-view]").forEach(panel => { panel.hidden = panel.dataset.playerProfileView !== view; });
+    syncStatsToolbar();
+    if (view === "matches" && state.display === "profile" && activeProfile()) renderPlayerMatches();
     if (view === "graphs" && state.display === "profile" && activeProfile()) {
       renderGraphPlayers();
       renderGraphs();
@@ -70,8 +75,13 @@
     document.querySelectorAll("[data-player-display-panel]").forEach(panel => {
       panel.hidden = panel.dataset.playerDisplayPanel !== state.display;
     });
+    syncStatsToolbar();
     renderOpenTabs();
     if (activeProfile()) renderCurrentDisplay();
+  }
+
+  function syncStatsToolbar() {
+    $("playerStatsToolbar").hidden = state.display === "profile" && state.view === "matches";
   }
 
   function renderCurrentDisplay() {
@@ -121,6 +131,96 @@
       if (error.name === "AbortError") return;
       $("playerSearchResults").replaceChildren(); setSearchStatus(`Could not search players: ${error.message}`, true);
     }
+  }
+
+  function matchHistory(profile) {
+    if (!profile.matchHistory) {
+      profile.matchHistory = { loaded: false, loading: false, offset: 0, matches: [], controller: null };
+    }
+    return profile.matchHistory;
+  }
+
+  function openHistoryMatch(match) {
+    if (match?.id == null) return;
+    location.hash = `#match/${encodeURIComponent(match.id)}`;
+  }
+
+  function renderPlayerMatches() {
+    const profile = activeProfile();
+    if (!profile) return;
+    const history = matchHistory(profile);
+    const status = $("playerMatchesStatus");
+    if (!history.loaded && !history.loading) {
+      loadPlayerMatches(profile, 0);
+      return;
+    }
+    if (history.loading && !history.loaded) {
+      $("playerMatchesList").replaceChildren();
+      $("playerMatchesPagination").hidden = true;
+      status.textContent = "Loading match history…";
+      return;
+    }
+    matchList.render($("playerMatchesList"), history.matches, openHistoryMatch);
+    status.classList.remove("error");
+    status.textContent = history.matches.length
+      ? `${history.matches.length} match${history.matches.length === 1 ? "" : "es"} shown for ${profile.payload.player?.name || "this player"}.`
+      : history.offset ? "No more matches." : "No matches found for this player.";
+    $("playerMatchesPagination").hidden = history.offset === 0 && history.matches.length < MATCH_HISTORY_LIMIT;
+    $("playerMatchesPrevious").disabled = history.loading || history.offset === 0;
+    $("playerMatchesNext").disabled = history.loading || history.matches.length < MATCH_HISTORY_LIMIT;
+    $("playerMatchesPageLabel").textContent = history.matches.length
+      ? `Matches ${history.offset + 1}–${history.offset + history.matches.length}` : "";
+  }
+
+  async function loadPlayerMatches(profile, offset) {
+    const history = matchHistory(profile);
+    history.controller?.abort();
+    const controller = new AbortController();
+    history.controller = controller;
+    history.loading = true;
+    const isCurrent = () => activeProfile() === profile && state.display === "profile" && state.view === "matches";
+    if (isCurrent()) {
+      $("playerMatchesList").replaceChildren();
+      $("playerMatchesPagination").hidden = true;
+      $("playerMatchesStatus").textContent = "Loading match history…";
+      $("playerMatchesStatus").classList.remove("error");
+      $("playerMatchesPrevious").disabled = true;
+      $("playerMatchesNext").disabled = true;
+    }
+    try {
+      const steamID = profile.payload.player?.steam_id;
+      if (!steamID) throw new Error("This player has no Steam ID.");
+      const parameters = new URLSearchParams({
+        steam_id: steamID,
+        limit: String(MATCH_HISTORY_LIMIT),
+        offset: String(Math.max(0, offset))
+      });
+      const payload = await apiJson(await fetch(`${MATCH_ENDPOINT}?${parameters}`, {
+        headers: { Accept: "application/json" },
+        signal: controller.signal
+      }));
+      history.matches = Array.isArray(payload.matches) ? payload.matches : [];
+      history.offset = Math.max(0, offset);
+      history.loaded = true;
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      history.matches = [];
+      history.offset = Math.max(0, offset);
+      history.loaded = false;
+      if (isCurrent()) {
+        $("playerMatchesList").replaceChildren();
+        $("playerMatchesStatus").textContent = `Could not load match history: ${error.message}`;
+        $("playerMatchesStatus").classList.add("error");
+        $("playerMatchesPagination").hidden = true;
+      }
+      return;
+    } finally {
+      if (history.controller === controller) {
+        history.loading = false;
+        history.controller = null;
+      }
+    }
+    if (isCurrent()) renderPlayerMatches();
   }
 
   function mergeStats(target, source) {
@@ -302,6 +402,7 @@
   }
   function closeProfile(id) {
     id = String(id); const ids = [...state.profiles.keys()], index = ids.indexOf(id);
+    state.profiles.get(id)?.matchHistory?.controller?.abort();
     state.profiles.delete(id); state.graphPlayers.delete(id);
     if (state.activeId === id) {
       const next = ids[index + 1] || ids[index - 1]; state.activeId = null;
@@ -334,6 +435,14 @@
   });
   $("playerRecentClear").addEventListener("click", () => { state.recent = []; try { localStorage.removeItem(RECENT_KEY); } catch (_) {} renderRecent(); });
   document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
+  $("playerMatchesPrevious").addEventListener("click", () => {
+    const profile = activeProfile(); if (!profile) return;
+    loadPlayerMatches(profile, Math.max(0, matchHistory(profile).offset - MATCH_HISTORY_LIMIT));
+  });
+  $("playerMatchesNext").addEventListener("click", () => {
+    const profile = activeProfile(); if (!profile) return;
+    loadPlayerMatches(profile, matchHistory(profile).offset + MATCH_HISTORY_LIMIT);
+  });
   window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { state.side = side; if (activeProfile()) renderCurrentDisplay(); } });
   window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-buy]", valueFor: button => button.dataset.playerBuy, onChange: buy => { state.buy = buy; if (activeProfile()) renderCurrentDisplay(); } });
   window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-enemy-buy]", valueFor: button => button.dataset.playerEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; if (activeProfile()) renderCurrentDisplay(); } });

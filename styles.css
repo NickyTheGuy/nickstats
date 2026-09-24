@@ -1841,6 +1841,10 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   gap: 8px;
 }
 
+.player-matches-view {
+  min-height: 180px;
+}
+
 .match-list-item {
   display: grid;
   grid-template-columns: 116px minmax(110px, .4fr) minmax(340px, 1.6fr);

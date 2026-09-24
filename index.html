@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260924-03">
+  <link rel="stylesheet" href="./styles.css?v=20260924-04">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.09.24.4</span>
+          <span class="demo-build">Build 2026.09.24.5</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -267,7 +267,7 @@
         <section class="player-profile-results" id="playerProfile" hidden>
           <nav class="player-open-profiles unified-profile-tabs" id="playerOpenProfiles" role="tablist" aria-label="Open player profiles and quick comparison" hidden></nav>
 
-          <div class="stats-toolbar">
+          <div class="stats-toolbar" id="playerStatsToolbar">
             <span>Map</span>
             <div class="map-multiselect" id="playerMapFilter"></div>
             <span>Result</span>
@@ -321,6 +321,7 @@
           <div id="playerProfileBody">
           <nav class="player-profile-tabs" role="tablist" aria-label="Player statistics">
             <button class="player-profile-tab active" type="button" role="tab" aria-selected="true" data-player-view="overview">Overview</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="matches">Matches</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="openings">Opening</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="trades">Trades</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="rounds">Rounds</button>
@@ -338,6 +339,15 @@
               <section class="player-stat-section"><header><span>01</span><div><h3>Record</h3><p>Matches, rounds, and results</p></div></header><div class="player-detail-grid player-detail-grid-compact" id="playerRecordStats"></div></section>
               <section class="player-stat-section"><header><span>02</span><div><h3>Combat output</h3><p>Kills, assists, and headshots</p></div></header><div class="player-detail-grid" id="playerCombatOutputStats"></div></section>
               <section class="player-stat-section"><header><span>03</span><div><h3>Damage and deaths</h3><p>What the player absorbed and gave back</p></div></header><div class="player-detail-grid" id="playerCombatCostStats"></div></section>
+            </div>
+          </div>
+          <div class="player-profile-view player-matches-view" data-player-profile-view="matches" hidden>
+            <div class="match-list-status" id="playerMatchesStatus" role="status" aria-live="polite"></div>
+            <div class="match-list" id="playerMatchesList"></div>
+            <div class="match-list-pagination" id="playerMatchesPagination" hidden>
+              <button class="button button-secondary" id="playerMatchesPrevious" type="button">Previous</button>
+              <span id="playerMatchesPageLabel"></span>
+              <button class="button button-secondary" id="playerMatchesNext" type="button">Next</button>
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="utility" hidden>
@@ -513,11 +523,11 @@
   <script defer src="./js/filters.js?v=20260920-14"></script>
   <script defer src="./js/stat-availability.js?v=20260922-08"></script>
   <script defer src="./js/scoreboard.js?v=20260923-01"></script>
-  <script defer src="./js/demo.js?v=20260924-04"></script>
+  <script defer src="./js/demo.js?v=20260924-05"></script>
   <script defer src="./js/graphs.js?v=20260922-08"></script>
   <script defer src="./js/profile.js?v=20260922-08"></script>
   <script defer src="./js/quick-comparison.js?v=20260923-01"></script>
-  <script defer src="./js/players.js?v=20260923-04"></script>
+  <script defer src="./js/players.js?v=20260924-05"></script>
   <script defer src="./js/groups.js?v=20260923-06"></script>
 </body>
 </html>
