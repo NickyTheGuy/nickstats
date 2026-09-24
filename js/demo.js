@@ -1098,12 +1098,23 @@
       return output;
     };
 
-    function incomingRows(playerIndex, side, field) {
+    function relatedStatsFor(actorIndex, actorSide, recipientIndex, buy, roundResult, enemyBuy) {
+      if (!heroOnly) return statsFor(actorIndex, actorSide);
+      const selectedRounds = new Set((sourcePlayers[recipientIndex]?.round_slices || [])
+        .filter(slice => slice.hero === true && (roundPhase === "ALL" || (roundPhase === "REGULATION" ? slice.round <= 24 : slice.round > 24)) &&
+          (buy === "ALL" || slice.buy === buy) && (roundResult === "ALL" || slice.result === roundResult) &&
+          (enemyBuy === "ALL" || slice.opponent_buy === enemyBuy))
+        .map(slice => slice.round));
+      return (sourcePlayers[actorIndex]?.round_slices || [])
+        .filter(slice => selectedRounds.has(slice.round) && (actorSide === "ALL" || slice.side === actorSide))
+        .reduce((total, slice) => mergeCompactSides(total, slice.stats), {});
+    }
+    function incomingRows(playerIndex, side, field, buy = "ALL", roundResult = "ALL", enemyBuy = "ALL") {
       const output = [];
       sourcePlayers.forEach((_, actorIndex) => {
         const sameTeam = teamByPlayer.get(actorIndex) === teamByPlayer.get(playerIndex);
         const actorSide = side === "ALL" ? "ALL" : sameTeam ? side : opposite(side);
-        for (const row of statsFor(actorIndex, actorSide)?.[field] || []) {
+        for (const row of relatedStatsFor(actorIndex, actorSide, playerIndex, buy, roundResult, enemyBuy)?.[field] || []) {
           if (numberValue(row[0]) === playerIndex) output.push([actorIndex, ...row.slice(1)]);
         }
       });
@@ -1127,7 +1138,7 @@
       const successes = (stats.trades || []).reduce((sum, row) => sum + numberValue(row[3]), 0);
       const tradeKills = numberValue(stats.trade_kills);
       const outgoingContext = contextTotals(stats.contexts);
-      const incomingContext = stats.profile?.length ? stats.profile.slice(0, 13) : contextTotals(incomingRows(playerIndex, side, "contexts"));
+      const incomingContext = stats.profile?.length ? stats.profile.slice(0, 13) : contextTotals(incomingRows(playerIndex, side, "contexts", buy, roundResult, enemyBuy));
       const assistedRows = stats.assisted_by || [];
       const enemyFlashRows = (stats.flashes || []).filter(row => teamByPlayer.get(numberValue(row[0])) !== teamByPlayer.get(playerIndex));
       const teammateFlashRows = (stats.flashes || []).filter(row => {
@@ -1143,16 +1154,16 @@
       let flashAssists = 0;
       sourcePlayers.forEach((_, beneficiaryIndex) => {
         if (teamByPlayer.get(beneficiaryIndex) !== teamByPlayer.get(playerIndex)) return;
-        const beneficiaryStats = statsFor(beneficiaryIndex, side);
+        const beneficiaryStats = relatedStatsFor(beneficiaryIndex, side, playerIndex, buy, roundResult, enemyBuy);
         for (const row of beneficiaryStats.assisted_by || []) {
           if (numberValue(row[0]) === playerIndex) flashAssists += numberValue(row[2]);
         }
       });
 
       const duelIndexes = new Set((stats.duels || []).map(row => numberValue(row[0])));
-      incomingRows(playerIndex, side, "duels").forEach(row => duelIndexes.add(numberValue(row[0])));
+      incomingRows(playerIndex, side, "duels", buy, roundResult, enemyBuy).forEach(row => duelIndexes.add(numberValue(row[0])));
       const duelKills = new Map((stats.duels || []).map(row => [numberValue(row[0]), numberValue(row[1])]));
-      const duelDeaths = new Map(incomingRows(playerIndex, side, "duels").map(row => [numberValue(row[0]), numberValue(row[1])]));
+      const duelDeaths = new Map(incomingRows(playerIndex, side, "duels", buy, roundResult, enemyBuy).map(row => [numberValue(row[0]), numberValue(row[1])]));
       const duels = [...duelIndexes].map(opponentIndex => {
         const opponent = identity(opponentIndex);
         const duelKillsValue = duelKills.get(opponentIndex) || 0;
