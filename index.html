@@ -12,7 +12,7 @@
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.09.24.2</span>
+          <span class="demo-build">Build 2026.09.24.3</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -471,11 +471,31 @@
     </form>
   </dialog>
 
+  <dialog class="demo-auth-dialog" id="demoAccountDialog" aria-labelledby="demoAccountTitle">
+    <form class="demo-auth-form" id="demoPasswordForm">
+      <div class="eyebrow">Account</div>
+      <h2 id="demoAccountTitle">Account settings</h2>
+      <p>Logged in as <strong id="demoAccountUsername"></strong></p>
+      <label for="demoCurrentPassword">Current password</label>
+      <input id="demoCurrentPassword" name="current-password" type="password" autocomplete="current-password" required>
+      <label for="demoNewPassword">New password</label>
+      <input id="demoNewPassword" name="new-password" type="password" autocomplete="new-password" minlength="12" required>
+      <label for="demoConfirmPassword">Confirm new password</label>
+      <input id="demoConfirmPassword" name="confirm-password" type="password" autocomplete="new-password" minlength="12" required>
+      <p class="demo-auth-error" id="demoPasswordError" role="alert" hidden></p>
+      <div class="demo-auth-actions">
+        <button class="button button-primary" type="submit">Change password</button>
+        <button class="button button-secondary" id="demoLogoutButton" type="button">Log out</button>
+        <button class="button button-secondary" id="demoAccountCloseButton" type="button">Close</button>
+      </div>
+    </form>
+  </dialog>
+
   <script defer src="./js/navigation.js?v=20260923-06"></script>
   <script defer src="./js/filters.js?v=20260920-14"></script>
   <script defer src="./js/stat-availability.js?v=20260922-08"></script>
   <script defer src="./js/scoreboard.js?v=20260923-01"></script>
-  <script defer src="./js/demo.js?v=20260924-02"></script>
+  <script defer src="./js/demo.js?v=20260924-03"></script>
   <script defer src="./js/graphs.js?v=20260922-08"></script>
   <script defer src="./js/profile.js?v=20260922-08"></script>
   <script defer src="./js/quick-comparison.js?v=20260923-01"></script>

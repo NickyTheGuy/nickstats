@@ -35,9 +35,9 @@ func routes(_ app: Application) throws {
         return HealthResponse(status: "ok")
     }
 
-    app.post("auth", "login") { request throws -> Response in
+    app.post("auth", "login") { request async throws -> Response in
         let login = try request.content.decode(LoginRequest.self)
-        let session = try authenticateLogin(login)
+        let session = try await authenticateLogin(login, on: request.db)
         let response = Response(status: .ok)
         try response.content.encode(AuthSessionResponse(authenticated: true, username: session.username))
         setSessionCookie(response, token: session.token, maxAge: session.expiresAt - Int64(Date().timeIntervalSince1970))
@@ -53,6 +53,15 @@ func routes(_ app: Application) throws {
         let response = Response(status: .noContent)
         clearSessionCookie(response)
         return response
+    }
+
+    app.post("auth", "password") { request async throws -> Response in
+        guard let username = authenticatedUsername(request) else {
+            throw Abort(.unauthorized, reason: "Log in before changing your password.")
+        }
+        let change = try request.content.decode(ChangePasswordRequest.self)
+        try await changePassword(username: username, change: change, on: request.db)
+        return Response(status: .noContent)
     }
 
     app.on(.POST, "matches", body: .collect(maxSize: "8mb")) { request async throws -> Response in

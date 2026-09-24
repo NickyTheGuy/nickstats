@@ -12,6 +12,7 @@ The compact format intentionally uses fixed-position arrays to keep uploads smal
 | `POST` | `/auth/login` | Username/password | Create a persistent browser session |
 | `GET` | `/auth/session` | Session cookie | Report the current login |
 | `POST` | `/auth/logout` | Session cookie | Clear the current login |
+| `POST` | `/auth/password` | Session cookie | Change the logged-in user's password |
 | `POST` | `/matches` | Session cookie or bearer token | Validate and atomically import one compact match |
 | `POST` | `/matches/faceit-dates` | Scoped bearer token | Update FACEIT match start times in batches |
 | `GET` | `/matches` | Public | Match list and filters |
@@ -46,7 +47,7 @@ openssl rand -hex 32
 
 Set the second value as `NICKSTATS_FACEIT_SYNC_TOKEN`. It grants access only to the date-sync route and is the token stored by the private browser extension.
 
-Browser logins are configured in `.env` with a JSON username/password map and an independent signing secret:
+Initial browser accounts are bootstrapped from `.env` with a JSON username/password map and an independent signing secret:
 
 ```dotenv
 NICKSTATS_LOGIN_USERS={"nick":"use-a-long-random-password","friend":"another-long-random-password"}
@@ -54,7 +55,9 @@ NICKSTATS_SESSION_SECRET=replace-with-output-from-openssl-rand-hex-32
 NICKSTATS_COOKIE_SECURE=true
 ```
 
-Usernames are case-insensitive. Successful logins receive a signed, HttpOnly, SameSite=Strict cookie that lasts 30 days and survives browser restarts. `NICKSTATS_COOKIE_SECURE` should remain `true` on the HTTPS production site; set it to `false` only for plain-HTTP local development. The initial account list intentionally lives in server configuration so login can ship without a user-management database. The existing `NICKSTATS_UPLOAD_TOKEN` remains accepted for command-line imports and compatibility.
+Apply `database/migrations/014_auth_users.sql` before deploying this backend. On each username's first successful login, the server verifies the bootstrap password and stores a salted PBKDF2-HMAC-SHA256 hash in `auth_users`. From that point onward the database hash is authoritative, the original `.env` password no longer works, and the user can change their password from Account settings. The plaintext password itself is never stored in the database.
+
+Usernames are case-insensitive. Successful logins receive a signed, HttpOnly, SameSite=Strict cookie that lasts 30 days and survives browser restarts. `NICKSTATS_COOKIE_SECURE` should remain `true` on the HTTPS production site; set it to `false` only for plain-HTTP local development. Keep `NICKSTATS_LOGIN_USERS` as the bootstrap list until every intended account has logged in once; afterward it can be removed, although it will still be needed to bootstrap any later additions. The existing `NICKSTATS_UPLOAD_TOKEN` remains accepted for command-line imports and compatibility.
 
 Keep `.env` out of Git. Upload a compact file with:
 

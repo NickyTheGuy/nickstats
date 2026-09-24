@@ -343,6 +343,17 @@
     $("demoAuthUsername").focus();
   }
 
+  function openAccountSettings() {
+    $("demoAccountUsername").textContent = state.authUsername || "";
+    $("demoCurrentPassword").value = "";
+    $("demoNewPassword").value = "";
+    $("demoConfirmPassword").value = "";
+    $("demoPasswordError").hidden = true;
+    const dialog = $("demoAccountDialog");
+    if (!dialog.open) dialog.showModal();
+    $("demoCurrentPassword").focus();
+  }
+
   async function loadAuthSession() {
     try {
       const response = await fetch(`${AUTH_ENDPOINT}/session`, { headers: { "Accept": "application/json" } });
@@ -361,6 +372,7 @@
     state.authenticated = false;
     state.authUsername = null;
     updateUploadAuthenticationDisplay();
+    if ($("demoAccountDialog").open) $("demoAccountDialog").close();
     setStatus("Logged out. Log in again to upload matches.");
   }
 
@@ -3105,7 +3117,7 @@
     if (!confirm(`Replace match #${state.duplicateMatchID} with these newly parsed statistics?`)) return;
     uploadParsedMatch(state.parsedResult, { replace: true });
   });
-  $("demoAuthButton").addEventListener("click", () => state.authenticated ? logOut() : openUploadAuthentication());
+  $("demoAuthButton").addEventListener("click", () => state.authenticated ? openAccountSettings() : openUploadAuthentication());
   $("demoAuthForm").addEventListener("submit", async event => {
     event.preventDefault();
     const username = $("demoAuthUsername").value.trim();
@@ -3152,6 +3164,34 @@
   $("demoAuthDialog").addEventListener("cancel", () => {
     state.parsePending = false;
   });
+  $("demoPasswordForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    const currentPassword = $("demoCurrentPassword").value;
+    const newPassword = $("demoNewPassword").value;
+    const confirmation = $("demoConfirmPassword").value;
+    const error = $("demoPasswordError");
+    if (newPassword !== confirmation) {
+      error.textContent = "The new passwords do not match.";
+      error.hidden = false;
+      return;
+    }
+    try {
+      const response = await fetch(`${AUTH_ENDPOINT}/password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.reason || `Password change failed with HTTP ${response.status}.`);
+      $("demoAccountDialog").close();
+      setStatus("Password changed successfully.");
+    } catch (passwordError) {
+      error.textContent = passwordError.message || "Could not change the password.";
+      error.hidden = false;
+    }
+  });
+  $("demoLogoutButton").addEventListener("click", logOut);
+  $("demoAccountCloseButton").addEventListener("click", () => $("demoAccountDialog").close());
   demoSideControl = window.NickStatsFilters.bindSideToggle({ selector: "[data-demo-side]", valueFor: button => button.dataset.demoSide, onChange: side => setSideFilter(side) });
   demoBuyControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-buy]", valueFor: button => button.dataset.demoBuy, onChange: buy => setBuyFilter(buy) });
   demoEnemyBuyControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-enemy-buy]", valueFor: button => button.dataset.demoEnemyBuy, onChange: buy => setEnemyBuyFilter(buy) });

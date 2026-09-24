@@ -14,6 +14,7 @@ test("browser login uses a persistent server session instead of storing the uplo
   assert.match(frontend, /fetch\(`\$\{AUTH_ENDPOINT\}\/session`/);
   assert.match(frontend, /fetch\(`\$\{AUTH_ENDPOINT\}\/login`/);
   assert.match(frontend, /fetch\(`\$\{AUTH_ENDPOINT\}\/logout`/);
+  assert.match(frontend, /fetch\(`\$\{AUTH_ENDPOINT\}\/password`/);
   assert.doesNotMatch(frontend, /uploadToken|Authorization.*Bearer/);
 });
 
@@ -21,8 +22,11 @@ test("upload authorization accepts signed sessions and retains bearer compatibil
   assert.match(routes, /app\.post\("auth", "login"\)/);
   assert.match(routes, /app\.get\("auth", "session"\)/);
   assert.match(routes, /app\.post\("auth", "logout"\)/);
+  assert.match(routes, /app\.post\("auth", "password"\)/);
   assert.match(routes, /if authenticatedUsername\(request\) != nil \{ return \}/);
   assert.match(routes, /environmentName: "NICKSTATS_UPLOAD_TOKEN"/);
   assert.match(auth, /HttpOnly; SameSite=Strict/);
   assert.match(auth, /HMAC<SHA256>/);
+  assert.match(auth, /passwordHash/);
+  assert.match(auth, /INSERT INTO auth_users/);
 });
