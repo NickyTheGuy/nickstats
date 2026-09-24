@@ -29,12 +29,13 @@ private func emptySide() -> SideStatsPayload {
         weapons: [], duels: [], trades: [], contexts: [], assistedBy: [], flashes: []
     )
     value.profile = Array(repeating: 0, count: 16)
+    value.trueMultikillRounds = 0
     return value
 }
 
 private func validPayload() -> MatchPayload {
     MatchPayload(
-        schema: compactSchema,
+        schema: "nickstats.match/21",
         nickstatsBuild: "2026.09.10",
         parser: ParserMetadata(name: "@deademx/cs2", version: "4.0.0"),
         id: MatchIdentity(faceit: "1-abc", sha256: String(repeating: "a", count: 64)),
@@ -124,6 +125,26 @@ private func comparisonMatch(id: Int64, playedAt: Int64, kills: Double) -> Compa
 
 @Test func acceptsValidCompactMatch() throws {
     try validPayload().validate()
+}
+
+@Test func acceptsRoundPhaseSlicesAndRejectsDuplicatePlayedRounds() throws {
+    var payload = validPayload()
+    payload.schema = compactSchema
+    for index in payload.players.indices { payload.players[index].roundSlices = [] }
+    var played = emptySide()
+    played.rounds = RoundRecord(played: 1, won: 1)
+    payload.players[0].sides.terrorist = played
+    payload.players[0].buys![0] = played
+    payload.players[0].roundResults![0] = played
+    payload.players[0].economyMatchups = [EconomyMatchupStats(
+        ownBuyIndex: 0, opponentBuyIndex: 0, resultIndex: 0, sideIndex: 0, stats: played
+    )]
+    let slice = PlayerRoundSlice(round: 1, side: .terrorist, buy: "pistol",
+                                 opponentBuy: "pistol", result: "win", stats: played)
+    payload.players[0].roundSlices = [slice]
+    try payload.validate()
+    payload.players[0].roundSlices = [slice, slice]
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
 }
 
 @Test func profileCacheAccumulatesMatchesAndRejectsAnOutdatedRefresh() async throws {
