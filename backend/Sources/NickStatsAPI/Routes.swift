@@ -46,7 +46,7 @@ func routes(_ app: Application) throws {
 
     app.get("auth", "session") { request async throws -> AuthSessionResponse in
         guard let username = authenticatedUsername(request) else {
-            return AuthSessionResponse(authenticated: false, username: nil, playerID: nil, playerName: nil)
+            return AuthSessionResponse(authenticated: false, username: nil, playerID: nil, playerName: nil, playerSteamID: nil)
         }
         return try await accountSession(username: username, on: request.db)
     }

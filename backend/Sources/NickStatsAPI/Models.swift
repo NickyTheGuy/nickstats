@@ -205,9 +205,11 @@ struct MatchSummary: Content {
     var rounds: Int
     var nickstatsBuild: String
     var teams: [TeamSummary]
+    var viewerTeamSlot: Int?
 
     enum CodingKeys: String, CodingKey {
         case id, provider, sha256, map, rounds, teams
+        case viewerTeamSlot = "viewer_team_slot"
         case providerMatchID = "provider_match_id"
         case playedAt = "played_at"
         case nickstatsBuild = "nickstats_build"

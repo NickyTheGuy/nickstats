@@ -195,10 +195,13 @@
         limit: String(MATCH_HISTORY_LIMIT),
         offset: String(Math.max(0, offset))
       });
+      const accountPlayerID = window.NickStatsAccountPlayer?.id;
+      if (accountPlayerID) parameters.set("viewer_player_id", accountPlayerID);
       const payload = await apiJson(await fetch(`${MATCH_ENDPOINT}?${parameters}`, {
         headers: { Accept: "application/json" },
         signal: controller.signal
       }));
+      if (history.controller !== controller) return;
       history.matches = Array.isArray(payload.matches) ? payload.matches : [];
       history.offset = Math.max(0, offset);
       history.loaded = true;
@@ -442,6 +445,17 @@
   $("playerMatchesNext").addEventListener("click", () => {
     const profile = activeProfile(); if (!profile) return;
     loadPlayerMatches(profile, matchHistory(profile).offset + MATCH_HISTORY_LIMIT);
+  });
+  window.addEventListener("nickstats:account-player", () => {
+    for (const profile of state.profiles.values()) {
+      profile.matchHistory?.controller?.abort();
+      if (profile.matchHistory) {
+        profile.matchHistory.loaded = false;
+        profile.matchHistory.loading = false;
+        profile.matchHistory.controller = null;
+      }
+    }
+    if (state.view === "matches" && state.display === "profile" && activeProfile()) renderPlayerMatches();
   });
   window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { state.side = side; if (activeProfile()) renderCurrentDisplay(); } });
   window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-buy]", valueFor: button => button.dataset.playerBuy, onChange: buy => { state.buy = buy; if (activeProfile()) renderCurrentDisplay(); } });

@@ -34,6 +34,7 @@
     authUsername: null,
     accountPlayerID: null,
     accountPlayerName: null,
+    accountPlayerSteamID: null,
     uploadPending: false,
     uploading: false,
     duplicateMatchID: null,
@@ -337,11 +338,20 @@
   }
 
   function applyAccountSession(session) {
+    const previousSteamID = state.accountPlayerSteamID;
     state.authenticated = Boolean(session?.authenticated);
     state.authUsername = session?.username || null;
     state.accountPlayerID = session?.player_id == null ? null : String(session.player_id);
     state.accountPlayerName = session?.player_name || null;
+    state.accountPlayerSteamID = state.authenticated && state.accountPlayerID ? session?.player_steam_id || null : null;
+    window.NickStatsAccountPlayer = state.accountPlayerSteamID
+      ? { id: state.accountPlayerID, steamID: state.accountPlayerSteamID } : null;
     updateAuthenticationDisplay();
+    if (previousSteamID !== state.accountPlayerSteamID) {
+      window.dispatchEvent(new Event("nickstats:account-player"));
+      loadMatches(state.matchListOffset);
+      if (state.result) renderMatchBanner(state.result);
+    }
   }
 
   function openUploadAuthentication(message = "") {
@@ -512,11 +522,7 @@
       setStatus(`${parsedMatchDescription(result)} Database upload failed: ${reason}`, true);
       showDiagnosticsDownload(true);
       if (error.status === 401) {
-        state.authenticated = false;
-        state.authUsername = null;
-        state.accountPlayerID = null;
-        state.accountPlayerName = null;
-        updateAuthenticationDisplay();
+        applyAccountSession(null);
         openUploadAuthentication("Your login expired. Log in again to continue.");
       }
     } finally {
@@ -1511,6 +1517,12 @@
     return item;
   }
 
+  function accountTeamsFirst(match) {
+    const teams = Array.isArray(match.teams) ? match.teams : [];
+    if (!state.accountPlayerSteamID || teams.length < 2) return teams;
+    return match.viewer_team_slot === 1 ? [teams[1], teams[0]] : teams;
+  }
+
   function renderMatchListInto(list, matches, onOpen) {
     list.replaceChildren();
     for (const match of matches) {
@@ -1537,7 +1549,7 @@
 
       const result = document.createElement("span");
       result.className = "match-list-result";
-      const teamRows = Array.isArray(match.teams) ? match.teams : [];
+      const teamRows = accountTeamsFirst(match);
       if (teamRows.length >= 2) {
         const separator = document.createElement("span");
         separator.className = "match-list-score-separator";
@@ -1576,8 +1588,10 @@
     $("matchListStatus").classList.remove("error");
     try {
       const query = new URLSearchParams({ limit: String(MATCH_LIST_LIMIT), offset: String(Math.max(0, offset)) });
+      if (state.accountPlayerID && state.accountPlayerSteamID) query.set("viewer_player_id", state.accountPlayerID);
       if (matchMapFilter.size) query.set("maps", matchMapFilter.values().join(","));
       const payload = await apiJson(await fetch(`${MATCH_UPLOAD_ENDPOINT}?${query}`, { headers: { "Accept": "application/json" }, signal: controller.signal }));
+      if (controller.signal.aborted) return;
       const matches = Array.isArray(payload.matches) ? payload.matches : [];
       matchMapFilter.setOptions(Array.isArray(payload.maps) ? payload.maps : matches.map(match => match.map));
       state.matchListOffset = Math.max(0, offset);
@@ -1659,8 +1673,11 @@
   function renderMatchBanner(result) {
     const banner = $("demoMatchBanner");
     const teams = Array.isArray(result.teams) ? result.teams : [];
-    const firstTeam = teams[0];
-    const secondTeam = teams[1];
+    const accountTeamIndex = state.accountPlayerSteamID && teams.length >= 2
+      ? teams.findIndex(team => (team.players || []).some(player => String(player.steam_id) === state.accountPlayerSteamID))
+      : -1;
+    const firstTeam = accountTeamIndex === 1 ? teams[1] : teams[0];
+    const secondTeam = accountTeamIndex === 1 ? teams[0] : teams[1];
     const mapName = result.map || "Unknown map";
     const playedAt = formatMatchTime(result.played_at);
     const fullMatchID = result.provider_match_id || (result.demo_sha256 ? `SHA ${result.demo_sha256}` : "Match ID unavailable");

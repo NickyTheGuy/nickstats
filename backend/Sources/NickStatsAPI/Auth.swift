@@ -18,11 +18,13 @@ struct AuthSessionResponse: Content {
     var username: String?
     var playerID: Int64?
     var playerName: String?
+    var playerSteamID: String?
 
     enum CodingKeys: String, CodingKey {
         case authenticated, username
         case playerID = "player_id"
         case playerName = "player_name"
+        case playerSteamID = "player_steam_id"
     }
 }
 
@@ -262,18 +264,21 @@ func accountSession(username: String, on database: any Database) async throws ->
     guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
     let row = try await sql.raw("""
         SELECT CAST(au.representative_player_id AS SIGNED) AS representative_player_id,
-               p.current_name AS representative_player_name
+               p.current_name AS representative_player_name,
+               CAST(p.steam_id AS CHAR) AS representative_player_steam_id
         FROM auth_users au
         LEFT JOIN players p ON p.id = au.representative_player_id
         WHERE au.username = \(bind: username)
         """).first()
     let playerID = try row?.decode(column: "representative_player_id", as: Int64?.self) ?? nil
     let playerName = try row?.decode(column: "representative_player_name", as: String?.self) ?? nil
+    let playerSteamID = try row?.decode(column: "representative_player_steam_id", as: String?.self) ?? nil
     return AuthSessionResponse(
         authenticated: row != nil,
         username: row == nil ? nil : username,
         playerID: playerID,
-        playerName: playerName
+        playerName: playerName,
+        playerSteamID: playerSteamID
     )
 }
 

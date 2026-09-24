@@ -5,6 +5,7 @@ import Vapor
 
 struct MatchQuery: Content {
     var steamID: String?
+    var viewerPlayerID: Int64?
     var map: String?
     var maps: String?
     var dateFrom: String?
@@ -15,6 +16,7 @@ struct MatchQuery: Content {
     enum CodingKeys: String, CodingKey {
         case map, maps, limit, offset
         case steamID = "steam_id"
+        case viewerPlayerID = "viewer_player_id"
         case dateFrom = "from"
         case dateTo = "to"
     }
@@ -106,6 +108,14 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
     let filters = try request.query.decode(MatchQuery.self)
     let (limit, offset) = try pagination(limit: filters.limit, offset: filters.offset)
     let steamID = filters.steamID ?? ""
+    let viewerPlayerID = filters.viewerPlayerID ?? 0
+    let viewerTeamColumn: SQLQueryString = viewerPlayerID <= 0 ? "NULL AS viewer_team_slot" : """
+        (SELECT mt.team_slot
+         FROM match_players vm
+         JOIN match_teams mt ON mt.id = vm.match_team_id
+         WHERE vm.match_id = m.id AND vm.player_id = \(bind: viewerPlayerID)
+         LIMIT 1) AS viewer_team_slot
+        """
     let maps = (filters.maps ?? filters.map ?? "").split(separator: ",")
         .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
@@ -118,7 +128,8 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
           m.id, m.provider, m.provider_match_id, LOWER(HEX(m.demo_sha256)) AS sha256,
           m.map_name, m.played_at, m.rounds, m.nickstats_build,
           team_0.display_name AS team_0_name, team_0.score AS team_0_score,
-          team_1.display_name AS team_1_name, team_1.score AS team_1_score
+          team_1.display_name AS team_1_name, team_1.score AS team_1_score,
+          \(viewerTeamColumn)
         FROM matches m
         LEFT JOIN match_teams team_0 ON team_0.match_id = m.id AND team_0.team_slot = 0
         LEFT JOIN match_teams team_1 ON team_1.match_id = m.id AND team_1.team_slot = 1
@@ -155,7 +166,8 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
             playedAt: unix(try optionalDate(row, "played_at")),
             rounds: try integer(row, "rounds"),
             nickstatsBuild: try row.decode(column: "nickstats_build", as: String.self),
-            teams: teams
+            teams: teams,
+            viewerTeamSlot: try optionalInteger(row, "viewer_team_slot")
         ))
     }
     let mapRows = try await sql.raw("SELECT DISTINCT map_name FROM matches ORDER BY map_name").all()

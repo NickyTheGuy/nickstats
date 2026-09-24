@@ -27,6 +27,7 @@ The compact format intentionally uses fixed-position arrays to keep uploads smal
 `POST /matches/faceit-dates` accepts up to 100 FACEIT match IDs and Unix start timestamps using the `nickstats.faceit-dates/1` schema. It updates only `played_at`, `played_at_source`, and the affected players' first/last-seen bounds; match statistics are untouched. The response reports updated, unchanged, and not-yet-imported IDs.
 
 Match-list query parameters are `steam_id`, `map`, `maps`, `from`, `to`, `limit`, and `offset`. `maps` accepts comma-separated map names for an OR filter; the singular `map` remains supported. Match-list responses include every available map name for filter controls. Dates are ISO-8601; `to` is exclusive. Player-list parameters are `q`, `limit`, and `offset`.
+The optional `viewer_player_id` adds `viewer_team_slot` to each match summary for displaying the selected account player's team first. It does not filter results. Requests without a selected account player omit it and skip the team lookup.
 
 ## Local/container setup
 
