@@ -65,6 +65,7 @@
     onChange: () => loadMatches(0),
     formatLabel: value => String(value || "Unknown").replace(/^de_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase())
   });
+  const matchDateFilter = new window.NickStatsFilters.DateRangeFilter("matchDateFilter", { onChange: () => loadMatches(0) });
   let demoSideControl, demoBuyControl, demoEnemyBuyControl, demoRoundResultControl, demoRoundPhaseControl;
   let authSessionReady = Promise.resolve();
   const scoreboardLayoutState = () => ({
@@ -1622,6 +1623,7 @@
       const query = new URLSearchParams({ limit: String(MATCH_LIST_LIMIT), offset: String(Math.max(0, offset)) });
       if (state.accountPlayerID && state.accountPlayerSteamID) query.set("viewer_player_id", state.accountPlayerID);
       if (matchMapFilter.size) query.set("maps", matchMapFilter.values().join(","));
+      matchDateFilter.appendQuery(query);
       const payload = await apiJson(await fetch(`${MATCH_UPLOAD_ENDPOINT}?${query}`, { headers: { "Accept": "application/json" }, signal: controller.signal }));
       if (controller.signal.aborted) return;
       const matches = Array.isArray(payload.matches) ? payload.matches : [];
@@ -1631,7 +1633,7 @@
       renderMatchList(matches);
       $("matchListStatus").textContent = matches.length
         ? `${matches.length} match${matches.length === 1 ? "" : "es"} shown.`
-        : state.matchListOffset ? "No more matches." : matchMapFilter.size ? "No matches use the selected maps." : "No matches have been uploaded yet.";
+        : state.matchListOffset ? "No more matches." : matchDateFilter.active ? "No matches in the selected dates." : matchMapFilter.size ? "No matches use the selected maps." : "No matches have been uploaded yet.";
       $("matchListPagination").hidden = state.matchListOffset === 0 && matches.length < MATCH_LIST_LIMIT;
       $("matchListPreviousButton").disabled = state.matchListOffset === 0;
       $("matchListNextButton").disabled = matches.length < MATCH_LIST_LIMIT;

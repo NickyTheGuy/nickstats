@@ -29,6 +29,14 @@
     formatLabel: value => titleCase(value.replace(/^de_/, "")),
     onChange: values => { state.maps = values; if (activeProfile()) renderCurrentDisplay(); }
   });
+  const dateFilter = new window.NickStatsFilters.DateRangeFilter(["playerDateFilter", "playerHistoryDateFilter"], {
+    onChange: () => {
+      state.profiles.forEach(profile => {
+        if (profile.matchHistory) { profile.matchHistory.controller?.abort(); profile.matchHistory.loaded = false; profile.matchHistory.loading = false; }
+      });
+      if (activeProfile()) { renderCurrentDisplay(); if (state.display === "profile" && state.view === "matches") renderPlayerMatches(); }
+    }
+  });
   const quickComparison = window.NickStatsQuickComparison.create({ prefix: "player" });
 
   async function apiJson(response) {
@@ -195,6 +203,7 @@
         limit: String(MATCH_HISTORY_LIMIT),
         offset: String(Math.max(0, offset))
       });
+      dateFilter.appendQuery(parameters);
       const accountPlayerID = window.NickStatsAccountPlayer?.id;
       if (accountPlayerID) parameters.set("viewer_player_id", accountPlayerID);
       const payload = await apiJson(await fetch(`${MATCH_ENDPOINT}?${parameters}`, {
@@ -273,19 +282,20 @@
     const kpr = ratio(kills, rounds), dpr = ratio(deaths, rounds), apr = ratio(assists, rounds), adr = ratio(stats.damage, rounds), kast = 100 * ratio(stats.kast_rounds, rounds);
     const impact = 2.13 * kpr + .42 * apr - .41;
     const rating = rounds ? Math.max(0, .0073 * kast + .3591 * kpr - .5329 * dpr + .2372 * impact + .0032 * adr + .1587) : 0;
+    const matchWinRate = !heroOnly && roundPhase === "ALL" && side === "ALL" && buy === "ALL" && opponentBuy === "ALL" && roundResult === "ALL";
     return {
       stats: availability.materialize(stats), weapons: [...weapons.values()].sort((a, b) => b.kills - a.kills || b.damage - a.damage),
       matches: qualifyingMatches.length, wins, losses, draws, rounds, rating, kd: ratio(kills, deaths), adr, kast,
-      winRate: !heroOnly && roundPhase === "ALL" && side === "ALL" && buy === "ALL" ? 100 * ratio(wins, qualifyingMatches.length) : 100 * ratio(stats.round_wins, rounds), scores: scoreBreakdown(qualifyingMatches)
+      winRate: matchWinRate ? 100 * ratio(wins, qualifyingMatches.length) : 100 * ratio(stats.round_wins, rounds), winRateKind: matchWinRate ? "match" : "round", scores: scoreBreakdown(qualifyingMatches)
     };
   }
 
   function matchesFor(payload) {
     const selectedMaps = new Set(state.maps);
-    return (payload.matches || []).filter(match => (!selectedMaps.size || selectedMaps.has(match.map)) && matchResultMatches(match.result, state.result));
+    return (payload.matches || []).filter(match => (!selectedMaps.size || selectedMaps.has(match.map)) && matchResultMatches(match.result, state.result) && dateFilter.matches(match.played_at));
   }
   function aggregationKey(map = "ALL") {
-    return [state.side, state.buy, state.heroOnly, state.opponentBuy, state.roundResult, state.roundPhase, state.result, [...state.maps].sort().join(","), map].join("|");
+    return [state.side, state.buy, state.heroOnly, state.opponentBuy, state.roundResult, state.roundPhase, state.result, [...state.maps].sort().join(","), dateFilter.from, dateFilter.through, map].join("|");
   }
   function summaryFor(profile, map = "ALL") {
     profile.summaryCache ||= new Map();
@@ -343,6 +353,7 @@
       adr: summary.adr,
       rating: summary.rating,
       winRate: summary.winRate,
+      winRateKind: summary.winRateKind,
       kast: summary.kast,
       openingAttemptRate: 100 * ratio(openingKills + openingDeaths, summary.rounds),
       openingDiff: openingKills - openingDeaths,
@@ -395,7 +406,7 @@
     const buyLabel = state.buy === "ALL" ? "All buys" : `${titleCase(state.buy)} buys${state.heroOnly ? " · Hero only" : ""}`;
     const opponentBuyLabel = state.opponentBuy === "ALL" ? "All enemy buys" : `vs ${titleCase(state.opponentBuy)}`;
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
-    $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${state.maps.length ? ` · ${mapFilter.summary()}` : ""}`;
+    $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${state.maps.length ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}`;
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
     const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: summaryFor(profile, map.name) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });

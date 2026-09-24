@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260924-11">
+  <link rel="stylesheet" href="./styles.css?v=20260924-12">
 </head>
 <body>
   <main class="shell">
@@ -84,6 +84,7 @@
         <div class="match-browser-view" id="matchListView" role="tabpanel" aria-labelledby="matchListTab">
           <div class="stats-toolbar match-library-filter">
             <span>Map</span><div class="map-multiselect" id="matchMapFilter"></div>
+            <div class="date-range-filter" id="matchDateFilter" role="group" aria-label="Match dates"></div>
           </div>
           <div class="match-list-status" id="matchListStatus" role="status" aria-live="polite">Loading stored matches…</div>
           <div class="match-list" id="matchList"></div>
@@ -223,6 +224,7 @@
 
               <div class="stats-toolbar combo-profile-toolbar">
                 <span>Map</span><div class="map-multiselect" id="groupMapFilter"></div>
+                <div class="date-range-filter" id="groupDateFilter" role="group" aria-label="Group match dates"></div>
                 <span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div>
                 <span>Result</span><div class="side-toggle" role="group" aria-label="Profile match result"><button class="active" type="button" aria-pressed="true" data-combo-result="ALL">All</button><button type="button" aria-pressed="false" data-combo-result="w">Wins</button><button type="button" aria-pressed="false" data-combo-result="l">Losses</button></div>
                 <span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-group-side="ALL">All</button><button type="button" aria-pressed="false" data-group-side="T">T</button><button type="button" aria-pressed="false" data-group-side="CT">CT</button></div>
@@ -285,6 +287,7 @@
           <div class="stats-toolbar" id="playerStatsToolbar">
             <span>Map</span>
             <div class="map-multiselect" id="playerMapFilter"></div>
+            <div class="date-range-filter" id="playerDateFilter" role="group" aria-label="Player match dates"></div>
             <span>Result</span>
             <div class="side-toggle" role="group" aria-label="Player match result">
               <button class="active" type="button" aria-pressed="true" data-player-result="ALL">All</button>
@@ -363,6 +366,7 @@
             </div>
           </div>
           <div class="player-profile-view player-matches-view" data-player-profile-view="matches" hidden>
+            <div class="stats-toolbar player-history-date"><div class="date-range-filter" id="playerHistoryDateFilter" role="group" aria-label="Player match history dates"></div></div>
             <div class="match-list-status" id="playerMatchesStatus" role="status" aria-live="polite"></div>
             <div class="match-list" id="playerMatchesList"></div>
             <div class="match-list-pagination" id="playerMatchesPagination" hidden>
@@ -541,15 +545,15 @@
   </dialog>
 
   <script defer src="./js/navigation.js?v=20260923-06"></script>
-  <script defer src="./js/filters.js?v=20260920-14"></script>
+  <script defer src="./js/filters.js?v=20260924-12"></script>
   <script defer src="./js/stat-availability.js?v=20260924-08"></script>
   <script defer src="./js/scoreboard.js?v=20260923-01"></script>
   <script defer src="./js/round-timeline.js?v=20260924-11"></script>
-  <script defer src="./js/demo.js?v=20260924-11"></script>
-  <script defer src="./js/graphs.js?v=20260924-11"></script>
-  <script defer src="./js/profile.js?v=20260924-08"></script>
-  <script defer src="./js/quick-comparison.js?v=20260924-08"></script>
-  <script defer src="./js/players.js?v=20260924-11"></script>
-  <script defer src="./js/groups.js?v=20260924-11"></script>
+  <script defer src="./js/demo.js?v=20260924-12"></script>
+  <script defer src="./js/graphs.js?v=20260924-12"></script>
+  <script defer src="./js/profile.js?v=20260924-12"></script>
+  <script defer src="./js/quick-comparison.js?v=20260924-12"></script>
+  <script defer src="./js/players.js?v=20260924-12"></script>
+  <script defer src="./js/groups.js?v=20260924-12"></script>
 </body>
 </html>

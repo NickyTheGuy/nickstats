@@ -92,7 +92,7 @@ test("Groups is its own page with no old Compare or Matrix workspace", () => {
 });
 
 test("quick comparison puts summary columns before collapsible combat", () => {
-  assert.match(componentSource, /key: "player", label: "Player"[\s\S]*?key: "rating", label: "Rating"[\s\S]*?key: "win-rate", label: "Win rate"[\s\S]*?key: "rounds", label: "Rounds"[\s\S]*?key: "kast", label: "KAST"/);
+  assert.match(componentSource, /key: "player", label: "Player"[\s\S]*?key: "rating", label: "Rating"[\s\S]*?key: "win-rate", label: comparison\[0\]\?\.stats\.winRateKind === "round" \? "Round win rate" : "Match win rate"[\s\S]*?key: "rounds", label: "Rounds"[\s\S]*?key: "kast", label: "KAST"/);
   assert.match(playersSource, /winRate: summary\.winRate/);
   assert.match(componentSource, /\{ columns: fixedColumns \},\s*\{ group: "combat", label: "Overview", columns: focusedColumns\("combat", combatColumns\) \},\s*\{ group: "opening"/);
 });

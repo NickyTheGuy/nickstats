@@ -257,7 +257,7 @@
       const fixedColumns = [
         { key: "player", label: "Player", value: item => item.player.label, format: item => item.player.label },
         { key: "rating", label: "Rating", value: item => item.stats.rating, format: item => decimal(item.stats.rating, 2), className: item => `demo-rating ${item.stats.rating >= 1.10 ? "rating-good" : item.stats.rating <= 0.90 ? "rating-bad" : "rating-average"}` },
-        { key: "win-rate", label: "Win rate", value: item => item.stats.winRate, format: item => percent(item.stats.winRate) },
+        { key: "win-rate", label: comparison[0]?.stats.winRateKind === "round" ? "Round win rate" : "Match win rate", value: item => item.stats.winRate, format: item => percent(item.stats.winRate) },
         { key: "rounds", label: "Rounds", value: item => number(item.stats.rounds), format: item => integer(item.stats.rounds) },
         { key: "kast", label: "KAST", value: item => item.stats.kast, format: item => percent(item.stats.kast) }
       ];

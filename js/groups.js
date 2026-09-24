@@ -147,11 +147,12 @@
     const multikillRounds = [2, 3, 4, 5].reduce((total, kills) => total + num(stats[`kill_rounds_${kills}k`]), 0);
     const trueMultikillRounds = trueMultikills
       ? num(trueMultikills.true_multikill_rounds) : 0;
+    const matchWinRate = !state.heroOnly && state.roundPhase === "ALL" && state.side === "ALL" && state.buy === "ALL" && state.opponentBuy === "ALL" && state.roundResult === "ALL";
     const result = {
       ...materialized,
       n, wins, losses, ties,
       scores: scoreBreakdown(qualifyingRows, { scoreFor: row => row.score?.[0], scoreAgainst: row => row.score?.[1] }),
-      winRate: !state.heroOnly && state.roundPhase === "ALL" && state.side === "ALL" && state.buy === "ALL" && state.opponentBuy === "ALL" ? (n ? 100 * wins / n : 0) : (rounds ? 100 * num(stats.round_wins) / rounds : 0),
+      winRate: matchWinRate ? (n ? 100 * wins / n : 0) : (rounds ? 100 * num(stats.round_wins) / rounds : 0), winRateKind: matchWinRate ? "match" : "round",
       kd: deaths ? kills / deaths : kills,
       avgK: n ? kills / n : 0,
       avgD: n ? deaths / n : 0,
@@ -340,7 +341,7 @@
     const excluded = selectedPlayers("exclude");
     if (!included.length) return null;
     const first = included[0];
-    const eligible = player => player.rows.filter(row => mapFilter.matches(row.map));
+    const eligible = player => player.rows.filter(row => mapFilter.matches(row.map) && dateFilter.matches(row.date));
     const rowMaps = new Map(included.map(player => [player.profileId, new Map(eligible(player).map(row => [row.id, row]))]));
     const baseMatches = eligible(first).filter(row => included.every(player =>
       player.profileId === first.profileId || row.teammateIds.includes(player.profileId)
@@ -386,6 +387,7 @@
   const { integer, decimal, percent, ratio, titleCase } = window.NickStatsProfile;
   const { bindSegmentedToggle, matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
   const mapFilter = new window.NickStatsFilters.MultiMapFilter("groupMapFilter", { onChange: () => runCombination(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
+  const dateFilter = new window.NickStatsFilters.DateRangeFilter("groupDateFilter", { onChange: () => runCombination() });
   const quickComparison = window.NickStatsQuickComparison.create({ prefix: "combo" });
 
   function setComboProfileView(view) {
@@ -446,9 +448,9 @@
     const buyLabel = state.buy === "ALL" ? "All buys" : `${titleCase(state.buy)} buys${state.heroOnly ? " · Hero only" : ""}`;
     const opponentBuyLabel = state.opponentBuy === "ALL" ? "All enemy buys" : `vs ${titleCase(state.opponentBuy)}`;
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
-    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(stats.n)} qualifying match${stats.n === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}`;
+    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(stats.n)} qualifying match${stats.n === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}`;
     const maps = new Map(); rows.forEach(row => { const collection = maps.get(row.map) || []; collection.push(row); maps.set(row.map, collection); });
-    const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate, scores: source.scores });
+    const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate, winRateKind: source.winRateKind, scores: source.scores });
     const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches)) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "combo", headlineId: "comboProfileHeadline", summary: normalize(stats), side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
     window.NickStatsGraphs.render({ prefix: "combo", series: current.included.map(candidate => ({ label: candidate.label, samples: window.NickStatsGraphs.samplesForMatches(comboProfileRows(current, candidate), state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly) })) });
@@ -470,6 +472,7 @@
   }
 
   function clear() {
+    dateFilter.reset();
     state.searchController?.abort();
     state.groupController?.abort();
     state.selected.clear();

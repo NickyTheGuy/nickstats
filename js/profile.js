@@ -119,7 +119,7 @@
     const metric = (label, value) => [label, integer(value), countPerRound(value, rounds)];
     const ratingClass = summary.rating >= 1.1 ? "rating-good" : summary.rating <= .9 ? "rating-bad" : "rating-average";
     const recordHeadline = roundResult === "ALL"
-      ? [sideAll ? "Match win rate" : "Round win rate", percent(summary.winRate), sideAll ? `${summary.wins} wins in ${summary.matches} matches` : `${integer(s.round_wins)} of ${integer(rounds)} rounds`]
+      ? [summary.winRateKind === "match" ? "Match win rate" : "Round win rate", percent(summary.winRate), summary.winRateKind === "match" ? `${summary.wins} wins in ${summary.matches} matches` : `${integer(s.round_wins)} of ${integer(rounds)} rounds`]
       : [roundResult === "win" ? "Winning rounds" : "Losing rounds", integer(rounds), "Filtered round sample"];
     fillCards(headlineId, [
       ["Average rating", decimal(summary.rating, 2), "Round-weighted", ratingClass], ["Average K/D", decimal(summary.kd, 2), `${integer(s.kills)} K · ${integer(s.deaths)} D`],
@@ -304,7 +304,7 @@
     const weapons = summary.weapons || [];
     renderTable(`${prefix}WeaponsTable`, ["Weapon", "Kills", "K/RU", "Damage", "Dmg/RU", "Shots", "Hits", "Hit rate", "Rounds used", "Usage"], weapons.map(weapon => [titleCase(weapon.weapon), integer(weapon.kills), decimal(ratio(weapon.kills, weapon.rounds_used), 3), integer(weapon.damage), decimal(ratio(weapon.damage, weapon.rounds_used), 1), integer(weapon.shots), integer(weapon.hits), percent(100 * ratio(weapon.hits, weapon.shots)), integer(weapon.rounds_used), percent(100 * ratio(weapon.rounds_used, rounds))]), weapons.map(weapon => [weapon.weapon, number(weapon.kills), ratio(weapon.kills, weapon.rounds_used), number(weapon.damage), ratio(weapon.damage, weapon.rounds_used), number(weapon.shots), number(weapon.hits), ratio(weapon.hits, weapon.shots), number(weapon.rounds_used), ratio(weapon.rounds_used, rounds)]));
     const mapRows = maps || [];
-    renderTable(`${prefix}MapsTable`, ["Map", "Matches · W–L", "Rounds · W–L", sideAll ? "Win rate" : "Round win", "Rating", "K/D", "K/R", "A/R", "ADR", "KAST"], mapRows.map(({ name, summary: map }) => {
+    renderTable(`${prefix}MapsTable`, ["Map", "Matches · W–L", "Rounds · W–L", summary.winRateKind === "match" ? "Match win rate" : "Round win rate", "Rating", "K/D", "K/R", "A/R", "ADR", "KAST"], mapRows.map(({ name, summary: map }) => {
       const roundWins = number(map.stats.round_wins), roundLosses = Math.max(0, number(map.rounds) - roundWins);
       return [
         titleCase(String(name).replace(/^de_/, "")),

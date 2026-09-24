@@ -2489,6 +2489,13 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .stats-toolbar[hidden],
 .stats-toolbar [hidden] { display: none; }
 
+.date-range-filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.date-range-field { display: inline-flex; align-items: center; gap: 6px; }
+.date-range-field input { min-height: 36px; max-width: 152px; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); color: var(--text); color-scheme: light; font: inherit; }
+.date-range-clear { border: 0; background: none; color: var(--accent); font: inherit; font-weight: 800; cursor: pointer; }
+.date-range-clear[hidden] { display: none; }
+.player-history-date { margin: 0 0 12px; }
+
 .stats-toolbar select {
   min-height: 36px;
   padding: 6px 30px 6px 10px;

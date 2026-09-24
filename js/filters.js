@@ -72,6 +72,73 @@
     }
   }
 
+  // Calendar days are interpreted in the viewer's timezone. The API's upper bound is exclusive.
+  function localDay(value, next = false) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return null;
+    const [year, month, day] = value.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+    if (next) date.setDate(date.getDate() + 1);
+    return date;
+  }
+
+  class DateRangeFilter {
+    constructor(targets, { onChange = () => {} } = {}) {
+      this.targets = (Array.isArray(targets) ? targets : [targets]).map(target => typeof target === "string" ? document.getElementById(target) : target).filter(Boolean);
+      this.onChange = onChange;
+      this.from = "";
+      this.through = "";
+      this.targets.forEach(target => {
+        const field = (text, key) => {
+          const label = element("label", null, "date-range-field");
+          label.appendChild(element("span", text));
+          const input = element("input"); input.type = "date"; input.setAttribute("aria-label", `${text} date`);
+          input.addEventListener("change", () => {
+            this[key] = input.value;
+            if (this.from && this.through && this.from > this.through) {
+              if (key === "from") this.through = this.from;
+              else this.from = this.through;
+            }
+            this.render(); this.onChange();
+          });
+          label.appendChild(input); target.appendChild(label);
+        };
+        field("From", "from"); field("Through", "through");
+        const clear = element("button", "Clear dates", "date-range-clear"); clear.type = "button";
+        clear.addEventListener("click", () => this.reset({ notify: true }));
+        target.appendChild(clear);
+      });
+      this.render();
+    }
+    get active() { return Boolean(this.from || this.through); }
+    get bounds() {
+      return { from: localDay(this.from)?.getTime() ?? null, to: localDay(this.through, true)?.getTime() ?? null };
+    }
+    matches(timestamp) {
+      if (!this.active) return true;
+      if (timestamp == null || timestamp === "") return false;
+      const value = Number(timestamp);
+      if (!Number.isFinite(value) || value <= 0) return false;
+      const { from, to } = this.bounds;
+      const milliseconds = value * 1000;
+      return (from == null || milliseconds >= from) && (to == null || milliseconds < to);
+    }
+    appendQuery(parameters) {
+      const { from, to } = this.bounds;
+      if (from != null) parameters.set("from", new Date(from).toISOString().replace(".000Z", "Z"));
+      if (to != null) parameters.set("to", new Date(to).toISOString().replace(".000Z", "Z"));
+    }
+    summary() { return this.active ? `${this.from || "Any day"} to ${this.through || "Any day"}` : "All dates"; }
+    reset({ notify = false } = {}) { this.from = ""; this.through = ""; this.render(); if (notify) this.onChange(); }
+    render() {
+      this.targets.forEach(target => {
+        const inputs = target.querySelectorAll('input[type="date"]');
+        inputs[0].value = this.from; inputs[1].value = this.through;
+        target.querySelector("button").hidden = !this.active;
+      });
+    }
+  }
+
   function bindSegmentedToggle({ selector, valueFor, initial = "ALL", onChange = () => {} }) {
     const buttons = [...document.querySelectorAll(selector)];
     let value = initial;
@@ -121,6 +188,7 @@
 
   window.NickStatsFilters = Object.freeze({
     MultiMapFilter,
+    DateRangeFilter,
     bindSegmentedToggle,
     bindSideToggle: bindSegmentedToggle,
     matchResultMatches,
