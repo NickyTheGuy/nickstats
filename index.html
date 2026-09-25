@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260925-05">
+  <link rel="stylesheet" href="./styles.css?v=20260925-06">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.09.25.3</span>
+          <span class="demo-build">Build 2026.09.25.4</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -456,13 +456,18 @@
                     <div class="graph-stat-suggestions" id="playerGraphSuggestions" role="listbox" hidden></div>
                   </div>
                 </div>
-                <label>View<select id="playerGraphScope"><option value="match">Match by match</option><option value="round">Round by round</option></select></label>
-                <label id="playerGraphTypeControl">Graph type<select id="playerGraphType"><option value="distribution">Distribution</option><option value="trend">Trend</option></select></label>
-                <label id="playerGraphDistributionStyleControl">Display<select id="playerGraphDistributionStyle"><option value="bars">Bars</option><option value="line">Line</option></select></label>
-                <div class="graph-bucket-control" id="playerGraphBucketControl">
-                  <span>Buckets</span>
-                  <div><button id="playerGraphBucketsLess" type="button" aria-label="Use fewer buckets">−</button><output id="playerGraphBucketCount">10</output><button id="playerGraphBucketsMore" type="button" aria-label="Use more buckets">+</button></div>
-                </div>
+                <fieldset class="graph-display-controls">
+                  <legend>Graph settings</legend>
+                  <div>
+                    <label>View<select id="playerGraphScope"><option value="match">Match by match</option><option value="round">Round by round</option></select></label>
+                    <label id="playerGraphTypeControl">Graph type<select id="playerGraphType"><option value="distribution">Distribution</option><option value="trend">Trend</option></select></label>
+                    <label id="playerGraphDistributionStyleControl">Display<select id="playerGraphDistributionStyle"><option value="bars">Bars</option><option value="line">Line</option></select></label>
+                    <div class="graph-bucket-control" id="playerGraphBucketControl">
+                      <span>Buckets</span>
+                      <div><button id="playerGraphBucketsLess" type="button" aria-label="Use fewer buckets">−</button><output id="playerGraphBucketCount">10</output><button id="playerGraphBucketsMore" type="button" aria-label="Use more buckets">+</button></div>
+                    </div>
+                  </div>
+                </fieldset>
               </div>
               <p id="playerGraphNote"></p>
             </section>
