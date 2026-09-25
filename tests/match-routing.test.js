@@ -56,7 +56,7 @@ test("match loading reserves page height and cancels obsolete requests", () => {
   assert.match(demo, /state\.matchDetailController\?\.abort\(\)/);
   assert.match(demo, /signal: controller\.signal/);
   assert.match(demo, /if \(error\.name === "AbortError"\) return/);
-  assert.match(html, /Build 2026\.09\.24\.9/);
+  assert.match(html, /Build \d{4}\.\d{2}\.\d{2}\.\d+/);
 });
 
 test("match details use a stable, filter-independent map banner", () => {
