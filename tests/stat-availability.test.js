@@ -96,6 +96,14 @@ test("kill stage and cleanup context reuse schema 10 death events", () => {
   assert.match(queriesSource, /AS cleanup_context/);
 });
 
+test("unfiltered kill and death context queries accept current and future compact schemas", () => {
+  const models = modelsSource.match(/let compactSchema = "nickstats\.match\/(\d+)"/);
+  assert.ok(models, "current compact schema must be declared");
+  assert.ok(Number(models[1]) >= 10);
+  const gates = queriesSource.match(/JOIN matches m ON m\.id = e\.match_id AND m\.payload_schema LIKE 'nickstats\.match\/%'\s+AND CAST\(SUBSTRING_INDEX\(m\.payload_schema, '\/', -1\) AS UNSIGNED\) >= 10/g) || [];
+  assert.equal(gates.length, 2, "both unfiltered kill and death queries need the schema gate");
+});
+
 test("comparison matches expose the compact schema used for availability", () => {
   assert.match(modelsSource, /struct ComparisonMatch:[\s\S]*?var schema: String/);
   assert.match(queriesSource, /SELECT m\.id, m\.payload_schema/);
