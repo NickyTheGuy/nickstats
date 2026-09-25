@@ -129,6 +129,15 @@ test("graph metric registry calculates per-match rates from matching denominator
   assert.equal(metrics.get("kd").value({ kills: 5, deaths: 0 }), 5);
 });
 
+test("AWP kills are counted from the selected match slice", () => {
+  const match = { schema: "nickstats.match/22", sides: [
+    { side: "T", buy_type: "ALL", opponent_buy_type: "ALL", round_result: "ALL", round_phase: "ALL", stats: { rounds: 5 }, weapons: [{ weapon: "awp", kills: 2 }, { weapon: "ak47", kills: 4 }] },
+    { side: "CT", buy_type: "ALL", opponent_buy_type: "ALL", round_result: "ALL", round_phase: "ALL", stats: { rounds: 4 }, weapons: [{ weapon: "awp", kills: 1 }] }
+  ] };
+  assert.equal(metrics.get("awp_kills").value(statsForMatch(match, "T")), 2);
+  assert.equal(metrics.get("awp_kills").value(statsForMatch(match)), 3);
+});
+
 test("round timing rates ignore unreparsed rounds", () => {
   const timing = { rounds: 24, timed_rounds: 12, early_kills: 3, kill_time_samples: 2, kill_time_total_ms: 70000 };
   assert.equal(metrics.get("early_kr").value(timing), .25);

@@ -689,6 +689,9 @@ struct ComparisonMatch: Content {
 struct ComparisonRoundKill: Content, Sendable {
     var round: Int
     var kills: Int
+    var deaths: Int
+    var damage: Int
+    var awpKills: Int
     var side: PlayerSide
     var buy: String?
     var opponentBuy: String?
@@ -696,7 +699,8 @@ struct ComparisonRoundKill: Content, Sendable {
     var hero: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
-        case round, kills, side, buy, result, hero
+        case round, kills, deaths, damage, side, buy, result, hero
+        case awpKills = "awp_kills"
         case opponentBuy = "opponent_buy"
     }
 }

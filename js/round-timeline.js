@@ -11,17 +11,17 @@
     (!filters.result || filters.result === "ALL" || row.result === filters.result) &&
     (!filters.heroOnly || row.hero === true);
 
-  function averages(matches, filters = {}) {
+  function averages(matches, filters = {}, metric = "kills") {
     const totals = new Map();
     for (const match of matches || []) for (const row of match.round_kills || []) {
-      if (!Number.isInteger(row.round) || row.round < 1 || !matchesFilters(row, filters)) continue;
-      const value = totals.get(row.round) || { round: row.round, kills: 0, appearances: 0 };
-      value.kills += finite(row.kills);
+      if (!Number.isInteger(row.round) || row.round < 1 || !matchesFilters(row, filters) || row[metric] == null) continue;
+      const value = totals.get(row.round) || { round: row.round, total: 0, appearances: 0 };
+      value.total += finite(row[metric]);
       value.appearances += 1;
       totals.set(row.round, value);
     }
     return [...totals.values()].sort((a, b) => a.round - b.round).map(row => ({
-      round: row.round, value: row.kills / row.appearances, appearances: row.appearances
+      round: row.round, value: row.total / row.appearances, appearances: row.appearances
     }));
   }
 

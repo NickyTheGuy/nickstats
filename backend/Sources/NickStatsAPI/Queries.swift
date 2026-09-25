@@ -1040,6 +1040,8 @@ private func comparisonSideData(
         let stats = try statsDecoder.decode(SideStatsPayload.self, from: Data(json.utf8))
         roundKills[matchID, default: []].append(ComparisonRoundKill(
             round: try integer(row, "round_number"), kills: stats.combat.kills,
+            deaths: stats.combat.deaths, damage: stats.combat.damage,
+            awpKills: stats.weapons.filter { $0.weapon.lowercased() == "awp" }.reduce(0) { $0 + $1.kills },
             side: side, buy: buy, opponentBuy: opponentBuy, result: roundResult, hero: stats.hero
         ))
         let flat = flattenedBuyStats(stats, flashTargets: flashTargetsByMatch[matchID])

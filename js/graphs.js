@@ -42,7 +42,8 @@
     ["Core", [
       ["rating", "Rating", rating, 2], ["kd", "K/D", stats => ratio(stats.kills, stats.deaths), 2],
       ["adr", "ADR", rate("damage"), 1], ["kast", "KAST", percentage("kast_rounds", "rounds"), 1, "%"],
-      ["kills", "Kills", count("kills"), 0], ["deaths", "Deaths", count("deaths"), 0], ["assists", "Assists", count("assists"), 0],
+      ["kills", "Kills", count("kills"), 0], ["deaths", "Deaths", count("deaths"), 0], ["damage", "Damage", count("damage"), 0],
+      ["awp_kills", "AWP kills", count("awp_kills"), 0], ["assists", "Assists", count("assists"), 0],
       ["kpr", "Kills per round", rate("kills"), 2], ["dpr", "Deaths per round", rate("deaths"), 2], ["apr", "Assists per round", rate("assists"), 2],
       ["hs", "Headshot rate", percentage("headshots", "kills"), 1, "%"], ["damage_diff", "Damage differential per round", stats => ratio(number(stats.damage) - number(stats.damage_received), stats.rounds), 1]
     ]],
@@ -137,6 +138,8 @@
   ];
 
   const registry = new Map(metrics.flatMap(([group, entries]) => entries.map(([id, label, value, digits, suffix = ""]) => [id, { id, group, label, value, digits, suffix }])));
+  const roundMetrics = Object.freeze({ kills: "kills", kpr: "kills", deaths: "deaths", dpr: "deaths", damage: "damage", adr: "damage", awp_kills: "awp_kills" });
+  const roundLabel = metric => ({ adr: "damage", kpr: "kills", dpr: "deaths" })[metric.id] || metric.label.toLowerCase();
   const graphState = new Map();
 
   function mergeStats(target, source) {
@@ -157,7 +160,10 @@
           (roundResult === "ALL" ? (row.round_result || "ALL") === "ALL" : row.round_result === roundResult);
       return economyMatches && Boolean(row.hero) === heroOnly && (row.round_phase || "ALL") === roundPhase && (side === "ALL" || row.side === side);
     });
-    selected.forEach(row => mergeStats(stats, row.stats));
+    selected.forEach(row => {
+      mergeStats(stats, row.stats);
+      stats.awp_kills = number(stats.awp_kills) + (row.weapons || []).filter(weapon => String(weapon.weapon).toLowerCase() === "awp").reduce((sum, weapon) => sum + number(weapon.kills), 0);
+    });
     if (!selected.length && !heroOnly && roundPhase === "ALL" && side === "ALL" && buy === "ALL" && opponentBuy === "ALL" && roundResult === "ALL") mergeStats(stats, match.legacy || match);
     stats.__schema = match.schema;
     return stats;
@@ -319,11 +325,12 @@
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, "Share of matches"));
   }
 
-  function drawTrend(svg, prepared, metric) {
+  function drawTrend(svg, prepared, metric, displayStyle = "line") {
     const allPoints = prepared.flatMap(series => series.values);
     if (!allPoints.length) return;
     let min = Math.min(...allPoints.map(point => point.value)), max = Math.max(...allPoints.map(point => point.value));
     if (min === max) { const padding = Math.abs(min) * .1 || 1; min -= padding; max += padding; }
+    if (displayStyle === "bars") { min = Math.min(0, min); max = Math.max(0, max); }
     const ids = new Map();
     allPoints.forEach(point => {
       const existing = ids.get(point.id);
@@ -334,6 +341,8 @@
     const positions = new Map(matches.map((match, index) => [match.id, index]));
     const left = 68, top = 24, width = 796, height = 318;
     drawAxes(svg, { left, top, width, height, min, max, metric });
+    const zeroY = top + height - height * (0 - min) / (max - min);
+    const barWidth = Math.max(1, Math.min(28, width / Math.max(1, matches.length * prepared.length) * .8));
     prepared.forEach((series, seriesIndex) => {
       const colorIndex = series.colorIndex ?? seriesIndex;
       const ordered = [...series.values].sort((a, b) => positions.get(a.id) - positions.get(b.id));
@@ -342,23 +351,27 @@
         const y = top + height - height * (point.value - min) / (max - min);
         return { point, x, y };
       });
-      svg.appendChild(svgElement("polyline", { points: coordinates.map(({ x, y }) => `${x},${y}`).join(" "), class: "graph-series-line", stroke: colors[colorIndex % colors.length] }));
+      if (displayStyle === "line") svg.appendChild(svgElement("polyline", { points: coordinates.map(({ x, y }) => `${x},${y}`).join(" "), class: "graph-series-line", stroke: colors[colorIndex % colors.length] }));
       coordinates.forEach(({ point, x, y }) => {
-        const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
+        const mark = displayStyle === "bars"
+          ? svgElement("rect", { x: x + (seriesIndex - (prepared.length - 1) / 2) * barWidth - barWidth / 2, y: Math.min(y, zeroY), width: barWidth, height: Math.max(2, Math.abs(y - zeroY)), fill: colors[colorIndex % colors.length], class: "graph-series-bar" })
+          : svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
         const date = point.date > 0 ? new Date(point.date * 1000).toLocaleDateString() : `Match #${point.id}`;
-        svg.appendChild(dot); attachTooltip(svg, dot, `${series.label} · ${date}: ${format(point.value, metric)}`, x, y);
+        svg.appendChild(mark); attachTooltip(svg, mark, `${series.label} · ${date}: ${format(point.value, metric)}`, x, y);
       });
     });
     svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, allDated ? "Match date" : "Match order"));
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, metric.label));
   }
 
-  function drawRounds(svg, prepared) {
+  function drawRounds(svg, prepared, metric, displayStyle = "line") {
     const all = prepared.flatMap(series => series.roundValues);
-    const lastRound = Math.max(...all.map(point => point.round)), maxKills = Math.max(1, ...all.map(point => point.value));
+    const lastRound = Math.max(...all.map(point => point.round)), maxValue = Math.max(1, ...all.map(point => point.value));
     const left = 68, top = 24, width = 796, height = 318;
-    drawAxes(svg, { left, top, width, height, min: 0, max: maxKills, metric: { digits: 2, suffix: "" } });
+    const averageMetric = { ...metric, digits: metric.id === "damage" || metric.id === "adr" ? 1 : 2 };
+    drawAxes(svg, { left, top, width, height, min: 0, max: maxValue, metric: averageMetric });
     const xFor = round => left + width * (round - 1) / Math.max(1, lastRound - 1);
+    const barWidth = Math.max(1, Math.min(22, width / Math.max(1, lastRound * prepared.length) * .8));
     const tickStep = lastRound <= 36 ? 1 : Math.ceil(lastRound / 36);
     for (let round = 1; round <= lastRound; round += 1) {
       const x = xFor(round);
@@ -374,21 +387,25 @@
         if (segment.length > 1) svg.appendChild(svgElement("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: color }));
         segment = [];
       };
+      if (displayStyle === "line") {
+        series.roundValues.forEach(point => {
+          if (previous !== null && point.round !== previous + 1) flush();
+          const x = xFor(point.round), y = top + height - height * point.value / maxValue;
+          segment.push(`${x},${y}`); previous = point.round;
+        });
+        flush();
+      }
       series.roundValues.forEach(point => {
-        if (previous !== null && point.round !== previous + 1) flush();
-        const x = xFor(point.round), y = top + height - height * point.value / maxKills;
-        segment.push(`${x},${y}`); previous = point.round;
-      });
-      flush();
-      series.roundValues.forEach(point => {
-        const x = xFor(point.round), y = top + height - height * point.value / maxKills;
-        const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: color, class: "graph-point" });
-        svg.appendChild(dot);
-        attachTooltip(svg, dot, `${series.label} · Round ${point.round}: ${point.value.toFixed(2)} kills (${point.appearances} played)`, x, y);
+        const x = xFor(point.round), y = top + height - height * point.value / maxValue;
+        const mark = displayStyle === "bars"
+          ? svgElement("rect", { x: x + (index - (prepared.length - 1) / 2) * barWidth - barWidth / 2, y, width: barWidth, height: Math.max(2, top + height - y), fill: color, class: "graph-series-bar" })
+          : svgElement("circle", { cx: x, cy: y, r: 4, fill: color, class: "graph-point" });
+        svg.appendChild(mark);
+        attachTooltip(svg, mark, `${series.label} · Round ${point.round}: ${format(point.value, averageMetric)} ${roundLabel(metric)} (${point.appearances} played)`, x, y);
       });
     });
     svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, "Round number"));
-    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, "Average kills"));
+    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Average ${roundLabel(metric)}`));
   }
 
   function metricChoices(category, query) {
@@ -466,7 +483,7 @@
     const bucketLess = document.getElementById(`${prefix}GraphBucketsLess`), bucketMore = document.getElementById(`${prefix}GraphBucketsMore`);
     if (!type || !metricInput || !svg || !summary || !legend || !note) return;
     const scope = document.getElementById(`${prefix}GraphScope`);
-    const supportsRounds = state.metricId === "kills";
+    const supportsRounds = Object.hasOwn(roundMetrics, state.metricId);
     const roundOption = scope?.querySelector('option[value="round"]');
     if (roundOption) roundOption.disabled = !supportsRounds;
     if (!supportsRounds && scope?.value === "round") scope.value = "match";
@@ -475,10 +492,11 @@
     const typeControl = document.getElementById(`${prefix}GraphTypeControl`);
     if (typeControl) typeControl.hidden = roundsMode;
     const metric = registry.get(state.metricId) || registry.get("rating");
+    const roundMetric = roundMetrics[metric.id];
     const prepared = state.series.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
     const domainPrepared = state.domainSeries.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
-    const roundPrepared = state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || []) })).filter(series => series.roundValues.length);
-    if (distributionStyleControl) distributionStyleControl.hidden = roundsMode || type.value !== "distribution";
+    const roundPrepared = roundsMode ? state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || [], {}, roundMetric) })).filter(series => series.roundValues.length) : [];
+    if (distributionStyleControl) distributionStyleControl.hidden = false;
     if (bucketControl) bucketControl.hidden = roundsMode || type.value !== "distribution";
     if (bucketCount) bucketCount.textContent = String(state.bucketCount);
     if (bucketLess) bucketLess.disabled = state.bucketCount <= MIN_BUCKETS;
@@ -487,12 +505,12 @@
     svg.replaceChildren(); summary.replaceChildren(); legend.replaceChildren();
     const multiTrendNeedsDates = !roundsMode && type.value === "trend" && state.independent && independentTrendNeedsDates(prepared);
     note.textContent = roundsMode
-      ? "Each point is average kills in that exact numbered round among matches where the player played it. Gaps mean no appearances; older demos need reparsing. Round by round currently supports Kills."
+      ? `Each ${distributionStyle?.value === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
       : type.value === "distribution"
-      ? "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity. Round by round is available for Kills."
+      ? "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity."
       : multiTrendNeedsDates
         ? "Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for match order, or use Distribution for comparisons now."
-        : "Points follow match date when available and match order otherwise. Hover a point for its match and value. Round by round is available for Kills.";
+        : "Values follow match date when available and match order otherwise. Hover a value for its match and statistic.";
     if (!(roundsMode ? roundPrepared : prepared).length) {
       const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = roundsMode ? "No per-round data for these matches. Reparse older demos to add round data." : "No qualifying match samples for this statistic."; summary.appendChild(empty); return;
     }
@@ -507,7 +525,7 @@
         const key = document.createElement("span"); key.className = "graph-legend-item";
         key.style.setProperty("--series-color", colors[(series.colorIndex ?? index) % colors.length]); key.textContent = series.label; legend.appendChild(key);
       });
-      drawRounds(svg, roundPrepared); return;
+      drawRounds(svg, roundPrepared, metric, distributionStyle?.value || "bars"); return;
     }
     prepared.forEach((series, index) => {
       const colorIndex = series.colorIndex ?? index;
@@ -520,7 +538,7 @@
     });
     if (multiTrendNeedsDates) {
       svg.appendChild(svgElement("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
-    } else type.value === "trend" ? drawTrend(svg, prepared, metric) : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount, distributionStyle?.value || "bars");
+    } else type.value === "trend" ? drawTrend(svg, prepared, metric, distributionStyle?.value || "bars") : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount, distributionStyle?.value || "bars");
   }
 
   function render({ prefix, series, domainSeries = series, independent = false }) {
