@@ -106,44 +106,27 @@
         const menu = element("details", null, "date-range-menu");
         const trigger = element("summary"); menu.appendChild(trigger);
         const panel = element("div", null, "date-range-panel");
-        const fields = element("div", null, "date-range-fields");
-        for (const [text, key] of [["From", "draftFrom"], ["Through", "draftThrough"]]) {
-          const label = element("label", null, "date-range-field");
-          const input = element("input"); input.type = "date"; input.setAttribute("aria-label", `${text} date`);
-          input.addEventListener("change", () => {
-            if (input.value && (!localDay(input.value) || (input.min && input.value < input.min) || input.value > input.max)) {
-              this.renderPanel(); return;
-            }
-            this[key] = input.value;
-            if (this.draftFrom && this.draftThrough && this.draftFrom > this.draftThrough) {
-              if (key === "draftFrom") this.draftThrough = this.draftFrom;
-              else this.draftFrom = this.draftThrough;
-            }
-            if (input.value) this.calendarMonth = new Date(localDay(input.value).getFullYear(), localDay(input.value).getMonth(), 1);
-            this.renderPanel();
-          });
-          label.append(element("span", text), input); fields.appendChild(label);
-        }
-        panel.appendChild(fields);
+        panel.appendChild(element("p", "Choose a start and end date. Click the same date twice for one day.", "date-range-help"));
         const navigation = element("div", null, "date-range-navigation");
         const previous = element("button", "‹", "date-range-previous"); previous.type = "button"; previous.setAttribute("aria-label", "Previous month");
         previous.addEventListener("click", () => this.moveMonth(-1));
-        const month = element("input"); month.type = "month"; month.setAttribute("aria-label", "First calendar month");
+        const month = element("select", null, "date-range-jump"); month.setAttribute("aria-label", "Jump to calendar month");
         month.addEventListener("change", () => {
-          if (month.value && (!month.min || month.value >= month.min) && month.value <= month.max) {
-            const [year, index] = month.value.split("-").map(Number); this.calendarMonth = new Date(year, index - 1, 1);
-          }
+          const [year, index] = month.value.split("-").map(Number);
+          this.calendarMonth = new Date(year, index - 1, 1);
           this.renderPanel();
         });
         const next = element("button", "›", "date-range-next"); next.type = "button"; next.setAttribute("aria-label", "Next month");
         next.addEventListener("click", () => this.moveMonth(1));
         navigation.append(previous, month, next); panel.appendChild(navigation);
+        panel.appendChild(element("p", "", "date-range-selection"));
         panel.appendChild(element("div", null, "date-range-calendars"));
         const actions = element("div", null, "date-range-actions");
         const clear = element("button", "Clear", "date-range-clear"); clear.type = "button";
         clear.addEventListener("click", () => { this.reset({ notify: true }); this.closeMenus(); });
         const apply = element("button", "Apply range", "date-range-apply"); apply.type = "button";
         apply.addEventListener("click", () => {
+          if (apply.disabled) return;
           this.from = this.draftFrom; this.through = this.draftThrough;
           this.closeMenus(); this.render(); this.onChange();
         });
@@ -153,7 +136,10 @@
           this.closeMenus(menu);
           this.draftFrom = this.from; this.draftThrough = this.through;
           const focusDay = localDay(this.draftFrom) || new Date();
-          this.calendarMonth = new Date(focusDay.getFullYear(), focusDay.getMonth() - 1, 1);
+          const firstMonth = new Date(focusDay.getFullYear(), focusDay.getMonth() - 1, 1);
+          const earliest = localDay(DateRangeFilter.earliest);
+          const minimum = earliest && new Date(earliest.getFullYear(), earliest.getMonth(), 1);
+          this.calendarMonth = minimum && firstMonth < minimum ? minimum : firstMonth;
           this.renderPanel();
         });
       });
@@ -189,18 +175,20 @@
     closeMenus(except = null) {
       this.targets.forEach(target => { const menu = target.querySelector("details"); if (menu !== except) menu.open = false; });
     }
+    get minimumMonth() { return (DateRangeFilter.earliest || "2000-01-01").slice(0, 7); }
     moveMonth(amount) {
       const next = new Date(this.calendarMonth.getFullYear(), this.calendarMonth.getMonth() + amount, 1);
-      const minimum = DateRangeFilter.earliest?.slice(0, 7);
-      if (minimum && dayString(next).slice(0, 7) < minimum) return;
+      if (dayString(next).slice(0, 7) < this.minimumMonth) return;
       if (dayString(next).slice(0, 7) > this.today.slice(0, 7)) return;
       this.calendarMonth = next; this.renderPanel();
     }
     selectDay(value) {
+      if (!localDay(value) || value > this.today || (DateRangeFilter.earliest && value < DateRangeFilter.earliest)) return;
       if (!this.draftFrom || this.draftThrough || value < this.draftFrom) {
         this.draftFrom = value; this.draftThrough = "";
       } else this.draftThrough = value;
       this.renderPanel();
+      this.targets.forEach(target => target.querySelector(`.date-range-day[data-date="${value}"]`)?.focus({ preventScroll: true }));
     }
     calendarFor(month) {
       const calendar = element("div", null, "date-range-calendar");
@@ -212,11 +200,14 @@
       for (let day = 1; day <= days; day += 1) {
         const date = new Date(month.getFullYear(), month.getMonth(), day), value = dayString(date);
         const button = element("button", String(day), "date-range-day"); button.type = "button";
+        button.dataset.date = value;
         button.disabled = value > this.today || Boolean(DateRangeFilter.earliest && value < DateRangeFilter.earliest);
         button.setAttribute("aria-label", date.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" }));
         button.classList.toggle("selected", value === this.draftFrom || value === this.draftThrough);
         button.classList.toggle("within-range", Boolean(this.draftFrom && this.draftThrough && value > this.draftFrom && value < this.draftThrough));
-        button.addEventListener("click", () => this.selectDay(value)); grid.appendChild(button);
+        // The button is replaced during renderPanel. Without stopping this click,
+        // the document's outside-click handler sees a detached target and closes the menu.
+        button.addEventListener("click", event => { event.stopPropagation(); this.selectDay(value); }); grid.appendChild(button);
       }
       calendar.appendChild(grid); return calendar;
     }
@@ -224,14 +215,26 @@
       const earliest = DateRangeFilter.earliest, today = this.today;
       this.targets.forEach(target => {
         const panel = target.querySelector(".date-range-panel");
-        const [from, through] = panel.querySelectorAll('input[type="date"]');
-        from.min = earliest; from.max = this.draftThrough || today; from.value = this.draftFrom;
-        through.min = this.draftFrom || earliest; through.max = today; through.value = this.draftThrough;
-        const month = panel.querySelector('input[type="month"]'); month.value = dayString(this.calendarMonth).slice(0, 7);
-        month.min = earliest.slice(0, 7); month.max = today.slice(0, 7);
-        panel.querySelector(".date-range-previous").disabled = Boolean(earliest && dayString(this.calendarMonth).slice(0, 7) <= earliest.slice(0, 7));
+        const month = panel.querySelector(".date-range-jump");
+        month.replaceChildren();
+        const first = localDay(`${this.minimumMonth}-01`);
+        for (let date = new Date(first.getFullYear(), first.getMonth(), 1); date <= new Date(today.slice(0, 4), Number(today.slice(5, 7)) - 1, 1); date.setMonth(date.getMonth() + 1)) {
+          const option = element("option", date.toLocaleDateString(undefined, { month: "long", year: "numeric" }));
+          option.value = dayString(date).slice(0, 7); month.appendChild(option);
+        }
+        const chosenMonth = dayString(this.calendarMonth).slice(0, 7);
+        if (chosenMonth < month.options[0]?.value) this.calendarMonth = localDay(`${month.options[0].value}-01`);
+        if (chosenMonth > today.slice(0, 7)) this.calendarMonth = localDay(`${today.slice(0, 7)}-01`);
+        month.value = dayString(this.calendarMonth).slice(0, 7);
+        panel.querySelector(".date-range-previous").disabled = dayString(this.calendarMonth).slice(0, 7) <= this.minimumMonth;
         panel.querySelector(".date-range-next").disabled = dayString(this.calendarMonth).slice(0, 7) >= today.slice(0, 7);
-        panel.querySelector(".date-range-calendars").replaceChildren(this.calendarFor(this.calendarMonth), this.calendarFor(new Date(this.calendarMonth.getFullYear(), this.calendarMonth.getMonth() + 1, 1)));
+        const calendars = [this.calendarFor(this.calendarMonth)];
+        if (dayString(this.calendarMonth).slice(0, 7) < today.slice(0, 7)) calendars.push(this.calendarFor(new Date(this.calendarMonth.getFullYear(), this.calendarMonth.getMonth() + 1, 1)));
+        panel.querySelector(".date-range-calendars").replaceChildren(...calendars);
+        panel.querySelector(".date-range-selection").textContent = this.draftFrom
+          ? this.draftThrough ? `${this.draftFrom} through ${this.draftThrough}` : `Start: ${this.draftFrom} · Choose an end date`
+          : "Choose a start date";
+        panel.querySelector(".date-range-apply").disabled = !this.draftFrom || !this.draftThrough;
       });
     }
     render() {

@@ -69,3 +69,21 @@ test("calendar clicks choose one inclusive range before applying it", () => {
   assert.equal(filter.draftFrom, "2026-09-08");
   assert.equal(filter.draftThrough, "");
 });
+
+test("calendar day clicks do not bubble after the calendar replaces the clicked button", () => {
+  const createElement = tag => ({ tag, children: [], dataset: {}, classList: { toggle() {} },
+    appendChild(child) { this.children.push(child); },
+    setAttribute() {}, addEventListener(type, handler) { this[type] = handler; }
+  });
+  context.document.createElement = createElement;
+  const filter = new DateRangeFilter([]);
+  filter.renderPanel = () => {};
+  const calendar = filter.calendarFor(new Date());
+  const day = calendar.children[1].children.find(node => node.tag === "button" && !node.disabled);
+  let stopped = false;
+  day.click({ stopPropagation() { stopped = true; } });
+  assert.equal(stopped, true);
+  assert.equal(filter.draftFrom, day.dataset.date);
+  day.click({ stopPropagation() {} });
+  assert.equal(filter.draftThrough, day.dataset.date);
+});
