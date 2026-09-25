@@ -402,7 +402,7 @@
     if (!state || !input || !list) return;
     input.value = registry.get(state.metricId).label;
     input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant");
-    if (category) category.value = state.category;
+    if (category) { category.value = state.category; window.NickStatsDropdown.sync(category); }
     list.hidden = true; list.replaceChildren(); state.suggestions = []; state.suggestionIndex = -1;
   }
 
@@ -464,6 +464,7 @@
     const roundOption = scope?.querySelector('option[value="round"]');
     if (roundOption) roundOption.disabled = !supportsRounds;
     if (!supportsRounds && scope?.value === "round") scope.value = "match";
+    window.NickStatsDropdown.sync(scope);
     const roundsMode = scope?.value === "round";
     const typeControl = document.getElementById(`${prefix}GraphTypeControl`);
     if (typeControl) typeControl.hidden = roundsMode;
@@ -526,6 +527,8 @@
       });
       category.value = "Core";
     }
+    [category, type, document.getElementById(`${prefix}GraphScope`), document.getElementById(`${prefix}GraphDistributionStyle`)]
+      .forEach(select => window.NickStatsDropdown.enhance(select));
     const previous = graphState.get(prefix);
     graphState.set(prefix, { series: series || [], domainSeries: domainSeries || series || [], independent,
       bucketCount: previous?.bucketCount || DEFAULT_BUCKETS, metricId: previous?.metricId || "rating",
