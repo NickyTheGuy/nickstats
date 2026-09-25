@@ -19,7 +19,7 @@ test("bars and lines render for match trends and exact-round deaths", () => {
     removeAttribute(key) { delete this.attributes[key]; }
     addEventListener(key, callback) { this.listeners[key] = callback; }
     dispatch(key, event = {}) { this.listeners[key]?.(event); }
-    querySelector(selector) { return selector === 'option[value="round"]' ? this.roundOption : null; }
+    querySelector(selector) { return selector === 'option[value="round"]' ? this.roundOption : selector === 'option[value="match"]' ? this.matchOption : null; }
     closest() { return null; }
     select() {}
     focus() { this.dispatch("focus"); }
@@ -35,12 +35,12 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   }
   const type = nodes.get("playerGraphType"), scope = nodes.get("playerGraphScope");
   const display = nodes.get("playerGraphDistributionStyle"), svg = nodes.get("playerGraphSvg");
-  type.value = "trend"; scope.value = "match"; scope.roundOption = { disabled: true }; display.value = "bars";
+  type.value = "trend"; scope.value = "match"; scope.roundOption = { disabled: true }; scope.matchOption = { disabled: false }; display.value = "bars";
   const context = { window: { NickStatsAvailability: { scope: stats => stats }, NickStatsDropdown: { enhance() {}, sync() {} } }, document };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../js/round-timeline.js"), "utf8"), context);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../js/graphs.js"), "utf8"), context);
   const series = [{ label: "Player", samples: [{ id: "1", date: 1234, stats: { rounds: 2, deaths: 1 } }], roundMatches: [
-    { round_kills: [{ round: 1, kills: 0, deaths: 1 }, { round: 2, kills: 1, deaths: 0 }] }
+    { round_kills: [{ round: 1, kills: 0, deaths: 1, differential: -1 }, { round: 2, kills: 1, deaths: 0, differential: -2 }] }
   ] }];
   context.window.NickStatsGraphs.render({ prefix: "player", series });
   assert.ok(svg.children.some(child => child.tag === "rect" && child.attributes.class === "graph-series-bar"));
@@ -56,4 +56,11 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   display.value = "bars"; display.dispatch("change");
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 2);
   assert.match(nodes.get("playerGraphNote").textContent, /average deaths/);
+  nodes.get("playerGraphMetric").focus();
+  const differential = nodes.get("playerGraphSuggestions").children.find(child => child.children[0].textContent === "Round differential");
+  differential.dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
+  assert.equal(scope.value, "round");
+  assert.equal(scope.matchOption.disabled, true);
+  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 2);
+  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Average round differential"));
 });

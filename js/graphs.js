@@ -43,6 +43,7 @@
       ["rating", "Rating", rating, 2], ["kd", "K/D", stats => ratio(stats.kills, stats.deaths), 2],
       ["adr", "ADR", rate("damage"), 1], ["kast", "KAST", percentage("kast_rounds", "rounds"), 1, "%"],
       ["kills", "Kills", count("kills"), 0], ["deaths", "Deaths", count("deaths"), 0], ["damage", "Damage", count("damage"), 0],
+      ["round_diff", "Round differential", () => Number.NaN, 2],
       ["awp_kills", "AWP kills", count("awp_kills"), 0], ["assists", "Assists", count("assists"), 0],
       ["kpr", "Kills per round", rate("kills"), 2], ["dpr", "Deaths per round", rate("deaths"), 2], ["apr", "Assists per round", rate("assists"), 2],
       ["hs", "Headshot rate", percentage("headshots", "kills"), 1, "%"], ["damage_diff", "Damage differential per round", stats => ratio(number(stats.damage) - number(stats.damage_received), stats.rounds), 1]
@@ -138,7 +139,7 @@
   ];
 
   const registry = new Map(metrics.flatMap(([group, entries]) => entries.map(([id, label, value, digits, suffix = ""]) => [id, { id, group, label, value, digits, suffix }])));
-  const roundMetrics = Object.freeze({ kills: "kills", kpr: "kills", deaths: "deaths", dpr: "deaths", damage: "damage", adr: "damage", awp_kills: "awp_kills" });
+  const roundMetrics = Object.freeze({ kills: "kills", kpr: "kills", deaths: "deaths", dpr: "deaths", damage: "damage", adr: "damage", awp_kills: "awp_kills", round_diff: "differential" });
   const roundLabel = metric => ({ adr: "damage", kpr: "kills", dpr: "deaths" })[metric.id] || metric.label.toLowerCase();
   const graphState = new Map();
 
@@ -366,11 +367,16 @@
 
   function drawRounds(svg, prepared, metric, displayStyle = "line") {
     const all = prepared.flatMap(series => series.roundValues);
-    const lastRound = Math.max(...all.map(point => point.round)), maxValue = Math.max(1, ...all.map(point => point.value));
+    const lastRound = Math.max(...all.map(point => point.round));
+    const minValue = Math.min(0, ...all.map(point => point.value)), maxValue = Math.max(0, ...all.map(point => point.value));
+    const range = minValue === maxValue ? 1 : maxValue - minValue;
     const left = 68, top = 24, width = 796, height = 318;
     const averageMetric = { ...metric, digits: metric.id === "damage" || metric.id === "adr" ? 1 : 2 };
-    drawAxes(svg, { left, top, width, height, min: 0, max: maxValue, metric: averageMetric });
+    drawAxes(svg, { left, top, width, height, min: minValue, max: minValue + range, metric: averageMetric });
     const xFor = round => left + width * (round - 1) / Math.max(1, lastRound - 1);
+    const yFor = value => top + height - height * (value - minValue) / range;
+    const zeroY = yFor(0);
+    if (metric.id === "round_diff") setLine(svg, left, zeroY, left + width, zeroY, "graph-zero-line");
     const barWidth = Math.max(1, Math.min(22, width / Math.max(1, lastRound * prepared.length) * .8));
     const tickStep = lastRound <= 36 ? 1 : Math.ceil(lastRound / 36);
     for (let round = 1; round <= lastRound; round += 1) {
@@ -390,18 +396,19 @@
       if (displayStyle === "line") {
         series.roundValues.forEach(point => {
           if (previous !== null && point.round !== previous + 1) flush();
-          const x = xFor(point.round), y = top + height - height * point.value / maxValue;
+          const x = xFor(point.round), y = yFor(point.value);
           segment.push(`${x},${y}`); previous = point.round;
         });
         flush();
       }
       series.roundValues.forEach(point => {
-        const x = xFor(point.round), y = top + height - height * point.value / maxValue;
+        const x = xFor(point.round), y = yFor(point.value);
         const mark = displayStyle === "bars"
-          ? svgElement("rect", { x: x + (index - (prepared.length - 1) / 2) * barWidth - barWidth / 2, y, width: barWidth, height: Math.max(2, top + height - y), fill: color, class: "graph-series-bar" })
+          ? svgElement("rect", { x: x + (index - (prepared.length - 1) / 2) * barWidth - barWidth / 2, y: Math.min(y, zeroY), width: barWidth, height: Math.max(2, Math.abs(zeroY - y)), fill: color, class: "graph-series-bar" })
           : svgElement("circle", { cx: x, cy: y, r: 4, fill: color, class: "graph-point" });
         svg.appendChild(mark);
-        attachTooltip(svg, mark, `${series.label} · Round ${point.round}: ${format(point.value, averageMetric)} ${roundLabel(metric)} (${point.appearances} played)`, x, y);
+        const signed = metric.id === "round_diff" && point.value > 0 ? "+" : "";
+        attachTooltip(svg, mark, `${series.label} · Round ${point.round}: ${signed}${format(point.value, averageMetric)} ${roundLabel(metric)} (${point.appearances} played)`, x, y);
       });
     });
     svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, "Round number"));
@@ -483,9 +490,13 @@
     const bucketLess = document.getElementById(`${prefix}GraphBucketsLess`), bucketMore = document.getElementById(`${prefix}GraphBucketsMore`);
     if (!type || !metricInput || !svg || !summary || !legend || !note) return;
     const scope = document.getElementById(`${prefix}GraphScope`);
+    const roundOnly = state.metricId === "round_diff";
     const supportsRounds = Object.hasOwn(roundMetrics, state.metricId);
+    const matchOption = scope?.querySelector('option[value="match"]');
     const roundOption = scope?.querySelector('option[value="round"]');
+    if (matchOption) matchOption.disabled = roundOnly;
     if (roundOption) roundOption.disabled = !supportsRounds;
+    if (roundOnly && scope?.value !== "round") scope.value = "round";
     if (!supportsRounds && scope?.value === "round") scope.value = "match";
     window.NickStatsDropdown.sync(scope);
     const roundsMode = scope?.value === "round";

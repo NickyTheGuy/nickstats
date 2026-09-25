@@ -25,7 +25,7 @@ test("exact numbered rounds average only appearances, including zero kills and a
 
 test("match timeline reads kills, deaths, damage and AWP kills from one played round", () => {
   const slice = { stats: { kda: [2, 1, 0, 1, 143], weapons: [["awp", 1, 2, 89, 1, 1], ["ak47", 1, 2, 54, 1, 1]] } };
-  assert.deepEqual(Object.keys(timeline.metrics).map(metric => timeline.metricValue(slice, metric)), [2, 1, 143, 1]);
+  assert.deepEqual(["kills", "deaths", "damage", "awp"].map(metric => timeline.metricValue(slice, metric)), [2, 1, 143, 1]);
 });
 
 test("round graph averages each available metric over played appearances without treating old payloads as zero", () => {
@@ -37,4 +37,46 @@ test("round graph averages each available metric over played appearances without
   assert.deepEqual(Array.from(timeline.averages(matches, {}, "deaths"), point => [point.round, point.value, point.appearances]), [[1, .5, 2], [25, 1, 1]]);
   assert.deepEqual(Array.from(timeline.averages(matches, {}, "damage"), point => [point.round, point.value, point.appearances]), [[1, 100, 2], [25, 0, 1]]);
   assert.deepEqual(Array.from(timeline.averages(matches, {}, "awp_kills"), point => [point.round, point.value, point.appearances]), [[1, .5, 2], [25, 0, 1]]);
+});
+
+test("round differential follows the cumulative match score and averages only matches reaching each round", () => {
+  const first = ["win", "win", "win", "loss", "loss", "loss", "win"].map((result, index) => ({ round: index + 1, result }));
+  const second = ["loss", "win", "loss", "win"].map((result, index) => ({ round: index + 1, result }));
+  const matches = [{ round_kills: timeline.withDifferentials(first) }, { round_kills: timeline.withDifferentials(second) }];
+  assert.deepEqual(Array.from(matches[0].round_kills, row => row.differential), [1, 2, 3, 2, 1, 0, 1]);
+  assert.deepEqual(Array.from(timeline.averages(matches, {}, "differential"), point => [point.round, point.value, point.appearances]), [
+    [1, 0, 2], [2, 1, 2], [3, 1, 2], [4, 1, 2], [5, 1, 1], [6, 0, 1], [7, 1, 1]
+  ]);
+  assert.deepEqual(Array.from(timeline.withDifferentials([{ round: 1, result: "win" }, { round: 3, result: "win" }]), row => row.round), [1]);
+});
+
+test("match differential uses the chosen team across a side swap and retains the score in overtime", () => {
+  const results = ["win", "win", "win", "loss", "loss", "loss", ...Array(18).fill("win"), "loss"];
+  const payload = { rounds: 25, teams: [{ name: "Blue", players: [0] }, { name: "Gold", players: [1] }],
+    players: [{ steam_id: "blue", round_slices: results.map((result, index) => ({ round: index + 1, result })) },
+      { steam_id: "gold", round_slices: results.map((result, index) => ({ round: index + 1, result: result === "win" ? "loss" : "win" })) }] };
+  const blue = timeline.matchDifferential(payload, "blue"), gold = timeline.matchDifferential(payload, "gold");
+  assert.deepEqual([blue.points[3].forScore, blue.points[3].againstScore, blue.points[3].value], [3, 1, 2]);
+  assert.equal(blue.points[5].value, 0);
+  assert.equal(blue.points[24].value, 17);
+  assert.equal(gold.points[24].value, -17);
+});
+
+test("match differential renders an overtime score chart from the full score", () => {
+  class Node {
+    constructor(tag) { this.tag = tag; this.children = []; this.attributes = {}; }
+    setAttribute(key, value) { this.attributes[key] = value; }
+    appendChild(child) { this.children.push(child); }
+    replaceChildren() { this.children = []; }
+  }
+  context.document = { createElement: tag => new Node(tag), createElementNS: (_, tag) => new Node(tag) };
+  const target = new Node("div");
+  const payload = { rounds: 25, teams: [{ name: "Blue", players: [0] }], players: [
+    { steam_id: "blue", round_slices: Array.from({ length: 25 }, (_, index) => ({ round: index + 1, result: index < 13 ? "win" : "loss" })) }
+  ] };
+  timeline.render(target, payload, "differential", { phase: "OVERTIME" }, "blue");
+  const svg = target.children[0].children[0];
+  assert.equal(svg.tag, "svg");
+  assert.equal(svg.children.filter(child => child.tag === "circle").length, 1);
+  assert.match(svg.children.find(child => child.tag === "circle").children[0].textContent, /Blue 13–12 \(\+1\)/);
 });

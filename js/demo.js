@@ -2840,7 +2840,7 @@
     window.NickStatsRoundTimeline.render($("demoTimeline"), state.storedPayload || compactMatchResult(result), $("demoTimelineMetric").value, {
       side: state.sideFilter, buy: state.buyFilter, opponentBuy: state.enemyBuyFilter,
       result: state.roundResultFilter, phase: state.roundPhaseFilter, heroOnly: state.heroOnly
-    });
+    }, state.accountPlayerSteamID);
     $("demoResults").hidden = false;
   }
 

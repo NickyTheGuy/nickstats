@@ -1059,6 +1059,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .round-timeline-heading .timeline-option-field { display: grid; gap: 2px; flex: none; min-width: 170px; color: var(--muted); font-size: 11px; font-weight: 850; line-height: 1.2; letter-spacing: .06em; text-transform: uppercase; }
 .round-timeline-heading select:not(.stats-dropdown-native) { padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
 .round-timeline-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+.round-differential-frame { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.round-differential-frame svg { display: block; width: 100%; min-width: 620px; height: auto; }
 .round-timeline-table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; font-variant-numeric: tabular-nums; font-size: 12px; }
 .round-timeline-table caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .round-timeline-table th, .round-timeline-table td { padding: 9px 5px; min-width: 29px; text-align: center; border-bottom: 1px solid var(--line); }
@@ -3374,6 +3376,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-graph-frame svg { display: block; width: 100%; min-width: 620px; height: auto; }
 .graph-axis { stroke: var(--muted); stroke-width: 1.5; }
 .graph-grid-line { stroke: rgba(65, 55, 60, .15); stroke-width: 1; }
+.graph-zero-line { stroke: var(--muted); stroke-width: 1.5; }
 .graph-axis-label { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .graph-bucket-band { fill: rgba(228, 182, 82, .035); }
 .graph-bucket-band-alt { fill: rgba(228, 182, 82, .09); }
