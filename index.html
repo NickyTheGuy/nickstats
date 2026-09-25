@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260925-21">
+  <link rel="stylesheet" href="./styles.css?v=20260925-22">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.09.25.21</span>
+          <span class="demo-build">Build 2026.09.25.22</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -475,17 +475,15 @@
                     <div class="graph-option-field" id="playerGraphTypeControl"><span>Graph type</span><select id="playerGraphType" aria-label="Graph type"><option value="distribution">Distribution</option><option value="trend">Trend</option></select></div>
                     <div class="graph-option-field" id="playerGraphDistributionStyleControl"><span>Display</span><select id="playerGraphDistributionStyle" aria-label="Display"><option value="bars">Bars</option><option value="line">Line</option></select></div>
                     <div class="graph-bucket-control" id="playerGraphBucketControl">
-                      <span>Buckets</span>
                       <div class="graph-bucket-settings">
-                        <select id="playerGraphBucketMode" aria-label="Bucket boundaries"><option value="auto">Automatic</option><option value="custom">Custom</option></select>
+                        <div class="graph-bucket-mode"><label for="playerGraphBucketMode">Buckets</label><select id="playerGraphBucketMode"><option value="auto">Automatic</option><option value="custom">Custom</option></select></div>
                         <div class="graph-bucket-stepper" id="playerGraphBucketStepper"><button id="playerGraphBucketsLess" type="button" aria-label="Use fewer buckets">−</button><output id="playerGraphBucketCount">10</output><button id="playerGraphBucketsMore" type="button" aria-label="Use more buckets">+</button></div>
                         <div class="graph-bucket-range" id="playerGraphBucketRange" hidden>
-                          <label>From<input id="playerGraphBucketFrom" type="number" step="any" aria-describedby="playerGraphBucketHelp" placeholder="0"></label>
-                          <label>To<input id="playerGraphBucketTo" type="number" step="any" aria-describedby="playerGraphBucketHelp" placeholder="30"></label>
-                          <label>Size<input id="playerGraphBucketSize" type="number" step="any" min="0" aria-describedby="playerGraphBucketHelp" placeholder="5"></label>
+                          <label>From<input id="playerGraphBucketFrom" type="number" step="any" aria-describedby="playerGraphNote" placeholder="0"></label>
+                          <label>To<input id="playerGraphBucketTo" type="number" step="any" aria-describedby="playerGraphNote" placeholder="30"></label>
+                          <label>Size<input id="playerGraphBucketSize" type="number" step="any" min="0" aria-describedby="playerGraphNote" placeholder="5"></label>
                         </div>
                       </div>
-                      <small id="playerGraphBucketHelp" hidden>For example, 0 to 30 by 5 gives 0–&lt;5 through 25–&lt;30. Values outside the range get their own buckets.</small>
                     </div>
                   </div>
                 </fieldset>
@@ -580,7 +578,7 @@
   <script defer src="./js/stat-availability.js?v=20260924-08"></script>
   <script defer src="./js/scoreboard.js?v=20260923-01"></script>
   <script defer src="./js/round-timeline.js?v=20260925-06"></script>
-  <script defer src="./js/graphs.js?v=20260925-21"></script>
+  <script defer src="./js/graphs.js?v=20260925-22"></script>
   <script defer src="./js/demo.js?v=20260925-18"></script>
   <script defer src="./js/profile.js?v=20260925-01"></script>
   <script defer src="./js/quick-comparison.js?v=20260924-12"></script>

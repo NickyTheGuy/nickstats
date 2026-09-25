@@ -575,7 +575,6 @@
     const bucketStepper = document.getElementById(`${prefix}GraphBucketStepper`);
     const bucketRange = document.getElementById(`${prefix}GraphBucketRange`);
     const bucketInputs = ["From", "To", "Size"].map(key => document.getElementById(`${prefix}GraphBucket${key}`));
-    const bucketHelp = document.getElementById(`${prefix}GraphBucketHelp`);
     if (!type || !metricInput || !svg || !summary || !legend || !note) return;
     const scope = document.getElementById(`${prefix}GraphScope`);
     const roundOnly = state.metricId === "round_diff";
@@ -601,11 +600,6 @@
     if (bucketStepper) bucketStepper.hidden = custom;
     if (bucketRange) bucketRange.hidden = !custom;
     bucketInputs.forEach(input => input?.setAttribute("aria-invalid", String(custom && !!range.error)));
-    if (bucketHelp) {
-      bucketHelp.hidden = !custom;
-      bucketHelp.textContent = range?.error ? `${range.error} Showing automatic buckets until valid.`
-        : "For example, 0 to 30 by 5 gives 0–<5 through 25–<30. Values outside the range get their own buckets.";
-    }
     const roundMetric = roundMetrics[metric.id];
     const prepared = state.series.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
     const domainPrepared = state.domainSeries.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
@@ -621,7 +615,8 @@
     note.textContent = roundsMode
       ? `Each ${distributionStyle?.value === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
       : type.value === "distribution"
-      ? custom ? "Each observation is one match. Values outside the chosen range have separate buckets when present."
+      ? custom ? range?.error ? `${range.error} Showing automatic buckets until valid.`
+          : "Each observation is one match. For example, 0 to 30 by 5 makes 0–<5 through 25–<30; values outside the range get separate buckets."
         : "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity."
       : multiTrendNeedsDates
         ? "Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for match order, or use Distribution for comparisons now."
