@@ -380,7 +380,6 @@ th {
 th:first-child, td:first-child { text-align: left; }
 tbody tr:hover { background: rgba(233, 86, 49, .045); }
 
-details { padding: 18px 22px; }
 summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .method { max-width: 940px; color: var(--muted); }
 .method code { color: var(--text); }
