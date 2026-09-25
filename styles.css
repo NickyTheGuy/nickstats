@@ -2545,10 +2545,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   grid-template-columns: auto auto;
   gap: 5px 8px;
   align-items: center;
-  padding: 7px 9px;
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  background: rgba(255, 255, 255, .48);
 }
 
 .economy-matchup-title {
@@ -2570,19 +2566,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   font-weight: 850;
   white-space: nowrap;
 }
-
-.demo-economy-matchup-filter {
-  flex: 1 1 auto;
-  grid-template-columns: auto minmax(0, 1fr);
-}
-
-.demo-economy-matchup-filter .demo-side-buttons {
-  justify-self: stretch;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-
-.demo-economy-matchup-filter .demo-side-button { min-width: 0; flex: 1 1 auto; padding-inline: 8px; }
 
 @media (max-width: 760px) {
   .economy-matchup-filter { width: 100%; grid-template-columns: minmax(0, 1fr); }
@@ -2680,13 +2663,14 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .match-library-filter { margin: 12px 0; }
 
 .combo-player-profile { padding: 22px; }
-.combo-profile-toolbar {
-  margin: 0;
+.combo-profile-toolbar,
+#playerStatsToolbar {
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: rgba(32, 26, 29, .03);
 }
+.combo-profile-toolbar { margin: 0; }
 .combo-profile-footnote { margin: 14px 2px 0; color: var(--muted); font-size: 12px; }
 .unified-profile-tabs { width: fit-content; max-width: 100%; margin: 0; }
 .combo-display-panel[data-combo-display-panel="profile"] {
