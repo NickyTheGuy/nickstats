@@ -2726,6 +2726,7 @@
 
   function teamsForSide(result) {
     let teams = Array.isArray(result.teams) ? result.teams : [];
+    const buy = state.buyFilter === "hero" ? "ALL" : state.buyFilter;
     if (state.roundPhaseFilter !== "ALL" || state.heroOnly) {
       const payload = state.storedPayload || compactMatchResult(result);
       teams = expandStoredMatch(payload, state.selectedMatchID || 0, state.roundPhaseFilter, state.heroOnly).teams;
@@ -2734,15 +2735,17 @@
         !teams.some(team => (team.players || []).some(player => player.by_economy_matchup?.eco || (state.enemyBuyFilter === "ALL" && player.by_round_result?.win?.ALL)))) {
       try { teams = expandStoredMatch(compactMatchResult(result), state.selectedMatchID || 0, state.roundPhaseFilter, state.heroOnly).teams || teams; } catch (_) {}
     }
-    if (state.sideFilter === "ALL" && state.buyFilter === "ALL" && state.enemyBuyFilter === "ALL" && state.roundResultFilter === "ALL") return teams;
+    if (state.sideFilter === "ALL" && buy === "ALL" && state.enemyBuyFilter === "ALL" && state.roundResultFilter === "ALL") {
+      return state.heroOnly ? teams.map(team => ({ ...team, score: null })) : teams;
+    }
     return teams.map(team => {
       const players = (team.players || []).map(player => {
         const sideStats = state.enemyBuyFilter !== "ALL"
-          ? player.by_economy_matchup?.[state.enemyBuyFilter]?.[state.buyFilter]?.[state.roundResultFilter]?.[state.sideFilter]
+          ? player.by_economy_matchup?.[state.enemyBuyFilter]?.[buy]?.[state.roundResultFilter]?.[state.sideFilter]
           : state.roundResultFilter === "ALL"
-            ? state.buyFilter === "ALL" ? player.by_side?.[state.sideFilter] : player.by_buy?.[state.buyFilter]?.[state.sideFilter]
-            : state.buyFilter === "ALL" ? player.by_round_result?.[state.roundResultFilter]?.[state.sideFilter] :
-              player.by_buy_result?.[state.buyFilter]?.[state.roundResultFilter]?.[state.sideFilter];
+            ? buy === "ALL" ? player.by_side?.[state.sideFilter] : player.by_buy?.[buy]?.[state.sideFilter]
+            : buy === "ALL" ? player.by_round_result?.[state.roundResultFilter]?.[state.sideFilter] :
+              player.by_buy_result?.[buy]?.[state.roundResultFilter]?.[state.sideFilter];
         return {
           ...(sideStats || {
             name: player.name, steam_id: player.steam_id, is_bot: player.is_bot,
@@ -2769,11 +2772,9 @@
   }
 
   function setBuyFilter(buy, shouldRender = true) {
-    if (!["ALL", "full", "force", "eco", "pistol"].includes(buy)) return;
+    if (!["ALL", "full", "force", "eco", "hero", "pistol"].includes(buy)) return;
     state.buyFilter = buy;
-    if (buy !== "eco" && buy !== "force") state.heroOnly = false;
-    $("demoHeroControl").hidden = buy !== "eco" && buy !== "force";
-    $("demoHeroOnly").checked = state.heroOnly;
+    state.heroOnly = buy === "hero";
     demoBuyControl?.set(buy, { notify: false });
     if (shouldRender && state.result) render(state.result);
   }
@@ -3353,7 +3354,6 @@
   $("demoAccountCloseButton").addEventListener("click", () => $("demoAccountDialog").close());
   demoSideControl = window.NickStatsFilters.bindSideToggle({ selector: "[data-demo-side]", valueFor: button => button.dataset.demoSide, onChange: side => setSideFilter(side) });
   demoBuyControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-buy]", valueFor: button => button.dataset.demoBuy, onChange: buy => setBuyFilter(buy) });
-  $("demoHeroOnly").addEventListener("change", event => { state.heroOnly = event.target.checked; if (state.result) render(state.result); });
   demoEnemyBuyControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-enemy-buy]", valueFor: button => button.dataset.demoEnemyBuy, onChange: buy => setEnemyBuyFilter(buy) });
   demoRoundResultControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-result]", valueFor: button => button.dataset.demoRoundResult, onChange: result => setRoundResultFilter(result) });
   demoRoundPhaseControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-phase]", valueFor: button => button.dataset.demoRoundPhase, onChange: phase => setRoundPhaseFilter(phase) });

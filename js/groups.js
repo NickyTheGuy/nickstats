@@ -94,10 +94,10 @@
     const selected = (row.sideRows || []).filter(side => {
       const rowOpponentBuy = side.opponent_buy_type || "ALL";
       const economyMatches = state.opponentBuy !== "ALL"
-        ? rowOpponentBuy === state.opponentBuy && (state.buy === "ALL" || side.buy_type === state.buy) &&
+        ? rowOpponentBuy === state.opponentBuy && (state.buy === "ALL" || (state.buy === "hero" ? ["eco", "force"].includes(side.buy_type) : side.buy_type === state.buy)) &&
           (state.roundResult === "ALL" || side.round_result === state.roundResult)
         : rowOpponentBuy === "ALL" &&
-          (state.buy === "ALL" ? (side.buy_type || "ALL") === "ALL" : side.buy_type === state.buy) &&
+          (state.buy === "ALL" || state.buy === "hero" ? (side.buy_type || "ALL") === "ALL" : side.buy_type === state.buy) &&
           (state.roundResult === "ALL" ? (side.round_result || "ALL") === "ALL" : side.round_result === state.roundResult);
       return economyMatches && Boolean(side.hero) === state.heroOnly && (side.round_phase || "ALL") === state.roundPhase && (state.side === "ALL" || side.side === state.side);
     });
@@ -445,7 +445,7 @@
     const rows = comboProfileRows(current, player), stats = summarize(rows);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("comboProfileTitle").textContent = player.label;
-    const buyLabel = state.buy === "ALL" ? "All buys" : `${titleCase(state.buy)} buys${state.heroOnly ? " · Hero only" : ""}`;
+    const buyLabel = state.buy === "ALL" ? "All buys" : state.buy === "hero" ? "Hero rounds" : `${titleCase(state.buy)} buys`;
     const opponentBuyLabel = state.opponentBuy === "ALL" ? "All enemy buys" : `vs ${titleCase(state.opponentBuy)}`;
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
     $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(stats.n)} qualifying match${stats.n === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}`;
@@ -481,8 +481,7 @@
     state.result = "ALL";
     state.buy = "ALL";
     state.heroOnly = false;
-    $("groupHeroControl").hidden = true;
-    $("groupHeroOnly").checked = false;
+    groupBuyFilter.set("ALL", { notify: false });
     state.opponentBuy = "ALL";
     state.roundResult = "ALL";
     state.roundPhase = "ALL";
@@ -513,8 +512,7 @@
     state.comboCondition = button.dataset.comboCondition; runCombination();
   }));
   window.NickStatsFilters.bindSideToggle({ selector: "[data-group-side]", valueFor: button => button.dataset.groupSide, onChange: side => { state.side = side; runCombination(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-buy]", valueFor: button => button.dataset.groupBuy, onChange: buy => { state.buy = buy; if (buy !== "eco" && buy !== "force") state.heroOnly = false; $("groupHeroControl").hidden = buy !== "eco" && buy !== "force"; $("groupHeroOnly").checked = state.heroOnly; runCombination(); } });
-  $("groupHeroOnly").addEventListener("change", event => { state.heroOnly = event.target.checked; runCombination(); });
+  const groupBuyFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-buy]", valueFor: button => button.dataset.groupBuy, onChange: buy => { state.buy = buy; state.heroOnly = buy === "hero"; runCombination(); } });
   window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-enemy-buy]", valueFor: button => button.dataset.groupEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; runCombination(); } });
   window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-round-result]", valueFor: button => button.dataset.groupRoundResult, onChange: roundResult => { state.roundResult = roundResult; runCombination(); } });
   const groupRoundPhaseFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-round-phase]", valueFor: button => button.dataset.groupRoundPhase, onChange: phase => { state.roundPhase = phase; runCombination(); } });

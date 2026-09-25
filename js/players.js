@@ -243,11 +243,11 @@
     if (Boolean(row.hero) !== heroOnly) return false;
     const rowOpponentBuy = row.opponent_buy_type || "ALL";
     if (opponentBuy !== "ALL") {
-      return rowOpponentBuy === opponentBuy && (buy === "ALL" || row.buy_type === buy) &&
+      return rowOpponentBuy === opponentBuy && (buy === "ALL" || (buy === "hero" ? ["eco", "force"].includes(row.buy_type) : row.buy_type === buy)) &&
         (roundResult === "ALL" || row.round_result === roundResult);
     }
     return rowOpponentBuy === "ALL" &&
-      (buy === "ALL" ? (row.buy_type || "ALL") === "ALL" : row.buy_type === buy) &&
+      (buy === "ALL" || buy === "hero" ? (row.buy_type || "ALL") === "ALL" : row.buy_type === buy) &&
       (roundResult === "ALL" ? (row.round_result || "ALL") === "ALL" : row.round_result === roundResult);
   }
   function matchView(match, side, buy = "ALL", roundResult = "ALL", opponentBuy = "ALL", roundPhase = "ALL", heroOnly = false) {
@@ -403,7 +403,7 @@
     const payload = profile.payload, player = payload.player || {}, matches = matchesFor(payload), summary = summaryFor(profile);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     $("playerProfileName").textContent = player.name || "Unknown player";
-    const buyLabel = state.buy === "ALL" ? "All buys" : `${titleCase(state.buy)} buys${state.heroOnly ? " · Hero only" : ""}`;
+    const buyLabel = state.buy === "ALL" ? "All buys" : state.buy === "hero" ? "Hero rounds" : `${titleCase(state.buy)} buys`;
     const opponentBuyLabel = state.opponentBuy === "ALL" ? "All enemy buys" : `vs ${titleCase(state.opponentBuy)}`;
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
     $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${state.maps.length ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}`;
@@ -476,8 +476,7 @@
     if (state.view === "matches" && state.display === "profile" && activeProfile()) renderPlayerMatches();
   });
   window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { state.side = side; if (activeProfile()) renderCurrentDisplay(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-buy]", valueFor: button => button.dataset.playerBuy, onChange: buy => { state.buy = buy; if (buy !== "eco" && buy !== "force") state.heroOnly = false; $("playerHeroControl").hidden = buy !== "eco" && buy !== "force"; $("playerHeroOnly").checked = state.heroOnly; if (activeProfile()) renderCurrentDisplay(); } });
-  $("playerHeroOnly").addEventListener("change", event => { state.heroOnly = event.target.checked; if (activeProfile()) renderCurrentDisplay(); });
+  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-buy]", valueFor: button => button.dataset.playerBuy, onChange: buy => { state.buy = buy; state.heroOnly = buy === "hero"; if (activeProfile()) renderCurrentDisplay(); } });
   window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-enemy-buy]", valueFor: button => button.dataset.playerEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; if (activeProfile()) renderCurrentDisplay(); } });
   window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-round-result]", valueFor: button => button.dataset.playerRoundResult, onChange: roundResult => { state.roundResult = roundResult; if (activeProfile()) renderCurrentDisplay(); } });
   window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-round-phase]", valueFor: button => button.dataset.playerRoundPhase, onChange: phase => { state.roundPhase = phase; if (activeProfile()) renderCurrentDisplay(); } });

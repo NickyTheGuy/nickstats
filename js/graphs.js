@@ -150,10 +150,10 @@
     const selected = sides.filter(row => {
       const rowOpponentBuy = row.opponent_buy_type || "ALL";
       const economyMatches = opponentBuy !== "ALL"
-        ? rowOpponentBuy === opponentBuy && (buy === "ALL" || row.buy_type === buy) &&
+        ? rowOpponentBuy === opponentBuy && (buy === "ALL" || (buy === "hero" ? ["eco", "force"].includes(row.buy_type) : row.buy_type === buy)) &&
           (roundResult === "ALL" || row.round_result === roundResult)
         : rowOpponentBuy === "ALL" &&
-          (buy === "ALL" ? (row.buy_type || "ALL") === "ALL" : row.buy_type === buy) &&
+          (buy === "ALL" || buy === "hero" ? (row.buy_type || "ALL") === "ALL" : row.buy_type === buy) &&
           (roundResult === "ALL" ? (row.round_result || "ALL") === "ALL" : row.round_result === roundResult);
       return economyMatches && Boolean(row.hero) === heroOnly && (row.round_phase || "ALL") === roundPhase && (side === "ALL" || row.side === side);
     });

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260925-01">
+  <link rel="stylesheet" href="./styles.css?v=20260925-02">
 </head>
 <body>
   <main class="shell">
@@ -114,9 +114,9 @@
                 <button class="demo-side-button" type="button" data-demo-buy="full" aria-pressed="false">Full</button>
                 <button class="demo-side-button" type="button" data-demo-buy="force" aria-pressed="false">Force</button>
                 <button class="demo-side-button" type="button" data-demo-buy="eco" aria-pressed="false">Eco</button>
+                <button class="demo-side-button" type="button" data-demo-buy="hero" aria-pressed="false" title="Only the player holding the lone rifle or AWP">Hero</button>
                 <button class="demo-side-button" type="button" data-demo-buy="pistol" aria-pressed="false">Pistol</button>
               </div></div>
-              <label class="hero-subfilter" id="demoHeroControl" hidden><input id="demoHeroOnly" type="checkbox"> Hero only <small>Only the player holding the lone rifle or AWP</small></label>
               <div class="economy-matchup-row"><span>Enemy buy</span><div class="demo-side-buttons">
                 <button class="demo-side-button active" type="button" data-demo-enemy-buy="ALL" aria-pressed="true">ALL</button>
                 <button class="demo-side-button" type="button" data-demo-enemy-buy="full" aria-pressed="false">Full</button>
@@ -228,7 +228,7 @@
                 <div class="stats-filter"><span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div></div>
                 <div class="stats-filter"><span>Result</span><div class="side-toggle" role="group" aria-label="Profile match result"><button class="active" type="button" aria-pressed="true" data-combo-result="ALL">All</button><button type="button" aria-pressed="false" data-combo-result="w">Wins</button><button type="button" aria-pressed="false" data-combo-result="l">Losses</button></div></div>
                 <div class="stats-filter"><span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-group-side="ALL">All</button><button type="button" aria-pressed="false" data-group-side="T">T</button><button type="button" aria-pressed="false" data-group-side="CT">CT</button></div></div>
-                <div class="economy-matchup-filter"><span class="economy-matchup-title">Economy matchup</span><div class="economy-matchup-row"><span>Your buy</span><div class="side-toggle" role="group" aria-label="Profile own buy"><button class="active" type="button" aria-pressed="true" data-group-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-buy="full">Full</button><button type="button" aria-pressed="false" data-group-buy="force">Force</button><button type="button" aria-pressed="false" data-group-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-buy="pistol">Pistol</button></div></div><label class="hero-subfilter" id="groupHeroControl" hidden><input id="groupHeroOnly" type="checkbox"> Hero only <small>Only the player holding the lone rifle or AWP</small></label><div class="economy-matchup-row"><span>Enemy buy</span><div class="side-toggle" role="group" aria-label="Profile enemy buy"><button class="active" type="button" aria-pressed="true" data-group-enemy-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-enemy-buy="full">Full</button><button type="button" aria-pressed="false" data-group-enemy-buy="force">Force</button><button type="button" aria-pressed="false" data-group-enemy-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-enemy-buy="pistol">Pistol</button></div></div></div>
+                <div class="economy-matchup-filter"><span class="economy-matchup-title">Economy matchup</span><div class="economy-matchup-row"><span>Your buy</span><div class="side-toggle" role="group" aria-label="Profile own buy"><button class="active" type="button" aria-pressed="true" data-group-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-buy="full">Full</button><button type="button" aria-pressed="false" data-group-buy="force">Force</button><button type="button" aria-pressed="false" data-group-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-buy="hero" aria-label="Hero: player holding the lone rifle or AWP">Hero</button><button type="button" aria-pressed="false" data-group-buy="pistol">Pistol</button></div></div><div class="economy-matchup-row"><span>Enemy buy</span><div class="side-toggle" role="group" aria-label="Profile enemy buy"><button class="active" type="button" aria-pressed="true" data-group-enemy-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-enemy-buy="full">Full</button><button type="button" aria-pressed="false" data-group-enemy-buy="force">Force</button><button type="button" aria-pressed="false" data-group-enemy-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-enemy-buy="pistol">Pistol</button></div></div></div>
                 <div class="stats-filter"><span>Rounds</span><div class="side-toggle" role="group" aria-label="Profile round result"><button class="active" type="button" aria-pressed="true" data-group-round-result="ALL">All</button><button type="button" aria-pressed="false" data-group-round-result="win">Won</button><button type="button" aria-pressed="false" data-group-round-result="loss">Lost</button></div></div>
                 <div class="stats-filter"><span>Phase</span><div class="side-toggle" role="group" aria-label="Group round phase"><button class="active" type="button" aria-pressed="true" data-group-round-phase="ALL">All</button><button type="button" aria-pressed="false" data-group-round-phase="REGULATION">Regulation</button><button type="button" aria-pressed="false" data-group-round-phase="OVERTIME">Overtime</button></div></div>
               </div>
@@ -304,9 +304,9 @@
                 <button type="button" aria-pressed="false" data-player-buy="full">Full</button>
                 <button type="button" aria-pressed="false" data-player-buy="force">Force</button>
                 <button type="button" aria-pressed="false" data-player-buy="eco">Eco</button>
+                <button type="button" aria-pressed="false" data-player-buy="hero" aria-label="Hero: player holding the lone rifle or AWP">Hero</button>
                 <button type="button" aria-pressed="false" data-player-buy="pistol">Pistol</button>
               </div></div>
-              <label class="hero-subfilter" id="playerHeroControl" hidden><input id="playerHeroOnly" type="checkbox"> Hero only <small>Only the player holding the lone rifle or AWP</small></label>
               <div class="economy-matchup-row"><span>Enemy buy</span><div class="side-toggle" role="group" aria-label="Player enemy buy">
                 <button class="active" type="button" aria-pressed="true" data-player-enemy-buy="ALL">All</button>
                 <button type="button" aria-pressed="false" data-player-enemy-buy="full">Full</button>
@@ -544,12 +544,12 @@
   <script defer src="./js/filters.js?v=20260925-01"></script>
   <script defer src="./js/stat-availability.js?v=20260924-08"></script>
   <script defer src="./js/scoreboard.js?v=20260923-01"></script>
-  <script defer src="./js/round-timeline.js?v=20260924-11"></script>
-  <script defer src="./js/demo.js?v=20260925-01"></script>
-  <script defer src="./js/graphs.js?v=20260924-12"></script>
+  <script defer src="./js/round-timeline.js?v=20260925-02"></script>
+  <script defer src="./js/demo.js?v=20260925-02"></script>
+  <script defer src="./js/graphs.js?v=20260925-02"></script>
   <script defer src="./js/profile.js?v=20260924-12"></script>
   <script defer src="./js/quick-comparison.js?v=20260924-12"></script>
-  <script defer src="./js/players.js?v=20260924-12"></script>
-  <script defer src="./js/groups.js?v=20260924-12"></script>
+  <script defer src="./js/players.js?v=20260925-02"></script>
+  <script defer src="./js/groups.js?v=20260925-02"></script>
 </body>
 </html>

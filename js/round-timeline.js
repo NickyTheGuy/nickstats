@@ -6,7 +6,7 @@
   const matchesFilters = (row, filters = {}) =>
     phaseMatches(finite(row.round), filters.phase || "ALL") &&
     (!filters.side || filters.side === "ALL" || row.side === filters.side) &&
-    (!filters.buy || filters.buy === "ALL" || row.buy === filters.buy) &&
+    (!filters.buy || filters.buy === "ALL" || (filters.buy === "hero" ? row.hero === true && ["eco", "force"].includes(row.buy) : row.buy === filters.buy)) &&
     (!filters.opponentBuy || filters.opponentBuy === "ALL" || row.opponent_buy === filters.opponentBuy) &&
     (!filters.result || filters.result === "ALL" || row.result === filters.result) &&
     (!filters.heroOnly || row.hero === true);
