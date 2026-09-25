@@ -961,8 +961,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .demo-side-filter {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: end;
+  flex-wrap: wrap;
   gap: 14px;
   padding: 12px 14px;
   border: 1px solid var(--line);
@@ -970,11 +970,13 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   background: rgba(255, 255, 255, .74);
 }
 
-.demo-side-filter > span {
+.demo-filter-field { display: flex; flex-direction: column; align-items: stretch; gap: 2px; }
+.demo-filter-field > span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 850;
-  letter-spacing: .08em;
+  line-height: 14px;
+  letter-spacing: .06em;
   text-transform: uppercase;
 }
 
@@ -2479,7 +2481,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   display: flex;
   flex-wrap: wrap;
   gap: 9px;
-  align-items: center;
+  align-items: end;
   margin-top: 12px;
   color: var(--muted);
   font-size: 12px;
@@ -2487,8 +2489,10 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 .stats-toolbar[hidden],
 .stats-toolbar [hidden] { display: none; }
-.stats-filter { display: inline-flex; align-items: center; gap: 9px; max-width: 100%; }
-.stats-filter > span { white-space: nowrap; }
+.stats-filter,
+.date-range-filter { display: flex; flex-direction: column; align-items: stretch; gap: 2px; max-width: 100%; }
+.stats-filter > span,
+.date-range-label { display: block; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; line-height: 14px; text-transform: uppercase; white-space: nowrap; }
 
 .date-range-filter { position: relative; }
 .date-range-menu > summary {

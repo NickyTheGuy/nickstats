@@ -121,7 +121,8 @@
           this.from = this.draftFrom; this.through = this.draftThrough;
           this.closeMenus(); this.render(); this.onChange();
         });
-        actions.append(clear, apply); panel.appendChild(actions); menu.appendChild(panel); target.replaceChildren(menu);
+        actions.append(clear, apply); panel.appendChild(actions); menu.appendChild(panel);
+        target.replaceChildren(element("span", "Dates", "date-range-label"), menu);
         menu.addEventListener("toggle", () => {
           if (!menu.open) return;
           this.closeMenus(menu);
@@ -263,7 +264,7 @@
     }
     render() {
       this.targets.forEach(target => {
-        target.querySelector("summary").textContent = this.active ? `Dates · ${this.summary()}` : "Dates · All dates";
+        target.querySelector("summary").textContent = this.active ? this.summary() : "All dates";
       });
       this.renderPanel();
     }
