@@ -39,6 +39,20 @@ test("round graph averages each available metric over played appearances without
   assert.deepEqual(Array.from(timeline.averages(matches, {}, "awp_kills"), point => [point.round, point.value, point.appearances]), [[1, .5, 2], [25, 0, 1]]);
 });
 
+test("match player timelines show running totals and keep regulation totals in overtime", () => {
+  const slices = [
+    { round: 1, side: "T", stats: { kda: [1, 0, 0, 0, 90] } },
+    { round: 2, side: "T", stats: { kda: [0, 0, 0, 0, 0] } },
+    { round: 3, side: "CT", stats: { kda: [2, 0, 0, 0, 140] } },
+    { round: 25, side: "CT", stats: { kda: [1, 0, 0, 0, 65] } }
+  ];
+  const points = timeline.cumulativeValues(slices, "kills", {}, 25);
+  assert.deepEqual([points[0].value, points[1].value, points[2].value, points[23].value, points[24].value], [1, 1, 3, 3, 4]);
+  assert.equal(points[1].roundValue, 0);
+  assert.deepEqual(Array.from(timeline.cumulativeValues(slices, "damage", { phase: "OVERTIME" }, 25), point => [point.round, point.value, point.roundValue]), [[25, 295, 65]]);
+  assert.deepEqual(Array.from(timeline.cumulativeValues(slices, "kills", { side: "T", phase: "OVERTIME" }, 25), point => [point.round, point.value, point.roundValue]), [[25, 1, 0]]);
+});
+
 test("round differential follows the cumulative match score and averages only matches reaching each round", () => {
   const first = ["win", "win", "win", "loss", "loss", "loss", "win"].map((result, index) => ({ round: index + 1, result }));
   const second = ["loss", "win", "loss", "win"].map((result, index) => ({ round: index + 1, result }));
@@ -81,13 +95,14 @@ test("match timelines draw differential and selected player statistics as graphs
   const svg = target.children[0].children[0];
   assert.equal(svg.tag, "svg");
   assert.equal(svg.children.filter(child => child.tag === "circle").length, 1);
-  assert.match(svg.children.find(child => child.tag === "circle").attributes["aria-label"], /Round 25: \+1 round differential · 13–12/);
+  assert.match(svg.children.find(child => child.tag === "circle").attributes["aria-label"], /Round 25: \+1 · 13–12 · round lost/);
   const playerPayload = { rounds: 2, teams: [{ players: [0, 1] }], players: [
     { name: "Blue", round_slices: [{ round: 1, stats: { kda: [2, 1, 0, 0, 120] } }, { round: 2, stats: { kda: [0, 0, 0, 0, 0] } }] },
     { name: "Gold", round_slices: [{ round: 1, stats: { kda: [1, 0, 0, 0, 90] } }] }
   ] };
   timeline.render(target, playerPayload, "kills", {}, null, new Set([0]), "line");
   assert.equal(target.children[0].children[0].children.filter(child => child.tag === "circle").length, 2);
+  assert.match(target.children[0].children[0].children.filter(child => child.tag === "circle")[1].attributes["aria-label"], /Round 2: 2 kills total · 0 this round/);
   timeline.render(target, playerPayload, "damage", {}, null, new Set([0, 1]), "bars");
-  assert.equal(target.children[0].children[0].children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 3);
+  assert.equal(target.children[0].children[0].children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 4);
 });

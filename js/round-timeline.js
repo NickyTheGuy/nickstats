@@ -46,7 +46,7 @@
       const result = byRound.get(round);
       if (result !== "win" && result !== "loss") break;
       result === "win" ? forScore++ : againstScore++;
-      points.push({ round, value: forScore - againstScore, forScore, againstScore });
+      points.push({ round, value: forScore - againstScore, roundValue: result === "win" ? 1 : -1, forScore, againstScore });
     }
     return { name: team.name || `Team ${teamIndex + 1}`, points };
   }
@@ -71,6 +71,19 @@
     return finite(slice.stats?.kda?.[{ kills: 0, deaths: 1, damage: 4 }[metric]]);
   }
 
+  function cumulativeValues(slices, metric, filters, roundCount) {
+    if (!slices?.length) return [];
+    const qualifying = new Map(slices.filter(row => matchesFilters(row, { ...filters, phase: "ALL" })).map(row => [row.round, row]));
+    const points = [];
+    let total = 0;
+    for (let round = 1; round <= roundCount; round += 1) {
+      const roundValue = qualifying.has(round) ? metricValue(qualifying.get(round), metric) : 0;
+      total += roundValue;
+      if (phaseMatches(round, filters.phase || "ALL")) points.push({ round, value: total, roundValue });
+    }
+    return points;
+  }
+
   function render(target, payload, metric = "kills", filters = {}, viewerSteamID = null, selectedPlayers = null, displayStyle = "line") {
     target.replaceChildren();
     const players = payload?.players || [];
@@ -83,10 +96,7 @@
       : (payload?.teams || []).flatMap(team => team.players || []).filter((index, position, all) => all.indexOf(index) === position)
         .filter(index => selectedPlayers == null || selectedPlayers.has(index)).map(index => ({
           label: players[index]?.name || `Player ${index + 1}`, colorIndex: index,
-          roundValues: (players[index]?.round_slices || []).filter(row => matchesFilters(row, filters))
-            .map(row => ({ round: row.round, value: metricValue(row, metric) }))
-            .filter(row => Number.isInteger(row.round) && row.round > 0)
-            .sort((a, b) => a.round - b.round)
+          roundValues: cumulativeValues(players[index]?.round_slices, metric, filters, roundCount)
         }));
     const visible = series.filter(item => item.roundValues.length);
     if (!visible.length) {
@@ -110,5 +120,5 @@
     const frame = document.createElement("div"); frame.className = "round-timeline-graph-frame";
     frame.appendChild(svg); target.appendChild(frame);
   }
-  window.NickStatsRoundTimeline = Object.freeze({ metrics, metricValue, matchesFilters, withDifferentials, matchDifferential, averages, render });
+  window.NickStatsRoundTimeline = Object.freeze({ metrics, metricValue, matchesFilters, withDifferentials, matchDifferential, cumulativeValues, averages, render });
 })();

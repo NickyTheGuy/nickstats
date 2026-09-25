@@ -409,12 +409,15 @@
           : svgElement("circle", { cx: x, cy: y, r: 4, fill: color, class: "graph-point" });
         svg.appendChild(mark);
         const signed = metric.id === "round_diff" && point.value > 0 ? "+" : "";
-        const detail = exact ? point.forScore != null ? ` · ${point.forScore}–${point.againstScore}` : "" : ` (${point.appearances} played)`;
-        attachTooltip(svg, mark, `${series.label} · Round ${point.round}: ${signed}${format(point.value, averageMetric)} ${roundLabel(metric)}${detail}`, x, y);
+        const detail = exact
+          ? metric.id === "round_diff" ? ` · ${point.forScore}–${point.againstScore} · round ${point.roundValue > 0 ? "won" : "lost"}`
+            : ` ${roundLabel(metric)} total · ${point.roundValue} this round`
+          : ` ${roundLabel(metric)} (${point.appearances} played)`;
+        attachTooltip(svg, mark, `${series.label} · Round ${point.round}: ${signed}${format(point.value, averageMetric)}${detail}`, x, y);
       });
     });
     svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, "Round number"));
-    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `${exact ? "" : "Average "}${roundLabel(metric)}`));
+    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `${exact && metric.id !== "round_diff" ? "Total " : exact ? "" : "Average "}${roundLabel(metric)}`));
   }
 
   function metricChoices(category, query) {
