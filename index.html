@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260925-12">
+  <link rel="stylesheet" href="./styles.css?v=20260925-13">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.09.25.10</span>
+          <span class="demo-build">Build 2026.09.25.11</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -109,6 +109,22 @@
                 <button class="demo-side-button" type="button" data-demo-side="T" aria-pressed="false">T</button>
               </div>
             </div>
+            <div class="demo-filter-field" role="group" aria-label="Round result">
+              <span>Rounds</span>
+              <div class="demo-side-buttons">
+                <button class="demo-side-button active" type="button" data-demo-round-result="ALL" aria-pressed="true">ALL</button>
+                <button class="demo-side-button" type="button" data-demo-round-result="win" aria-pressed="false">Won</button>
+                <button class="demo-side-button" type="button" data-demo-round-result="loss" aria-pressed="false">Lost</button>
+              </div>
+            </div>
+            <div class="demo-filter-field" role="group" aria-label="Match round phase">
+              <span>Phase</span>
+              <div class="demo-side-buttons">
+                <button class="demo-side-button active" type="button" data-demo-round-phase="ALL" aria-pressed="true">All</button>
+                <button class="demo-side-button" type="button" data-demo-round-phase="REGULATION" aria-pressed="false">Regulation</button>
+                <button class="demo-side-button" type="button" data-demo-round-phase="OVERTIME" aria-pressed="false">Overtime</button>
+              </div>
+            </div>
             <div class="economy-matchup-filter demo-economy-matchup-filter">
               <span class="economy-matchup-title">Economy matchup</span>
               <div class="economy-matchup-row"><span>Your buy</span><div class="demo-side-buttons">
@@ -126,22 +142,6 @@
                 <button class="demo-side-button" type="button" data-demo-enemy-buy="eco" aria-pressed="false">Eco</button>
                 <button class="demo-side-button" type="button" data-demo-enemy-buy="pistol" aria-pressed="false">Pistol</button>
               </div></div>
-            </div>
-            <div class="demo-filter-field" role="group" aria-label="Round result">
-              <span>Rounds</span>
-              <div class="demo-side-buttons">
-                <button class="demo-side-button active" type="button" data-demo-round-result="ALL" aria-pressed="true">ALL</button>
-                <button class="demo-side-button" type="button" data-demo-round-result="win" aria-pressed="false">Won</button>
-                <button class="demo-side-button" type="button" data-demo-round-result="loss" aria-pressed="false">Lost</button>
-              </div>
-            </div>
-            <div class="demo-filter-field" role="group" aria-label="Match round phase">
-              <span>Phase</span>
-              <div class="demo-side-buttons">
-                <button class="demo-side-button active" type="button" data-demo-round-phase="ALL" aria-pressed="true">All</button>
-                <button class="demo-side-button" type="button" data-demo-round-phase="REGULATION" aria-pressed="false">Regulation</button>
-                <button class="demo-side-button" type="button" data-demo-round-phase="OVERTIME" aria-pressed="false">Overtime</button>
-              </div>
             </div>
           </div>
           <nav class="demo-result-tabs" role="tablist" aria-label="Match analysis section">
@@ -235,9 +235,9 @@
                 <div class="stats-filter"><span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div></div>
                 <div class="stats-filter"><span>Result</span><div class="side-toggle" role="group" aria-label="Profile match result"><button class="active" type="button" aria-pressed="true" data-combo-result="ALL">All</button><button type="button" aria-pressed="false" data-combo-result="w">Wins</button><button type="button" aria-pressed="false" data-combo-result="l">Losses</button></div></div>
                 <div class="stats-filter"><span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-group-side="ALL">All</button><button type="button" aria-pressed="false" data-group-side="T">T</button><button type="button" aria-pressed="false" data-group-side="CT">CT</button></div></div>
-                <div class="economy-matchup-filter"><span class="economy-matchup-title">Economy matchup</span><div class="economy-matchup-row"><span>Your buy</span><div class="side-toggle" role="group" aria-label="Profile own buy"><button class="active" type="button" aria-pressed="true" data-group-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-buy="full">Full</button><button type="button" aria-pressed="false" data-group-buy="force">Force</button><button type="button" aria-pressed="false" data-group-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-buy="hero" aria-label="Hero: player holding the lone rifle or AWP">Hero</button><button type="button" aria-pressed="false" data-group-buy="pistol">Pistol</button></div></div><div class="economy-matchup-row"><span>Enemy buy</span><div class="side-toggle" role="group" aria-label="Profile enemy buy"><button class="active" type="button" aria-pressed="true" data-group-enemy-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-enemy-buy="full">Full</button><button type="button" aria-pressed="false" data-group-enemy-buy="force">Force</button><button type="button" aria-pressed="false" data-group-enemy-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-enemy-buy="pistol">Pistol</button></div></div></div>
                 <div class="stats-filter"><span>Rounds</span><div class="side-toggle" role="group" aria-label="Profile round result"><button class="active" type="button" aria-pressed="true" data-group-round-result="ALL">All</button><button type="button" aria-pressed="false" data-group-round-result="win">Won</button><button type="button" aria-pressed="false" data-group-round-result="loss">Lost</button></div></div>
                 <div class="stats-filter"><span>Phase</span><div class="side-toggle" role="group" aria-label="Group round phase"><button class="active" type="button" aria-pressed="true" data-group-round-phase="ALL">All</button><button type="button" aria-pressed="false" data-group-round-phase="REGULATION">Regulation</button><button type="button" aria-pressed="false" data-group-round-phase="OVERTIME">Overtime</button></div></div>
+                <div class="economy-matchup-filter"><span class="economy-matchup-title">Economy matchup</span><div class="economy-matchup-row"><span>Your buy</span><div class="side-toggle" role="group" aria-label="Profile own buy"><button class="active" type="button" aria-pressed="true" data-group-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-buy="full">Full</button><button type="button" aria-pressed="false" data-group-buy="force">Force</button><button type="button" aria-pressed="false" data-group-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-buy="hero" aria-label="Hero: player holding the lone rifle or AWP">Hero</button><button type="button" aria-pressed="false" data-group-buy="pistol">Pistol</button></div></div><div class="economy-matchup-row"><span>Enemy buy</span><div class="side-toggle" role="group" aria-label="Profile enemy buy"><button class="active" type="button" aria-pressed="true" data-group-enemy-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-enemy-buy="full">Full</button><button type="button" aria-pressed="false" data-group-enemy-buy="force">Force</button><button type="button" aria-pressed="false" data-group-enemy-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-enemy-buy="pistol">Pistol</button></div></div></div>
               </div>
 
               <div class="combo-display-panel" data-combo-display-panel="profile">
@@ -304,6 +304,16 @@
               <button type="button" aria-pressed="false" data-player-side="T">T</button>
               <button type="button" aria-pressed="false" data-player-side="CT">CT</button>
             </div></div>
+            <div class="stats-filter"><span>Rounds</span><div class="side-toggle" role="group" aria-label="Player round result">
+              <button class="active" type="button" aria-pressed="true" data-player-round-result="ALL">All</button>
+              <button type="button" aria-pressed="false" data-player-round-result="win">Won</button>
+              <button type="button" aria-pressed="false" data-player-round-result="loss">Lost</button>
+            </div></div>
+            <div class="stats-filter"><span>Phase</span><div class="side-toggle" role="group" aria-label="Player round phase">
+              <button class="active" type="button" aria-pressed="true" data-player-round-phase="ALL">All</button>
+              <button type="button" aria-pressed="false" data-player-round-phase="REGULATION">Regulation</button>
+              <button type="button" aria-pressed="false" data-player-round-phase="OVERTIME">Overtime</button>
+            </div></div>
             <div class="economy-matchup-filter">
               <span class="economy-matchup-title">Economy matchup</span>
               <div class="economy-matchup-row"><span>Your buy</span><div class="side-toggle" role="group" aria-label="Player own buy">
@@ -322,16 +332,6 @@
                 <button type="button" aria-pressed="false" data-player-enemy-buy="pistol">Pistol</button>
               </div></div>
             </div>
-            <div class="stats-filter"><span>Rounds</span><div class="side-toggle" role="group" aria-label="Player round result">
-              <button class="active" type="button" aria-pressed="true" data-player-round-result="ALL">All</button>
-              <button type="button" aria-pressed="false" data-player-round-result="win">Won</button>
-              <button type="button" aria-pressed="false" data-player-round-result="loss">Lost</button>
-            </div></div>
-            <div class="stats-filter"><span>Phase</span><div class="side-toggle" role="group" aria-label="Player round phase">
-              <button class="active" type="button" aria-pressed="true" data-player-round-phase="ALL">All</button>
-              <button type="button" aria-pressed="false" data-player-round-phase="REGULATION">Regulation</button>
-              <button type="button" aria-pressed="false" data-player-round-phase="OVERTIME">Overtime</button>
-            </div></div>
           </div>
           <div class="panel player-profile player-display-panel" data-player-display-panel="profile">
           <header class="player-profile-header">
