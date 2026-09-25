@@ -453,7 +453,14 @@
     const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate, winRateKind: source.winRateKind, scores: source.scores });
     const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches)) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "combo", headlineId: "comboProfileHeadline", summary: normalize(stats), side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
-    window.NickStatsGraphs.render({ prefix: "combo", series: current.included.map(candidate => ({ label: candidate.label, samples: window.NickStatsGraphs.samplesForMatches(comboProfileRows(current, candidate), state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly) })) });
+    window.NickStatsGraphs.render({ prefix: "combo", series: current.included.map(candidate => {
+      const matches = comboProfileRows(current, candidate);
+      return { label: candidate.label,
+        samples: window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly),
+        roundMatches: matches.map(match => ({ round_kills: (match.round_kills || []).filter(row => window.NickStatsRoundTimeline.matchesFilters(row, {
+          side: state.side, buy: state.buy, opponentBuy: state.opponentBuy, result: state.roundResult, phase: state.roundPhase, heroOnly: state.heroOnly
+        })) })) };
+    }) });
     setComboProfileView(state.comboView);
   }
 

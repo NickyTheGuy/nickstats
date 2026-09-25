@@ -448,8 +448,11 @@
             </section>
             <section class="player-graph-builder">
               <div class="player-graph-controls">
-                <label>Graph type<select id="playerGraphType"><option value="distribution">Distribution</option><option value="trend">Trend</option><option value="rounds">Kills by round</option></select></label>
+                <label>View<select id="playerGraphScope"><option value="match">By match</option><option value="round">By round</option></select></label>
+                <label id="playerGraphTypeControl">Graph type<select id="playerGraphType"><option value="distribution">Distribution</option><option value="trend">Trend</option></select></label>
+                <label>Category<select id="playerGraphCategory"></select></label>
                 <label id="playerGraphMetricControl">Statistic<select id="playerGraphMetric"></select></label>
+                <label>Find statistic<input id="playerGraphSearch" type="search" placeholder="Search all categories" autocomplete="off"></label>
                 <label id="playerGraphDistributionStyleControl">Display<select id="playerGraphDistributionStyle"><option value="bars">Bars</option><option value="line">Line</option></select></label>
                 <div class="graph-bucket-control" id="playerGraphBucketControl">
                   <span>Buckets</span>

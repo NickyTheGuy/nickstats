@@ -391,13 +391,21 @@
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, "Average kills"));
   }
 
-  function populateMetrics(select) {
-    if (select.options.length) return;
-    metrics.forEach(([group, entries]) => {
+  function metricChoices(category, query) {
+    const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+    return metrics.filter(([group]) => category === "All" || group === category || words.length).map(([group, entries]) => [group, entries.filter(([, label]) => words.every(word => `${group} ${label}`.toLocaleLowerCase().includes(word)))]).filter(([, entries]) => entries.length);
+  }
+
+  function populateMetrics(select, category, query) {
+    const selected = select.value;
+    select.replaceChildren();
+    metricChoices(category, query).forEach(([group, entries]) => {
       const optionGroup = document.createElement("optgroup"); optionGroup.label = group;
       entries.forEach(([id, label]) => { const option = document.createElement("option"); option.value = id; option.textContent = label; optionGroup.appendChild(option); });
       select.appendChild(optionGroup);
     });
+    if (selected && [...select.options].some(option => option.value === selected)) select.value = selected;
+    return select.value;
   }
 
   function draw(prefix) {
@@ -410,28 +418,38 @@
     const bucketControl = document.getElementById(`${prefix}GraphBucketControl`), bucketCount = document.getElementById(`${prefix}GraphBucketCount`);
     const bucketLess = document.getElementById(`${prefix}GraphBucketsLess`), bucketMore = document.getElementById(`${prefix}GraphBucketsMore`);
     if (!type || !metricSelect || !svg || !summary || !legend || !note) return;
-    const roundsMode = type.value === "rounds";
-    const metricControl = document.getElementById(`${prefix}GraphMetricControl`);
-    if (metricControl) metricControl.hidden = roundsMode;
+    const scope = document.getElementById(`${prefix}GraphScope`);
+    const supportsRounds = metricSelect.value === "kills";
+    const roundOption = scope?.querySelector('option[value="round"]');
+    if (roundOption) roundOption.disabled = !supportsRounds;
+    if (!supportsRounds && scope?.value === "round") scope.value = "match";
+    const roundsMode = scope?.value === "round";
+    const typeControl = document.getElementById(`${prefix}GraphTypeControl`);
+    if (typeControl) typeControl.hidden = roundsMode;
     const metric = registry.get(metricSelect.value) || registry.get("rating");
     const prepared = state.series.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
     const domainPrepared = state.domainSeries.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
     const roundPrepared = state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || []) })).filter(series => series.roundValues.length);
-    if (distributionStyleControl) distributionStyleControl.hidden = type.value !== "distribution";
-    if (bucketControl) bucketControl.hidden = type.value !== "distribution";
+    if (distributionStyleControl) distributionStyleControl.hidden = roundsMode || type.value !== "distribution";
+    if (bucketControl) bucketControl.hidden = roundsMode || type.value !== "distribution";
     if (bucketCount) bucketCount.textContent = String(state.bucketCount);
     if (bucketLess) bucketLess.disabled = state.bucketCount <= MIN_BUCKETS;
     if (bucketMore) bucketMore.disabled = state.bucketCount >= MAX_BUCKETS;
-    svg.setAttribute("viewBox", type.value === "distribution" ? "0 0 900 460" : "0 0 900 420");
+    svg.setAttribute("viewBox", !roundsMode && type.value === "distribution" ? "0 0 900 460" : "0 0 900 420");
     svg.replaceChildren(); summary.replaceChildren(); legend.replaceChildren();
-    const multiTrendNeedsDates = type.value === "trend" && state.independent && independentTrendNeedsDates(prepared);
+    if (!metricSelect.value) {
+      note.textContent = "Search all categories for a statistic.";
+      const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = "No statistics match this search."; summary.appendChild(empty);
+      return;
+    }
+    const multiTrendNeedsDates = !roundsMode && type.value === "trend" && state.independent && independentTrendNeedsDates(prepared);
     note.textContent = roundsMode
-      ? "Each point is the average kills in that exact numbered round, among matches where the player played it. Hover for the number of played rounds. Gaps mean no appearances; older demos need reparsing."
+      ? "Each point is average kills in that exact numbered round among matches where the player played it. Gaps mean no appearances; older demos need reparsing. By round currently supports Kills."
       : type.value === "distribution"
-      ? "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity."
+      ? "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity. By round is available for Kills."
       : multiTrendNeedsDates
         ? "Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for match order, or use Distribution for comparisons now."
-        : "Points follow match date when available and match order otherwise. Hover a point for its match and value.";
+        : "Points follow match date when available and match order otherwise. Hover a point for its match and value. By round is available for Kills.";
     if (!(roundsMode ? roundPrepared : prepared).length) {
       const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = roundsMode ? "No per-round data for these matches. Reparse older demos to add round data." : "No qualifying match samples for this statistic."; summary.appendChild(empty); return;
     }
@@ -465,10 +483,20 @@
   function render({ prefix, series, domainSeries = series, independent = false }) {
     const type = document.getElementById(`${prefix}GraphType`), metric = document.getElementById(`${prefix}GraphMetric`);
     if (!type || !metric) return;
-    populateMetrics(metric);
+    const category = document.getElementById(`${prefix}GraphCategory`), search = document.getElementById(`${prefix}GraphSearch`);
+    if (category && !category.options.length) {
+      ["All", ...metrics.map(([group]) => group)].forEach(group => {
+        const option = document.createElement("option"); option.value = group; option.textContent = group === "All" ? "All categories" : group; category.appendChild(option);
+      });
+      category.value = "Core";
+    }
+    populateMetrics(metric, category?.value || "All", search?.value || "");
     const previous = graphState.get(prefix);
     if (!previous) {
       type.addEventListener("change", () => draw(prefix)); metric.addEventListener("change", () => draw(prefix));
+      document.getElementById(`${prefix}GraphScope`)?.addEventListener("change", () => draw(prefix));
+      category?.addEventListener("change", () => { if (search) search.value = ""; populateMetrics(metric, category.value, ""); draw(prefix); });
+      search?.addEventListener("input", () => { populateMetrics(metric, category?.value || "All", search.value); draw(prefix); });
       document.getElementById(`${prefix}GraphDistributionStyle`)?.addEventListener("change", () => draw(prefix));
       document.getElementById(`${prefix}GraphBucketsLess`)?.addEventListener("click", () => {
         const current = graphState.get(prefix); current.bucketCount = Math.max(MIN_BUCKETS, current.bucketCount - 1); draw(prefix);
@@ -480,5 +508,5 @@
     graphState.set(prefix, { series: series || [], domainSeries: domainSeries || series || [], independent, bucketCount: previous?.bucketCount || DEFAULT_BUCKETS }); draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, render });
 })();

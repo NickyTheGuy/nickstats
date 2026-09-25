@@ -10,7 +10,17 @@ const context = vm.createContext({ window: {}, document: {} });
 vm.runInContext(availabilitySource, context);
 vm.runInContext(source, context);
 
-const { metrics, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds } = context.window.NickStatsGraphs;
+const { metrics, metricChoices, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds } = context.window.NickStatsGraphs;
+
+test("graph categories keep the selector small and search across categories", () => {
+  const core = metricChoices("Core", "");
+  assert.equal(core.length, 1);
+  assert.equal(core[0][0], "Core");
+  assert.ok(core[0][1].some(([id]) => id === "kills"));
+  const search = metricChoices("Core", "flash assists");
+  assert.ok(search.some(([group, entries]) => group === "Utility" && entries.some(([id]) => id === "flash_assists_r")));
+  assert.equal(metricChoices("Core", "unfindable statistic").length, 0);
+});
 
 const match = {
   id: 8,
