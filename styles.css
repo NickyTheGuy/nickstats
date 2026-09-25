@@ -3329,7 +3329,16 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .graph-stat-suggestions small { color: var(--muted); white-space: nowrap; }
 .graph-stat-suggestions p { padding: 8px; }
 .graph-bucket-control[hidden] { display: none; }
-.graph-bucket-control > div {
+.graph-bucket-settings { display: flex; align-items: center; gap: 8px; }
+.graph-bucket-settings > .stats-dropdown { width: 140px; }
+.graph-bucket-control small { max-width: 340px; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: normal; line-height: 1.35; text-transform: none; }
+.graph-bucket-control input {
+  box-sizing: border-box; width: min(250px, 60vw); height: 38px; padding: 7px 10px;
+  border: 1px solid var(--line-strong); border-radius: 9px;
+  background: var(--surface); color: var(--text); font: inherit; letter-spacing: normal; text-transform: none;
+}
+.graph-bucket-control input[aria-invalid="true"] { border-color: var(--red); }
+.graph-bucket-control .graph-bucket-stepper {
   box-sizing: border-box;
   display: grid;
   grid-template-columns: 38px 42px 38px;
@@ -3339,17 +3348,18 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   border-radius: 9px;
   background: var(--surface);
 }
-.graph-bucket-control button {
+.graph-bucket-control .graph-bucket-stepper[hidden] { display: none; }
+.graph-bucket-stepper button {
   border: 0;
   background: transparent;
   color: var(--muted);
   font-size: 18px;
   font-weight: 800;
 }
-.graph-bucket-control button:hover,
-.graph-bucket-control button:focus-visible { background: var(--accent-wash); color: var(--text); }
-.graph-bucket-control button:disabled { background: transparent; color: var(--muted); cursor: default; }
-.graph-bucket-control output { display: grid; place-items: center; border-right: 1px solid var(--line); border-left: 1px solid var(--line); color: var(--text); font-size: 12px; letter-spacing: normal; }
+.graph-bucket-stepper button:hover,
+.graph-bucket-stepper button:focus-visible { background: var(--accent-wash); color: var(--text); }
+.graph-bucket-stepper button:disabled { background: transparent; color: var(--muted); cursor: default; }
+.graph-bucket-stepper output { display: grid; place-items: center; border-right: 1px solid var(--line); border-left: 1px solid var(--line); color: var(--text); font-size: 12px; letter-spacing: normal; }
 .graph-series-bar { opacity: .78; transition: opacity .14s ease; }
 .graph-series-bar:hover { opacity: 1; }
 .player-graph-builder p { max-width: 520px; margin: 0; color: var(--muted); font-size: 12px; }

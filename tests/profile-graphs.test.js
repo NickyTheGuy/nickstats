@@ -10,7 +10,15 @@ const context = vm.createContext({ window: {}, document: {} });
 vm.runInContext(availabilitySource, context);
 vm.runInContext(source, context);
 
-const { metrics, metricChoices, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds } = context.window.NickStatsGraphs;
+const { metrics, metricChoices, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseCutoffs } = context.window.NickStatsGraphs;
+
+test("custom cutoffs accept ordered numeric edges and reject ambiguous ranges", () => {
+  assert.deepEqual(Array.from(parseCutoffs("5, 10, 15").cuts), [5, 10, 15]);
+  assert.deepEqual(Array.from(parseCutoffs("-1.5, 0, .75").cuts), [-1.5, 0, .75]);
+  for (const input of ["", "5, 5", "10, 5", "5,", "5, Infinity", "1; 2"]) {
+    assert.ok(parseCutoffs(input).error, input);
+  }
+});
 
 test("graph categories keep the selector small and search across categories", () => {
   const core = metricChoices("Core", "");
