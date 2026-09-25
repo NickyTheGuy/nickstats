@@ -51,49 +51,6 @@
     return { name: team.name || `Team ${teamIndex + 1}`, points };
   }
 
-  function renderDifferential(target, payload, filters, viewerSteamID) {
-    const { name, points } = matchDifferential(payload, viewerSteamID);
-    const visible = points.filter(point => phaseMatches(point.round, filters.phase || "ALL"));
-    if (!visible.length) {
-      const empty = document.createElement("p"); empty.className = "graph-empty";
-      empty.textContent = "Round results are unavailable for this phase. Reparse older demos to add round data.";
-      target.appendChild(empty); return;
-    }
-    const svgNS = "http://www.w3.org/2000/svg";
-    const element = (tag, attributes = {}, label) => {
-      const node = document.createElementNS(svgNS, tag);
-      Object.entries(attributes).forEach(([key, value]) => node.setAttribute(key, value));
-      if (label != null) node.textContent = label;
-      return node;
-    };
-    const svg = element("svg", { viewBox: "0 0 900 360", role: "img", "aria-label": `${name} round differential by round` });
-    const left = 68, top = 26, width = 796, height = 270;
-    const low = Math.min(0, ...visible.map(point => point.value)), high = Math.max(0, ...visible.map(point => point.value));
-    const extent = Math.max(1, Math.abs(low), Math.abs(high));
-    const firstRound = visible[0].round, lastRound = visible.at(-1).round;
-    const x = round => left + width * (lastRound === firstRound ? .5 : (round - firstRound) / (lastRound - firstRound));
-    const y = value => top + height * (extent - value) / (2 * extent);
-    for (let tick = -extent; tick <= extent; tick += Math.max(1, Math.ceil(extent / 4))) {
-      svg.appendChild(element("line", { x1: left, y1: y(tick), x2: left + width, y2: y(tick), class: tick === 0 ? "graph-axis" : "graph-grid-line" }));
-      svg.appendChild(element("text", { x: left - 10, y: y(tick) + 4, class: "graph-axis-label", "text-anchor": "end" }, tick > 0 ? `+${tick}` : String(tick)));
-    }
-    svg.appendChild(element("line", { x1: left, y1: top, x2: left, y2: top + height, class: "graph-axis" }));
-    for (let round = firstRound; round <= lastRound; round += 1) {
-      if (round === 13 || round === 25) svg.appendChild(element("line", { x1: x(round), y1: top, x2: x(round), y2: top + height, class: "graph-bucket-divider" }));
-      if (round === firstRound || round === lastRound || round % Math.max(1, Math.ceil((lastRound - firstRound + 1) / 24)) === 0)
-        svg.appendChild(element("text", { x: x(round), y: top + height + 20, class: "graph-bucket-label", "text-anchor": "middle" }, String(round)));
-    }
-    svg.appendChild(element("polyline", { points: visible.map(point => `${x(point.round)},${y(point.value)}`).join(" "), class: "graph-series-line", stroke: "#d18c00" }));
-    visible.forEach(point => {
-      const dot = element("circle", { cx: x(point.round), cy: y(point.value), r: 5, fill: point.value < 0 ? "#bd343e" : "#d18c00", class: "graph-point" });
-      dot.appendChild(element("title", {}, `Round ${point.round}: ${name} ${point.forScore}–${point.againstScore} (${point.value > 0 ? "+" : ""}${point.value})`));
-      svg.appendChild(dot);
-    });
-    svg.appendChild(element("text", { x: 450, y: 346, class: "graph-axis-title", "text-anchor": "middle" }, "Round number"));
-    const frame = document.createElement("div"); frame.className = "round-differential-frame";
-    frame.appendChild(svg); target.appendChild(frame);
-  }
-
   function averages(matches, filters = {}, metric = "kills") {
     const totals = new Map();
     for (const match of matches || []) for (const row of match.round_kills || []) {
@@ -114,58 +71,44 @@
     return finite(slice.stats?.kda?.[{ kills: 0, deaths: 1, damage: 4 }[metric]]);
   }
 
-  function render(target, payload, metric = "kills", filters = {}, viewerSteamID = null) {
+  function render(target, payload, metric = "kills", filters = {}, viewerSteamID = null, selectedPlayers = null, displayStyle = "line") {
     target.replaceChildren();
-    if (metric === "differential") { renderDifferential(target, payload, filters, viewerSteamID); return; }
     const players = payload?.players || [];
-    const rounds = Math.max(0, ...players.flatMap(player => (player.round_slices || []).map(row => finite(row.round))));
-    if (!rounds) {
-      const empty = document.createElement("p");
-      empty.className = "graph-empty";
-      empty.textContent = "Round data is unavailable for this match. Reparse the demo to build its timeline.";
-      target.appendChild(empty);
-      return;
+    const roundCount = finite(payload?.rounds);
+    const series = metric === "differential"
+      ? (() => {
+          const { name, points } = matchDifferential(payload, viewerSteamID);
+          return [{ label: name, colorIndex: 1, roundValues: points.filter(point => phaseMatches(point.round, filters.phase || "ALL")) }];
+        })()
+      : (payload?.teams || []).flatMap(team => team.players || []).filter((index, position, all) => all.indexOf(index) === position)
+        .filter(index => selectedPlayers == null || selectedPlayers.has(index)).map(index => ({
+          label: players[index]?.name || `Player ${index + 1}`, colorIndex: index,
+          roundValues: (players[index]?.round_slices || []).filter(row => matchesFilters(row, filters))
+            .map(row => ({ round: row.round, value: metricValue(row, metric) }))
+            .filter(row => Number.isInteger(row.round) && row.round > 0)
+            .sort((a, b) => a.round - b.round)
+        }));
+    const visible = series.filter(item => item.roundValues.length);
+    if (!visible.length) {
+      const empty = document.createElement("p"); empty.className = "graph-empty";
+      empty.textContent = metric === "differential"
+        ? "Round results are unavailable for this phase. Reparse older demos to add round data."
+        : selectedPlayers?.size === 0 ? "Select a player to see the timeline."
+          : "No per-round data for the selected players and filters. Reparse older demos to add round data.";
+      target.appendChild(empty); return;
     }
-    const visibleRounds = Array.from({ length: rounds }, (_, index) => index + 1).filter(round => phaseMatches(round, filters.phase || "ALL"));
-    const table = document.createElement("table"); table.className = "round-timeline-table";
-    const caption = document.createElement("caption"); caption.textContent = `${metrics[metric]} by player and exact round`; table.appendChild(caption);
-    const head = document.createElement("thead"), headers = document.createElement("tr");
-    const playerHeader = document.createElement("th"); playerHeader.scope = "col"; playerHeader.textContent = "Player"; headers.appendChild(playerHeader);
-    visibleRounds.forEach(round => {
-      const th = document.createElement("th"); th.scope = "col"; th.textContent = String(round);
-      if (round === 13 || round === 25) th.className = "round-timeline-boundary";
-      th.title = round > 24 ? `Overtime round ${round}` : `Regulation round ${round}`;
-      headers.appendChild(th);
-    });
-    head.appendChild(headers); table.appendChild(head);
-    const body = document.createElement("tbody");
-    (payload.teams || []).forEach((team, teamIndex) => {
-      const teamRow = document.createElement("tr"), teamCell = document.createElement("th");
-      teamCell.colSpan = visibleRounds.length + 1; teamCell.className = "round-timeline-team";
-      teamCell.textContent = team.name || `Team ${teamIndex + 1}`; teamRow.appendChild(teamCell); body.appendChild(teamRow);
-      (team.players || []).forEach(index => {
-        const player = players[index]; if (!player) return;
-        const slices = new Map((player.round_slices || []).filter(row => matchesFilters(row, filters)).map(row => [row.round, row]));
-        const row = document.createElement("tr"), name = document.createElement("th"); name.scope = "row"; name.textContent = player.name || "Unknown player"; row.appendChild(name);
-        visibleRounds.forEach(round => {
-          const cell = document.createElement("td"), slice = slices.get(round);
-          if (round === 13 || round === 25) cell.classList.add("round-timeline-boundary");
-          if (slice) {
-            const value = metricValue(slice, metric);
-            cell.textContent = value ? String(value) : "·";
-            cell.classList.add(value ? "round-timeline-active" : "round-timeline-zero");
-            cell.style.setProperty("--round-intensity", String(Math.min(.78, .12 + value / (metric === "damage" ? 150 : 3) * .55)));
-            cell.title = `${player.name || "Player"}, round ${round}: ${value} ${metrics[metric].toLowerCase()}`;
-          } else { cell.textContent = "–"; cell.title = `${player.name || "Player"}, round ${round}: no qualifying participation`; }
-          row.appendChild(cell);
-        });
-        body.appendChild(row);
-      });
-    });
-    table.appendChild(body);
-    const scroller = document.createElement("div"); scroller.className = "round-timeline-scroll"; scroller.tabIndex = 0;
-    scroller.setAttribute("aria-label", "Round timeline, scroll horizontally for later rounds");
-    scroller.appendChild(table); target.appendChild(scroller);
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", "0 0 900 420");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", `${metrics[metric]} by exact match round`);
+    const firstRound = filters.phase === "OVERTIME" ? 25 : 1;
+    const maxRound = filters.phase === "REGULATION" ? Math.min(24, roundCount) : roundCount;
+    window.NickStatsGraphs.drawRoundSeries(svg, visible, {
+      id: metric === "differential" ? "round_diff" : metric,
+      label: metrics[metric], digits: 0, suffix: ""
+    }, displayStyle, { exact: true, firstRound, maxRound });
+    const frame = document.createElement("div"); frame.className = "round-timeline-graph-frame";
+    frame.appendChild(svg); target.appendChild(frame);
   }
   window.NickStatsRoundTimeline = Object.freeze({ metrics, metricValue, matchesFilters, withDifferentials, matchDifferential, averages, render });
 })();

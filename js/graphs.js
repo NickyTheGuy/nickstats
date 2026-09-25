@@ -2,7 +2,7 @@
   "use strict";
 
   const SVG_NS = "http://www.w3.org/2000/svg";
-  const colors = ["#455f97", "#d18c00", "#168a77", "#9d51ba", "#bd343e"];
+  const colors = ["#455f97", "#d18c00", "#168a77", "#9d51ba", "#bd343e", "#067daa", "#a0522d", "#667b13", "#d05c95", "#555a6c"];
   const MIN_BUCKETS = 4;
   const MAX_BUCKETS = 24;
   const DEFAULT_BUCKETS = 10;
@@ -365,24 +365,25 @@
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, metric.label));
   }
 
-  function drawRounds(svg, prepared, metric, displayStyle = "line") {
+  function drawRounds(svg, prepared, metric, displayStyle = "line", { exact = false, firstRound = 1, maxRound = 0 } = {}) {
     const all = prepared.flatMap(series => series.roundValues);
-    const lastRound = Math.max(...all.map(point => point.round));
+    const lastRound = Math.max(maxRound, ...all.map(point => point.round));
     const minValue = Math.min(0, ...all.map(point => point.value)), maxValue = Math.max(0, ...all.map(point => point.value));
     const range = minValue === maxValue ? 1 : maxValue - minValue;
     const left = 68, top = 24, width = 796, height = 318;
-    const averageMetric = { ...metric, digits: metric.id === "damage" || metric.id === "adr" ? 1 : 2 };
-    drawAxes(svg, { left, top, width, height, min: minValue, max: minValue + range, metric: averageMetric });
-    const xFor = round => left + width * (round - 1) / Math.max(1, lastRound - 1);
+    const averageMetric = { ...metric, digits: exact ? 0 : metric.id === "damage" || metric.id === "adr" ? 1 : 2 };
+    const axisMetric = exact && range < 4 ? { ...averageMetric, digits: 1 } : averageMetric;
+    drawAxes(svg, { left, top, width, height, min: minValue, max: minValue + range, metric: axisMetric });
+    const xFor = round => left + width * (lastRound === firstRound ? .5 : (round - firstRound) / (lastRound - firstRound));
     const yFor = value => top + height - height * (value - minValue) / range;
     const zeroY = yFor(0);
     if (metric.id === "round_diff") setLine(svg, left, zeroY, left + width, zeroY, "graph-zero-line");
-    const barWidth = Math.max(1, Math.min(22, width / Math.max(1, lastRound * prepared.length) * .8));
-    const tickStep = lastRound <= 36 ? 1 : Math.ceil(lastRound / 36);
-    for (let round = 1; round <= lastRound; round += 1) {
+    const barWidth = Math.max(1, Math.min(22, width / Math.max(1, (lastRound - firstRound + 1) * prepared.length) * .8));
+    const tickStep = lastRound - firstRound <= 36 ? 1 : Math.ceil((lastRound - firstRound + 1) / 36);
+    for (let round = firstRound; round <= lastRound; round += 1) {
       const x = xFor(round);
       if (round === 13 || round === 25) setLine(svg, x, top, x, top + height, "graph-bucket-divider");
-      if (round === 1 || round === lastRound || round % tickStep === 0) {
+      if (round === firstRound || round === lastRound || round % tickStep === 0) {
         svg.appendChild(svgElement("text", { x, y: top + height + 19, class: "graph-bucket-label", "text-anchor": "middle" }, String(round)));
       }
     }
@@ -408,11 +409,12 @@
           : svgElement("circle", { cx: x, cy: y, r: 4, fill: color, class: "graph-point" });
         svg.appendChild(mark);
         const signed = metric.id === "round_diff" && point.value > 0 ? "+" : "";
-        attachTooltip(svg, mark, `${series.label} · Round ${point.round}: ${signed}${format(point.value, averageMetric)} ${roundLabel(metric)} (${point.appearances} played)`, x, y);
+        const detail = exact ? point.forScore != null ? ` · ${point.forScore}–${point.againstScore}` : "" : ` (${point.appearances} played)`;
+        attachTooltip(svg, mark, `${series.label} · Round ${point.round}: ${signed}${format(point.value, averageMetric)} ${roundLabel(metric)}${detail}`, x, y);
       });
     });
     svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, "Round number"));
-    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Average ${roundLabel(metric)}`));
+    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `${exact ? "" : "Average "}${roundLabel(metric)}`));
   }
 
   function metricChoices(category, query) {
@@ -601,5 +603,5 @@
     draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, drawRoundSeries: drawRounds, render });
 })();

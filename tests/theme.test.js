@@ -32,7 +32,7 @@ test("statistic highlights use the warm high-differentiation semantic palette", 
   assert.match(styles, /\.opening-cell \{ background: rgba\(225, 153, 24, \.18\); \}/);
   assert.match(styles, /\.killContext-cell \{ background: rgba\(225, 82, 30, \.18\); \}/);
   assert.match(styles, /\.clutches-cell \{ background: rgba\(112, 155, 52, \.10\); \}/);
-  assert.match(graphs, /\["#455f97", "#d18c00", "#168a77", "#9d51ba", "#bd343e"\]/);
+  assert.match(graphs, /\["#455f97", "#d18c00", "#168a77", "#9d51ba", "#bd343e",/);
 });
 
 test("match scoreboard follows the player profile section order", () => {

@@ -58,6 +58,8 @@
     roundResultFilter: "ALL",
     roundPhaseFilter: "ALL",
     resultView: "scoreboard",
+    timelineMatchKey: null,
+    timelineSelectedPlayers: new Set(),
     expandedWeaponPlayers: new Set(),
     weaponSorts: new Map()
   };
@@ -2820,6 +2822,37 @@
     });
   }
 
+  function renderTimeline(result) {
+    const payload = state.storedPayload || compactMatchResult(result);
+    const players = payload.players || [];
+    const indices = (payload.teams || []).flatMap(team => team.players || []).filter((index, position, all) => all.indexOf(index) === position);
+    const key = payload.id?.faceit || payload.id?.sha256 || state.selectedMatchID || result.demo_sha256;
+    if (state.timelineMatchKey !== key) {
+      state.timelineMatchKey = key;
+      const viewer = indices.find(index => players[index]?.steam_id === state.accountPlayerSteamID && state.accountPlayerSteamID);
+      state.timelineSelectedPlayers = new Set(viewer == null ? indices.slice(0, 1) : [viewer]);
+    }
+    const metric = $("demoTimelineMetric").value;
+    const picker = $("demoTimelinePlayerPicker"); picker.hidden = metric === "differential";
+    const choices = $("demoTimelinePlayerChoices"); choices.replaceChildren();
+    indices.forEach(index => {
+      const label = document.createElement("label"); label.className = "graph-player-choice match-timeline-player-choice";
+      label.style.setProperty("--series-color", window.NickStatsGraphs.colors[index % window.NickStatsGraphs.colors.length]);
+      const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.checked = state.timelineSelectedPlayers.has(index);
+      const name = document.createElement("span"); name.textContent = players[index]?.name || `Player ${index + 1}`;
+      checkbox.addEventListener("change", () => {
+        checkbox.checked ? state.timelineSelectedPlayers.add(index) : state.timelineSelectedPlayers.delete(index);
+        renderTimeline(result);
+      });
+      label.append(checkbox, name); choices.appendChild(label);
+    });
+    $("demoTimelinePlayerStatus").textContent = `${state.timelineSelectedPlayers.size} of ${indices.length} players selected`;
+    window.NickStatsRoundTimeline.render($("demoTimeline"), payload, metric, {
+      side: state.sideFilter, buy: state.buyFilter, opponentBuy: state.enemyBuyFilter,
+      result: state.roundResultFilter, phase: state.roundPhaseFilter, heroOnly: state.heroOnly
+    }, state.accountPlayerSteamID, state.timelineSelectedPlayers, $("demoTimelineDisplay").value);
+  }
+
   function render(result) {
     const teams = teamsForSide(result);
     renderMatchBanner(result);
@@ -2837,10 +2870,7 @@
     $("demoWeapons").replaceChildren(...teams.map(renderWeaponTeam));
     $("demoTrades").replaceChildren(renderTradeMatrix(teams));
     $("demoDuels").replaceChildren(renderDuelMatrix(teams));
-    window.NickStatsRoundTimeline.render($("demoTimeline"), state.storedPayload || compactMatchResult(result), $("demoTimelineMetric").value, {
-      side: state.sideFilter, buy: state.buyFilter, opponentBuy: state.enemyBuyFilter,
-      result: state.roundResultFilter, phase: state.roundPhaseFilter, heroOnly: state.heroOnly
-    }, state.accountPlayerSteamID);
+    renderTimeline(result);
     $("demoResults").hidden = false;
   }
 
@@ -3358,7 +3388,9 @@
   demoRoundResultControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-result]", valueFor: button => button.dataset.demoRoundResult, onChange: result => setRoundResultFilter(result) });
   demoRoundPhaseControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-phase]", valueFor: button => button.dataset.demoRoundPhase, onChange: phase => setRoundPhaseFilter(phase) });
   window.NickStatsDropdown.enhance($("demoTimelineMetric"));
-  $("demoTimelineMetric").addEventListener("change", () => { if (state.result) render(state.result); });
+  window.NickStatsDropdown.enhance($("demoTimelineDisplay"));
+  $("demoTimelineMetric").addEventListener("change", () => { if (state.result) renderTimeline(state.result); });
+  $("demoTimelineDisplay").addEventListener("change", () => { if (state.result) renderTimeline(state.result); });
   document.querySelectorAll("[data-demo-result-view]").forEach(button => {
     button.addEventListener("click", () => setResultView(button.dataset.demoResultView));
   });
