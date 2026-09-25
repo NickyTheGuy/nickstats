@@ -1611,6 +1611,10 @@
           name.textContent = label;
           const amount = document.createElement("strong");
           amount.textContent = value;
+          if (label === "Rating") {
+            const rating = Number(stats.rating);
+            amount.className = `demo-rating ${rating >= 1.10 ? "rating-good" : rating <= 0.90 ? "rating-bad" : "rating-average"}`;
+          }
           item.append(name, amount);
           preview.append(item);
         }
