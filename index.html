@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260924-12">
+  <link rel="stylesheet" href="./styles.css?v=20260924-13">
 </head>
 <body>
   <main class="shell">
@@ -83,7 +83,7 @@
 
         <div class="match-browser-view" id="matchListView" role="tabpanel" aria-labelledby="matchListTab">
           <div class="stats-toolbar match-library-filter">
-            <span>Map</span><div class="map-multiselect" id="matchMapFilter"></div>
+            <div class="stats-filter"><span>Map</span><div class="map-multiselect" id="matchMapFilter"></div></div>
             <div class="date-range-filter" id="matchDateFilter" role="group" aria-label="Match dates"></div>
           </div>
           <div class="match-list-status" id="matchListStatus" role="status" aria-live="polite">Loading stored matches…</div>
@@ -223,14 +223,14 @@
               <nav class="player-open-profiles unified-profile-tabs" id="comboProfilePlayers" role="tablist" aria-label="Included player profiles and quick comparison"></nav>
 
               <div class="stats-toolbar combo-profile-toolbar">
-                <span>Map</span><div class="map-multiselect" id="groupMapFilter"></div>
+                <div class="stats-filter"><span>Map</span><div class="map-multiselect" id="groupMapFilter"></div></div>
                 <div class="date-range-filter" id="groupDateFilter" role="group" aria-label="Group match dates"></div>
-                <span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div>
-                <span>Result</span><div class="side-toggle" role="group" aria-label="Profile match result"><button class="active" type="button" aria-pressed="true" data-combo-result="ALL">All</button><button type="button" aria-pressed="false" data-combo-result="w">Wins</button><button type="button" aria-pressed="false" data-combo-result="l">Losses</button></div>
-                <span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-group-side="ALL">All</button><button type="button" aria-pressed="false" data-group-side="T">T</button><button type="button" aria-pressed="false" data-group-side="CT">CT</button></div>
+                <div class="stats-filter"><span>Condition</span><div class="side-toggle combo-condition-toggle" role="group" aria-label="Lineup condition"><button class="active" type="button" aria-pressed="true" data-combo-condition="without">Without</button><button type="button" aria-pressed="false" data-combo-condition="with">With</button></div></div>
+                <div class="stats-filter"><span>Result</span><div class="side-toggle" role="group" aria-label="Profile match result"><button class="active" type="button" aria-pressed="true" data-combo-result="ALL">All</button><button type="button" aria-pressed="false" data-combo-result="w">Wins</button><button type="button" aria-pressed="false" data-combo-result="l">Losses</button></div></div>
+                <div class="stats-filter"><span>Side</span><div class="side-toggle" role="group" aria-label="Profile side"><button class="active" type="button" aria-pressed="true" data-group-side="ALL">All</button><button type="button" aria-pressed="false" data-group-side="T">T</button><button type="button" aria-pressed="false" data-group-side="CT">CT</button></div></div>
                 <div class="economy-matchup-filter"><span class="economy-matchup-title">Economy matchup</span><div class="economy-matchup-row"><span>Your buy</span><div class="side-toggle" role="group" aria-label="Profile own buy"><button class="active" type="button" aria-pressed="true" data-group-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-buy="full">Full</button><button type="button" aria-pressed="false" data-group-buy="force">Force</button><button type="button" aria-pressed="false" data-group-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-buy="pistol">Pistol</button></div></div><label class="hero-subfilter" id="groupHeroControl" hidden><input id="groupHeroOnly" type="checkbox"> Hero only <small>Only the player holding the lone rifle or AWP</small></label><div class="economy-matchup-row"><span>Enemy buy</span><div class="side-toggle" role="group" aria-label="Profile enemy buy"><button class="active" type="button" aria-pressed="true" data-group-enemy-buy="ALL">All</button><button type="button" aria-pressed="false" data-group-enemy-buy="full">Full</button><button type="button" aria-pressed="false" data-group-enemy-buy="force">Force</button><button type="button" aria-pressed="false" data-group-enemy-buy="eco">Eco</button><button type="button" aria-pressed="false" data-group-enemy-buy="pistol">Pistol</button></div></div></div>
-                <span>Rounds</span><div class="side-toggle" role="group" aria-label="Profile round result"><button class="active" type="button" aria-pressed="true" data-group-round-result="ALL">All</button><button type="button" aria-pressed="false" data-group-round-result="win">Won</button><button type="button" aria-pressed="false" data-group-round-result="loss">Lost</button></div>
-                <span>Phase</span><div class="side-toggle" role="group" aria-label="Group round phase"><button class="active" type="button" aria-pressed="true" data-group-round-phase="ALL">All</button><button type="button" aria-pressed="false" data-group-round-phase="REGULATION">Regulation</button><button type="button" aria-pressed="false" data-group-round-phase="OVERTIME">Overtime</button></div>
+                <div class="stats-filter"><span>Rounds</span><div class="side-toggle" role="group" aria-label="Profile round result"><button class="active" type="button" aria-pressed="true" data-group-round-result="ALL">All</button><button type="button" aria-pressed="false" data-group-round-result="win">Won</button><button type="button" aria-pressed="false" data-group-round-result="loss">Lost</button></div></div>
+                <div class="stats-filter"><span>Phase</span><div class="side-toggle" role="group" aria-label="Group round phase"><button class="active" type="button" aria-pressed="true" data-group-round-phase="ALL">All</button><button type="button" aria-pressed="false" data-group-round-phase="REGULATION">Regulation</button><button type="button" aria-pressed="false" data-group-round-phase="OVERTIME">Overtime</button></div></div>
               </div>
 
               <div class="combo-display-panel" data-combo-display-panel="profile">
@@ -285,21 +285,18 @@
           <nav class="player-open-profiles unified-profile-tabs" id="playerOpenProfiles" role="tablist" aria-label="Open player profiles and quick comparison" hidden></nav>
 
           <div class="stats-toolbar" id="playerStatsToolbar">
-            <span>Map</span>
-            <div class="map-multiselect" id="playerMapFilter"></div>
+            <div class="stats-filter"><span>Map</span><div class="map-multiselect" id="playerMapFilter"></div></div>
             <div class="date-range-filter" id="playerDateFilter" role="group" aria-label="Player match dates"></div>
-            <span>Result</span>
-            <div class="side-toggle" role="group" aria-label="Player match result">
+            <div class="stats-filter"><span>Result</span><div class="side-toggle" role="group" aria-label="Player match result">
               <button class="active" type="button" aria-pressed="true" data-player-result="ALL">All</button>
               <button type="button" aria-pressed="false" data-player-result="w">Wins</button>
               <button type="button" aria-pressed="false" data-player-result="l">Losses</button>
-            </div>
-            <span>Side</span>
-            <div class="side-toggle" role="group" aria-label="Player side">
+            </div></div>
+            <div class="stats-filter"><span>Side</span><div class="side-toggle" role="group" aria-label="Player side">
               <button class="active" type="button" aria-pressed="true" data-player-side="ALL">All</button>
               <button type="button" aria-pressed="false" data-player-side="T">T</button>
               <button type="button" aria-pressed="false" data-player-side="CT">CT</button>
-            </div>
+            </div></div>
             <div class="economy-matchup-filter">
               <span class="economy-matchup-title">Economy matchup</span>
               <div class="economy-matchup-row"><span>Your buy</span><div class="side-toggle" role="group" aria-label="Player own buy">
@@ -318,17 +315,16 @@
                 <button type="button" aria-pressed="false" data-player-enemy-buy="pistol">Pistol</button>
               </div></div>
             </div>
-            <span>Rounds</span>
-            <div class="side-toggle" role="group" aria-label="Player round result">
+            <div class="stats-filter"><span>Rounds</span><div class="side-toggle" role="group" aria-label="Player round result">
               <button class="active" type="button" aria-pressed="true" data-player-round-result="ALL">All</button>
               <button type="button" aria-pressed="false" data-player-round-result="win">Won</button>
               <button type="button" aria-pressed="false" data-player-round-result="loss">Lost</button>
-            </div>
-            <span>Phase</span><div class="side-toggle" role="group" aria-label="Player round phase">
+            </div></div>
+            <div class="stats-filter"><span>Phase</span><div class="side-toggle" role="group" aria-label="Player round phase">
               <button class="active" type="button" aria-pressed="true" data-player-round-phase="ALL">All</button>
               <button type="button" aria-pressed="false" data-player-round-phase="REGULATION">Regulation</button>
               <button type="button" aria-pressed="false" data-player-round-phase="OVERTIME">Overtime</button>
-            </div>
+            </div></div>
           </div>
           <div class="panel player-profile player-display-panel" data-player-display-panel="profile">
           <header class="player-profile-header">
