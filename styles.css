@@ -2601,6 +2601,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .map-filter-menu { position: relative; }
 
 .map-filter-menu > summary {
+  position: relative;
   min-height: 36px;
   padding: 9px 34px 8px 11px;
   border: 1px solid var(--line-strong);
