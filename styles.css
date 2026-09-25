@@ -3229,9 +3229,13 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   background: rgba(32, 26, 29, .03);
 }
 
-.player-graph-controls { display: flex; gap: 10px; flex-wrap: wrap; }
-.player-graph-controls label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.player-graph-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+.player-graph-controls label,
+.graph-statistic-field { display: grid; gap: 4px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
 .player-graph-controls label[hidden] { display: none; }
+.graph-stat-controls { display: flex; align-items: end; gap: 10px; max-width: 100%; }
+.graph-statistic-field { position: relative; min-width: 250px; }
+.graph-statistic-field > label { display: block; }
 .player-graph-controls select {
   min-width: 170px;
   min-height: 38px;
@@ -3244,11 +3248,9 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   letter-spacing: normal;
   text-transform: none;
 }
-.player-graph-controls #playerGraphMetric,
-.player-graph-controls #comboGraphMetric { min-width: 250px; }
-.player-graph-controls input[type="search"] {
+.player-graph-controls .graph-statistic-field input[type="search"] {
   box-sizing: border-box;
-  min-width: 200px;
+  width: 100%;
   min-height: 38px;
   padding: 7px 10px;
   border: 1px solid var(--line-strong);
@@ -3259,6 +3261,27 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   letter-spacing: normal;
   text-transform: none;
 }
+.graph-stat-suggestions {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% + 5px);
+  left: 0;
+  width: max(100%, 320px);
+  max-width: min(430px, calc(100vw - 32px));
+  max-height: 300px;
+  overflow: auto;
+  padding: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .2);
+}
+.graph-stat-suggestions[hidden] { display: none; }
+.graph-stat-suggestions button { display: flex; width: 100%; justify-content: space-between; gap: 12px; padding: 8px; border: 0; border-radius: 6px; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
+.graph-stat-suggestions button:hover,
+.graph-stat-suggestions button[aria-selected="true"] { background: var(--accent-wash); }
+.graph-stat-suggestions small { color: var(--muted); white-space: nowrap; }
+.graph-stat-suggestions p { padding: 8px; }
 .graph-bucket-control { display: grid; gap: 4px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
 .graph-bucket-control[hidden] { display: none; }
 .graph-bucket-control > div {
@@ -3419,9 +3442,10 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   .graph-player-choices { justify-content: flex-start; }
   .player-graph-builder { align-items: stretch; flex-direction: column; }
   .player-graph-controls { display: grid; grid-template-columns: 1fr; }
+  .graph-stat-controls { width: 100%; }
+  .graph-stat-controls > label,
+  .graph-statistic-field { min-width: 0; flex: 1; }
   .player-graph-controls select,
-  .player-graph-controls #playerGraphMetric,
-  .player-graph-controls #comboGraphMetric,
   .player-graph-controls input[type="search"] { width: 100%; min-width: 0; }
   .app-hero {
     align-items: start;

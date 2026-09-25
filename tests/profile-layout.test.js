@@ -10,6 +10,13 @@ const profile = fs.readFileSync(path.join(__dirname, "..", "js", "profile.js"), 
 const players = fs.readFileSync(path.join(__dirname, "..", "js", "players.js"), "utf8");
 const demo = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), "utf8");
 
+test("graph statistic search stays beside its category and the view follows it", () => {
+  assert.match(html, /class="graph-stat-controls"[\s\S]*?id="playerGraphCategory"[\s\S]*?id="playerGraphMetric"[^>]*role="combobox"[\s\S]*?id="playerGraphSuggestions"[\s\S]*?<\/div>\s*<label>View/);
+  assert.match(html, /<option value="match">Match by match<\/option><option value="round">Round by round<\/option>/);
+  assert.doesNotMatch(html, /id="playerGraphSearch"/);
+  assert.match(profile, /component\.querySelectorAll\("\[for\], \[aria-controls\]"\)/);
+});
+
 test("player match history loads only when its profile tab is opened", () => {
   assert.match(html, /data-player-view="matches">Matches<\/button>/);
   assert.match(html, /data-player-profile-view="matches"[\s\S]*?id="playerMatchesList"/);

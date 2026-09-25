@@ -396,37 +396,78 @@
     return metrics.filter(([group]) => category === "All" || group === category || words.length).map(([group, entries]) => [group, entries.filter(([, label]) => words.every(word => `${group} ${label}`.toLocaleLowerCase().includes(word)))]).filter(([, entries]) => entries.length);
   }
 
-  function populateMetrics(select, category, query) {
-    const selected = select.value;
-    select.replaceChildren();
-    metricChoices(category, query).forEach(([group, entries]) => {
-      const optionGroup = document.createElement("optgroup"); optionGroup.label = group;
-      entries.forEach(([id, label]) => { const option = document.createElement("option"); option.value = id; option.textContent = label; optionGroup.appendChild(option); });
-      select.appendChild(optionGroup);
+  function closeSuggestions(prefix) {
+    const state = graphState.get(prefix), input = document.getElementById(`${prefix}GraphMetric`);
+    const list = document.getElementById(`${prefix}GraphSuggestions`), category = document.getElementById(`${prefix}GraphCategory`);
+    if (!state || !input || !list) return;
+    input.value = registry.get(state.metricId).label;
+    input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant");
+    if (category) category.value = state.category;
+    list.hidden = true; list.replaceChildren(); state.suggestions = []; state.suggestionIndex = -1;
+  }
+
+  function selectMetric(prefix, id) {
+    const state = graphState.get(prefix), metric = registry.get(id);
+    if (!state || !metric) return;
+    state.metricId = id;
+    const category = document.getElementById(`${prefix}GraphCategory`);
+    if (category) state.category = category.value === "All" ? "All" : metric.group;
+    closeSuggestions(prefix); draw(prefix);
+  }
+
+  function showSuggestions(prefix, query = "") {
+    const state = graphState.get(prefix), input = document.getElementById(`${prefix}GraphMetric`);
+    const list = document.getElementById(`${prefix}GraphSuggestions`), category = document.getElementById(`${prefix}GraphCategory`);
+    if (!state || !input || !list) return;
+    const choices = metricChoices(category?.value || "All", query).flatMap(([group, entries]) => entries.map(([id, label]) => ({ id, label, group })));
+    state.suggestions = choices.slice(0, 30); state.suggestionIndex = -1;
+    list.replaceChildren(); list.hidden = false;
+    input.setAttribute("aria-expanded", "true"); input.removeAttribute("aria-activedescendant");
+    if (!state.suggestions.length) {
+      const empty = document.createElement("p"); empty.textContent = "No matching statistics"; list.appendChild(empty);
+    }
+    state.suggestions.forEach((choice, index) => {
+      const button = document.createElement("button"); button.type = "button"; button.id = `${prefix}GraphSuggestion${index}`;
+      button.setAttribute("role", "option"); button.setAttribute("aria-selected", "false");
+      const name = document.createElement("span"); name.textContent = choice.label;
+      const group = document.createElement("small"); group.textContent = choice.group;
+      button.append(name, group);
+      button.addEventListener("click", () => selectMetric(prefix, choice.id)); list.appendChild(button);
     });
-    if (selected && [...select.options].some(option => option.value === selected)) select.value = selected;
-    return select.value;
+  }
+
+  function moveSuggestion(prefix, amount) {
+    const state = graphState.get(prefix), input = document.getElementById(`${prefix}GraphMetric`);
+    if (!state?.suggestions.length) return;
+    state.suggestionIndex = state.suggestionIndex < 0
+      ? amount > 0 ? 0 : state.suggestions.length - 1
+      : (state.suggestionIndex + amount + state.suggestions.length) % state.suggestions.length;
+    const list = document.getElementById(`${prefix}GraphSuggestions`);
+    [...list.querySelectorAll('[role="option"]')].forEach((button, index) => button.setAttribute("aria-selected", String(index === state.suggestionIndex)));
+    const active = document.getElementById(`${prefix}GraphSuggestion${state.suggestionIndex}`);
+    input.setAttribute("aria-activedescendant", active.id);
+    active.scrollIntoView({ block: "nearest" });
   }
 
   function draw(prefix) {
     const state = graphState.get(prefix); if (!state) return;
-    const type = document.getElementById(`${prefix}GraphType`), metricSelect = document.getElementById(`${prefix}GraphMetric`);
+    const type = document.getElementById(`${prefix}GraphType`), metricInput = document.getElementById(`${prefix}GraphMetric`);
     const svg = document.getElementById(`${prefix}GraphSvg`), summary = document.getElementById(`${prefix}GraphSummary`);
     const legend = document.getElementById(`${prefix}GraphLegend`), note = document.getElementById(`${prefix}GraphNote`);
     const distributionStyleControl = document.getElementById(`${prefix}GraphDistributionStyleControl`);
     const distributionStyle = document.getElementById(`${prefix}GraphDistributionStyle`);
     const bucketControl = document.getElementById(`${prefix}GraphBucketControl`), bucketCount = document.getElementById(`${prefix}GraphBucketCount`);
     const bucketLess = document.getElementById(`${prefix}GraphBucketsLess`), bucketMore = document.getElementById(`${prefix}GraphBucketsMore`);
-    if (!type || !metricSelect || !svg || !summary || !legend || !note) return;
+    if (!type || !metricInput || !svg || !summary || !legend || !note) return;
     const scope = document.getElementById(`${prefix}GraphScope`);
-    const supportsRounds = metricSelect.value === "kills";
+    const supportsRounds = state.metricId === "kills";
     const roundOption = scope?.querySelector('option[value="round"]');
     if (roundOption) roundOption.disabled = !supportsRounds;
     if (!supportsRounds && scope?.value === "round") scope.value = "match";
     const roundsMode = scope?.value === "round";
     const typeControl = document.getElementById(`${prefix}GraphTypeControl`);
     if (typeControl) typeControl.hidden = roundsMode;
-    const metric = registry.get(metricSelect.value) || registry.get("rating");
+    const metric = registry.get(state.metricId) || registry.get("rating");
     const prepared = state.series.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
     const domainPrepared = state.domainSeries.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
     const roundPrepared = state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || []) })).filter(series => series.roundValues.length);
@@ -437,19 +478,14 @@
     if (bucketMore) bucketMore.disabled = state.bucketCount >= MAX_BUCKETS;
     svg.setAttribute("viewBox", !roundsMode && type.value === "distribution" ? "0 0 900 460" : "0 0 900 420");
     svg.replaceChildren(); summary.replaceChildren(); legend.replaceChildren();
-    if (!metricSelect.value) {
-      note.textContent = "Search all categories for a statistic.";
-      const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = "No statistics match this search."; summary.appendChild(empty);
-      return;
-    }
     const multiTrendNeedsDates = !roundsMode && type.value === "trend" && state.independent && independentTrendNeedsDates(prepared);
     note.textContent = roundsMode
-      ? "Each point is average kills in that exact numbered round among matches where the player played it. Gaps mean no appearances; older demos need reparsing. By round currently supports Kills."
+      ? "Each point is average kills in that exact numbered round among matches where the player played it. Gaps mean no appearances; older demos need reparsing. Round by round currently supports Kills."
       : type.value === "distribution"
-      ? "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity. By round is available for Kills."
+      ? "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity. Round by round is available for Kills."
       : multiTrendNeedsDates
         ? "Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for match order, or use Distribution for comparisons now."
-        : "Points follow match date when available and match order otherwise. Hover a point for its match and value. By round is available for Kills.";
+        : "Points follow match date when available and match order otherwise. Hover a point for its match and value. Round by round is available for Kills.";
     if (!(roundsMode ? roundPrepared : prepared).length) {
       const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = roundsMode ? "No per-round data for these matches. Reparse older demos to add round data." : "No qualifying match samples for this statistic."; summary.appendChild(empty); return;
     }
@@ -481,22 +517,41 @@
   }
 
   function render({ prefix, series, domainSeries = series, independent = false }) {
-    const type = document.getElementById(`${prefix}GraphType`), metric = document.getElementById(`${prefix}GraphMetric`);
-    if (!type || !metric) return;
-    const category = document.getElementById(`${prefix}GraphCategory`), search = document.getElementById(`${prefix}GraphSearch`);
+    const type = document.getElementById(`${prefix}GraphType`), input = document.getElementById(`${prefix}GraphMetric`);
+    if (!type || !input) return;
+    const category = document.getElementById(`${prefix}GraphCategory`), controls = input.closest(".graph-stat-controls");
     if (category && !category.options.length) {
       ["All", ...metrics.map(([group]) => group)].forEach(group => {
         const option = document.createElement("option"); option.value = group; option.textContent = group === "All" ? "All categories" : group; category.appendChild(option);
       });
       category.value = "Core";
     }
-    populateMetrics(metric, category?.value || "All", search?.value || "");
     const previous = graphState.get(prefix);
+    graphState.set(prefix, { series: series || [], domainSeries: domainSeries || series || [], independent,
+      bucketCount: previous?.bucketCount || DEFAULT_BUCKETS, metricId: previous?.metricId || "rating",
+      category: previous?.category || "Core", suggestions: previous?.suggestions || [], suggestionIndex: previous?.suggestionIndex ?? -1 });
     if (!previous) {
-      type.addEventListener("change", () => draw(prefix)); metric.addEventListener("change", () => draw(prefix));
+      input.value = registry.get("rating").label;
+      type.addEventListener("change", () => draw(prefix));
       document.getElementById(`${prefix}GraphScope`)?.addEventListener("change", () => draw(prefix));
-      category?.addEventListener("change", () => { if (search) search.value = ""; populateMetrics(metric, category.value, ""); draw(prefix); });
-      search?.addEventListener("input", () => { populateMetrics(metric, category?.value || "All", search.value); draw(prefix); });
+      category?.addEventListener("change", () => { input.value = ""; input.focus(); showSuggestions(prefix); });
+      input.addEventListener("focus", () => { input.select(); showSuggestions(prefix); });
+      input.addEventListener("input", () => showSuggestions(prefix, input.value));
+      input.addEventListener("keydown", event => {
+        if (event.key === "Escape") { closeSuggestions(prefix); input.blur(); }
+        else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          if (document.getElementById(`${prefix}GraphSuggestions`).hidden) showSuggestions(prefix, "");
+          moveSuggestion(prefix, event.key === "ArrowDown" ? 1 : -1);
+        } else if (event.key === "Enter") {
+          const state = graphState.get(prefix);
+          if (state.suggestions.length) {
+            event.preventDefault(); selectMetric(prefix, state.suggestions[Math.max(0, state.suggestionIndex)].id);
+          }
+        }
+      });
+      controls?.addEventListener("focusout", event => { if (!controls.contains(event.relatedTarget)) closeSuggestions(prefix); });
+      document.addEventListener("pointerdown", event => { if (!controls?.contains(event.target)) closeSuggestions(prefix); });
       document.getElementById(`${prefix}GraphDistributionStyle`)?.addEventListener("change", () => draw(prefix));
       document.getElementById(`${prefix}GraphBucketsLess`)?.addEventListener("click", () => {
         const current = graphState.get(prefix); current.bucketCount = Math.max(MIN_BUCKETS, current.bucketCount - 1); draw(prefix);
@@ -505,7 +560,7 @@
         const current = graphState.get(prefix); current.bucketCount = Math.min(MAX_BUCKETS, current.bucketCount + 1); draw(prefix);
       });
     }
-    graphState.set(prefix, { series: series || [], domainSeries: domainSeries || series || [], independent, bucketCount: previous?.bucketCount || DEFAULT_BUCKETS }); draw(prefix);
+    draw(prefix);
   }
 
   window.NickStatsGraphs = Object.freeze({ metrics: registry, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, render });
