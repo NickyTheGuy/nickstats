@@ -3232,13 +3232,15 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .player-graph-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
-.player-graph-controls label,
 .graph-option-field,
-.graph-statistic-field { display: grid; gap: 2px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; line-height: 1.2; text-transform: uppercase; }
+.graph-statistic-field,
+.graph-bucket-control { display: flex; flex-direction: column; align-items: stretch; gap: 2px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; line-height: 1.2; text-transform: uppercase; }
+.graph-option-field > span,
+.graph-statistic-field > label,
+.graph-bucket-control > span { display: block; flex: 0 0 14px; height: 14px; margin: 0; line-height: 14px; }
 .player-graph-controls [hidden] { display: none; }
-.graph-stat-controls { display: flex; align-items: end; gap: 10px; max-width: 100%; }
+.graph-stat-controls { display: flex; align-items: end; gap: 10px; max-width: 100%; padding: 6px 10px 10px; border: 1px solid var(--line); border-radius: 10px; }
 .graph-statistic-field { position: relative; min-width: 250px; }
-.graph-statistic-field > label { display: block; }
 .graph-option-field { min-width: 170px; }
 .graph-display-controls { flex: 1 1 520px; min-width: 0; margin: 0; padding: 6px 10px 10px; border: 1px solid var(--line); border-radius: 10px; }
 .graph-display-controls legend { padding: 0 5px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
@@ -3314,12 +3316,12 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .graph-stat-suggestions button[aria-selected="true"] { background: var(--accent-wash); }
 .graph-stat-suggestions small { color: var(--muted); white-space: nowrap; }
 .graph-stat-suggestions p { padding: 8px; }
-.graph-bucket-control { display: grid; gap: 2px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; line-height: 1.2; text-transform: uppercase; }
 .graph-bucket-control[hidden] { display: none; }
 .graph-bucket-control > div {
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: 38px 42px 38px;
-  min-height: 38px;
+  height: 38px;
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: 9px;
