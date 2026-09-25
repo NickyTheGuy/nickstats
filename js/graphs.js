@@ -364,11 +364,28 @@
     drawAxes(svg, { left, top, width, height, min, max, metric });
     const zeroY = top + height - height * (0 - min) / (max - min);
     const barWidth = Math.max(1, Math.min(28, width / Math.max(1, matches.length * prepared.length) * .8));
+    const edgePadding = displayStyle === "bars" ? Math.max(8, barWidth * prepared.length / 2 + 3) : 4;
+    const firstDate = matches[0]?.date, lastDate = matches.at(-1)?.date;
+    const timed = allDated && lastDate > firstDate;
+    const xFor = match => left + edgePadding + (width - 2 * edgePadding) * (
+      timed ? (match.date - firstDate) / (lastDate - firstDate)
+        : matches.length === 1 ? .5 : positions.get(match.id) / (matches.length - 1)
+    );
+    const ticks = timed ? dateTicks(firstDate, lastDate) : matches.length === 1 && allDated
+      ? [{ date: firstDate, label: new Date(firstDate * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) }]
+      : matches.filter((_, index) => index % Math.max(1, Math.ceil(matches.length / 8)) === 0 || index === matches.length - 1)
+        .map(match => ({ date: match.date, id: match.id, label: `#${match.id}` }));
+    ticks.forEach(tick => {
+      const x = timed ? left + edgePadding + (width - 2 * edgePadding) * (tick.date - firstDate) / (lastDate - firstDate)
+        : xFor(tick.id ? tick : matches[0]);
+      setLine(svg, x, top + height, x, top + height + 5);
+      svg.appendChild(svgElement("text", { x, y: top + height + 19, class: "graph-bucket-label", "text-anchor": "middle" }, tick.label));
+    });
     prepared.forEach((series, seriesIndex) => {
       const colorIndex = series.colorIndex ?? seriesIndex;
       const ordered = [...series.values].sort((a, b) => positions.get(a.id) - positions.get(b.id));
       const coordinates = ordered.map(point => {
-        const x = left + width * positions.get(point.id) / Math.max(1, matches.length - 1);
+        const x = xFor(matches[positions.get(point.id)]);
         const y = top + height - height * (point.value - min) / (max - min);
         return { point, x, y };
       });
@@ -383,6 +400,35 @@
     });
     svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, allDated ? "Match date" : "Match order"));
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, metric.label));
+  }
+
+  function dateTicks(first, last) {
+    const days = (last - first) / 86400;
+    const unit = days <= 2 ? "hour" : days <= 14 ? "day" : days <= 100 ? "week" : days <= 900 ? "month" : "year";
+    const date = new Date(first * 1000);
+    if (unit === "hour") { date.setMinutes(0, 0, 0); date.setHours(Math.ceil(date.getHours() / 6) * 6); }
+    if (unit === "day") { date.setHours(0, 0, 0); date.setDate(date.getDate() + 1); }
+    if (unit === "week") { date.setHours(0, 0, 0); date.setDate(date.getDate() + ((7 - date.getDay()) % 7 || 7)); }
+    if (unit === "month") { date.setHours(0, 0, 0); date.setDate(1); date.setMonth(date.getMonth() + 1); }
+    if (unit === "year") { date.setHours(0, 0, 0); date.setMonth(0, 1); date.setFullYear(date.getFullYear() + 1); }
+    const candidates = [];
+    for (let count = 0; date.getTime() / 1000 < last && count < 400; count += 1) {
+      const seconds = date.getTime() / 1000;
+      const options = unit === "hour" ? { month: "short", day: "numeric", hour: "numeric" }
+        : unit === "year" ? { year: "numeric" }
+        : unit === "month" ? { month: "short", year: "2-digit" }
+        : { month: "short", day: "numeric" };
+      candidates.push({ date: seconds, label: date.toLocaleString(undefined, options) });
+      if (unit === "hour") date.setHours(date.getHours() + 6);
+      if (unit === "day") date.setDate(date.getDate() + 1);
+      if (unit === "week") date.setDate(date.getDate() + 7);
+      if (unit === "month") date.setMonth(date.getMonth() + 1);
+      if (unit === "year") date.setFullYear(date.getFullYear() + 1);
+    }
+    const step = Math.max(1, Math.ceil(candidates.length / 7));
+    const ticks = candidates.filter((_, index) => index % step === 0);
+    if (!ticks.length) ticks.push({ date: first + (last - first) / 2, label: new Date(first * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric" }) });
+    return ticks;
   }
 
   function drawRounds(svg, prepared, metric, displayStyle = "line", { exact = false, firstRound = 1, maxRound = 0 } = {}) {
@@ -651,5 +697,5 @@
     draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseCutoffs, drawRoundSeries: drawRounds, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseCutoffs, dateTicks, drawRoundSeries: drawRounds, render });
 })();

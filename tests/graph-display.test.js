@@ -44,6 +44,16 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   ] }];
   context.window.NickStatsGraphs.render({ prefix: "player", series });
   assert.ok(svg.children.some(child => child.tag === "rect" && child.attributes.class === "graph-series-bar"));
+  const dated = [0, 1, 2].map(index => ({ label: `Player ${index}`, samples: [
+    { id: "1", date: 1787356800, stats: { rounds: 20, kills: 15 + index, deaths: 10 } },
+    { id: "2", date: 1787961600, stats: { rounds: 20, kills: 16 + index, deaths: 10 } }
+  ] }));
+  context.window.NickStatsGraphs.render({ prefix: "player", series: dated });
+  const datedBars = svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar");
+  assert.equal(datedBars.length, 6);
+  assert.ok(datedBars.every(bar => bar.attributes.x >= 68 && bar.attributes.x + bar.attributes.width <= 864));
+  assert.ok(svg.children.some(child => child.tag === "text" && /Aug \d+/.test(child.textContent)));
+  context.window.NickStatsGraphs.render({ prefix: "player", series });
   type.value = "distribution";
   nodes.get("playerGraphBucketMode").value = "custom";
   nodes.get("playerGraphBucketCutoffs").value = "1, 2, 3";

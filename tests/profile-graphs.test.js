@@ -10,7 +10,17 @@ const context = vm.createContext({ window: {}, document: {} });
 vm.runInContext(availabilitySource, context);
 vm.runInContext(source, context);
 
-const { metrics, metricChoices, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseCutoffs } = context.window.NickStatsGraphs;
+const { metrics, metricChoices, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseCutoffs, dateTicks } = context.window.NickStatsGraphs;
+
+test("trend date ticks change from days to months to years with the visible span", () => {
+  const start = Date.UTC(2026, 0, 1) / 1000;
+  const days = dateTicks(start, start + 7 * 86400);
+  assert.ok(days.length >= 4);
+  const months = dateTicks(start, Date.UTC(2027, 0, 1) / 1000);
+  assert.ok(months.length >= 4 && months.length <= 8);
+  const years = dateTicks(start, Date.UTC(2034, 0, 1) / 1000);
+  assert.ok(years.length >= 4 && years.every(tick => /^20\d\d$/.test(tick.label)));
+});
 
 test("custom cutoffs accept ordered numeric edges and reject ambiguous ranges", () => {
   assert.deepEqual(Array.from(parseCutoffs("5, 10, 15").cuts), [5, 10, 15]);
