@@ -227,6 +227,7 @@
       next.disabled = monthString(month) >= max; next.setAttribute("aria-label", `Next month for calendar ${index + 1}`);
       next.addEventListener("click", event => { event.stopPropagation(); this.moveCalendar(index, 1); });
       navigation.append(previous, jump, next); calendar.appendChild(navigation);
+      window.NickStatsDropdown?.enhance(jump);
       const grid = element("div", null, "date-range-grid");
       for (const weekday of ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]) grid.appendChild(element("span", weekday, "date-range-weekday"));
       for (let offset = 0; offset < month.getDay(); offset += 1) grid.appendChild(element("span"));

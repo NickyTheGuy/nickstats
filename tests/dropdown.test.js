@@ -6,6 +6,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
+test("shared dropdown loads before the match timeline and graph controls", () => {
+  const html = fs.readFileSync(path.join(__dirname, "../index.html"), "utf8");
+  assert.ok(html.indexOf("./js/dropdown.js") < html.indexOf("./js/demo.js"));
+  assert.ok(html.indexOf("./js/dropdown.js") < html.indexOf("./js/graphs.js"));
+});
+
 test("shared dropdown changes its select and mirrors disabled options", () => {
   const document = { activeElement: null, listeners: {},
     addEventListener(type, handler) { this.listeners[type] = handler; },
@@ -39,11 +45,13 @@ test("shared dropdown changes its select and mirrors disabled options", () => {
   const details = select.next, [summary, menu] = details.children;
   assert.equal(summary.textContent, "Bars");
   details.open = true; details.dispatchEvent({ type: "toggle" });
-  menu.children[1].dispatchEvent({ type: "click" });
+  let stopped = false;
+  menu.children[1].dispatchEvent({ type: "click", stopPropagation() { stopped = true; } });
   assert.equal(select.value, "line");
   assert.equal(summary.textContent, "Line");
   assert.equal(details.open, false);
   assert.equal(changes, 1);
+  assert.equal(stopped, true);
   select.options[0].disabled = true; dropdown.sync(select);
   assert.equal(menu.children[0].disabled, true);
   details.open = true;

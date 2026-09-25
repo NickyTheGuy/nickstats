@@ -432,7 +432,13 @@
       const name = document.createElement("span"); name.textContent = choice.label;
       const group = document.createElement("small"); group.textContent = choice.group;
       button.append(name, group);
-      button.addEventListener("click", () => selectMetric(prefix, choice.id)); list.appendChild(button);
+      let chosenByPointer = false;
+      button.addEventListener("pointerdown", event => {
+        event.preventDefault(); event.stopPropagation();
+        chosenByPointer = true; selectMetric(prefix, choice.id);
+      });
+      button.addEventListener("click", () => { if (!chosenByPointer) selectMetric(prefix, choice.id); });
+      list.appendChild(button);
     });
   }
 

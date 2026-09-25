@@ -16,7 +16,8 @@
       const button = document.createElement("button");
       button.type = "button"; button.textContent = option.textContent; button.disabled = option.disabled;
       button.setAttribute("aria-current", String(option.value === select.value));
-      button.addEventListener("click", () => {
+      button.addEventListener("click", event => {
+        event.stopPropagation();
         if (button.disabled) return;
         const changed = select.value !== option.value;
         select.value = option.value;
@@ -38,7 +39,10 @@
     instances.set(select, { details, summary, menu, label }); menus.add(details);
     details.addEventListener("toggle", () => {
       if (!details.open) return;
-      menus.forEach(other => { if (other !== details) other.open = false; });
+      menus.forEach(other => {
+        if (other.isConnected === false) menus.delete(other);
+        else if (other !== details) other.open = false;
+      });
       sync(select);
     });
     details.addEventListener("keydown", event => {
@@ -58,7 +62,10 @@
   }
 
   document.addEventListener("pointerdown", event => {
-    menus.forEach(details => { if (details.open && !details.contains(event.target)) details.open = false; });
+    menus.forEach(details => {
+      if (details.isConnected === false) menus.delete(details);
+      else if (details.open && !details.contains(event.target)) details.open = false;
+    });
   });
 
   window.NickStatsDropdown = Object.freeze({ enhance, sync });
