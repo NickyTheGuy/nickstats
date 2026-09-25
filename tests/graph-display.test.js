@@ -30,7 +30,7 @@ test("bars and lines render for match trends and exact-round deaths", () => {
     createElementNS: (_, tag) => new Element(tag),
     addEventListener() {}
   };
-  for (const name of ["Type", "TypeControl", "Metric", "Category", "Scope", "DistributionStyle", "DistributionStyleControl", "BucketControl", "BucketMode", "BucketStepper", "BucketCutoffs", "BucketHelp", "Suggestions", "Svg", "Summary", "Legend", "Note"]) {
+  for (const name of ["Type", "TypeControl", "Metric", "Category", "Scope", "DistributionStyle", "DistributionStyleControl", "BucketControl", "BucketMode", "BucketStepper", "BucketRange", "BucketFrom", "BucketTo", "BucketSize", "BucketHelp", "Suggestions", "Svg", "Summary", "Legend", "Note"]) {
     nodes.set(`playerGraph${name}`, new Element(name === "Category" ? "select" : "div"));
   }
   const type = nodes.get("playerGraphType"), scope = nodes.get("playerGraphScope");
@@ -56,11 +56,17 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   context.window.NickStatsGraphs.render({ prefix: "player", series });
   type.value = "distribution";
   nodes.get("playerGraphBucketMode").value = "custom";
-  nodes.get("playerGraphBucketCutoffs").value = "1, 2, 3";
+  nodes.get("playerGraphBucketFrom").value = "0";
+  nodes.get("playerGraphBucketTo").value = "3";
+  nodes.get("playerGraphBucketSize").value = "1";
   nodes.get("playerGraphBucketMode").dispatch("change");
+  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 3);
+  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "0–<1"));
+  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "2–<3"));
+  nodes.get("playerGraphBucketFrom").value = ".1";
+  nodes.get("playerGraphBucketFrom").dispatch("input");
+  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "<0.1"));
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 4);
-  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "<1"));
-  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "≥3"));
   type.value = "trend";
   display.value = "line"; display.dispatch("change");
   assert.ok(svg.children.some(child => child.tag === "polyline" && child.attributes.class === "graph-series-line"));

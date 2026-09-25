@@ -242,15 +242,19 @@
     return { min, max: min + binWidth * bins, binWidth };
   }
 
-  function parseCutoffs(text) {
-    const parts = text.split(",").map(part => part.trim());
-    if (!text.trim()) return { error: "Enter cutoffs separated by commas, such as 5, 10, 15." };
-    if (parts.length > MAX_BUCKETS - 1 || parts.some(part => !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(part)))
-      return { error: `Enter up to ${MAX_BUCKETS - 1} numeric cutoffs separated by commas.` };
-    const cuts = parts.map(Number);
-    if (cuts.some((value, index) => !Number.isFinite(value) || (index > 0 && value <= cuts[index - 1])))
-      return { error: "Cutoffs must be finite numbers in strictly increasing order." };
-    return { cuts };
+  function parseBucketRange(from, to, size) {
+    if (![from, to, size].every(value => String(value).trim() !== ""))
+      return { error: "Enter a start, end, and bucket size." };
+    const start = Number(from), end = Number(to), width = Number(size);
+    if (![start, end, width].every(Number.isFinite) || end <= start || width <= 0)
+      return { error: "The end must exceed the start, and the bucket size must be positive." };
+    const count = Math.max(1, Math.ceil((end - start) / width - 1e-10));
+    if (count > MAX_BUCKETS - 2) return { error: `Use a larger bucket size (at most ${MAX_BUCKETS - 2} buckets within the range).` };
+    const edges = Array.from({ length: count + 1 }, (_, index) =>
+      index === 0 ? start : index === count ? end : Number((start + index * width).toPrecision(12)));
+    if (edges.some((value, index) => !Number.isFinite(value) || (index > 0 && value <= edges[index - 1])))
+      return { error: "These values cannot form distinct bucket boundaries. Try a larger size." };
+    return { edges };
   }
 
   function setLine(svg, x1, y1, x2, y2, className = "graph-axis") {
@@ -267,22 +271,30 @@
     }
   }
 
-  function drawDistribution(svg, prepared, domainSeries, metric, bins, displayStyle, cutoffs = null) {
+  function drawDistribution(svg, prepared, domainSeries, metric, bins, displayStyle, customRange = null) {
     const bounds = niceDistributionBounds(domainSeries.length ? domainSeries : prepared, metric, bins);
     if (!bounds) return;
     const { min, max, binWidth } = bounds;
-    if (cutoffs) bins = cutoffs.length + 1;
+    const domain = domainSeries.length ? domainSeries : prepared;
+    const domainValues = domain.flatMap(series => series.values.map(point => point.value));
+    const edges = customRange ? [
+      ...(domainValues.some(value => value < customRange.edges[0]) ? [-Infinity] : []),
+      ...customRange.edges,
+      ...(domainValues.some(value => value >= customRange.edges.at(-1)) ? [Infinity] : [])
+    ] : null;
+    if (edges) bins = edges.length - 1;
     const left = 68, top = 24, width = 796, height = 318;
     const formatBoundary = value => `${number(value).toFixed(metric.digits)}${metric.suffix}`;
     const formatCutoff = value => `${value}${metric.suffix}`;
-    const bucketLabel = index => index === 0 ? `<${formatCutoff(cutoffs[0])}`
-      : index === bins - 1 ? `≥${formatCutoff(cutoffs[index - 1])}`
-      : `${formatCutoff(cutoffs[index - 1])}–<${formatCutoff(cutoffs[index])}`;
+    const bucketLabel = index => edges[index] === -Infinity ? `<${formatCutoff(edges[index + 1])}`
+      : edges[index + 1] === Infinity ? `≥${formatCutoff(edges[index])}`
+      : `${formatCutoff(edges[index])}–<${formatCutoff(edges[index + 1])}`;
     const histogram = series => {
       const counts = Array(bins).fill(0);
       series.values.forEach(point => {
-        const index = cutoffs ? cutoffs.findIndex(cutoff => point.value < cutoff) : Math.floor((point.value - min) / binWidth);
-        counts[Math.max(0, Math.min(bins - 1, index < 0 ? bins - 1 : index))] += 1;
+        const index = edges ? edges.findIndex((edge, position) => position > 0 && point.value < edge) - 1
+          : Math.floor((point.value - min) / binWidth);
+        counts[Math.max(0, Math.min(bins - 1, index))] += 1;
       });
       return { ...series, percentages: counts.map(value => 100 * value / Math.max(1, series.values.length)) };
     };
@@ -296,15 +308,15 @@
     }
     setLine(svg, left + width, top, left + width, top + height, "graph-bucket-divider");
     drawAxes(svg, { left, top, width, height, min, max, metric, yMax });
-    for (let index = 0; index < (cutoffs ? bins : bins + 1); index += 1) {
-      const x = left + groupWidth * (index + (cutoffs ? .5 : 0)), y = top + height + 20;
-      const label = cutoffs ? bucketLabel(index) : formatBoundary(min + index * binWidth);
+    for (let index = 0; index < (edges ? bins : bins + 1); index += 1) {
+      const x = left + groupWidth * (index + (edges ? .5 : 0)), y = top + height + 20;
+      const label = edges ? bucketLabel(index) : formatBoundary(min + index * binWidth);
       const attributes = { x, y, class: "graph-bucket-label", "text-anchor": "middle" };
       if (bins > 10) attributes.transform = `rotate(${bins > 17 ? -55 : -35} ${x} ${y})`;
       svg.appendChild(svgElement("text", attributes, label));
     }
     const pointTitle = (series, value, index) => {
-      if (cutoffs) return `${series.label}: ${value.toFixed(1)}% of matches · ${bucketLabel(index)}`;
+      if (edges) return `${series.label}: ${value.toFixed(1)}% of matches · ${bucketLabel(index)}`;
       const lower = formatBoundary(min + index * binWidth), upper = formatBoundary(min + (index + 1) * binWidth);
       return `${series.label}: ${value.toFixed(1)}% of matches · ${lower} ≤ value ${index === bins - 1 ? "≤" : "<"} ${upper}`;
     };
@@ -561,7 +573,8 @@
     const bucketLess = document.getElementById(`${prefix}GraphBucketsLess`), bucketMore = document.getElementById(`${prefix}GraphBucketsMore`);
     const bucketMode = document.getElementById(`${prefix}GraphBucketMode`);
     const bucketStepper = document.getElementById(`${prefix}GraphBucketStepper`);
-    const bucketInput = document.getElementById(`${prefix}GraphBucketCutoffs`);
+    const bucketRange = document.getElementById(`${prefix}GraphBucketRange`);
+    const bucketInputs = ["From", "To", "Size"].map(key => document.getElementById(`${prefix}GraphBucket${key}`));
     const bucketHelp = document.getElementById(`${prefix}GraphBucketHelp`);
     if (!type || !metricInput || !svg || !summary || !legend || !note) return;
     const scope = document.getElementById(`${prefix}GraphScope`);
@@ -578,18 +591,20 @@
     const typeControl = document.getElementById(`${prefix}GraphTypeControl`);
     if (typeControl) typeControl.hidden = roundsMode;
     const metric = registry.get(state.metricId) || registry.get("rating");
-    if (bucketInput && state.bucketInputMetric !== metric.id) {
-      bucketInput.value = state.customCutoffs.get(metric.id) || "";
+    if (bucketRange && state.bucketInputMetric !== metric.id) {
+      const values = state.customRanges.get(metric.id) || ["", "", ""];
+      bucketInputs.forEach((input, index) => { input.value = values[index]; });
       state.bucketInputMetric = metric.id;
     }
     const custom = bucketMode?.value === "custom";
-    const cutoffs = custom ? parseCutoffs(bucketInput?.value || "") : null;
+    const range = custom ? parseBucketRange(...bucketInputs.map(input => input?.value || "")) : null;
     if (bucketStepper) bucketStepper.hidden = custom;
-    if (bucketInput) { bucketInput.hidden = !custom; bucketInput.setAttribute("aria-invalid", String(custom && !!cutoffs.error)); }
+    if (bucketRange) bucketRange.hidden = !custom;
+    bucketInputs.forEach(input => input?.setAttribute("aria-invalid", String(custom && !!range.error)));
     if (bucketHelp) {
       bucketHelp.hidden = !custom;
-      bucketHelp.textContent = cutoffs?.error ? `${cutoffs.error} Showing automatic buckets until valid.`
-        : "Comma-separated cutoffs; e.g. 5, 10, 15 makes <5, 5–<10, 10–<15, ≥15.";
+      bucketHelp.textContent = range?.error ? `${range.error} Showing automatic buckets until valid.`
+        : "For example, 0 to 30 by 5 gives 0–<5 through 25–<30. Values outside the range get their own buckets.";
     }
     const roundMetric = roundMetrics[metric.id];
     const prepared = state.series.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
@@ -606,7 +621,7 @@
     note.textContent = roundsMode
       ? `Each ${distributionStyle?.value === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
       : type.value === "distribution"
-      ? custom ? "Each observation is one match. Custom cutoffs include all values below the first and at or above the last cutoff."
+      ? custom ? "Each observation is one match. Values outside the chosen range have separate buckets when present."
         : "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity."
       : multiTrendNeedsDates
         ? "Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for match order, or use Distribution for comparisons now."
@@ -638,7 +653,7 @@
     });
     if (multiTrendNeedsDates) {
       svg.appendChild(svgElement("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
-    } else type.value === "trend" ? drawTrend(svg, prepared, metric, distributionStyle?.value || "bars") : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount, distributionStyle?.value || "bars", cutoffs?.cuts || null);
+    } else type.value === "trend" ? drawTrend(svg, prepared, metric, distributionStyle?.value || "bars") : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount, distributionStyle?.value || "bars", range?.edges ? range : null);
   }
 
   function render({ prefix, series, domainSeries = series, independent = false }) {
@@ -657,7 +672,7 @@
     graphState.set(prefix, { series: series || [], domainSeries: domainSeries || series || [], independent,
       bucketCount: previous?.bucketCount || DEFAULT_BUCKETS, metricId: previous?.metricId || "rating",
       category: previous?.category || "Core", suggestions: previous?.suggestions || [], suggestionIndex: previous?.suggestionIndex ?? -1,
-      customCutoffs: previous?.customCutoffs || new Map(), bucketInputMetric: previous?.bucketInputMetric || null });
+      customRanges: previous?.customRanges || new Map(), bucketInputMetric: previous?.bucketInputMetric || null });
     if (!previous) {
       input.value = registry.get("rating").label;
       type.addEventListener("change", () => draw(prefix));
@@ -682,11 +697,11 @@
       document.addEventListener("pointerdown", event => { if (!controls?.contains(event.target)) closeSuggestions(prefix); });
       document.getElementById(`${prefix}GraphDistributionStyle`)?.addEventListener("change", () => draw(prefix));
       document.getElementById(`${prefix}GraphBucketMode`)?.addEventListener("change", () => draw(prefix));
-      document.getElementById(`${prefix}GraphBucketCutoffs`)?.addEventListener("input", event => {
+      ["From", "To", "Size"].forEach(key => document.getElementById(`${prefix}GraphBucket${key}`)?.addEventListener("input", () => {
         const current = graphState.get(prefix);
-        current.customCutoffs.set(current.metricId, event.target.value);
+        current.customRanges.set(current.metricId, ["From", "To", "Size"].map(name => document.getElementById(`${prefix}GraphBucket${name}`).value));
         draw(prefix);
-      });
+      }));
       document.getElementById(`${prefix}GraphBucketsLess`)?.addEventListener("click", () => {
         const current = graphState.get(prefix); current.bucketCount = Math.max(MIN_BUCKETS, current.bucketCount - 1); draw(prefix);
       });
@@ -697,5 +712,5 @@
     draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseCutoffs, dateTicks, drawRoundSeries: drawRounds, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, dateTicks, drawRoundSeries: drawRounds, render });
 })();

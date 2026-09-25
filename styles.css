@@ -3331,9 +3331,12 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .graph-bucket-control[hidden] { display: none; }
 .graph-bucket-settings { display: flex; align-items: center; gap: 8px; }
 .graph-bucket-settings > .stats-dropdown { width: 140px; }
+.graph-bucket-range { display: flex; align-items: end; gap: 6px; flex-wrap: wrap; }
+.graph-bucket-range[hidden] { display: none; }
+.graph-bucket-range label { display: grid; gap: 2px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .03em; }
 .graph-bucket-control small { max-width: 340px; color: var(--muted); font-size: 11px; font-weight: 500; letter-spacing: normal; line-height: 1.35; text-transform: none; }
 .graph-bucket-control input {
-  box-sizing: border-box; width: min(250px, 60vw); height: 38px; padding: 7px 10px;
+  box-sizing: border-box; width: 76px; height: 38px; padding: 7px 8px;
   border: 1px solid var(--line-strong); border-radius: 9px;
   background: var(--surface); color: var(--text); font: inherit; letter-spacing: normal; text-transform: none;
 }

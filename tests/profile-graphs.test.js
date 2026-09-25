@@ -10,7 +10,7 @@ const context = vm.createContext({ window: {}, document: {} });
 vm.runInContext(availabilitySource, context);
 vm.runInContext(source, context);
 
-const { metrics, metricChoices, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseCutoffs, dateTicks } = context.window.NickStatsGraphs;
+const { metrics, metricChoices, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, dateTicks } = context.window.NickStatsGraphs;
 
 test("trend date ticks change from days to months to years with the visible span", () => {
   const start = Date.UTC(2026, 0, 1) / 1000;
@@ -22,11 +22,11 @@ test("trend date ticks change from days to months to years with the visible span
   assert.ok(years.length >= 4 && years.every(tick => /^20\d\d$/.test(tick.label)));
 });
 
-test("custom cutoffs accept ordered numeric edges and reject ambiguous ranges", () => {
-  assert.deepEqual(Array.from(parseCutoffs("5, 10, 15").cuts), [5, 10, 15]);
-  assert.deepEqual(Array.from(parseCutoffs("-1.5, 0, .75").cuts), [-1.5, 0, .75]);
-  for (const input of ["", "5, 5", "10, 5", "5,", "5, Infinity", "1; 2"]) {
-    assert.ok(parseCutoffs(input).error, input);
+test("custom range makes evenly sized buckets with a partial last bucket", () => {
+  assert.deepEqual(Array.from(parseBucketRange("0", "30", "5").edges), [0, 5, 10, 15, 20, 25, 30]);
+  assert.deepEqual(Array.from(parseBucketRange("-1.5", "1", ".75").edges), [-1.5, -.75, 0, .75, 1]);
+  for (const values of [["", "10", "2"], ["10", "5", "1"], ["0", "10", "0"], ["0", "10", "Infinity"], ["0", "100", "1"]]) {
+    assert.ok(parseBucketRange(...values).error, values.join(", "));
   }
 });
 
