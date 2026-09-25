@@ -1883,6 +1883,38 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   transform: translateY(-1px);
 }
 
+.match-list-item.has-preview {
+  row-gap: 0;
+  min-height: 104px;
+}
+
+.match-list-item.has-preview .match-list-map-art {
+  grid-row: 1 / span 2;
+}
+
+.match-list-preview {
+  display: flex;
+  grid-column: 2 / -1;
+  gap: 24px;
+  align-self: start;
+  padding-bottom: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-list-preview-stat {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.match-list-preview-stat strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
 .match-list-identity {
   display: flex;
   flex-direction: column;
@@ -3523,6 +3555,17 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
     grid-column: 1;
     grid-row: 1 / span 2;
     min-height: 90px;
+  }
+
+  .match-list-item.has-preview .match-list-map-art {
+    grid-row: 1 / span 3;
+  }
+
+  .match-list-preview {
+    grid-column: 2;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 0 0 10px;
   }
 
   .match-list-identity,

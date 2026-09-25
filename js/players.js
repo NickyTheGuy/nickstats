@@ -204,8 +204,8 @@
         offset: String(Math.max(0, offset))
       });
       dateFilter.appendQuery(parameters);
-      const accountPlayerID = window.NickStatsAccountPlayer?.id;
-      if (accountPlayerID) parameters.set("viewer_player_id", accountPlayerID);
+      const profilePlayerID = profile.payload.player?.id;
+      if (profilePlayerID) parameters.set("viewer_player_id", profilePlayerID);
       const payload = await apiJson(await fetch(`${MATCH_ENDPOINT}?${parameters}`, {
         headers: { Accept: "application/json" },
         signal: controller.signal

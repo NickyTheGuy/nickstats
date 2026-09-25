@@ -1554,7 +1554,7 @@
 
   function accountTeamsFirst(match) {
     const teams = Array.isArray(match.teams) ? match.teams : [];
-    if (!state.accountPlayerSteamID || teams.length < 2) return teams;
+    if (match.viewer_team_slot == null || teams.length < 2) return teams;
     return match.viewer_team_slot === 1 ? [teams[1], teams[0]] : teams;
   }
 
@@ -1595,10 +1595,34 @@
       }
 
       button.append(artwork, identity, result);
+      if (match.viewer_stats) {
+        button.classList.add("has-preview");
+        const stats = match.viewer_stats;
+        const preview = document.createElement("span");
+        preview.className = "match-list-preview";
+        for (const [label, value] of [
+          ["Rating", Number(stats.rating).toFixed(2)],
+          ["K-D-A", `${stats.kills}-${stats.deaths}-${stats.assists}`],
+          ["ADR", Number(stats.adr).toFixed(1)]
+        ]) {
+          const item = document.createElement("span");
+          item.className = "match-list-preview-stat";
+          const name = document.createElement("span");
+          name.textContent = label;
+          const amount = document.createElement("strong");
+          amount.textContent = value;
+          item.append(name, amount);
+          preview.append(item);
+        }
+        button.append(preview);
+      }
       const scoreDescription = teamRows.length >= 2
         ? `${teamRows[0].name || "Unknown team"} ${matchScore(teamRows[0]) ?? "unknown"} to ${matchScore(teamRows[1]) ?? "unknown"} ${teamRows[1].name || "Unknown team"}`
         : "score unavailable";
-      button.setAttribute("aria-label", `Open match ${match.id} on ${mapName}: ${scoreDescription}`);
+      const statsDescription = match.viewer_stats
+        ? `; rating ${Number(match.viewer_stats.rating).toFixed(2)}, kills ${match.viewer_stats.kills}, deaths ${match.viewer_stats.deaths}, assists ${match.viewer_stats.assists}, ADR ${Number(match.viewer_stats.adr).toFixed(1)}`
+        : "";
+      button.setAttribute("aria-label", `Open match ${match.id} on ${mapName}: ${scoreDescription}${statsDescription}`);
       button.addEventListener("click", () => onOpen(match));
       list.appendChild(button);
     }

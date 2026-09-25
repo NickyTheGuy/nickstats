@@ -129,10 +129,27 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
           m.map_name, m.played_at, m.rounds, m.nickstats_build,
           team_0.display_name AS team_0_name, team_0.score AS team_0_score,
           team_1.display_name AS team_1_name, team_1.score AS team_1_score,
-          \(viewerTeamColumn)
+          \(viewerTeamColumn),
+          viewer_stats.rounds_played AS viewer_rounds,
+          viewer_stats.kills AS viewer_kills, viewer_stats.deaths AS viewer_deaths,
+          viewer_stats.assists AS viewer_assists, viewer_stats.damage AS viewer_damage,
+          viewer_stats.kast_rounds AS viewer_kast_rounds
         FROM matches m
         LEFT JOIN match_teams team_0 ON team_0.match_id = m.id AND team_0.team_slot = 0
         LEFT JOIN match_teams team_1 ON team_1.match_id = m.id AND team_1.team_slot = 1
+        LEFT JOIN (
+          SELECT mp.match_id,
+                 CAST(SUM(s.rounds_played) AS SIGNED) AS rounds_played,
+                 CAST(SUM(s.kills) AS SIGNED) AS kills,
+                 CAST(SUM(s.deaths) AS SIGNED) AS deaths,
+                 CAST(SUM(s.assists) AS SIGNED) AS assists,
+                 CAST(SUM(s.damage) AS SIGNED) AS damage,
+                 CAST(SUM(s.kast_rounds) AS SIGNED) AS kast_rounds
+          FROM match_players mp
+          JOIN player_side_stats s ON s.match_player_id = mp.id
+          WHERE mp.player_id = \(bind: viewerPlayerID)
+          GROUP BY mp.match_id
+        ) viewer_stats ON viewer_stats.match_id = m.id
         WHERE (
           \(bind: steamID.isEmpty) OR EXISTS (
             SELECT 1 FROM match_players mp
@@ -150,6 +167,20 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
     var matches: [MatchSummary] = []
     for row in rows {
         let matchID = try int64(row, "id")
+        var viewerStats: MatchViewerStats?
+        if let rounds = try optionalInteger(row, "viewer_rounds"), rounds > 0 {
+            var stats = ProfileAccumulator()
+            stats.rounds = rounds
+            stats.kills = try integer(row, "viewer_kills")
+            stats.deaths = try integer(row, "viewer_deaths")
+            stats.assists = try integer(row, "viewer_assists")
+            stats.damage = try integer(row, "viewer_damage")
+            stats.kastRounds = try integer(row, "viewer_kast_rounds")
+            viewerStats = MatchViewerStats(
+                rating: stats.rating, kills: stats.kills, deaths: stats.deaths,
+                assists: stats.assists, adr: stats.averageDamagePerRound
+            )
+        }
         var teams: [TeamSummary] = []
         if let name = try optionalString(row, "team_0_name") {
             teams.append(TeamSummary(name: name, score: try optionalInteger(row, "team_0_score")))
@@ -167,7 +198,8 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
             rounds: try integer(row, "rounds"),
             nickstatsBuild: try row.decode(column: "nickstats_build", as: String.self),
             teams: teams,
-            viewerTeamSlot: try optionalInteger(row, "viewer_team_slot")
+            viewerTeamSlot: try optionalInteger(row, "viewer_team_slot"),
+            viewerStats: viewerStats
         ))
     }
     let mapRows = try await sql.raw("SELECT DISTINCT map_name FROM matches ORDER BY map_name").all()

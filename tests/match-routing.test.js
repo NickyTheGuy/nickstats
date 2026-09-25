@@ -12,6 +12,17 @@ const demo = fs.readFileSync(path.join(root, "js", "demo.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const queries = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Queries.swift"), "utf8");
 const models = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Models.swift"), "utf8");
+const players = fs.readFileSync(path.join(root, "js", "players.js"), "utf8");
+
+test("match previews use the selected player and match side totals", () => {
+  assert.match(queries, /SUM\(s\.rounds_played\)[\s\S]*?SUM\(s\.kast_rounds\)[\s\S]*?WHERE mp\.player_id = /);
+  assert.match(queries, /rating: stats\.rating[\s\S]*?adr: stats\.averageDamagePerRound/);
+  assert.match(models, /case viewerStats = "viewer_stats"/);
+  assert.match(players, /parameters\.set\("viewer_player_id", profilePlayerID\)/);
+  assert.match(demo, /\["Rating", Number\(stats\.rating\)\.toFixed\(2\)\]/);
+  assert.match(demo, /\["K-D-A", `\$\{stats\.kills\}-\$\{stats\.deaths\}-\$\{stats\.assists\}`\]/);
+  assert.match(demo, /\["ADR", Number\(stats\.adr\)\.toFixed\(1\)\]/);
+});
 
 test("match list exposes the database-wide earliest played date for every range picker", () => {
   assert.match(queries, /SELECT MIN\(played_at\) AS earliest_played_at FROM matches/);
@@ -19,7 +30,7 @@ test("match list exposes the database-wide earliest played date for every range 
   assert.match(demo, /DateRangeFilter\.setEarliest\(payload\.earliest_played_at\)/);
 });
 
-test("account player's team appears first only in matches they played", () => {
+test("selected viewer's team appears first only in matches they played", () => {
   const start = demo.indexOf("  function accountTeamsFirst(match) {");
   const end = demo.indexOf("  function renderMatchListInto(", start);
   assert.ok(start >= 0 && end > start);
@@ -30,7 +41,7 @@ test("account player's team appears first only in matches they played", () => {
   assert.equal(context.order(match).map(team => team.name).join(","), "Mine,First");
   assert.equal(context.order({ ...match, viewer_team_slot: null }).map(team => team.name).join(","), "First,Mine");
   context.state.accountPlayerSteamID = null;
-  assert.equal(context.order(match).map(team => team.name).join(","), "First,Mine");
+  assert.equal(context.order(match).map(team => team.name).join(","), "Mine,First");
   assert.match(queries, /viewerPlayerID <= 0 \? "NULL AS viewer_team_slot"/);
   assert.match(queries, /vm\.match_id = m\.id AND vm\.player_id =/);
 });
