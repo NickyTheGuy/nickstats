@@ -172,7 +172,9 @@ func listMatches(_ request: Request) async throws -> MatchListResponse {
     }
     let mapRows = try await sql.raw("SELECT DISTINCT map_name FROM matches ORDER BY map_name").all()
     let availableMaps = try mapRows.map { try $0.decode(column: "map_name", as: String.self) }
-    return MatchListResponse(matches: matches, maps: availableMaps, limit: limit, offset: offset)
+    let dateRow = try await sql.raw("SELECT MIN(played_at) AS earliest_played_at FROM matches").first()
+    let earliestPlayedAt = try dateRow.flatMap { unix(try optionalDate($0, "earliest_played_at")) }
+    return MatchListResponse(matches: matches, maps: availableMaps, earliestPlayedAt: earliestPlayedAt, limit: limit, offset: offset)
 }
 
 func listPlayers(_ request: Request) async throws -> PlayerListResponse {

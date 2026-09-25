@@ -244,8 +244,14 @@ struct TeamSummary: Content {
 struct MatchListResponse: Content {
     var matches: [MatchSummary]
     var maps: [String]
+    var earliestPlayedAt: Int64?
     var limit: Int
     var offset: Int
+
+    enum CodingKeys: String, CodingKey {
+        case matches, maps, limit, offset
+        case earliestPlayedAt = "earliest_played_at"
+    }
 }
 
 struct PlayerSummary: Content {

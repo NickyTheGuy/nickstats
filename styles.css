@@ -2491,12 +2491,45 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .stats-filter { display: inline-flex; align-items: center; gap: 9px; max-width: 100%; }
 .stats-filter > span { white-space: nowrap; }
 
-.date-range-filter { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.date-range-filter { position: relative; }
+.date-range-menu > summary {
+  min-height: 36px; padding: 9px 32px 8px 11px; border: 1px solid var(--line-strong);
+  border-radius: 9px; background: var(--surface); color: var(--text); cursor: pointer;
+  list-style: none; white-space: nowrap;
+}
+.date-range-menu > summary::-webkit-details-marker { display: none; }
+.date-range-menu > summary::after { content: "▾"; position: absolute; top: 18px; right: 11px; color: var(--muted); transform: translateY(-50%); }
+.date-range-menu[open] > summary::after { transform: translateY(-50%) rotate(180deg); }
+.date-range-panel {
+  position: absolute; z-index: 40; top: calc(100% + 5px); left: 0;
+  width: min(630px, calc(100vw - 32px)); max-height: min(680px, 80vh); overflow: auto;
+  padding: 14px; border: 1px solid var(--line-strong); border-radius: 12px;
+  background: var(--surface); color: var(--text); box-shadow: 0 14px 34px rgba(0, 0, 0, .3);
+}
+.date-range-fields, .date-range-navigation, .date-range-actions { display: flex; align-items: center; gap: 9px; }
+.date-range-fields { flex-wrap: wrap; margin-bottom: 12px; }
 .date-range-field { display: inline-flex; align-items: center; gap: 6px; }
-.date-range-field input { min-height: 36px; max-width: 152px; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); color: var(--text); color-scheme: light; font: inherit; }
-.date-range-clear { border: 0; background: none; color: var(--accent); font: inherit; font-weight: 800; cursor: pointer; }
-.date-range-clear[hidden] { display: none; }
+.date-range-field input, .date-range-navigation input { min-height: 36px; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--surface); color: var(--text); font: inherit; }
+.date-range-field input { max-width: 152px; }
+.date-range-navigation { justify-content: center; margin-bottom: 10px; }
+.date-range-navigation button, .date-range-actions button { min-height: 32px; padding: 5px 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; }
+.date-range-navigation button:disabled, .date-range-day:disabled { opacity: .32; cursor: default; }
+.date-range-calendars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.date-range-calendar strong { display: block; margin-bottom: 8px; text-align: center; font-size: 13px; }
+.date-range-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; }
+.date-range-weekday { padding: 4px 0; color: var(--muted); font-size: 10px; }
+.date-range-day { min-width: 0; min-height: 34px; border: 0; border-radius: 7px; background: transparent; color: var(--text); font: inherit; cursor: pointer; }
+.date-range-day:not(:disabled):hover, .date-range-day.within-range { background: var(--panel-2); }
+.date-range-day.selected { background: var(--accent); color: var(--text); }
+.date-range-actions { justify-content: flex-end; margin-top: 12px; }
+.date-range-actions .date-range-apply { background: var(--accent); border-color: var(--accent); }
 .player-history-date { margin: 0 0 12px; }
+@media (max-width: 900px) {
+  .date-range-panel { position: fixed; top: 12vh; left: 16px; right: 16px; max-height: 76vh; }
+}
+@media (max-width: 600px) {
+  .date-range-calendars { grid-template-columns: 1fr; }
+}
 
 .stats-toolbar select {
   min-height: 36px;

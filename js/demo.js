@@ -1627,6 +1627,7 @@
       const payload = await apiJson(await fetch(`${MATCH_UPLOAD_ENDPOINT}?${query}`, { headers: { "Accept": "application/json" }, signal: controller.signal }));
       if (controller.signal.aborted) return;
       const matches = Array.isArray(payload.matches) ? payload.matches : [];
+      if (Object.hasOwn(payload, "earliest_played_at")) window.NickStatsFilters.DateRangeFilter.setEarliest(payload.earliest_played_at);
       matchMapFilter.setOptions(Array.isArray(payload.maps) ? payload.maps : matches.map(match => match.map));
       state.matchListOffset = Math.max(0, offset);
       state.matchListCount = matches.length;

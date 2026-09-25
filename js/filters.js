@@ -82,34 +82,87 @@
     return date;
   }
 
+  const dayString = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+
   class DateRangeFilter {
+    static instances = new Set();
+    static earliest = "";
+    static setEarliest(timestamp) {
+      const value = Number(timestamp);
+      this.earliest = Number.isFinite(value) && value > 0 ? dayString(new Date(value * 1000)) : "";
+      this.instances.forEach(filter => filter.render());
+    }
+
     constructor(targets, { onChange = () => {} } = {}) {
       this.targets = (Array.isArray(targets) ? targets : [targets]).map(target => typeof target === "string" ? document.getElementById(target) : target).filter(Boolean);
       this.onChange = onChange;
       this.from = "";
       this.through = "";
+      this.draftFrom = "";
+      this.draftThrough = "";
+      this.calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1);
+      DateRangeFilter.instances.add(this);
       this.targets.forEach(target => {
-        const field = (text, key) => {
+        const menu = element("details", null, "date-range-menu");
+        const trigger = element("summary"); menu.appendChild(trigger);
+        const panel = element("div", null, "date-range-panel");
+        const fields = element("div", null, "date-range-fields");
+        for (const [text, key] of [["From", "draftFrom"], ["Through", "draftThrough"]]) {
           const label = element("label", null, "date-range-field");
-          label.appendChild(element("span", text));
           const input = element("input"); input.type = "date"; input.setAttribute("aria-label", `${text} date`);
           input.addEventListener("change", () => {
-            this[key] = input.value;
-            if (this.from && this.through && this.from > this.through) {
-              if (key === "from") this.through = this.from;
-              else this.from = this.through;
+            if (input.value && (!localDay(input.value) || (input.min && input.value < input.min) || input.value > input.max)) {
+              this.renderPanel(); return;
             }
-            this.render(); this.onChange();
+            this[key] = input.value;
+            if (this.draftFrom && this.draftThrough && this.draftFrom > this.draftThrough) {
+              if (key === "draftFrom") this.draftThrough = this.draftFrom;
+              else this.draftFrom = this.draftThrough;
+            }
+            if (input.value) this.calendarMonth = new Date(localDay(input.value).getFullYear(), localDay(input.value).getMonth(), 1);
+            this.renderPanel();
           });
-          label.appendChild(input); target.appendChild(label);
-        };
-        field("From", "from"); field("Through", "through");
-        const clear = element("button", "Clear dates", "date-range-clear"); clear.type = "button";
-        clear.addEventListener("click", () => this.reset({ notify: true }));
-        target.appendChild(clear);
+          label.append(element("span", text), input); fields.appendChild(label);
+        }
+        panel.appendChild(fields);
+        const navigation = element("div", null, "date-range-navigation");
+        const previous = element("button", "‹", "date-range-previous"); previous.type = "button"; previous.setAttribute("aria-label", "Previous month");
+        previous.addEventListener("click", () => this.moveMonth(-1));
+        const month = element("input"); month.type = "month"; month.setAttribute("aria-label", "First calendar month");
+        month.addEventListener("change", () => {
+          if (month.value && (!month.min || month.value >= month.min) && month.value <= month.max) {
+            const [year, index] = month.value.split("-").map(Number); this.calendarMonth = new Date(year, index - 1, 1);
+          }
+          this.renderPanel();
+        });
+        const next = element("button", "›", "date-range-next"); next.type = "button"; next.setAttribute("aria-label", "Next month");
+        next.addEventListener("click", () => this.moveMonth(1));
+        navigation.append(previous, month, next); panel.appendChild(navigation);
+        panel.appendChild(element("div", null, "date-range-calendars"));
+        const actions = element("div", null, "date-range-actions");
+        const clear = element("button", "Clear", "date-range-clear"); clear.type = "button";
+        clear.addEventListener("click", () => { this.reset({ notify: true }); this.closeMenus(); });
+        const apply = element("button", "Apply range", "date-range-apply"); apply.type = "button";
+        apply.addEventListener("click", () => {
+          this.from = this.draftFrom; this.through = this.draftThrough;
+          this.closeMenus(); this.render(); this.onChange();
+        });
+        actions.append(clear, apply); panel.appendChild(actions); menu.appendChild(panel); target.replaceChildren(menu);
+        menu.addEventListener("toggle", () => {
+          if (!menu.open) return;
+          this.closeMenus(menu);
+          this.draftFrom = this.from; this.draftThrough = this.through;
+          const focusDay = localDay(this.draftFrom) || new Date();
+          this.calendarMonth = new Date(focusDay.getFullYear(), focusDay.getMonth() - 1, 1);
+          this.renderPanel();
+        });
+      });
+      if (this.targets.length) document.addEventListener("click", event => {
+        if (!this.targets.some(target => target.contains(event.target))) this.closeMenus();
       });
       this.render();
     }
+    get today() { return dayString(new Date()); }
     get active() { return Boolean(this.from || this.through); }
     get bounds() {
       return { from: localDay(this.from)?.getTime() ?? null, to: localDay(this.through, true)?.getTime() ?? null };
@@ -129,13 +182,63 @@
       if (to != null) parameters.set("to", new Date(to).toISOString().replace(".000Z", "Z"));
     }
     summary() { return this.active ? `${this.from || "Any day"} to ${this.through || "Any day"}` : "All dates"; }
-    reset({ notify = false } = {}) { this.from = ""; this.through = ""; this.render(); if (notify) this.onChange(); }
+    reset({ notify = false } = {}) {
+      this.from = ""; this.through = ""; this.draftFrom = ""; this.draftThrough = "";
+      this.render(); if (notify) this.onChange();
+    }
+    closeMenus(except = null) {
+      this.targets.forEach(target => { const menu = target.querySelector("details"); if (menu !== except) menu.open = false; });
+    }
+    moveMonth(amount) {
+      const next = new Date(this.calendarMonth.getFullYear(), this.calendarMonth.getMonth() + amount, 1);
+      const minimum = DateRangeFilter.earliest?.slice(0, 7);
+      if (minimum && dayString(next).slice(0, 7) < minimum) return;
+      if (dayString(next).slice(0, 7) > this.today.slice(0, 7)) return;
+      this.calendarMonth = next; this.renderPanel();
+    }
+    selectDay(value) {
+      if (!this.draftFrom || this.draftThrough || value < this.draftFrom) {
+        this.draftFrom = value; this.draftThrough = "";
+      } else this.draftThrough = value;
+      this.renderPanel();
+    }
+    calendarFor(month) {
+      const calendar = element("div", null, "date-range-calendar");
+      calendar.appendChild(element("strong", month.toLocaleDateString(undefined, { month: "long", year: "numeric" })));
+      const grid = element("div", null, "date-range-grid");
+      for (const weekday of ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]) grid.appendChild(element("span", weekday, "date-range-weekday"));
+      for (let offset = 0; offset < month.getDay(); offset += 1) grid.appendChild(element("span"));
+      const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+      for (let day = 1; day <= days; day += 1) {
+        const date = new Date(month.getFullYear(), month.getMonth(), day), value = dayString(date);
+        const button = element("button", String(day), "date-range-day"); button.type = "button";
+        button.disabled = value > this.today || Boolean(DateRangeFilter.earliest && value < DateRangeFilter.earliest);
+        button.setAttribute("aria-label", date.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" }));
+        button.classList.toggle("selected", value === this.draftFrom || value === this.draftThrough);
+        button.classList.toggle("within-range", Boolean(this.draftFrom && this.draftThrough && value > this.draftFrom && value < this.draftThrough));
+        button.addEventListener("click", () => this.selectDay(value)); grid.appendChild(button);
+      }
+      calendar.appendChild(grid); return calendar;
+    }
+    renderPanel() {
+      const earliest = DateRangeFilter.earliest, today = this.today;
+      this.targets.forEach(target => {
+        const panel = target.querySelector(".date-range-panel");
+        const [from, through] = panel.querySelectorAll('input[type="date"]');
+        from.min = earliest; from.max = this.draftThrough || today; from.value = this.draftFrom;
+        through.min = this.draftFrom || earliest; through.max = today; through.value = this.draftThrough;
+        const month = panel.querySelector('input[type="month"]'); month.value = dayString(this.calendarMonth).slice(0, 7);
+        month.min = earliest.slice(0, 7); month.max = today.slice(0, 7);
+        panel.querySelector(".date-range-previous").disabled = Boolean(earliest && dayString(this.calendarMonth).slice(0, 7) <= earliest.slice(0, 7));
+        panel.querySelector(".date-range-next").disabled = dayString(this.calendarMonth).slice(0, 7) >= today.slice(0, 7);
+        panel.querySelector(".date-range-calendars").replaceChildren(this.calendarFor(this.calendarMonth), this.calendarFor(new Date(this.calendarMonth.getFullYear(), this.calendarMonth.getMonth() + 1, 1)));
+      });
+    }
     render() {
       this.targets.forEach(target => {
-        const inputs = target.querySelectorAll('input[type="date"]');
-        inputs[0].value = this.from; inputs[1].value = this.through;
-        target.querySelector("button").hidden = !this.active;
+        target.querySelector("summary").textContent = this.active ? `Dates · ${this.summary()}` : "Dates · All dates";
       });
+      this.renderPanel();
     }
   }
 

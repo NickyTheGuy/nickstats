@@ -41,3 +41,31 @@ test("single-ended date ranges do not discard matches on the open side", () => {
   assert.equal(filter.matches(new Date(2020, 0, 1).getTime() / 1000), false);
   assert.equal(filter.matches(new Date(2030, 0, 1).getTime() / 1000), true);
 });
+
+test("database minimum follows the earliest match in the viewer's local calendar", () => {
+  const earliest = new Date(2020, 5, 17, 23, 30).getTime() / 1000;
+  DateRangeFilter.setEarliest(earliest);
+  assert.equal(DateRangeFilter.earliest, "2020-06-17");
+  const filter = new DateRangeFilter([]);
+  filter.calendarMonth = new Date(2020, 5, 1);
+  filter.moveMonth(-1);
+  assert.equal(filter.calendarMonth.getMonth(), 5);
+  filter.calendarMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  filter.moveMonth(1);
+  assert.equal(filter.calendarMonth.getMonth(), new Date().getMonth());
+  DateRangeFilter.setEarliest(null);
+  assert.equal(DateRangeFilter.earliest, "");
+});
+
+test("calendar clicks choose one inclusive range before applying it", () => {
+  const filter = new DateRangeFilter([]);
+  filter.selectDay("2026-09-10");
+  assert.equal(filter.draftFrom, "2026-09-10");
+  assert.equal(filter.draftThrough, "");
+  assert.equal(filter.active, false);
+  filter.selectDay("2026-09-14");
+  assert.equal(filter.draftThrough, "2026-09-14");
+  filter.selectDay("2026-09-08");
+  assert.equal(filter.draftFrom, "2026-09-08");
+  assert.equal(filter.draftThrough, "");
+});

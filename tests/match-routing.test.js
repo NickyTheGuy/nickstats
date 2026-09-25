@@ -11,6 +11,13 @@ const navigation = fs.readFileSync(path.join(root, "js", "navigation.js"), "utf8
 const demo = fs.readFileSync(path.join(root, "js", "demo.js"), "utf8");
 const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const queries = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Queries.swift"), "utf8");
+const models = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Models.swift"), "utf8");
+
+test("match list exposes the database-wide earliest played date for every range picker", () => {
+  assert.match(queries, /SELECT MIN\(played_at\) AS earliest_played_at FROM matches/);
+  assert.match(models, /struct MatchListResponse:[\s\S]*?case earliestPlayedAt = "earliest_played_at"/);
+  assert.match(demo, /DateRangeFilter\.setEarliest\(payload\.earliest_played_at\)/);
+});
 
 test("account player's team appears first only in matches they played", () => {
   const start = demo.indexOf("  function accountTeamsFirst(match) {");
