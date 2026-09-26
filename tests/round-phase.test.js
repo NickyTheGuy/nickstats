@@ -35,6 +35,11 @@ test("round 24 is Regulation and round 25 is Overtime in stored match combinatio
   assert.equal(overtime.teams[0].players[0].kills, 2);
   assert.equal(overtime.teams[0].players[0].true_kill_rounds[2], 1);
   assert.equal(overtime.teams[0].players[0].by_economy_matchup.eco.full.win.T.rounds_played, 1);
+  const visibleOvertime = context.expandStoredMatch(payload, 1, "OVERTIME", false,
+    { side: "T", buy: "full", result: "win", enemyBuy: "eco" });
+  assert.equal(visibleOvertime.teams[0].players[0].kills, 2);
+  assert.equal(visibleOvertime.teams[0].players[0].rounds_played, 1);
+  assert.equal(visibleOvertime.teams[0].players[0].by_economy_matchup, undefined);
   assert.equal(regulation.teams[0].score, 1);
   assert.equal(overtime.teams[0].score, 1);
   payload.schema = "nickstats.match/23";

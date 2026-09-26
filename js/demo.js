@@ -940,7 +940,7 @@
     return totals;
   }
 
-  function expandStoredMatch(payload, matchID, roundPhase = "ALL", heroOnly = false) {
+  function expandStoredMatch(payload, matchID, roundPhase = "ALL", heroOnly = false, filterScope = null) {
     if (!payload || !Array.isArray(payload.players) || !Array.isArray(payload.teams)) {
       throw new Error("The stored match response is incomplete.");
     }
@@ -1333,6 +1333,9 @@
     }
 
     const expandedPlayers = sourcePlayers.map((_, index) => {
+      if (filterScope) {
+        return expandPlayerSide(index, filterScope.side, filterScope.buy, filterScope.result, filterScope.enemyBuy);
+      }
       const output = expandPlayerSide(index, "ALL");
       output.by_side = { T: expandPlayerSide(index, "T"), CT: expandPlayerSide(index, "CT") };
       output.by_buy = Object.fromEntries(["pistol", "eco", "force", "full"].map(buy => [buy, {
@@ -2759,7 +2762,16 @@
     const buy = state.buyFilter === "hero" ? "ALL" : state.buyFilter;
     if (state.roundPhaseFilter !== "ALL" || state.heroOnly) {
       const payload = state.storedPayload || compactMatchResult(result);
-      teams = expandStoredMatch(payload, state.selectedMatchID || 0, state.roundPhaseFilter, state.heroOnly).teams;
+      teams = expandStoredMatch(payload, state.selectedMatchID || 0, state.roundPhaseFilter, state.heroOnly, {
+        side: state.sideFilter, buy, result: state.roundResultFilter, enemyBuy: state.enemyBuyFilter
+      }).teams;
+      if (state.sideFilter === "ALL" && buy === "ALL" && state.enemyBuyFilter === "ALL" && state.roundResultFilter === "ALL") {
+        return state.heroOnly ? teams.map(team => ({ ...team, score: null })) : teams;
+      }
+      return teams.map(team => {
+        const filteredWins = Math.max(0, ...(team.players || []).map(player => player.round_wins || 0));
+        return { ...team, score: state.roundResultFilter === "ALL" ? filteredWins : null };
+      });
     }
     if ((state.buyFilter !== "ALL" || state.enemyBuyFilter !== "ALL" || state.roundResultFilter !== "ALL") &&
         !teams.some(team => (team.players || []).some(player => player.by_economy_matchup?.eco || (state.enemyBuyFilter === "ALL" && player.by_round_result?.win?.ALL)))) {
@@ -2848,6 +2860,14 @@
     Object.entries(panels).forEach(([name, id]) => {
       $(id).hidden = name !== view;
     });
+    if (view !== "scoreboard" && state.result) renderActiveDetail(state.result, teamsForSide(state.result));
+  }
+
+  function renderActiveDetail(result, teams) {
+    if (state.resultView === "weapons") $("demoWeapons").replaceChildren(...teams.map(renderWeaponTeam));
+    if (state.resultView === "trades") $("demoTrades").replaceChildren(renderTradeMatrix(teams));
+    if (state.resultView === "duels") $("demoDuels").replaceChildren(renderDuelMatrix(teams));
+    if (state.resultView === "timeline") renderTimeline(result);
   }
 
   function renderTimeline(result) {
@@ -2895,10 +2915,7 @@
       return renderTeam(team, index, outcome);
     }));
     synchronizeScoreboardScrolling();
-    $("demoWeapons").replaceChildren(...teams.map(renderWeaponTeam));
-    $("demoTrades").replaceChildren(renderTradeMatrix(teams));
-    $("demoDuels").replaceChildren(renderDuelMatrix(teams));
-    renderTimeline(result);
+    renderActiveDetail(result, teams);
     $("demoResults").hidden = false;
   }
 
