@@ -378,20 +378,24 @@
     const barWidth = Math.max(1, Math.min(28, width / Math.max(1, matches.length * prepared.length) * .8));
     const edgePadding = displayStyle === "bars" ? Math.max(8, barWidth * prepared.length / 2 + 3) : 4;
     const firstDate = matches[0]?.date, lastDate = matches.at(-1)?.date;
-    const timed = allDated && lastDate > firstDate;
+    const hasDateRange = allDated && lastDate > firstDate;
     const xFor = match => left + edgePadding + (width - 2 * edgePadding) * (
-      timed ? (match.date - firstDate) / (lastDate - firstDate)
-        : matches.length === 1 ? .5 : positions.get(match.id) / (matches.length - 1)
+      matches.length === 1 ? .5 : positions.get(match.id) / (matches.length - 1)
     );
-    const ticks = timed ? dateTicks(firstDate, lastDate) : matches.length === 1 && allDated
-      ? [{ date: firstDate, label: new Date(firstDate * 1000).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) }]
-      : matches.filter((_, index) => index % Math.max(1, Math.ceil(matches.length / 8)) === 0 || index === matches.length - 1)
-        .map(match => ({ date: match.date, id: match.id, label: `#${match.id}` }));
-    ticks.forEach(tick => {
-      const x = timed ? left + edgePadding + (width - 2 * edgePadding) * (tick.date - firstDate) / (lastDate - firstDate)
-        : xFor(tick.id ? tick : matches[0]);
+    const tickMatches = hasDateRange
+      ? [matches[0], ...dateTicks(firstDate, lastDate).map(tick => matches.find(match => match.date >= tick.date) || matches.at(-1)), matches.at(-1)]
+      : matches.filter((_, index) => index % Math.max(1, Math.ceil(matches.length / 8)) === 0 || index === matches.length - 1);
+    const tickFormat = (lastDate - firstDate) / 86400 > 900 ? { year: "numeric" }
+      : (lastDate - firstDate) / 86400 <= 2 ? { month: "short", day: "numeric", hour: "numeric" }
+      : { month: "short", day: "numeric" };
+    let lastTickX = -Infinity;
+    tickMatches.forEach(match => {
+      const x = xFor(match);
+      if (x - lastTickX < 72) return;
+      lastTickX = x;
       setLine(svg, x, top + height, x, top + height + 5);
-      svg.appendChild(svgElement("text", { x, y: top + height + 19, class: "graph-bucket-label", "text-anchor": "middle" }, tick.label));
+      svg.appendChild(svgElement("text", { x, y: top + height + 19, class: "graph-bucket-label", "text-anchor": "middle" },
+        hasDateRange ? new Date(match.date * 1000).toLocaleString(undefined, tickFormat) : `#${match.id}`));
     });
     prepared.forEach((series, seriesIndex) => {
       const colorIndex = series.colorIndex ?? seriesIndex;
@@ -401,7 +405,20 @@
         const y = top + height - height * (point.value - min) / (max - min);
         return { point, x, y };
       });
-      if (displayStyle === "line") svg.appendChild(svgElement("polyline", { points: coordinates.map(({ x, y }) => `${x},${y}`).join(" "), class: "graph-series-line", stroke: colors[colorIndex % colors.length] }));
+      if (displayStyle === "line") {
+        let segment = [], previous = null;
+        const flush = () => {
+          if (segment.length > 1) svg.appendChild(svgElement("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: colors[colorIndex % colors.length] }));
+          segment = [];
+        };
+        coordinates.forEach(({ point, x, y }) => {
+          if (previous && (positions.get(point.id) - positions.get(previous.id) > 3 ||
+            (allDated && matches.length > 2 && point.date - previous.date > 30 * 86400))) flush();
+          segment.push(`${x},${y}`);
+          previous = point;
+        });
+        flush();
+      }
       coordinates.forEach(({ point, x, y }) => {
         const mark = displayStyle === "bars"
           ? svgElement("rect", { x: x + (seriesIndex - (prepared.length - 1) / 2) * barWidth - barWidth / 2, y: Math.min(y, zeroY), width: barWidth, height: Math.max(2, Math.abs(y - zeroY)), fill: colors[colorIndex % colors.length], class: "graph-series-bar" })
@@ -410,7 +427,7 @@
         svg.appendChild(mark); attachTooltip(svg, mark, `${series.label} · ${date}: ${format(point.value, metric)}`, x, y);
       });
     });
-    svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, allDated ? "Match date" : "Match order"));
+    svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, hasDateRange ? "Match date (matches evenly spaced)" : "Match order"));
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, metric.label));
   }
 
@@ -620,7 +637,7 @@
         : "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity."
       : multiTrendNeedsDates
         ? "Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for match order, or use Distribution for comparisons now."
-        : "Values follow match date when available and match order otherwise. Hover a value for its match and statistic.";
+        : "Each match gets one horizontal slot in date order. Lines pause across long gaps in a player's games. Hover for the exact date and value.";
     if (!(roundsMode ? roundPrepared : prepared).length) {
       const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = roundsMode ? "No per-round data for these matches. Reparse older demos to add round data." : "No qualifying match samples for this statistic."; summary.appendChild(empty); return;
     }

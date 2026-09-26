@@ -53,6 +53,21 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   assert.equal(datedBars.length, 6);
   assert.ok(datedBars.every(bar => bar.attributes.x >= 68 && bar.attributes.x + bar.attributes.width <= 864));
   assert.ok(svg.children.some(child => child.tag === "text" && /Aug \d+/.test(child.textContent)));
+  const busy = Array.from({ length: 11 }, (_, index) => ({
+    id: String(index + 1), date: 1787356800 + (index === 10 ? 60 : index) * 86400,
+    stats: { rounds: 20, kills: 15 + index, deaths: 10 }
+  }));
+  const sparse = [busy[0], busy[10]];
+  context.window.NickStatsGraphs.render({ prefix: "player", series: [
+    { label: "Frequent", samples: busy }, { label: "Occasional", samples: sparse }
+  ] });
+  const groupedBars = svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar")
+    .sort((a, b) => a.attributes.x - b.attributes.x);
+  assert.equal(groupedBars.length, 13);
+  assert.ok(groupedBars.every((bar, index) => index === groupedBars.length - 1 || bar.attributes.x + bar.attributes.width <= groupedBars[index + 1].attributes.x));
+  display.value = "line"; display.dispatch("change");
+  assert.equal(svg.children.filter(child => child.tag === "polyline" && child.attributes.class === "graph-series-line").length, 1);
+  display.value = "bars";
   context.window.NickStatsGraphs.render({ prefix: "player", series });
   type.value = "distribution";
   nodes.get("playerGraphBucketMode").value = "custom";
@@ -69,7 +84,7 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 4);
   type.value = "trend";
   display.value = "line"; display.dispatch("change");
-  assert.ok(svg.children.some(child => child.tag === "polyline" && child.attributes.class === "graph-series-line"));
+  assert.ok(svg.children.some(child => child.tag === "circle" && child.attributes.class === "graph-point"));
   nodes.get("playerGraphMetric").focus();
   const deaths = nodes.get("playerGraphSuggestions").children.find(child => child.children[0].textContent === "Deaths");
   deaths.dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
