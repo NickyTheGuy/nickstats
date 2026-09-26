@@ -3234,28 +3234,24 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .player-graph-builder {
   display: flex;
-  gap: 18px;
-  align-items: end;
-  justify-content: space-between;
-  padding: 13px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(32, 26, 29, .03);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
 }
 
-.player-graph-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+.player-graph-controls { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
 .graph-option-field,
 .graph-statistic-field,
 .graph-bucket-control { display: flex; flex-direction: column; align-items: stretch; gap: 2px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; line-height: 1.2; text-transform: uppercase; }
 .graph-option-field > span,
 .graph-statistic-field > label { display: block; flex: 0 0 14px; height: 14px; margin: 0; line-height: 14px; }
 .player-graph-controls [hidden] { display: none; }
-.graph-stat-controls { display: flex; align-items: end; gap: 10px; max-width: 100%; padding: 6px 10px 10px; border: 1px solid var(--line); border-radius: 10px; }
+.graph-stat-controls { display: flex; align-items: end; gap: 10px; max-width: 100%; }
 .graph-statistic-field { position: relative; min-width: 250px; }
 .graph-option-field { min-width: 170px; }
-.graph-display-controls { flex: 1 1 520px; min-width: 0; margin: 0; padding: 6px 10px 10px; border: 1px solid var(--line); border-radius: 10px; }
-.graph-display-controls legend { padding: 0 5px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
-.graph-display-controls > div { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+.graph-display-controls { box-sizing: border-box; width: 100%; min-width: 0; margin: 0; padding: 0; border: 0; }
+.graph-display-controls legend { padding: 0 0 4px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.graph-display-controls > div { display: flex; align-items: start; gap: 10px; flex-wrap: wrap; }
 .player-graph-controls select {
   min-width: 170px;
   min-height: 38px;
@@ -3366,7 +3362,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .graph-bucket-stepper output { display: grid; place-items: center; border-right: 1px solid var(--line); border-left: 1px solid var(--line); color: var(--text); font-size: 12px; letter-spacing: normal; }
 .graph-series-bar { opacity: .78; transition: opacity .14s ease; }
 .graph-series-bar:hover { opacity: 1; }
-.player-graph-builder p { max-width: 520px; margin: 0; color: var(--muted); font-size: 12px; }
+.player-graph-builder p { margin: 0; color: var(--muted); font-size: 12px; }
 
 .graph-summary {
   display: grid;
