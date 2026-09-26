@@ -257,6 +257,17 @@
     return { edges };
   }
 
+  function parseCutoffs(text) {
+    const parts = text.split(",").map(part => part.trim());
+    if (!text.trim()) return { error: "Enter comma-separated cutoffs, such as 5, 10, 15." };
+    if (parts.length > MAX_BUCKETS - 1 || parts.some(part => !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(part)))
+      return { error: `Enter up to ${MAX_BUCKETS - 1} numeric cutoffs separated by commas.` };
+    const edges = parts.map(Number);
+    if (edges.some((value, index) => !Number.isFinite(value) || (index > 0 && value <= edges[index - 1])))
+      return { error: "Cutoffs must increase from left to right." };
+    return { edges, manual: true };
+  }
+
   function setLine(svg, x1, y1, x2, y2, className = "graph-axis") {
     svg.appendChild(svgElement("line", { x1, y1, x2, y2, class: className }));
   }
@@ -278,9 +289,9 @@
     const domain = domainSeries.length ? domainSeries : prepared;
     const domainValues = domain.flatMap(series => series.values.map(point => point.value));
     const edges = customRange ? [
-      ...(domainValues.some(value => value < customRange.edges[0]) ? [-Infinity] : []),
+      ...(customRange.manual || domainValues.some(value => value < customRange.edges[0]) ? [-Infinity] : []),
       ...customRange.edges,
-      ...(domainValues.some(value => value >= customRange.edges.at(-1)) ? [Infinity] : [])
+      ...(customRange.manual || domainValues.some(value => value >= customRange.edges.at(-1)) ? [Infinity] : [])
     ] : null;
     if (edges) bins = edges.length - 1;
     const left = 68, top = 24, width = 796, height = 318;
@@ -591,7 +602,9 @@
     const bucketMode = document.getElementById(`${prefix}GraphBucketMode`);
     const bucketStepper = document.getElementById(`${prefix}GraphBucketStepper`);
     const bucketRange = document.getElementById(`${prefix}GraphBucketRange`);
-    const bucketInputs = ["From", "To", "Size"].map(key => document.getElementById(`${prefix}GraphBucket${key}`));
+    const bucketManual = document.getElementById(`${prefix}GraphBucketManual`);
+    const cutoffInput = document.getElementById(`${prefix}GraphBucketCutoffs`);
+    const bucketInputs = ["From", "To", "Increment"].map(key => document.getElementById(`${prefix}GraphBucket${key}`));
     if (!type || !metricInput || !svg || !summary || !legend || !note) return;
     const scope = document.getElementById(`${prefix}GraphScope`);
     const roundOnly = state.metricId === "round_diff";
@@ -610,13 +623,17 @@
     if (bucketRange && state.bucketInputMetric !== metric.id) {
       const values = state.customRanges.get(metric.id) || ["", "", ""];
       bucketInputs.forEach((input, index) => { input.value = values[index]; });
+      if (cutoffInput) cutoffInput.value = state.manualCutoffs.get(metric.id) || "";
       state.bucketInputMetric = metric.id;
     }
-    const custom = bucketMode?.value === "custom";
-    const range = custom ? parseBucketRange(...bucketInputs.map(input => input?.value || "")) : null;
-    if (bucketStepper) bucketStepper.hidden = custom;
-    if (bucketRange) bucketRange.hidden = !custom;
-    bucketInputs.forEach(input => input?.setAttribute("aria-invalid", String(custom && !!range.error)));
+    const mode = bucketMode?.value || "auto";
+    const range = mode === "range" ? parseBucketRange(...bucketInputs.map(input => input?.value || ""))
+      : mode === "manual" ? parseCutoffs(cutoffInput?.value || "") : null;
+    if (bucketStepper) bucketStepper.hidden = mode !== "auto";
+    if (bucketRange) bucketRange.hidden = mode !== "range";
+    if (bucketManual) bucketManual.hidden = mode !== "manual";
+    bucketInputs.forEach(input => input?.setAttribute("aria-invalid", String(mode === "range" && !!range.error)));
+    cutoffInput?.setAttribute("aria-invalid", String(mode === "manual" && !!range.error));
     const roundMetric = roundMetrics[metric.id];
     const prepared = state.series.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
     const domainPrepared = state.domainSeries.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
@@ -632,12 +649,13 @@
     note.textContent = roundsMode
       ? `Each ${distributionStyle?.value === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
       : type.value === "distribution"
-      ? custom ? range?.error ? `${range.error} Showing automatic buckets until valid.`
-          : "Each observation is one match. For example, 0 to 30 by 5 makes 0–<5 through 25–<30; values outside the range get separate buckets."
-        : "Each observation is one match. Bucket boundaries stay fixed across the available player pool; use − or + to change granularity."
+      ? range?.error ? `${range.error} Showing automatic buckets until valid.`
+        : mode === "manual" ? "Enter comma-separated cutoffs. For example, 5, 10, 15 makes <5, 5–<10, 10–<15, and ≥15."
+          : ""
       : multiTrendNeedsDates
         ? "Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for match order, or use Distribution for comparisons now."
         : "Each match gets one horizontal slot in date order. Lines pause across long gaps in a player's games. Hover for the exact date and value.";
+    note.hidden = !note.textContent;
     if (!(roundsMode ? roundPrepared : prepared).length) {
       const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = roundsMode ? "No per-round data for these matches. Reparse older demos to add round data." : "No qualifying match samples for this statistic."; summary.appendChild(empty); return;
     }
@@ -684,7 +702,7 @@
     graphState.set(prefix, { series: series || [], domainSeries: domainSeries || series || [], independent,
       bucketCount: previous?.bucketCount || DEFAULT_BUCKETS, metricId: previous?.metricId || "rating",
       category: previous?.category || "Core", suggestions: previous?.suggestions || [], suggestionIndex: previous?.suggestionIndex ?? -1,
-      customRanges: previous?.customRanges || new Map(), bucketInputMetric: previous?.bucketInputMetric || null });
+      customRanges: previous?.customRanges || new Map(), manualCutoffs: previous?.manualCutoffs || new Map(), bucketInputMetric: previous?.bucketInputMetric || null });
     if (!previous) {
       input.value = registry.get("rating").label;
       type.addEventListener("change", () => draw(prefix));
@@ -709,11 +727,16 @@
       document.addEventListener("pointerdown", event => { if (!controls?.contains(event.target)) closeSuggestions(prefix); });
       document.getElementById(`${prefix}GraphDistributionStyle`)?.addEventListener("change", () => draw(prefix));
       document.getElementById(`${prefix}GraphBucketMode`)?.addEventListener("change", () => draw(prefix));
-      ["From", "To", "Size"].forEach(key => document.getElementById(`${prefix}GraphBucket${key}`)?.addEventListener("input", () => {
+      ["From", "To", "Increment"].forEach(key => document.getElementById(`${prefix}GraphBucket${key}`)?.addEventListener("input", () => {
         const current = graphState.get(prefix);
-        current.customRanges.set(current.metricId, ["From", "To", "Size"].map(name => document.getElementById(`${prefix}GraphBucket${name}`).value));
+        current.customRanges.set(current.metricId, ["From", "To", "Increment"].map(name => document.getElementById(`${prefix}GraphBucket${name}`).value));
         draw(prefix);
       }));
+      document.getElementById(`${prefix}GraphBucketCutoffs`)?.addEventListener("input", event => {
+        const current = graphState.get(prefix);
+        current.manualCutoffs.set(current.metricId, event.target.value);
+        draw(prefix);
+      });
       document.getElementById(`${prefix}GraphBucketsLess`)?.addEventListener("click", () => {
         const current = graphState.get(prefix); current.bucketCount = Math.max(MIN_BUCKETS, current.bucketCount - 1); draw(prefix);
       });
@@ -724,5 +747,5 @@
     draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, dateTicks, drawRoundSeries: drawRounds, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks, drawRoundSeries: drawRounds, render });
 })();

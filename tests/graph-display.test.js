@@ -30,7 +30,7 @@ test("bars and lines render for match trends and exact-round deaths", () => {
     createElementNS: (_, tag) => new Element(tag),
     addEventListener() {}
   };
-  for (const name of ["Type", "TypeControl", "Metric", "Category", "Scope", "DistributionStyle", "DistributionStyleControl", "BucketControl", "BucketMode", "BucketStepper", "BucketRange", "BucketFrom", "BucketTo", "BucketSize", "BucketHelp", "Suggestions", "Svg", "Summary", "Legend", "Note"]) {
+  for (const name of ["Type", "TypeControl", "Metric", "Category", "Scope", "DistributionStyle", "DistributionStyleControl", "BucketControl", "BucketMode", "BucketStepper", "BucketRange", "BucketManual", "BucketCutoffs", "BucketFrom", "BucketTo", "BucketIncrement", "Suggestions", "Svg", "Summary", "Legend", "Note"]) {
     nodes.set(`playerGraph${name}`, new Element(name === "Category" ? "select" : "div"));
   }
   const type = nodes.get("playerGraphType"), scope = nodes.get("playerGraphScope");
@@ -70,18 +70,27 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   display.value = "bars";
   context.window.NickStatsGraphs.render({ prefix: "player", series });
   type.value = "distribution";
-  nodes.get("playerGraphBucketMode").value = "custom";
+  nodes.get("playerGraphBucketMode").value = "range";
   nodes.get("playerGraphBucketFrom").value = "0";
   nodes.get("playerGraphBucketTo").value = "3";
-  nodes.get("playerGraphBucketSize").value = "1";
+  nodes.get("playerGraphBucketIncrement").value = "1";
   nodes.get("playerGraphBucketMode").dispatch("change");
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 3);
+  assert.equal(nodes.get("playerGraphNote").hidden, true);
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "0–<1"));
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "2–<3"));
   nodes.get("playerGraphBucketFrom").value = ".1";
   nodes.get("playerGraphBucketFrom").dispatch("input");
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "<0.1"));
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 4);
+  nodes.get("playerGraphBucketMode").value = "manual";
+  nodes.get("playerGraphBucketCutoffs").value = "1, 2, 3";
+  nodes.get("playerGraphBucketMode").dispatch("change");
+  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 4);
+  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "<1"));
+  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "≥3"));
+  assert.match(nodes.get("playerGraphNote").textContent, /comma-separated cutoffs/);
+  assert.equal(nodes.get("playerGraphNote").hidden, false);
   type.value = "trend";
   display.value = "line"; display.dispatch("change");
   assert.ok(svg.children.some(child => child.tag === "circle" && child.attributes.class === "graph-point"));

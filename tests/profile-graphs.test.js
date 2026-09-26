@@ -10,7 +10,14 @@ const context = vm.createContext({ window: {}, document: {} });
 vm.runInContext(availabilitySource, context);
 vm.runInContext(source, context);
 
-const { metrics, metricChoices, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, dateTicks } = context.window.NickStatsGraphs;
+const { metrics, metricChoices, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks } = context.window.NickStatsGraphs;
+
+test("manual cutoffs accept ordered CSV values and reject invalid boundaries", () => {
+  assert.deepEqual(Array.from(parseCutoffs("5, 10, 15").edges), [5, 10, 15]);
+  for (const input of ["", "5, 5", "10, 5", "5,", "5; 10", "5, Infinity"]) {
+    assert.ok(parseCutoffs(input).error, input);
+  }
+});
 
 test("trend date ticks change from days to months to years with the visible span", () => {
   const start = Date.UTC(2026, 0, 1) / 1000;
