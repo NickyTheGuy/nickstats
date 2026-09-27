@@ -37,7 +37,10 @@
   });
   const subgroups = Object.freeze({
     combat: [["output", "Output", [0, 1, 2, 3, 4], "Overview"], ["damage", "Damage", [5, 6, 7, 8], "Damage"]],
-    opening: [["results", "Results", [0, 1, 23, 24, 25], "Opening results"], ["received", "Help received", [2, 3, 4, 5, 26], "Opening help received"], ["given", "Help given", [6, 7, 8, 9], "Opening help given"], ["flash", "Flash context", [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22], "Opening flash context"]],
+    opening: [["results", "Results", [0, 1, 23, 24, 25], "Opening results"], ["received", "Help received", [2, 3, 4, 5, 26], "Opening help received"], ["given", "Help given", [6, 7, 8, 9], "Opening help given"],
+      ["flashKills", "Flash kills", [10, 11, 17, 18, 19], "Opening kills · flash"],
+      ["flashDeaths", "Flash deaths", [12, 13, 20, 21, 22], "Opening deaths · flash"],
+      ["enemyAssists", "Enemy assists", [14, 15, 16], "Opening deaths · enemy assists"]],
     multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5], "Multi-kills"], ["true", "True", [6, 7, 8, 9, 10], "True multi-kills"]],
     killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4], "Visibility and cover"], ["readiness", "Readiness", [5, 6, 7, 8], "Readiness"]],
     movement: [["state", "State", [0, 1, 2, 3], "Movement"], ["speed", "Speed", [4, 5, 6, 7], "Movement speed"]],
@@ -114,7 +117,8 @@
     heading.colSpan = expanded ? focusedLabels.length : 1;
     heading.dataset.scoreboardHeader = group;
     const actions = element("div", null, "demo-column-heading-actions");
-    const toggle = element("button", `${subgroup?.[3] || label} ${expanded ? "▾" : "▸"}`, "demo-column-toggle");
+    const position = subgroup && group === "opening" ? ` · ${subgroups[group].indexOf(subgroup) + 1}/${subgroups[group].length}` : "";
+    const toggle = element("button", `${subgroup?.[3] || label}${position} ${expanded ? "▾" : "▸"}`, "demo-column-toggle");
     toggle.type = "button";
     toggle.setAttribute("aria-expanded", String(expanded));
     toggle.addEventListener("click", () => onToggle(group));
