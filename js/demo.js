@@ -98,19 +98,19 @@
       { label: "D", value: player => player.opening_deaths ?? 0, direction: "asc" },
       { label: "Assisted K", value: player => player.opening_assisted_kills ?? 0 },
       { label: "Dmg A", value: player => player.opening_damage_assisted_kills ?? 0 },
-      { label: "Flash A", value: player => player.opening_flash_assisted_kills ?? 0 },
+      { label: "K on ally flash", value: player => player.opening_flash_assisted_kills ?? 0 },
       { label: "Traded D", value: player => player.opening_traded_deaths ?? 0 },
       { label: "Trade K", value: player => player.opening_trade_kills ?? 0 },
       { label: "A earned", value: player => player.opening_assists ?? 0 },
       { label: "Dmg A earned", value: player => player.opening_damage_assists ?? 0 },
-      { label: "Flash A earned", value: player => player.opening_flash_assists ?? 0 },
+      { label: "A from your flash", value: player => player.opening_flash_assists ?? 0 },
       { label: "Enemy blind K", value: player => player.opening_blinded_enemy_kills ?? 0 },
-      { label: "Blind K", value: player => player.opening_blind_kills ?? 0 },
-      { label: "Blind D", value: player => player.opening_deaths_while_blind ?? 0 },
-      { label: "Blind killer D", value: player => player.opening_deaths_to_blind_killer ?? 0 },
+      { label: "K while blind", value: player => player.opening_blind_kills ?? 0 },
+      { label: "D while blind", value: player => player.opening_deaths_while_blind ?? 0 },
+      { label: "D to blind killer", value: player => player.opening_deaths_to_blind_killer ?? 0 },
       { label: "Enemy assisted D", value: player => player.opening_enemy_assisted_deaths ?? 0 },
       { label: "Enemy dmg A D", value: player => player.opening_enemy_damage_assisted_deaths ?? 0 },
-      { label: "Enemy flash A D", value: player => player.opening_enemy_flash_assisted_deaths ?? 0 },
+      { label: "D on killer's ally flash", value: player => player.opening_enemy_flash_assisted_deaths ?? 0 },
       { label: "Attempt rate", value: player => 100 * ((player.opening_kills ?? 0) + (player.opening_deaths ?? 0)) / Math.max(1, player.rounds_played ?? 0) },
       { label: "Diff", value: player => (player.opening_kills ?? 0) - (player.opening_deaths ?? 0) },
       { label: "Success", value: player => 100 * (player.opening_kills ?? 0) / Math.max(1, (player.opening_kills ?? 0) + (player.opening_deaths ?? 0)) },
@@ -123,24 +123,24 @@
     openingSuccess: oneMode("openingSuccess", "Success", player => 100 * (player.opening_kills ?? 0) / Math.max(1, (player.opening_kills ?? 0) + (player.opening_deaths ?? 0))),
     openingAssisted: oneMode("openingAssisted", "Assisted K", player => player.opening_assisted_kills ?? 0),
     openingDamageAssisted: oneMode("openingDamageAssisted", "Dmg A", player => player.opening_damage_assisted_kills ?? 0),
-    openingFlashAssisted: oneMode("openingFlashAssisted", "Flash A", player => player.opening_flash_assisted_kills ?? 0),
+    openingFlashAssisted: oneMode("openingFlashAssisted", "K on ally flash", player => player.opening_flash_assisted_kills ?? 0),
     openingTradedDeaths: oneMode("openingTradedDeaths", "Traded D", player => player.opening_traded_deaths ?? 0),
     openingTradeKills: oneMode("openingTradeKills", "Trade K", player => player.opening_trade_kills ?? 0),
     openingAssists: oneMode("openingAssists", "A earned", player => player.opening_assists ?? 0),
     openingDamageAssists: oneMode("openingDamageAssists", "Dmg A earned", player => player.opening_damage_assists ?? 0),
-    openingFlashAssists: oneMode("openingFlashAssists", "Flash A earned", player => player.opening_flash_assists ?? 0),
+    openingFlashAssists: oneMode("openingFlashAssists", "A from your flash", player => player.opening_flash_assists ?? 0),
     openingBlindedEnemyKills: oneMode("openingBlindedEnemyKills", "Enemy blind K", player => player.opening_blinded_enemy_kills ?? 0),
-    openingBlindKills: oneMode("openingBlindKills", "Blind K", player => player.opening_blind_kills ?? 0),
-    openingDeathsWhileBlind: oneMode("openingDeathsWhileBlind", "Blind D", player => player.opening_deaths_while_blind ?? 0),
-    openingDeathsToBlindKiller: oneMode("openingDeathsToBlindKiller", "Blind killer D", player => player.opening_deaths_to_blind_killer ?? 0),
+    openingBlindKills: oneMode("openingBlindKills", "K while blind", player => player.opening_blind_kills ?? 0),
+    openingDeathsWhileBlind: oneMode("openingDeathsWhileBlind", "D while blind", player => player.opening_deaths_while_blind ?? 0),
+    openingDeathsToBlindKiller: oneMode("openingDeathsToBlindKiller", "D to blind killer", player => player.opening_deaths_to_blind_killer ?? 0),
     openingEnemyAssistedDeaths: oneMode("openingEnemyAssistedDeaths", "Enemy assisted D", player => player.opening_enemy_assisted_deaths ?? 0),
     openingEnemyDamageAssistedDeaths: oneMode("openingEnemyDamageAssistedDeaths", "Enemy dmg A D", player => player.opening_enemy_damage_assisted_deaths ?? 0),
-    openingEnemyFlashAssistedDeaths: oneMode("openingEnemyFlashAssistedDeaths", "Enemy flash A D", player => player.opening_enemy_flash_assisted_deaths ?? 0),
-    openingOwnFlashKills: oneMode("openingOwnFlashKills", "Own flash K", player => player.opening_own_flash_kills ?? 0),
-    openingVictimSideFlashKills: oneMode("openingVictimSideFlashKills", "Victim-side flash K", player => player.opening_victim_side_flash_kills ?? 0),
+    openingEnemyFlashAssistedDeaths: oneMode("openingEnemyFlashAssistedDeaths", "D on killer's ally flash", player => player.opening_enemy_flash_assisted_deaths ?? 0),
+    openingOwnFlashKills: oneMode("openingOwnFlashKills", "K on your flash", player => player.opening_own_flash_kills ?? 0),
+    openingVictimSideFlashKills: oneMode("openingVictimSideFlashKills", "K on their flash", player => player.opening_victim_side_flash_kills ?? 0),
     openingBlindSourceUnknownKills: oneMode("openingBlindSourceUnknownKills", "Unknown flash K", player => player.opening_blind_source_unknown_kills ?? 0),
-    openingDeathsToKillerFlash: oneMode("openingDeathsToKillerFlash", "Killer flash D", player => player.opening_deaths_to_killer_flash ?? 0, "asc"),
-    openingDeathsToOwnSideFlash: oneMode("openingDeathsToOwnSideFlash", "Own-side flash D", player => player.opening_deaths_to_own_side_flash ?? 0, "asc"),
+    openingDeathsToKillerFlash: oneMode("openingDeathsToKillerFlash", "D to killer's flash", player => player.opening_deaths_to_killer_flash ?? 0, "asc"),
+    openingDeathsToOwnSideFlash: oneMode("openingDeathsToOwnSideFlash", "D to your side's flash", player => player.opening_deaths_to_own_side_flash ?? 0, "asc"),
     openingDeathsBlindSourceUnknown: oneMode("openingDeathsBlindSourceUnknown", "Unknown flash D", player => player.opening_deaths_blind_source_unknown ?? 0, "asc"),
     openingAssistRate: oneMode("openingAssistRate", "Assist %", player => 100 * (player.opening_assisted_kills ?? 0) / Math.max(1, player.opening_kills ?? 0)),
     combatKills: oneMode("combatKills", "K", player => player.kills ?? 0),
@@ -236,7 +236,7 @@
     tradeDResult: oneMode("tradeDResult", "D%", player => player.traded_death_percent ?? 0),
     assistedDamage: oneMode("assistedDamage", "Dmg", player => player.assisted_kills?.damage ?? 0),
     assistedFlash: oneMode("assistedFlash", "Flash", player => player.assisted_kills?.flash ?? 0),
-    assistedOwnFlash: oneMode("assistedOwnFlash", "Own-flash K", player => player.assisted_kills?.own_flash ?? 0),
+    assistedOwnFlash: oneMode("assistedOwnFlash", "K on your flash", player => player.assisted_kills?.own_flash ?? 0),
     utilitySummary: { id: "utilitySummary", modes: [
       { label: "Dmg", value: player => player.grenade_damage?.total ?? 0 },
       { label: "Thrown", value: player => ["high_explosive", "flashbang", "smoke", "fire", "decoy"].reduce((sum, key) => sum + (player.utility_thrown?.[key] ?? 0), 0) },
@@ -257,8 +257,8 @@
     fireThrown: oneMode("fireThrown", "Fire", player => player.utility_thrown?.fire ?? 0),
     decoyThrown: oneMode("decoyThrown", "Decoy", player => player.utility_thrown?.decoy ?? 0),
     blindDuration: oneMode("blindDuration", "Blind sec", player => enemyFlashMatchups(player).reduce((sum, row) => sum + (row.blind_duration || 0), 0)),
-    teammateBlindDuration: oneMode("teammateBlindDuration", "Teammate sec", player => teammateFlashMatchups(player).reduce((sum, row) => sum + numberValue(row.blind_duration), 0), "asc"),
-    selfBlindDuration: oneMode("selfBlindDuration", "Self sec", player => selfFlashMatchups(player).reduce((sum, row) => sum + numberValue(row.blind_duration), 0), "asc"),
+    teammateBlindDuration: oneMode("teammateBlindDuration", "Ally blind sec", player => teammateFlashMatchups(player).reduce((sum, row) => sum + numberValue(row.blind_duration), 0), "asc"),
+    selfBlindDuration: oneMode("selfBlindDuration", "Self-blind sec", player => selfFlashMatchups(player).reduce((sum, row) => sum + numberValue(row.blind_duration), 0), "asc"),
     bombPlants: oneMode("bombPlants", "Plants", player => player.objectives?.plants ?? 0),
     bombDefuses: oneMode("bombDefuses", "Defuses", player => player.objectives?.defuses ?? 0),
     timingSummary: { id: "timingSummary", modes: [
@@ -2059,8 +2059,8 @@
 
   function regularHeader(row, label) {
     const th = document.createElement("th");
-    if (label === "EF") th.title = "Enemies flashed";
-    if (label === "FA") th.title = "Flash assists";
+    if (label === "EF") th.title = "Enemies blinded by your flashes";
+    if (label === "FA") th.title = "Teammate kills assisted by your flash";
     th.rowSpan = 2;
     sortableHeader(th, label, {
       Player: sortSpecs.player,
@@ -2099,7 +2099,7 @@
     if (detail.includes("(Succ%)")) return detail.replace(/^([KD])/, "$1 / round");
     if (/K\/D|%|rate|Success|speed|Avg /.test(detail)) return detail;
     if (group === "utility" && state.scoreboardPerGrenadeUtility) {
-      const unit = { "HE Dmg": "HE", "Fire Dmg": "fire", EF: "flash", "Enemy sec": "flash", TF: "flash", "Teammate sec": "flash", SF: "flash", "Self sec": "flash", FA: "flash", "Own flash": "flash" }[detail];
+      const unit = { "HE Dmg": "HE", "Fire Dmg": "fire", EF: "flash", "Enemy sec": "flash", TF: "flash", "Ally blind sec": "flash", SF: "flash", "Self-blind sec": "flash", FA: "flash", "K on your flash": "flash" }[detail];
       if (unit) return `${detail} / ${unit}`;
     }
     return `${detail} / round`;
@@ -2112,11 +2112,6 @@
       onToggle: toggleColumnGroup,
       onCycle: cycleScoreboardSubgroup,
       decorateDetail: (child, detail) => {
-      if (detail === "EF") child.title = "Enemies flashed";
-      if (detail === "TF") child.title = "Teammates flashed";
-      if (detail === "SF") child.title = "Self flash effects";
-      if (detail === "FA") child.title = "Flash assists";
-      if (detail === "Own-flash K") child.title = "Kills on enemies actively blinded by a flash you threw; this does not mean you blinded yourself";
       if (detail === "Enemy blind K-D") child.title = "Kills against blinded enemies – deaths while blinded";
       if (detail === "Killer blind K-D") child.title = "Kills while you were blind – deaths to a blinded enemy";
       if (detail === "Wallbang K-D") child.title = "Wallbang kills – wallbang deaths";
@@ -2169,24 +2164,24 @@
         D: sortSpecs.openingDeaths,
         "Assisted K": sortSpecs.openingAssisted,
         "Dmg A": sortSpecs.openingDamageAssisted,
-        "Flash A": sortSpecs.openingFlashAssisted,
+        "K on ally flash": sortSpecs.openingFlashAssisted,
         "Traded D": sortSpecs.openingTradedDeaths,
         "Trade K": sortSpecs.openingTradeKills,
         "A earned": sortSpecs.openingAssists,
         "Dmg A earned": sortSpecs.openingDamageAssists,
-        "Flash A earned": sortSpecs.openingFlashAssists,
+        "A from your flash": sortSpecs.openingFlashAssists,
         "Enemy blind K": sortSpecs.openingBlindedEnemyKills,
-        "Blind K": sortSpecs.openingBlindKills,
-        "Blind D": sortSpecs.openingDeathsWhileBlind,
-        "Blind killer D": sortSpecs.openingDeathsToBlindKiller,
+        "K while blind": sortSpecs.openingBlindKills,
+        "D while blind": sortSpecs.openingDeathsWhileBlind,
+        "D to blind killer": sortSpecs.openingDeathsToBlindKiller,
         "Enemy assisted D": sortSpecs.openingEnemyAssistedDeaths,
         "Enemy dmg A D": sortSpecs.openingEnemyDamageAssistedDeaths,
-        "Enemy flash A D": sortSpecs.openingEnemyFlashAssistedDeaths,
-        "Own flash K": sortSpecs.openingOwnFlashKills,
-        "Victim-side flash K": sortSpecs.openingVictimSideFlashKills,
+        "D on killer's ally flash": sortSpecs.openingEnemyFlashAssistedDeaths,
+        "K on your flash": sortSpecs.openingOwnFlashKills,
+        "K on their flash": sortSpecs.openingVictimSideFlashKills,
         "Unknown flash K": sortSpecs.openingBlindSourceUnknownKills,
-        "Killer flash D": sortSpecs.openingDeathsToKillerFlash,
-        "Own-side flash D": sortSpecs.openingDeathsToOwnSideFlash,
+        "D to killer's flash": sortSpecs.openingDeathsToKillerFlash,
+        "D to your side's flash": sortSpecs.openingDeathsToOwnSideFlash,
         "Unknown flash D": sortSpecs.openingDeathsBlindSourceUnknown,
         "Attempt rate": sortSpecs.openingAttempts,
         Diff: sortSpecs.openingDiff,
@@ -2240,11 +2235,11 @@
         "Fire thrown": sortSpecs.fireThrown,
         "Decoy thrown": sortSpecs.decoyThrown,
         "Enemy sec": sortSpecs.blindDuration,
-        "Teammate sec": sortSpecs.teammateBlindDuration,
-        "Self sec": sortSpecs.selfBlindDuration,
+        "Ally blind sec": sortSpecs.teammateBlindDuration,
+        "Self-blind sec": sortSpecs.selfBlindDuration,
         "Damage assist": sortSpecs.assistedDamage,
-        "Teammate flash": sortSpecs.assistedFlash,
-        "Own flash": sortSpecs.assistedOwnFlash
+        "K on ally flash": sortSpecs.assistedFlash,
+        "K on your flash": sortSpecs.assistedOwnFlash
       },
       clutches: {
         Total: sortSpecs.clutchTotal,

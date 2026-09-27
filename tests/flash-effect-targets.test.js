@@ -31,18 +31,18 @@ test("stored flash relationships aggregate enemy, teammate, and self effects sep
 test("match scoreboard derives teammate and self flash effects from relationship rows", () => {
   assert.match(demo, /const teammateFlashMatchups = player => flashMatchupsFor\(player, "teammate"\)/);
   assert.match(demo, /const selfFlashMatchups = player => flashMatchupsFor\(player, "self"\)/);
-  assert.match(scoreboard, /"TF", "Teammate sec", "SF", "Self sec"/);
+  assert.match(scoreboard, /"TF", "Ally blind sec", "SF", "Self-blind sec"/);
   assert.match(demo, /teammateEffects, teammateBlindSeconds\.toFixed\(1\)/);
   assert.match(demo, /selfEffects, selfBlindSeconds\.toFixed\(1\)/);
 });
 
 test("profiles, groups, and graphs expose teammate and self blind outcomes", () => {
-  assert.match(profile, /"Teammates flashed"/);
-  assert.match(profile, /"Teammate blind time"/);
-  assert.match(profile, /"Self flash effects"/);
-  assert.match(profile, /"Self blind time"/);
+  assert.match(profile, /"Teammates blinded by your flashes"/);
+  assert.match(profile, /"Teammate blind time from your flashes"/);
+  assert.match(profile, /"Times you blinded yourself"/);
+  assert.match(profile, /"Time you blinded yourself"/);
   assert.match(compare, /teammateBlindSeconds: num\(stats\.teammate_blind_duration_ms\) \/ 1000/);
   assert.match(compare, /selfBlindSeconds: num\(stats\.self_blind_duration_ms\) \/ 1000/);
-  assert.match(graphs, /"Teammates flashed per round"/);
-  assert.match(graphs, /"Self blind seconds per round"/);
+  assert.match(graphs, /"Teammates blinded by your flashes per round"/);
+  assert.match(graphs, /"Seconds you blinded yourself per round"/);
 });

@@ -23,7 +23,7 @@
   ]);
   const columns = Object.freeze({
     combat: [["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A"],
-    opening: [["K", "D", "Assisted K", "Dmg A", "Flash A", "Traded D", "Trade K", "A earned", "Dmg A earned", "Flash A earned", "Enemy blind K", "Blind K", "Blind D", "Blind killer D", "Enemy assisted D", "Enemy dmg A D", "Enemy flash A D", "Own flash K", "Victim-side flash K", "Unknown flash K", "Killer flash D", "Own-side flash D", "Unknown flash D", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
+    opening: [["K", "D", "Assisted K", "Dmg A", "K on ally flash", "Traded D", "Trade K", "A earned", "Dmg A earned", "A from your flash", "Enemy blind K", "K while blind", "D while blind", "D to blind killer", "Enemy assisted D", "Enemy dmg A D", "D on killer's ally flash", "K on your flash", "K on their flash", "Unknown flash K", "D to killer's flash", "D to your side's flash", "Unknown flash D", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
     trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
     clutches: [["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A · Win%"],
     multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%", "5K", "4K", "3K", "2K", "TMK%"], "Total"],
@@ -33,7 +33,7 @@
     timing: [["Avg kill", "Avg death", "Early K-D", "Mid K-D", "Late K-D", "Post-plant K-D"], "Avg K/D time"],
     killContext: [["Enemy blind K-D", "Killer blind K-D", "Wallbang K-D", "Smoke K-D", "Air K-D", "Grenade out K-D", "Knife out K-D", "Paul K-D", "Run K-D"], "Bullshit K-D"],
     movement: [["Move K-D", "Still K-D", "Run K-D", "Air K-D", "Kill speed avg/max", "Kill speed avg/peak %", "Enemy speed avg/max", "Enemy speed avg/peak %"], "Move/run/air"],
-    utility: [["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Enemy sec", "TF", "Teammate sec", "SF", "Self sec", "FA", "Damage assist", "Teammate flash", "Own flash"], "Damage · thrown"]
+    utility: [["HE Dmg", "Fire Dmg", "HE thrown", "Flash thrown", "Smoke thrown", "Fire thrown", "Decoy thrown", "EF", "Enemy sec", "TF", "Ally blind sec", "SF", "Self-blind sec", "FA", "Damage assist", "K on ally flash", "K on your flash"], "Damage · thrown"]
   });
   const subgroups = Object.freeze({
     combat: [["output", "Output", [0, 1, 2, 3, 4], "Overview"], ["damage", "Damage", [5, 6, 7, 8], "Damage"]],
@@ -48,16 +48,35 @@
   });
   const expandedWidths = Object.freeze({
     combat: [54, 54, 54, 62, 62, 82, 88, 76, 72],
-    opening: [58, 58, 82, 68, 72, 88, 68, 76, 76, 84, 82, 68, 68, 92, 104, 112, 112, 88, 120, 102, 92, 120, 110, 82, 62, 72, 76],
+    opening: [58, 58, 82, 68, 126, 88, 68, 76, 76, 130, 82, 100, 100, 126, 104, 112, 164, 110, 112, 102, 126, 152, 110, 82, 62, 72, 76],
     trades: [58, 54, 96, 58, 54, 96], clutches: [94, 94, 94, 94, 94],
     multikills: [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], objectives: [74, 74],
     roundState: [128, 88, 168, 104], killStage: [92, 92, 92, 92, 92], timing: [82, 82, 84, 84, 84, 112],
     killContext: [104, 104, 98, 88, 88, 112, 104, 88, 88], movement: [88, 88, 88, 88, 116, 132, 126, 142],
-    utility: [82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90]
+    utility: [82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 100, 58, 100, 128, 128]
   });
   const collapsedWidths = Object.freeze({
     combat: 90, opening: 108, trades: 88, clutches: 122, multikills: 92, objectives: 128,
     roundState: 112, killStage: 104, timing: 110, killContext: 112, movement: 112, utility: 176
+  });
+  const flashDescriptions = Object.freeze({
+    "K on ally flash": "Kills on enemies blinded by a teammate's flash",
+    "K on your flash": "Kills on enemies blinded by a flash you threw",
+    "K on their flash": "Opening kills on enemies blinded by their own side's flash, including their own flash",
+    "A from your flash": "Opening kills a teammate got after your flash blinded the enemy",
+    "D on killer's ally flash": "Opening deaths where the killer's teammate blinded you",
+    "D to killer's flash": "Opening deaths where the killer blinded you with their own flash",
+    "D to your side's flash": "Opening deaths where you were blinded by your own or a teammate's flash",
+    "Enemy blind K": "Opening kills on blinded enemies, regardless of who threw the flash",
+    "K while blind": "Opening kills while you were blinded",
+    "D while blind": "Opening deaths while you were blinded",
+    "D to blind killer": "Opening deaths to an opponent who was blinded",
+    "Ally blind sec": "Seconds teammates spent blinded by your flashes",
+    "Self-blind sec": "Seconds you spent blinded by your own flashes",
+    EF: "Enemies blinded by your flashes",
+    TF: "Teammates blinded by your flashes",
+    SF: "Times you blinded yourself with your flashes",
+    FA: "Teammate kills assisted by a flash you threw"
   });
   const groupSection = Object.freeze(Object.fromEntries(sections.flatMap(([section, , values]) => values.map(group => [group, section]))));
 
@@ -144,8 +163,9 @@
       cell.scope = "col";
       if (index === 0) cell.classList.add("demo-group-start");
       if (index === details.length - 1) cell.classList.add("demo-group-end");
-      decorateDetail?.(cell, detail);
       const source = expanded ? focusedLabels[index] : collapsedLabel;
+      if (flashDescriptions[source]) cell.title = flashDescriptions[source];
+      decorateDetail?.(cell, detail);
       sortHeader(cell, detail, source, group);
       detailRow.appendChild(cell);
     });

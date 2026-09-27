@@ -48,10 +48,10 @@ test("opening statistics are split by outcome and source of help", () => {
   assert.match(profile, /"Kills with teammate help"/);
   assert.match(profile, /"Opening kills assisted"/);
   assert.match(profile, /"Your opening deaths traded"/);
-  assert.match(profile, /"Own flash active"/);
-  assert.match(profile, /"Victim-side\/self flash active"/);
-  assert.match(profile, /"Killer’s own flash active"/);
-  assert.match(profile, /"Own-side\/self flash active"/);
+  assert.match(profile, /"Enemy blinded by your flash"/);
+  assert.match(profile, /"Enemy blinded by their side’s flash"/);
+  assert.match(profile, /"Blinded by the killer’s flash"/);
+  assert.match(profile, /"Blinded by your side’s flash"/);
   assert.match(profile, /"Enemy kills with teammate help"/);
 });
 

@@ -47,7 +47,7 @@ test("quick comparison sections are selectable and remain expandable", () => {
   assert.match(componentSource, /group: "opening", label: "Opening"/);
   assert.match(componentSource, /key: "opening-assisted", label: "Assisted K"/);
   assert.match(componentSource, /key: "opening-damage-assisted", label: "Dmg A"/);
-  assert.match(componentSource, /key: "opening-flash-assisted", label: "Flash A"/);
+  assert.match(componentSource, /key: "opening-flash-assisted", label: "K on ally flash"/);
   assert.match(componentSource, /group: "clutches", label: "Clutches"/);
   assert.match(componentSource, /group: "killContext", label: "Context"/);
   assert.match(componentSource, /group: "roundState", label: "Man count"/);

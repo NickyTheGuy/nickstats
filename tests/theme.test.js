@@ -61,7 +61,7 @@ test("primary and secondary buttons have visible interaction feedback", () => {
 test("collapsed scoreboard summaries stay within their columns", () => {
   assert.match(scoreboard, /objectives: \[74, 74\]/);
   assert.match(scoreboard, /objectives: 128/);
-  assert.match(scoreboard, /utility: \[82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90\]/);
+  assert.match(scoreboard, /utility: \[82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 100, 58, 100, 128, 128\]/);
   assert.match(scoreboard, /utility: 176/);
   assert.match(demo, /estimatedLabelWidth\(scoreboardRateLabel\(group, label, expanded\)\)|estimatedLabelWidth\(activeLabel\(displayed, groupSortSpec\(group, label\)\)\)/);
   assert.match(styles, /\.demo-score-table th,[\s\S]*?\.demo-score-table td \{[\s\S]*?overflow: hidden;[\s\S]*?text-overflow: ellipsis;/);
@@ -78,7 +78,7 @@ test("match scoreboard supports section, value-mode, and header detail controls"
   assert.match(scoreboard, /element\("div", null, "scoreboard-section-bar scoreboard-control-row"\)/);
   assert.match(demo, /\[\["totals", "Totals"\], \["round", "Per round"\]\]/);
   assert.match(scoreboard, /utilityButton = element\("button", "Per grenade"/);
-  assert.match(demo, /"Teammate sec": "flash"/);
+  assert.match(demo, /"Ally blind sec": "flash"/);
   assert.match(demo, /Counts divided by rounds played/);
   assert.match(demo, /group === "trades"[\s\S]*?countedPercent/);
   assert.match(demo, /group === "clutches"[\s\S]*?fraction/);
