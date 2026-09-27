@@ -209,7 +209,6 @@
       ["Enemy blinded by a teammate’s flash", statInteger("opening_flash_assisted_kills"), statPerRound("opening_flash_assisted_kills")],
       ["Enemy blinded by your flash", statInteger("opening_own_flash_kills"), statPerRound("opening_own_flash_kills")],
       ["Enemy blinded by their side’s flash", statInteger("opening_victim_side_flash_kills"), statPerRound("opening_victim_side_flash_kills")],
-      ["Blind source unavailable", statInteger("opening_blind_source_unknown_kills"), statPerRound("opening_blind_source_unknown_kills")],
       ["Player also blinded", statInteger("opening_blind_kills"), statPerRound("opening_blind_kills")]
     ]);
     fillCards(`${prefix}OpeningDeathBlindStats`, [
@@ -217,7 +216,6 @@
       ["Blinded by the killer’s teammate", statInteger("opening_enemy_flash_assisted_deaths"), statPerRound("opening_enemy_flash_assisted_deaths")],
       ["Blinded by the killer’s flash", statInteger("opening_deaths_to_killer_flash"), statPerRound("opening_deaths_to_killer_flash")],
       ["Blinded by your side’s flash", statInteger("opening_deaths_to_own_side_flash"), statPerRound("opening_deaths_to_own_side_flash")],
-      ["Blind source unavailable", statInteger("opening_deaths_blind_source_unknown"), statPerRound("opening_deaths_blind_source_unknown")],
       ["Killer also blinded", statInteger("opening_deaths_to_blind_killer"), statPerRound("opening_deaths_to_blind_killer")]
     ]);
     fillCards(`${prefix}OpeningEnemySupportStats`, [

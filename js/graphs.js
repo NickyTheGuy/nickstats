@@ -70,10 +70,8 @@
       ["opening_enemy_flash_assisted_dpr", "Opening deaths blinded by killer’s teammate per round", rate("opening_enemy_flash_assisted_deaths"), 3],
       ["opening_own_flash_kpr", "Opening kills on your flash per round", rate("opening_own_flash_kills"), 3],
       ["opening_victim_side_flash_kpr", "Opening kills on enemy-side flash per round", rate("opening_victim_side_flash_kills"), 3],
-      ["opening_unknown_flash_kpr", "Opening kills with unknown blind source per round", rate("opening_blind_source_unknown_kills"), 3],
       ["opening_killer_flash_dpr", "Opening deaths blinded by killer’s flash per round", rate("opening_deaths_to_killer_flash"), 3],
       ["opening_own_side_flash_dpr", "Opening deaths blinded by your side’s flash per round", rate("opening_deaths_to_own_side_flash"), 3],
-      ["opening_unknown_flash_dpr", "Opening deaths with unknown blind source per round", rate("opening_deaths_blind_source_unknown"), 3],
       ["opening_assist_rate", "Opening kills assisted", percentage("opening_assisted_kills", "opening_kills"), 1, "%"]
     ]],
     ["Trades", [

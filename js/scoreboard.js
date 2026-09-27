@@ -23,7 +23,7 @@
   ]);
   const columns = Object.freeze({
     combat: [["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A"],
-    opening: [["K", "D", "Assisted K", "Dmg A", "K on ally flash", "Traded D", "Trade K", "A earned", "Dmg A earned", "A from your flash", "Enemy blind K", "K while blind", "D while blind", "D to blind killer", "Enemy assisted D", "Enemy dmg A D", "D on killer's ally flash", "K on your flash", "K on their flash", "Unknown flash K", "D to killer's flash", "D to your side's flash", "Unknown flash D", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
+    opening: [["K", "D", "Assisted K", "Dmg A", "K on ally flash", "Traded D", "Trade K", "A earned", "Dmg A earned", "A from your flash", "Enemy blind K", "K while blind", "D while blind", "D to blind killer", "Enemy assisted D", "Enemy dmg A D", "D on killer's ally flash", "K on your flash", "K on their flash", "D to killer's flash", "D to your side's flash", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
     trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
     clutches: [["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A · Win%"],
     multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%", "5K", "4K", "3K", "2K", "TMK%"], "Total"],
@@ -37,9 +37,9 @@
   });
   const subgroups = Object.freeze({
     combat: [["output", "Output", [0, 1, 2, 3, 4], "Overview"], ["damage", "Damage", [5, 6, 7, 8], "Damage"]],
-    opening: [["results", "Results", [0, 1, 23, 24, 25], "Opening results"], ["received", "Help received", [2, 3, 4, 5, 26], "Opening help received"], ["given", "Help given", [6, 7, 8, 9], "Opening help given"],
-      ["flashKills", "Flash kills", [10, 11, 17, 18, 19], "Opening kills · flash"],
-      ["flashDeaths", "Flash deaths", [12, 13, 20, 21, 22], "Opening deaths · flash"],
+    opening: [["results", "Results", [0, 1, 21, 22, 23], "Opening results"], ["received", "Help received", [2, 3, 4, 5, 24], "Opening help received"], ["given", "Help given", [6, 7, 8, 9], "Opening help given"],
+      ["flashKills", "Flash kills", [10, 11, 17, 18], "Opening kills · flash"],
+      ["flashDeaths", "Flash deaths", [12, 13, 19, 20], "Opening deaths · flash"],
       ["enemyAssists", "Enemy assists", [14, 15, 16], "Opening deaths · enemy assists"]],
     multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5], "Multi-kills"], ["true", "True", [6, 7, 8, 9, 10], "True multi-kills"]],
     killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4], "Visibility and cover"], ["readiness", "Readiness", [5, 6, 7, 8], "Readiness"]],
@@ -48,7 +48,7 @@
   });
   const expandedWidths = Object.freeze({
     combat: [54, 54, 54, 62, 62, 82, 88, 76, 72],
-    opening: [58, 58, 82, 68, 126, 88, 68, 76, 76, 130, 82, 100, 100, 126, 104, 112, 164, 110, 112, 102, 126, 152, 110, 82, 62, 72, 76],
+    opening: [58, 58, 82, 68, 126, 88, 68, 76, 76, 130, 82, 100, 100, 126, 104, 112, 164, 110, 112, 126, 152, 82, 62, 72, 76],
     trades: [58, 54, 96, 58, 54, 96], clutches: [94, 94, 94, 94, 94],
     multikills: [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], objectives: [74, 74],
     roundState: [128, 88, 168, 104], killStage: [92, 92, 92, 92, 92], timing: [82, 82, 84, 84, 84, 112],
