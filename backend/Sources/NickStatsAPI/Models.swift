@@ -264,6 +264,10 @@ struct MatchListResponse: Content {
     }
 }
 
+struct MatchRevisionResponse: Content {
+    var revision: String
+}
+
 struct PlayerSummary: Content {
     var id: Int64
     var steamID: String

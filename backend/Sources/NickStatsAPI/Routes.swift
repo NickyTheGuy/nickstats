@@ -122,6 +122,10 @@ func routes(_ app: Application) throws {
         try await listMatches(request)
     }
 
+    app.get("matches", "revision") { request async throws -> MatchRevisionResponse in
+        try await matchRevision(on: request.db)
+    }
+
     app.get("matches", ":id") { request async throws -> MatchPayload in
         guard let matchID = request.parameters.get("id", as: Int64.self), matchID > 0 else {
             throw Abort(.badRequest, reason: "Invalid match ID.")

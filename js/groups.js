@@ -29,7 +29,7 @@
   const state = {
     selected: new Map(savedRoster.map(({ player }) => [String(player.id), player])), players: [],
     choices: new Map(savedRoster.map(({ player, choice }) => [String(player.id), choice])),
-    searchController: null, groupController: null, searchTimer: null,
+    searchController: null, groupController: null, groupStale: false, searchTimer: null,
     side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL",
     comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile"
   };
@@ -186,9 +186,9 @@
     return result;
   }
 
-  function populateMaps() {
+  function populateMaps({ reset = true } = {}) {
     const names = []; state.players.forEach(player => player.rows.forEach(row => { if (row.map) names.push(row.map); }));
-    mapFilter.setOptions(names, { reset: true });
+    mapFilter.setOptions(names, { reset });
   }
 
 
@@ -253,6 +253,9 @@
   }
 
   function invalidateGroupResults() {
+    state.groupController?.abort();
+    state.groupController = null;
+    state.groupStale = false;
     state.players = [];
     $("groupResults").hidden = true;
   }
@@ -303,30 +306,55 @@
     setStatus(count < 2 ? "Choose at least two players." : !included ? "Choose at least one Included player." : `${included} included · ${count - included} excluded. Ready to build.`);
   }
 
-  async function buildGroup() {
+  async function buildGroup({ refresh = false } = {}) {
     if (state.selected.size < 2) return;
     state.groupController?.abort();
-    state.groupController = new AbortController();
+    const controller = new AbortController();
+    state.groupController = controller;
     $("groupBuildButton").disabled = true;
-    setStatus("Loading stored matches and building group profiles…");
+    setStatus(refresh ? "Refreshing group profiles…" : "Loading stored matches and building group profiles…");
     try {
       const parameters = new URLSearchParams({ players: [...state.selected.keys()].join(",") });
       const payload = await apiJson(await fetch(`${GROUP_DATA_ENDPOINT}?${parameters}`, {
-        headers: { Accept: "application/json" }, signal: state.groupController.signal
+        headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal
       }));
+      if (controller.signal.aborted) return;
       state.players = (payload.players || []).map(normalizePlayer).sort((a, b) => a.label.localeCompare(b.label));
-      populateMaps();
+      populateMaps({ reset: !refresh });
       state.players.forEach(player => { if (!state.choices.has(player.profileId)) state.choices.set(player.profileId, "include"); });
+      state.players.forEach(player => {
+        const selected = state.selected.get(player.profileId);
+        if (selected) state.selected.set(player.profileId, { ...selected, name: player.label, match_count: player.rows.length });
+      });
+      persistRoster();
+      renderSelectedRoster();
+      state.groupStale = false;
       $("groupResults").hidden = false;
       runCombination();
       setStatus(`Built ${selectedPlayers("include").length} conditional player profile${selectedPlayers("include").length === 1 ? "" : "s"}.`);
     } catch (error) {
       if (error.name !== "AbortError") setStatus(`Could not build group profiles: ${error.message}`, true);
     } finally {
-      const included = [...state.choices.entries()].filter(([id, choice]) => state.selected.has(id) && choice === "include").length;
-      $("groupBuildButton").disabled = state.selected.size < 2 || included === 0;
+      if (state.groupController === controller) {
+        state.groupController = null;
+        const included = [...state.choices.entries()].filter(([id, choice]) => state.selected.has(id) && choice === "include").length;
+        $("groupBuildButton").disabled = state.selected.size < 2 || included === 0;
+      }
     }
   }
+
+  function markGroupStale() {
+    if (!state.players.length && !state.groupController) return;
+    state.groupStale = true;
+    state.groupController?.abort();
+    state.groupController = null;
+    if (!$("groupsPage").hidden) buildGroup({ refresh: true });
+  }
+
+  window.addEventListener("nickstats:matches-changed", markGroupStale);
+  window.addEventListener("nickstats:page", event => {
+    if (event.detail?.page === "groups" && state.groupStale) buildGroup({ refresh: true });
+  });
 
   function choiceFor(player) {
     return state.choices.get(player.profileId) || "include";
@@ -510,7 +538,7 @@
     if (!query) { $("groupSearchResults").replaceChildren(); return; }
     if (query.length >= 2) state.searchTimer = setTimeout(searchPlayers, 250);
   });
-  $("groupBuildButton").addEventListener("click", buildGroup);
+  $("groupBuildButton").addEventListener("click", () => buildGroup());
   $("groupClearButton").addEventListener("click", clear);
   document.querySelectorAll("[data-combo-profile-view]").forEach(button => button.addEventListener("click", () => setComboProfileView(button.dataset.comboProfileView)));
   const comboResultFilter = bindSegmentedToggle({ selector: "[data-combo-result]", valueFor: button => button.dataset.comboResult, onChange: result => { state.result = result; runCombination(); } });

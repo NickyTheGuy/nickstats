@@ -103,6 +103,18 @@ private func pagination(limit: Int?, offset: Int?) throws -> (Int, Int) {
     return (limit, offset)
 }
 
+func matchRevision(on database: Database) async throws -> MatchRevisionResponse {
+    guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
+    guard let row = try await sql.raw("SELECT COUNT(*) AS match_count, COALESCE(MAX(id), 0) AS latest_id, MAX(updated_at) AS latest_update, CAST(COALESCE(SUM(UNIX_TIMESTAMP(updated_at)), 0) AS SIGNED) AS update_checksum FROM matches").first() else {
+        throw Abort(.internalServerError)
+    }
+    let count = try integer(row, "match_count")
+    let latestID = try int64(row, "latest_id")
+    let updated = unix(try optionalDate(row, "latest_update")) ?? 0
+    let checksum = try int64(row, "update_checksum")
+    return MatchRevisionResponse(revision: "\(count):\(latestID):\(updated):\(checksum)")
+}
+
 func listMatches(_ request: Request) async throws -> MatchListResponse {
     guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
     let filters = try request.query.decode(MatchQuery.self)

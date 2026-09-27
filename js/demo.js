@@ -517,6 +517,7 @@
 
     try {
       const responseBody = await postParsedMatch(result, replace);
+      if (responseBody.created !== false || responseBody.replaced) window.NickStatsDataFreshness.changed();
 
       const matchID = responseBody?.id == null ? "" : ` as match #${responseBody.id}`;
       state.duplicateMatchID = responseBody?.created === false && !responseBody?.replaced ? responseBody.id : null;
@@ -1654,6 +1655,7 @@
     return body;
   }
 
+  let matchListStale = false;
   async function loadMatches(offset = state.matchListOffset) {
     state.matchListController?.abort();
     const controller = new AbortController(); state.matchListController = controller;
@@ -1666,8 +1668,9 @@
       if (state.accountPlayerID && state.accountPlayerSteamID) query.set("viewer_player_id", state.accountPlayerID);
       if (matchMapFilter.size) query.set("maps", matchMapFilter.values().join(","));
       matchDateFilter.appendQuery(query);
-      const payload = await apiJson(await fetch(`${MATCH_UPLOAD_ENDPOINT}?${query}`, { headers: { "Accept": "application/json" }, signal: controller.signal }));
+      const payload = await apiJson(await fetch(`${MATCH_UPLOAD_ENDPOINT}?${query}`, { headers: { "Accept": "application/json" }, cache: "no-store", signal: controller.signal }));
       if (controller.signal.aborted) return;
+      matchListStale = false;
       const matches = Array.isArray(payload.matches) ? payload.matches : [];
       if (Object.hasOwn(payload, "earliest_played_at")) window.NickStatsFilters.DateRangeFilter.setEarliest(payload.earliest_played_at);
       matchMapFilter.setOptions(Array.isArray(payload.maps) ? payload.maps : matches.map(match => match.map));
@@ -2981,6 +2984,7 @@
   async function saveBatchMatch(result) {
     let response = await postParsedMatch(result, false);
     if (response.created === false && !response.replaced) response = await postParsedMatch(result, true);
+    if (response.created !== false || response.replaced) window.NickStatsDataFreshness.changed();
     return response;
   }
 
@@ -3448,7 +3452,17 @@
       else if (state.selectedMatchID) openStoredMatch(state.selectedMatchID);
     });
   });
-  $("matchListRefreshButton").addEventListener("click", () => loadMatches());
+  $("matchListRefreshButton").addEventListener("click", async () => {
+    await loadMatches();
+    window.NickStatsDataFreshness.check();
+  });
+  window.addEventListener("nickstats:matches-changed", event => {
+    matchListStale = true;
+    if (!event.detail?.local && !$("matchPage").hidden) loadMatches(state.matchListOffset);
+  });
+  window.addEventListener("nickstats:page", event => {
+    if (event.detail?.page === "match" && matchListStale) loadMatches(state.matchListOffset);
+  });
   $("matchListPreviousButton").addEventListener("click", () => loadMatches(Math.max(0, state.matchListOffset - MATCH_LIST_LIMIT)));
   $("matchListNextButton").addEventListener("click", () => loadMatches(state.matchListOffset + MATCH_LIST_LIMIT));
 

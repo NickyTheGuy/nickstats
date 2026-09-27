@@ -21,7 +21,7 @@
 
   const state = {
     profiles: new Map(), activeId: null, graphPlayers: new Set(), recent: readRecent(),
-    display: "profile", view: "overview", searchController: null, profileController: null, searchTimer: null,
+    display: "profile", view: "overview", searchController: null, profileController: null, refreshController: null, profilesStale: false, searchTimer: null,
     side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL", maps: []
   };
   const activeProfile = () => state.profiles.get(state.activeId) || null;
@@ -447,6 +447,72 @@
       if (error.name !== "AbortError") { $("playerProfileStatus").textContent = `Could not load player: ${error.message}`; $("playerProfileStatus").classList.add("error"); }
     }
   }
+
+  async function refreshOpenProfiles() {
+    if (!state.profilesStale || !state.profiles.size || state.refreshController) return;
+    const controller = new AbortController();
+    state.refreshController = controller;
+    const status = $("playerDataStatus");
+    status.hidden = false;
+    status.textContent = "Refreshing open profiles…";
+    status.classList.remove("error");
+    try {
+      const updated = await Promise.all([...state.profiles.keys()].map(async id => {
+        const payload = expandDenseProfile(await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=2`, {
+          headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal
+        })));
+        return [id, payload];
+      }));
+      if (controller.signal.aborted) return;
+      updated.forEach(([id, payload]) => {
+        const profile = state.profiles.get(id);
+        if (profile) {
+          profile.payload = payload;
+          profile.summaryCache?.clear();
+          profile.graphCache?.clear();
+        }
+      });
+      state.profilesStale = false;
+      const availableMaps = [...state.profiles.values()].flatMap(profile => (profile.payload.matches || []).map(match => match.map));
+      mapFilter.setOptions(availableMaps);
+      state.maps = mapFilter.values();
+      renderOpenTabs();
+      if (activeProfile()) {
+        renderCurrentDisplay();
+        if (state.display === "profile" && state.view === "matches") renderPlayerMatches();
+      }
+      status.hidden = true;
+      status.textContent = "";
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        status.textContent = `Could not refresh profiles: ${error.message}`;
+        status.classList.add("error");
+      }
+    } finally {
+      if (state.refreshController === controller) state.refreshController = null;
+    }
+  }
+
+  function markProfilesStale() {
+    if (!state.profiles.size) return;
+    state.profilesStale = true;
+    state.refreshController?.abort();
+    state.refreshController = null;
+    for (const profile of state.profiles.values()) {
+      profile.matchHistory?.controller?.abort();
+      if (profile.matchHistory) {
+        profile.matchHistory.loaded = false;
+        profile.matchHistory.loading = false;
+        profile.matchHistory.controller = null;
+      }
+    }
+    if (!$("playersPage").hidden) refreshOpenProfiles();
+  }
+
+  window.addEventListener("nickstats:matches-changed", markProfilesStale);
+  window.addEventListener("nickstats:page", event => {
+    if (event.detail?.page === "players") refreshOpenProfiles();
+  });
 
   $("playerSearchForm").addEventListener("submit", event => { event.preventDefault(); clearTimeout(state.searchTimer); searchPlayers(); });
   $("playerSearchInput").addEventListener("input", event => {
