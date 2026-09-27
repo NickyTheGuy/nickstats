@@ -25,7 +25,7 @@
     combat: [["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A"],
     opening: [["K", "D", "Assisted K", "Dmg A", "Flash A", "Traded D", "Trade K", "A earned", "Dmg A earned", "Flash A earned", "Enemy blind K", "Blind K", "Blind D", "Blind killer D", "Enemy assisted D", "Enemy dmg A D", "Enemy flash A D", "Own flash K", "Victim-side flash K", "Unknown flash K", "Killer flash D", "Own-side flash D", "Unknown flash D", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
     trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
-    clutches: [["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A"],
+    clutches: [["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A · Win%"],
     multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%", "5K", "4K", "3K", "2K", "TMK%"], "Total"],
     objectives: [["Plants", "Defuses"], "Plants/defuses"],
     roundState: [["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D"], "Clawback-Bozo K-D"],
@@ -46,14 +46,14 @@
   const expandedWidths = Object.freeze({
     combat: [54, 54, 54, 62, 62, 82, 88, 76, 72],
     opening: [58, 58, 82, 68, 72, 88, 68, 76, 76, 84, 82, 68, 68, 92, 104, 112, 112, 88, 120, 102, 92, 120, 110, 82, 62, 72, 76],
-    trades: [58, 54, 96, 58, 54, 96], clutches: [55, 55, 55, 55, 55],
+    trades: [58, 54, 96, 58, 54, 96], clutches: [94, 94, 94, 94, 94],
     multikills: [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], objectives: [74, 74],
     roundState: [128, 88, 168, 104], killStage: [92, 92, 92, 92, 92], timing: [82, 82, 84, 84, 84, 112],
     killContext: [104, 104, 98, 88, 88, 112, 104, 88, 88], movement: [88, 88, 88, 88, 116, 132, 126, 142],
     utility: [82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 86, 58, 100, 112, 90]
   });
   const collapsedWidths = Object.freeze({
-    combat: 90, opening: 108, trades: 88, clutches: 82, multikills: 92, objectives: 128,
+    combat: 90, opening: 108, trades: 88, clutches: 122, multikills: 92, objectives: 128,
     roundState: 112, killStage: 104, timing: 110, killContext: 112, movement: 112, utility: 176
   });
   const groupSection = Object.freeze(Object.fromEntries(sections.flatMap(([section, , values]) => values.map(group => [group, section]))));

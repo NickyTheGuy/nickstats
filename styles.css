@@ -3187,6 +3187,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 .player-timing-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 12px; }
 .player-economy-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.player-clutch-strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 .player-multikill-strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 
 .player-count-item {
@@ -3664,6 +3665,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   }
 
   .player-economy-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .player-clutch-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
   .player-profile-header {
     flex-direction: column;

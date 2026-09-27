@@ -138,6 +138,7 @@
     }
 
     function columnSortValue(column, item) {
+      if (["opening", "trade-kills", "traded-deaths", "clutches"].includes(column.key) || column.key.startsWith("clutch-")) return column.value(item);
       const formatted = column.format(item);
       return Scoreboard.normalizedSortValue(column.value(item), columnDenominator(column, item),
         columnScalesWithValueMode(column, formatted));
@@ -158,8 +159,8 @@
       if (opening) return `${decimal(number(opening[1]) / denominator, 2)}-${decimal(number(opening[2]) / denominator, 2)} · ${opening[3]}`;
       const pair = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
       if (pair) return `${decimal(number(pair[1]) / denominator, 2)}-${decimal(number(pair[2]) / denominator, 2)}`;
-      const fraction = formatted.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
-      if (fraction) return `${decimal(number(fraction[1]) / denominator, 2)}/${decimal(number(fraction[2]) / denominator, 2)}`;
+      const fraction = formatted.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)( · .+)?$/);
+      if (fraction) return `${decimal(number(fraction[1]) / denominator, 2)}/${decimal(number(fraction[2]) / denominator, 2)}${fraction[3] || ""}`;
       const triple = formatted.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
       if (triple) return triple.slice(1).map(part => decimal(number(part) / denominator, 2)).join("/");
       const utilitySummary = formatted.match(/^(\d+(?:\.\d+)?) dmg · (\d+(?:\.\d+)?) thrown$/);
@@ -184,7 +185,7 @@
         combat: `K/${unit}-D/${unit}-A/${unit}`,
         opening: `K/${unit}-D/${unit} · Att%`,
         trades: `K/${unit}-D/${unit}`,
-        clutches: `W/${unit} / A/${unit}`,
+        clutches: `W/${unit} / A/${unit} · Win%`,
         "round-state": `Clawback K/${unit}-Bozo D/${unit}`,
         "kill-context": `Bullshit K/${unit}-D/${unit}`,
         "kill-stage-summary": `5 alive K/${unit} / 1 alive K/${unit}`,
@@ -254,6 +255,8 @@
     function renderTable(comparison) {
       const clutchValue = (stats, statPrefix, size) => number(stats[`${statPrefix}_1v${size}`]);
       const clutchTotal = (stats, statPrefix) => [1, 2, 3, 4, 5].reduce((total, size) => total + clutchValue(stats, statPrefix, size), 0);
+      const clutchRate = (wins, attempts) => attempts ? 100 * wins / attempts : null;
+      const clutchDisplay = (wins, attempts) => `${integer(wins)}/${integer(attempts)} · ${attempts ? percent(clutchRate(wins, attempts)) : "—"}`;
       const fixedColumns = [
         { key: "player", label: "Player", value: item => item.player.label, format: item => item.player.label },
         { key: "rating", label: "Rating", value: item => item.stats.rating, format: item => decimal(item.stats.rating, 2), className: item => `demo-rating ${item.stats.rating >= 1.10 ? "rating-good" : item.stats.rating <= 0.90 ? "rating-bad" : "rating-average"}` },
@@ -304,28 +307,28 @@
         { key: "opening-success", label: "Success", value: item => item.stats.openingSuccess, format: item => percent(item.stats.openingSuccess) },
         { key: "opening-assist-rate", label: "Assist %", value: item => item.stats.openingAssistRate, format: item => availability.available(item.stats, "openingAssistRate") ? percent(item.stats.openingAssistRate) : "—" }
       ] : [{
-        key: "opening", label: "K-D · Att%", value: item => item.stats.openingDiff,
+        key: "opening", label: "K-D · Att%", value: item => item.stats.openingAttemptRate,
         format: item => `${integer(item.stats.opening_kills)}-${integer(item.stats.opening_deaths)} · ${percent(item.stats.openingAttemptRate)}`
       }];
       const tradesColumns = state.expandedGroups.trades ? [
         { key: "trade-opportunities", label: "K Opp", value: item => number(item.stats.trade_opportunities), format: item => integer(item.stats.trade_opportunities) },
         { key: "trade-attempts", label: "K Att", value: item => number(item.stats.trade_attempts), format: item => integer(item.stats.trade_attempts) },
-        { key: "trade-kills", label: "K (Succ%)", value: item => number(item.stats.trade_kills), format: item => `${integer(item.stats.trade_kills)} (${percent(100 * number(item.stats.trade_kills) / Math.max(1, number(item.stats.trade_attempts)))})` },
+        { key: "trade-kills", label: "K (Succ%)", value: item => 100 * number(item.stats.trade_kills) / Math.max(1, number(item.stats.trade_attempts)), format: item => `${integer(item.stats.trade_kills)} (${percent(100 * number(item.stats.trade_kills) / Math.max(1, number(item.stats.trade_attempts)))})` },
         { key: "tradeable-deaths", label: "D Opp", value: item => number(item.stats.tradeable_deaths), format: item => integer(item.stats.tradeable_deaths) },
         { key: "attempted-tradeable-deaths", label: "D Att", value: item => number(item.stats.attempted_tradeable_deaths), format: item => integer(item.stats.attempted_tradeable_deaths) },
-        { key: "traded-deaths", label: "D (Succ%)", value: item => number(item.stats.traded_deaths), format: item => `${integer(item.stats.traded_deaths)} (${percent(100 * number(item.stats.traded_deaths) / Math.max(1, number(item.stats.attempted_tradeable_deaths)))})` }
+        { key: "traded-deaths", label: "D (Succ%)", value: item => 100 * number(item.stats.traded_deaths) / Math.max(1, number(item.stats.attempted_tradeable_deaths)), format: item => `${integer(item.stats.traded_deaths)} (${percent(100 * number(item.stats.traded_deaths) / Math.max(1, number(item.stats.attempted_tradeable_deaths)))})` }
       ] : [{
         key: "trades", label: "K-D", value: item => number(item.stats.trade_kills) - number(item.stats.traded_deaths),
         format: item => `${integer(item.stats.trade_kills)}-${integer(item.stats.traded_deaths)}`
       }];
       const clutchColumns = state.expandedGroups.clutches
         ? [5, 4, 3, 2, 1].map(size => ({
-            key: `clutch-${size}`, label: `1v${size}`, value: item => clutchValue(item.stats, "clutch", size),
-            format: item => `${integer(clutchValue(item.stats, "clutch", size))}/${integer(clutchValue(item.stats, "clutch_attempt", size))}`
+            key: `clutch-${size}`, label: `1v${size}`, value: item => clutchRate(clutchValue(item.stats, "clutch", size), clutchValue(item.stats, "clutch_attempt", size)),
+            format: item => clutchDisplay(clutchValue(item.stats, "clutch", size), clutchValue(item.stats, "clutch_attempt", size))
           }))
         : [{
-            key: "clutches", label: "Total W/A", value: item => clutchTotal(item.stats, "clutch"),
-            format: item => `${integer(clutchTotal(item.stats, "clutch"))}/${integer(clutchTotal(item.stats, "clutch_attempt"))}`
+            key: "clutches", label: "Total W/A · Win%", value: item => clutchRate(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt")),
+            format: item => clutchDisplay(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt"))
           }];
       const roundStateColumns = state.expandedGroups.roundState ? [
         { key: "context-clawback-bozo", label: "Clawback-Bozo K-D", value: item => number(item.stats.clawback_kills) - number(item.stats.bozo_deaths), format: item => availability.available(item.stats, "clawback_kills") ? `${integer(item.stats.clawback_kills)}-${integer(item.stats.bozo_deaths)}` : "—" },

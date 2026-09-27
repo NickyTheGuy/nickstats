@@ -241,11 +241,19 @@
       ["Outnumbered deaths", statInteger("disadvantage_deaths"), statPerRound("disadvantage_deaths")],
       ["Cleanup deaths", statInteger("cleanup_deaths"), statPerRound("cleanup_deaths")]
     ]);
-    fillStrip(`${prefix}ClutchStats`, [1, 2, 3, 4, 5].map(opponents => {
-      const wins = number(s[`clutch_1v${opponents}`]);
-      const attempts = number(s[`clutch_attempt_1v${opponents}`]);
-      return [`1v${opponents}`, `${integer(wins)} / ${integer(attempts)}`, `${percent(100 * ratio(wins, attempts))} won · ${integer(Math.max(0, attempts - wins))} failed`];
-    }));
+    const clutchTotals = [1, 2, 3, 4, 5].reduce((total, opponents) => {
+      total.wins += number(s[`clutch_1v${opponents}`]);
+      total.attempts += number(s[`clutch_attempt_1v${opponents}`]);
+      return total;
+    }, { wins: 0, attempts: 0 });
+    fillStrip(`${prefix}ClutchStats`, [
+      ["Total win rate", clutchTotals.attempts ? percent(100 * ratio(clutchTotals.wins, clutchTotals.attempts)) : "—", `${integer(clutchTotals.wins)} wins in ${integer(clutchTotals.attempts)} attempts`],
+      ...[1, 2, 3, 4, 5].map(opponents => {
+        const wins = number(s[`clutch_1v${opponents}`]);
+        const attempts = number(s[`clutch_attempt_1v${opponents}`]);
+        return [`1v${opponents}`, `${integer(wins)} / ${integer(attempts)}`, attempts ? `${percent(100 * ratio(wins, attempts))} won · ${integer(Math.max(0, attempts - wins))} failed` : "No attempts"];
+      })
+    ]);
     const multikillRounds = [2, 3, 4, 5].reduce((total, kills) => total + number(s[`kill_rounds_${kills}k`]), 0);
     fillStrip(`${prefix}MultikillStats`, [
       ["Multi-kill %", percent(100 * ratio(multikillRounds, rounds)), `${integer(multikillRounds)} of ${integer(rounds)} rounds`],

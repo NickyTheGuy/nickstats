@@ -92,6 +92,7 @@
     hs: { id: "hs", modes: [{ label: "HS%", value: player => player.headshot_percent ?? 0 }] },
     adr: { id: "adr", modes: [{ label: "ADR", value: player => player.adr ?? 0 }] },
     kast: { id: "kast", modes: [{ label: "KAST", value: player => player.kast ?? 0 }] },
+    openingSummary: oneMode("openingSummary", "Att%", player => 100 * ((player.opening_kills ?? 0) + (player.opening_deaths ?? 0)) / Math.max(1, player.rounds_played ?? 0)),
     opening: { id: "opening", modes: [
       { label: "K", value: player => player.opening_kills ?? 0 },
       { label: "D", value: player => player.opening_deaths ?? 0, direction: "asc" },
@@ -229,16 +230,10 @@
     ] },
     tradeKOpp: oneMode("tradeKOpp", "K Opp", player => player.trade_opportunities ?? 0),
     tradeKAtt: oneMode("tradeKAtt", "K Att", player => player.trade_attempts ?? 0),
-    tradeKResult: { id: "tradeKResult", modes: [
-      { label: "K", value: player => player.trade_kills ?? 0 },
-      { label: "K%", value: player => player.trade_success_percent ?? 0 }
-    ] },
+    tradeKResult: oneMode("tradeKResult", "K%", player => player.trade_success_percent ?? 0),
     tradeDOpp: oneMode("tradeDOpp", "D Opp", player => player.tradeable_deaths ?? 0),
     tradeDAtt: oneMode("tradeDAtt", "D Att", player => player.attempted_tradeable_deaths ?? 0),
-    tradeDResult: { id: "tradeDResult", modes: [
-      { label: "D", value: player => player.traded_deaths ?? 0 },
-      { label: "D%", value: player => player.traded_death_percent ?? 0 }
-    ] },
+    tradeDResult: oneMode("tradeDResult", "D%", player => player.traded_death_percent ?? 0),
     assistedDamage: oneMode("assistedDamage", "Dmg", player => player.assisted_kills?.damage ?? 0),
     assistedFlash: oneMode("assistedFlash", "Flash", player => player.assisted_kills?.flash ?? 0),
     assistedOwnFlash: oneMode("assistedOwnFlash", "Own-flash K", player => player.assisted_kills?.own_flash ?? 0),
@@ -297,7 +292,7 @@
       { label: "Avg", value: player => player.kill_context?.killer_speed_on_death?.average_percent_of_max ?? -1, direction: "asc" },
       { label: "Peak", value: player => player.kill_context?.killer_speed_on_death?.maximum_percent_of_max ?? -1, direction: "asc" }
     ] },
-    clutchTotal: oneMode("clutchTotal", "Total", player => sumCounts(player.clutch_wins)),
+    clutchTotal: oneMode("clutchTotal", "Win%", player => clutchWinRate(player)),
     multikillTotal: oneMode("multikillTotal", "Total", player => sumCounts(player.kill_rounds)),
     multikillPercent: oneMode("multikillPercent", "Multi%", player => 100 * [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0) / Math.max(1, player.rounds_played ?? 0)),
     trueMultikillPercent: oneMode("trueMultikillPercent", "TMK%", player => player.true_multikill_available
@@ -306,7 +301,7 @@
   };
 
   for (let opponents = 5; opponents >= 1; opponents -= 1) {
-    sortSpecs[`clutch${opponents}`] = oneMode(`clutch${opponents}`, `1v${opponents}`, player => player.clutch_wins?.[opponents] ?? 0);
+    sortSpecs[`clutch${opponents}`] = oneMode(`clutch${opponents}`, `Win%`, player => clutchWinRate(player, opponents));
   }
   for (let kills = 5; kills >= 1; kills -= 1) {
     sortSpecs[`kills${kills}`] = oneMode(`kills${kills}`, `${kills}K`, player => player.kill_rounds?.[kills] ?? 0);
@@ -319,6 +314,20 @@
 
   function sumCounts(counts) {
     return [1, 2, 3, 4, 5].reduce((sum, key) => sum + (counts?.[key] ?? 0), 0);
+  }
+
+  function clutchWinRate(player, opponents = null) {
+    const attempts = opponents == null ? sumCounts(player.clutch_attempts) : player.clutch_attempts?.[opponents] ?? 0;
+    if (!attempts) return null;
+    const wins = opponents == null ? sumCounts(player.clutch_wins) : player.clutch_wins?.[opponents] ?? 0;
+    return 100 * wins / attempts;
+  }
+
+  function clutchResult(player, opponents = null) {
+    const wins = opponents == null ? sumCounts(player.clutch_wins) : player.clutch_wins?.[opponents] ?? 0;
+    const attempts = opponents == null ? sumCounts(player.clutch_attempts) : player.clutch_attempts?.[opponents] ?? 0;
+    const rate = clutchWinRate(player, opponents);
+    return `${wins}/${attempts} · ${rate == null ? "—" : `${rate.toFixed(1)}%`}`;
   }
 
   function setStatus(message, error = false) {
@@ -1883,8 +1892,8 @@
             if (countedPercent) return `${(numberValue(countedPercent[1]) / rounds).toFixed(2)} ${countedPercent[2]}`;
           }
           if (group === "clutches") {
-            const fraction = String(value).match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
-            if (fraction) return `${(numberValue(fraction[1]) / rounds).toFixed(2)}/${(numberValue(fraction[2]) / rounds).toFixed(2)}`;
+            const fraction = String(value).match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)( · .+)?$/);
+            if (fraction) return `${(numberValue(fraction[1]) / rounds).toFixed(2)}/${(numberValue(fraction[2]) / rounds).toFixed(2)}${fraction[3] || ""}`;
           }
           return value;
         })
@@ -1976,9 +1985,7 @@
       player.trade_opportunities ?? 0, player.trade_attempts ?? 0, `${player.trade_kills ?? 0} (${(player.trade_success_percent ?? 0).toFixed(0)}%)`,
       player.tradeable_deaths ?? 0, player.attempted_tradeable_deaths ?? 0, `${player.traded_deaths ?? 0} (${(player.traded_death_percent ?? 0).toFixed(0)}%)`
     ]);
-    const clutchWins = [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_wins?.[opponents] ?? 0), 0);
-    const clutchAttempts = [1, 2, 3, 4, 5].reduce((sum, opponents) => sum + (player.clutch_attempts?.[opponents] ?? 0), 0);
-    scoreboardCells(row, "clutches", `${clutchWins}/${clutchAttempts}`, [5, 4, 3, 2, 1].map(opponents => `${player.clutch_wins?.[opponents] ?? 0}/${player.clutch_attempts?.[opponents] ?? 0}`));
+    scoreboardCells(row, "clutches", clutchResult(player), [5, 4, 3, 2, 1].map(opponents => clutchResult(player, opponents)));
     const multikillTotal = [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0);
     const multikillPercent = 100 * [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0) / Math.max(1, player.rounds_played ?? 0);
     const trueMultikillPercent = 100 * (player.true_multikill_rounds ?? 0) / Math.max(1, player.rounds_played ?? 0);
@@ -2075,7 +2082,7 @@
         combat: "K/round-D/round-A/round",
         opening: "K/round-D/round · Att%",
         trades: "K/round-D/round",
-        clutches: "W/round / A/round",
+        clutches: "W/round / A/round · Win%",
         multikills: "Total / round",
         objectives: "Plants/round / defuses/round",
         roundState: "Clawback K/round-Bozo D/round",
@@ -2157,7 +2164,7 @@
         ADR: sortSpecs.adr
       },
       opening: {
-        "K-D · Att%": sortSpecs.opening,
+        "K-D · Att%": sortSpecs.openingSummary,
         K: sortSpecs.openingKills,
         D: sortSpecs.openingDeaths,
         "Assisted K": sortSpecs.openingAssisted,
@@ -2241,7 +2248,7 @@
       },
       clutches: {
         Total: sortSpecs.clutchTotal,
-        "Total W/A": sortSpecs.clutchTotal,
+        "Total W/A · Win%": sortSpecs.clutchTotal,
         "1v5": sortSpecs.clutch5,
         "1v4": sortSpecs.clutch4,
         "1v3": sortSpecs.clutch3,
@@ -2329,7 +2336,7 @@
   }
 
   const roundInvariantSorts = new Set([
-    "kd", "hs", "adr", "openingAttempts", "openingSuccess", "openingAssistRate",
+    "kd", "hs", "adr", "openingAttempts", "openingSuccess", "openingAssistRate", "openingSummary", "tradeKResult", "tradeDResult", "clutchTotal",
     "multikillPercent", "trueMultikillPercent", "timingSummary", "averageKillTime", "averageDeathTime",
     "killSpeedUnits", "killSpeedPercents", "deathSpeedUnits", "deathSpeedPercents"
   ]);
@@ -2340,7 +2347,7 @@
     const rateMode = roundInvariantSorts.has(spec.id) ||
       (spec.id === "opening" && ["Attempt rate", "Success", "Assist %"].includes(mode.label)) ||
       (["tradeKResult", "tradeDResult"].includes(spec.id) && mode.label.endsWith("%"));
-    if (rateMode) return raw;
+    if (rateMode || spec.id.startsWith("clutch")) return raw;
     let denominator = numberValue(player.rounds_played);
     if (group === "utility" && state.scoreboardPerGrenadeUtility) {
       if (spec.id === "heDamage") denominator = numberValue(player.utility_thrown?.high_explosive);

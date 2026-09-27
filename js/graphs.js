@@ -105,8 +105,12 @@
       ["clutch_success", "Clutch success", stats => {
         const wins = [1, 2, 3, 4, 5].reduce((sum, n) => sum + number(stats[`clutch_1v${n}`]), 0);
         const attempts = [1, 2, 3, 4, 5].reduce((sum, n) => sum + number(stats[`clutch_attempt_1v${n}`]), 0);
-        return 100 * ratio(wins, attempts);
+        return attempts ? 100 * wins / attempts : Number.NaN;
       }, 1, "%"],
+      ...[1, 2, 3, 4, 5].map(n => [`clutch_success_1v${n}`, `1v${n} clutch win rate`, stats => {
+        const attempts = number(stats[`clutch_attempt_1v${n}`]);
+        return attempts ? 100 * number(stats[`clutch_1v${n}`]) / attempts : Number.NaN;
+      }, 1, "%"]),
       ["bullshit_kr", "Bullshit kills per round", rate("unfair_kills"), 3], ["bullshit_dr", "Bullshit deaths per round", rate("unfair_deaths"), 3],
       ["clawback_kr", "Clawback kills per round", rate("clawback_kills"), 3], ["bozo_dr", "Bozo deaths per round", rate("bozo_deaths"), 3],
       ["even_kr", "Even-state kills per round", rate("even_kills"), 3], ["even_dr", "Even-state deaths per round", rate("even_deaths"), 3],

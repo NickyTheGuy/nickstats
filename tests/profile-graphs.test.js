@@ -47,6 +47,15 @@ test("graph categories keep the selector small and search across categories", ()
   assert.equal(metricChoices("Core", "unfindable statistic").length, 0);
 });
 
+test("clutch win rates use attempts for the total and each opponent count", () => {
+  const stats = { clutch_1v1: 1, clutch_attempt_1v1: 1, clutch_1v2: 2, clutch_attempt_1v2: 4 };
+  assert.equal(metrics.get("clutch_success").value(stats), 60);
+  assert.equal(metrics.get("clutch_success_1v1").value(stats), 100);
+  assert.equal(metrics.get("clutch_success_1v2").value(stats), 50);
+  assert.ok(Number.isNaN(metrics.get("clutch_success_1v3").value(stats)));
+  assert.ok(Number.isNaN(metrics.get("clutch_success").value({})));
+});
+
 const match = {
   id: 8,
   schema: "nickstats.match/16",
