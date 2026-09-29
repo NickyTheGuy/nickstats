@@ -1,8 +1,8 @@
 import Vapor
 
-let compactSchema = "nickstats.match/23"
-let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", compactSchema])
-let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", compactSchema])
+let compactSchema = "nickstats.match/24"
+let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema])
+let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
@@ -138,6 +138,7 @@ struct SideStatsPayload: Content, Sendable {
     var speed: SpeedStats
     var clutches: ClutchWins
     var clutchAttempts: ClutchWins? = nil
+    var clutchEconomics: [String: Int]? = nil
     var killRounds: KillRoundCounts
     var trueKillRounds: KillRoundCounts? = nil
     var trueMultikillRounds: Int? = nil
@@ -159,6 +160,7 @@ struct SideStatsPayload: Content, Sendable {
         case damageReceived = "damage_received"
         case utilityThrown = "utility_thrown"
         case clutchAttempts = "clutch_attempts"
+        case clutchEconomics = "clutch_economics"
         case killRounds = "kill_rounds"
         case trueKillRounds = "true_kill_rounds"
         case trueMultikillRounds = "true_multikill_rounds"

@@ -577,7 +577,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260924-11");
+      const worker = new Worker("./js/demo-worker.js?v=20260929-3");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -910,6 +910,8 @@
       speed: mergeSpeed(left.speed, right.speed),
       clutches: sumArray(left.clutches, right.clutches, 5),
       clutch_attempts: sumArray(left.clutch_attempts, right.clutch_attempts, 5),
+      clutch_economics: Object.fromEntries([...new Set([...Object.keys(left.clutch_economics || {}), ...Object.keys(right.clutch_economics || {})])]
+        .map(key => [key, numberValue(left.clutch_economics?.[key]) + numberValue(right.clutch_economics?.[key])])),
       kill_rounds: sumArray(left.kill_rounds, right.kill_rounds, 5),
       true_kill_rounds: sumArray(left.true_kill_rounds, right.true_kill_rounds, 5),
       true_multikill_rounds: numberValue(left.true_multikill_rounds) + numberValue(right.true_multikill_rounds),
@@ -1200,9 +1202,9 @@
 
       return {
         ...player, ...timing,
-        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
-        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23"].includes(payload.schema),
-        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23"].includes(payload.schema),
+        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
+        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24"].includes(payload.schema),
+        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24"].includes(payload.schema),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -1330,12 +1332,13 @@
           victim_is_bot: identity(numberValue(row[0])).is_bot,
           flashes: numberValue(row[1]), blind_duration: numberValue(row[2]) / 1000
         })),
+        clutch_economics: { ...stats.clutch_economics },
         clutch_wins: Object.fromEntries((stats.clutches || []).map((value, index) => [index + 1, numberValue(value)])),
         clutch_attempts: Object.fromEntries((stats.clutch_attempts || []).map((value, index) => [index + 1, numberValue(value)])),
         kill_rounds: Object.fromEntries((stats.kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
         true_kill_rounds: Object.fromEntries((stats.true_kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
         true_multikill_rounds: numberValue(stats.true_multikill_rounds),
-        true_multikill_available: ["nickstats.match/21", "nickstats.match/22", "nickstats.match/23"].includes(payload.schema),
+        true_multikill_available: ["nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24"].includes(payload.schema),
         rating: Math.max(0, rating)
       };
     }
@@ -1371,7 +1374,7 @@
     const teams = payload.teams.map((team, index) => ({
       id: team.id || String(index),
       name: team.name || `Team ${index + 1}`,
-      score: roundPhase === "ALL" ? team.score : !["nickstats.match/22", "nickstats.match/23"].includes(payload.schema) ? null : (payload.round_timing || []).filter(timing => {
+      score: roundPhase === "ALL" ? team.score : !["nickstats.match/22", "nickstats.match/23", "nickstats.match/24"].includes(payload.schema) ? null : (payload.round_timing || []).filter(timing => {
         const round = numberValue(timing?.[0]);
         if (roundPhase === "REGULATION" ? round > 24 : round <= 24) return false;
         const economy = economyByRound.get(round);
@@ -3168,6 +3171,7 @@
         speed: [...speedArray(context.speed_on_kill), ...speedArray(context.killer_speed_on_death)],
         clutches: countArray(player.clutch_wins),
         clutch_attempts: countArray(player.clutch_attempts),
+        clutch_economics: { ...player.clutch_economics },
         kill_rounds: countArray(player.kill_rounds),
         true_kill_rounds: countArray(player.true_kill_rounds),
         true_multikill_rounds: number(player.true_multikill_rounds),
@@ -3219,8 +3223,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/23",
-      nickstats_build: "2026.09.24.10",
+      schema: "nickstats.match/24",
+      nickstats_build: "2026.09.29.3",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

@@ -443,3 +443,23 @@ private func validFaceitDatePayload() -> FaceitDateSyncPayload {
         try payload.validate(now: Date(timeIntervalSince1970: 1_789_200_000))
     }
 }
+
+@Test func clutchEconomicsRoundTripsSignedMoneyAndFlattensForProfiles() throws {
+    var stats = emptySide()
+    stats.clutchEconomics = ["loss_die_count": 1, "loss_die_measured": 1,
+                            "loss_die_swing": -5_000, "loss_die_differential": -10_000]
+    let data = try JSONEncoder().encode(stats)
+    let decoded = try JSONDecoder().decode(SideStatsPayload.self, from: data)
+    #expect(decoded.clutchEconomics?["loss_die_swing"] == -5_000)
+    #expect(flattenedBuyStats(decoded)["clutch_econ_loss_die_differential"] == -10_000)
+}
+
+@Test func clutchEconomicsRejectsUnknownFieldsAndExcessSamples() {
+    var payload = validPayload()
+    payload.players[0].sides.terrorist.clutchEconomics = ["unknown": 1]
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+    payload.players[0].sides.terrorist.clutchEconomics = ["win_survive_count": 1]
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+    payload.players[0].sides.terrorist.clutchEconomics = ["win_survive_measured": 1]
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+}

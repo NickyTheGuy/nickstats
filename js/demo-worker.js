@@ -236,6 +236,7 @@ async function parseDemo(fileName, buffer) {
   let tickInterval = 1 / 64;
   let completedRounds = 0;
   let round = freshRound();
+  let pendingClutchEconomics = null;
   let resetSeen = false;
   let inventorySamples = 0;
   let resolvedInventoryItems = 0;
@@ -499,8 +500,55 @@ async function parseDemo(fileName, buffer) {
     if (players.T && players.CT) round.economySnapshot = { values, players, individual };
   }
 
+  function sampleClutchResources(tick) {
+    if (!round.freezeSeen || (!round.live && !round.finished)) return;
+    let demo;
+    try { demo = parser.getDemo(); } catch { return; }
+    const byName = new Map([...new Set(stats.values())].map(row => [normalizeName(row.name), row]));
+    const resources = new Map();
+    for (const controller of demo.getEntitiesByClassNameIterator("CCSPlayerController")) {
+      const row = byName.get(normalizeName(safePawnField(controller, "m_iszPlayerName")));
+      if (!row || !round.sideAssignments.has(row) || ![...row.userIds].some(id => round.participants.has(id))) continue;
+      const cash = clutchResourceNumber(safePawnField(controller, "m_pInGameMoneyServices.m_iAccount"));
+      const startCash = clutchResourceNumber(safePawnField(controller, "m_pInGameMoneyServices.m_iStartAccount"));
+      resources.set(row, { side: round.sideAssignments.get(row), cash, startCash, equipment: null });
+    }
+    for (const pawn of demo.getEntitiesByClassNameIterator("CCSPlayerPawn")) {
+      const handle = safePawnField(pawn, "m_hController");
+      const controller = Number.isInteger(handle) ? demo.getEntityByHandle(handle) : null;
+      const row = controller && byName.get(normalizeName(safePawnField(controller, "m_iszPlayerName")));
+      const entry = resources.get(row);
+      if (entry) entry.equipment = clutchResourceNumber(safePawnField(pawn, "m_unCurrentEquipmentValue"));
+    }
+    round.clutchResources = resources;
+    round.clutchResourceTick = tick;
+  }
+
+  function settleClutchEconomics(nextRoundCash = null) {
+    const pending = pendingClutchEconomics;
+    if (!pending) return;
+    pendingClutchEconomics = null;
+    const ended = pending.round;
+    for (const candidate of ended.clutchCandidates) {
+      const survived = ![...candidate.row.userIds].some(id => ended.deaths.has(id));
+      const outcome = `${candidate.side === pending.winner ? "win" : "loss"}_${survived ? "survive" : "die"}`;
+      const metrics = calculateClutchEconomics(candidate, ended.clutchResources, ended.deaths,
+        nextRoundCash, ended.clutchResourceTick > pending.endTick);
+      const data = { [`${outcome}_count`]: 1 };
+      if (metrics) {
+        data[`${outcome}_measured`] = 1;
+        for (const [key, value] of Object.entries(metrics)) data[`${outcome}_${key}`] = value;
+      }
+      for (const target of candidate.economicsTargets || []) {
+        target.clutchEconomics ||= {};
+        for (const [key, value] of Object.entries(data)) target.clutchEconomics[key] = (target.clutchEconomics[key] || 0) + value;
+      }
+    }
+  }
+
   function resetMatchCounters() {
     completedRounds = 0;
+    pendingClutchEconomics = null;
     round = freshRound();
     teamScores.clear();
     observedTeamScores.clear();
@@ -522,6 +570,7 @@ async function parseDemo(fileName, buffer) {
     resolvedInventoryItems = 0;
     for (const row of stats.values()) {
       row.kills = 0;
+      row.clutchEconomics = {};
       row.sideStats = new Map();
       row.buySideStats = new Map();
       row.roundResultStats = new Map();
@@ -1053,6 +1102,15 @@ async function parseDemo(fileName, buffer) {
           : null
       });
     }
+    for (const candidate of round.clutchCandidates) {
+      const row = candidate.row, side = candidate.side, result = side === winningSide ? "win" : "loss";
+      candidate.economicsTargets = [row, ensureSideRow(row, side), ensureBuySideRow(row, buyFor(side), side),
+        ensureRoundResultRow(row, "ALL", side, result), ensureRoundResultRow(row, buyFor(side), side, result),
+        ensureEconomyMatchupRow(row, buyFor(side), buyFor(side === 2 ? 3 : 2), side, result),
+        playerRoundSlices.findLast(slice => slice.row === row && slice.round === completedRounds + 1)?.stats].filter(Boolean);
+    }
+    if (winningSide === 2 || winningSide === 3) pendingClutchEconomics = { round, winner: winningSide, endTick: tick };
+    round.endTick = tick;
     completedRounds += 1;
     round.finished = true;
     round.live = false;
@@ -1631,6 +1689,15 @@ async function parseDemo(fileName, buffer) {
     if (victimId !== null) round.participants.add(victimId);
     if (assisterId !== null) round.participants.add(assisterId);
 
+    if (enemyKill) {
+      for (const candidate of round.clutchCandidates) {
+        if (candidate.row !== attacker) continue;
+        candidate.kills += 1;
+        const value = round.clutchResources.get(victim)?.equipment;
+        if (value == null) candidate.equipmentComplete = false;
+        else candidate.stripped += value;
+      }
+    }
     if (victim) {
       captureFinalInventory(victim);
       // Zero is a valid demo-local player userid. Treat an attack as world/self
@@ -1993,9 +2060,13 @@ async function parseDemo(fileName, buffer) {
       const alive = aliveBySide.get(side);
       const opponents = aliveBySide.get(side === 2 ? 3 : 2).length;
       if (alive.length !== 1 || opponents < 1 || opponents > 5 || round.clutchSides.has(side)) continue;
+      sampleClutchResources(null);
       round.clutchSides.add(side);
       alive[0].clutchAttempts[opponents] += 1;
-      round.clutchCandidates.push({ row: alive[0], side, opponents });
+      round.clutchCandidates.push({ row: alive[0], side, opponents,
+        rosterComplete: round.clutchResources.size === participants.size,
+        resources: new Map([...round.clutchResources].map(([row, value]) => [row, { ...value }])),
+        deaths: new Set(round.deaths), stripped: 0, kills: 0, equipmentComplete: true });
     }
   }
 
@@ -2199,6 +2270,7 @@ async function parseDemo(fileName, buffer) {
       refreshUserInfo();
       samplePlayerInventories(demoPacket.tick);
       samplePlayerMotion(demoPacket.tick);
+      sampleClutchResources(demoPacket.tick);
     }
   });
 
@@ -2243,7 +2315,10 @@ async function parseDemo(fileName, buffer) {
       case "round_prestart":
         // Both events can occur for one round, and a delayed official-end event
         // can arrive between them. Do not throw away a round with real activity.
-        if (round.finished) round = freshRound();
+        if (round.finished) {
+          if (pendingClutchEconomics) pendingClutchEconomics.endTick = round.endTick;
+          round = freshRound();
+        }
         round.boundaryEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         beginRoundSideTracking();
         break;
@@ -2265,6 +2340,12 @@ async function parseDemo(fileName, buffer) {
         }
         refreshRoundSideAssignments();
         captureRoundEconomy();
+        sampleClutchResources(demoPacket.tick);
+        const nextCash = new Map([...round.clutchResources].map(([row, value]) => [row, value.startCash]));
+        // Cash resets at halftime and between overtime halves are not round income.
+        const nextNumber = completedRounds + 1;
+        const cashReset = nextNumber === 13 || nextNumber >= 25 && (nextNumber - 25) % 3 === 0;
+        settleClutchEconomics(cashReset ? null : nextCash);
         detectClutchCandidates();
         break;
       case "round_officially_ended":
@@ -2308,7 +2389,14 @@ async function parseDemo(fileName, buffer) {
         break;
       }
       case "player_death":
-        if (!round.live) break;
+        if (!round.live) {
+          // Post-round deaths affect equipment saving, but never live combat totals.
+          if (round.finished) {
+            const victim = stats.get(integer(gameEvent.userid));
+            if (victim) for (const id of victim.userIds) round.deaths.add(id);
+          }
+          break;
+        }
         round.hasActivity = true;
         handleDeath(gameEvent, demoPacket.tick);
         break;
@@ -2352,6 +2440,7 @@ async function parseDemo(fileName, buffer) {
     await parser.parse(readable);
     refreshUserInfo();
     endState = readEndState(parser.getDemo());
+    settleClutchEconomics();
   } finally {
     await parser.dispose();
   }
@@ -2683,6 +2772,9 @@ function freshRound() {
     traded: new Set(),
     clutchSides: new Set(),
     clutchCandidates: [],
+    clutchResources: new Map(),
+    clutchResourceTick: null,
+    endTick: null,
     killCounts: new Map(),
     trueMultikillLinks: new Map(),
     pendingDeaths: [],
@@ -2936,6 +3028,7 @@ function finishPlayer(row) {
     kill_rounds: row.killRoundsByCount,
     true_multikill_rounds: row.trueMultikillRounds,
     true_kill_rounds: row.trueKillRoundsByCount,
+    clutch_economics: { ...row.clutchEconomics },
     clutch_wins: row.clutchWins,
     clutch_attempts: row.clutchAttempts,
     rating: Math.max(0, rating)
@@ -3343,4 +3436,34 @@ function friendlyError(error) {
     return "The browser ran out of memory while parsing this demo. Close other tabs or try an extracted .dem in a desktop browser.";
   }
   return message;
+}
+
+function calculateClutchEconomics(candidate, end, deaths, nextCash, settled) {
+  if (!candidate.resources?.size || candidate.rosterComplete === false || !candidate.equipmentComplete || (!nextCash && !settled)) return null;
+  const start = { team: 0, enemy: 0 }, finish = { team: 0, enemy: 0 };
+  const cashChange = { team: 0, enemy: 0 };
+  let saved = 0;
+  for (const [row, initial] of candidate.resources) {
+    const final = end.get(row);
+    const cash = nextCash ? nextCash.get(row) : final?.cash;
+    const initiallyDead = [...row.userIds].some(id => candidate.deaths.has(id));
+    const finallyDead = [...row.userIds].some(id => deaths.has(id));
+    const equipmentBefore = initiallyDead ? 0 : initial.equipment;
+    const equipmentAfter = finallyDead ? 0 : final?.equipment;
+    if (![initial.cash, cash, equipmentBefore, equipmentAfter].every(value => Number.isFinite(value) && value >= 0)) return null;
+    const key = initial.side === candidate.side ? "team" : "enemy";
+    start[key] += initial.cash + equipmentBefore;
+    finish[key] += cash + equipmentAfter;
+    cashChange[key] += cash - initial.cash;
+    if (row === candidate.row) saved = equipmentAfter;
+  }
+  const differential = finish.team - finish.enemy;
+  return { team_resources: Math.round(finish.team), enemy_resources: Math.round(finish.enemy),
+    differential: Math.round(differential), swing: Math.round(differential - (start.team - start.enemy)),
+    team_cash_change: Math.round(cashChange.team), enemy_cash_change: Math.round(cashChange.enemy),
+    saved: Math.round(saved), stripped: Math.round(candidate.stripped), kills: candidate.kills };
+}
+
+function clutchResourceNumber(value) {
+  return value == null || value === "" ? null : numberOrNull(value);
 }

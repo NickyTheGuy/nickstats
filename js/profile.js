@@ -255,6 +255,26 @@
         return [`1v${opponents}`, `${integer(wins)} / ${integer(attempts)}`, attempts ? `${percent(100 * ratio(wins, attempts))} won · ${integer(Math.max(0, attempts - wins))} failed` : "No attempts"];
       })
     ]);
+    const economics = availability.scope(rawStats, "clutchEconomics");
+    const outcomes = [["win_survive", "Win · survive"], ["win_die", "Win · die"],
+      ["loss_survive", "Lose · save"], ["loss_die", "Lose · die"]];
+    const econValue = (outcome, field) => number(economics?.[`clutch_econ_${outcome}_${field}`]);
+    const measured = outcomes.reduce((sum, [outcome]) => sum + econValue(outcome, "measured"), 0);
+    const attempted = outcomes.reduce((sum, [outcome]) => sum + econValue(outcome, "count"), 0);
+    const money = value => `${value < 0 ? "−" : ""}$${Math.round(Math.abs(value)).toLocaleString()}`;
+    const table = $(`${prefix}ClutchEconomicsTable`);
+    if (table) renderTable(table, ["Outcome", "Attempts", "Measured", "Your team", "Enemy team", "Difference", "Swing", "Your cash change", "Enemy cash change", "Saved gear", "Enemy gear removed", "Clutch kills"],
+      outcomes.map(([outcome, label]) => {
+        const n = econValue(outcome, "measured");
+        const average = key => n ? money(econValue(outcome, key) / n) : "—";
+        return [label, economics ? integer(econValue(outcome, "count")) : "—", economics ? integer(n) : "—",
+          ...["team_resources", "enemy_resources", "differential", "swing", "team_cash_change", "enemy_cash_change", "saved", "stripped"].map(average),
+          n ? decimal(econValue(outcome, "kills") / n, 2) : "—"];
+      }));
+    const econNote = $(`${prefix}ClutchEconomicsNote`);
+    if (econNote) econNote.textContent = economics
+      ? `Dollar values and kills are averages per measured attempt. ${integer(measured)} of ${integer(attempted)} attempts have complete economic snapshots. Positive swing favors your team. Enemy gear removed is the equipment held by victims of your clutch kills; pickups can recover it. These are observed outcomes, not predictions of alternative decisions.`
+      : "Reparse demos to collect clutch economics. Earlier matches do not contribute zeroes.";
     const multikillRounds = [2, 3, 4, 5].reduce((total, kills) => total + number(s[`kill_rounds_${kills}k`]), 0);
     fillStrip(`${prefix}MultikillStats`, [
       ["Multi-kill %", percent(100 * ratio(multikillRounds, rounds)), `${integer(multikillRounds)} of ${integer(rounds)} rounds`],

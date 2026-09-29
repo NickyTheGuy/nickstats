@@ -356,6 +356,9 @@ private func flattenedBuyStats(_ value: SideStatsPayload, flashTargets: Comparis
         output["true_kill_rounds_\(index + 1)k"] = Double(count)
     }
     output["true_multikill_rounds"] = Double(value.trueMultikillRounds ?? 0)
+    for (name, amount) in value.clutchEconomics ?? [:] {
+        output["clutch_econ_\(name)"] = Double(amount)
+    }
     for trade in value.trades {
         output["trade_opportunities", default: 0] += Double(trade.opportunities)
         output["trade_attempts", default: 0] += Double(trade.attempts)
@@ -1089,6 +1092,14 @@ private func comparisonSideData(
             side: side, buy: buy, opponentBuy: opponentBuy, result: roundResult, hero: stats.hero
         ))
         let flat = flattenedBuyStats(stats, flashTargets: flashTargetsByMatch[matchID])
+        // Unfiltered side totals use normalized SQL combat rows. Economic values
+        // live in the existing round JSON so they need no schema migration.
+        let baseKey = ComparisonSliceKey(side: side, buyType: "ALL", opponentBuyType: "ALL", roundResult: "ALL")
+        if let index = resultIndexes[matchID]?[baseKey] {
+            for (name, amount) in flat where name.hasPrefix("clutch_econ_") {
+                result[matchID]?[index].stats[name, default: 0] += amount
+            }
+        }
         let weapons = stats.weapons.map { ComparisonWeaponStats(weapon: $0.weapon, kills: $0.kills, shots: $0.shots, hits: $0.hits, damage: $0.damage, roundsUsed: $0.roundsUsed) }
         var scopes: [(String, String, String)] = [("ALL", "ALL", "ALL")]
         if let buy {
@@ -1814,6 +1825,13 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
         guard let slot = internalToSlot[try int64(row, "match_player_id")] else { continue }
         let json = try row.decode(column: "stats_json", as: String.self)
         let roundStats = try JSONDecoder().decode(SideStatsPayload.self, from: Data(json.utf8))
+        let economicSide = try playerSide(row, "side")
+        var total = players[slot].sides[economicSide]
+        for (name, amount) in roundStats.clutchEconomics ?? [:] {
+            total.clutchEconomics = total.clutchEconomics ?? [:]
+            total.clutchEconomics?[name, default: 0] += amount
+        }
+        players[slot].sides[economicSide] = total
         players[slot].roundSlices = (players[slot].roundSlices ?? []) + [PlayerRoundSlice(
             round: try integer(row, "round_number"), side: try playerSide(row, "side"),
             buy: try optionalString(row, "buy_type"),

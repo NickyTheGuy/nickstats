@@ -52,7 +52,8 @@
     true_kill_rounds_4k: 21,
     true_kill_rounds_5k: 21,
     true_multikill_rounds: 21,
-    trueMultikillPercent: 21
+    trueMultikillPercent: 21,
+    clutchEconomics: 24
   });
   const thresholds = [...new Set(Object.values(minimumSchema))].sort((left, right) => left - right);
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
