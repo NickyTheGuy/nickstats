@@ -21,7 +21,7 @@
 
   const state = {
     profiles: new Map(), activeId: null, graphPlayers: new Set(), recent: readRecent(),
-    display: "profile", view: "overview", searchController: null, profileController: null, refreshController: null, profilesStale: false, searchTimer: null,
+    display: "profile", view: "overview", searchController: null, profileQueue: [], pendingProfiles: new Set(), profileLoading: false, requestedProfileId: null, refreshController: null, profilesStale: false, searchTimer: null,
     side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL", maps: []
   };
   const activeProfile = () => state.profiles.get(state.activeId) || null;
@@ -99,9 +99,14 @@
 
   function rememberPlayer(player) {
     const row = { id: String(player.id), name: player.name || "Unknown player", steam_id: player.steam_id || "" };
-    state.recent = [row, ...state.recent.filter(item => String(item.id) !== row.id)].slice(0, MAX_RECENT);
-    try { localStorage.setItem(RECENT_KEY, JSON.stringify(state.recent)); } catch (_) {}
-    renderRecent();
+    const index = state.recent.findIndex(item => String(item.id) === row.id);
+    if (index < 0) {
+      state.recent = [...state.recent.slice(0, MAX_RECENT - 1), row];
+      renderRecent();
+    } else {
+      state.recent[index] = row;
+    }
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify([row, ...readRecent().filter(item => String(item.id) !== row.id)].slice(0, MAX_RECENT))); } catch (_) {}
   }
   function renderRecent() {
     const section = $("playerRecent"), list = $("playerRecentList");
@@ -110,7 +115,7 @@
       const button = document.createElement("button"); button.type = "button"; button.className = "player-recent-chip";
       const name = document.createElement("strong"); name.textContent = player.name;
       const steam = document.createElement("span"); steam.textContent = player.steam_id || "Open profile";
-      button.append(name, steam); button.addEventListener("click", () => loadProfile(player.id)); list.appendChild(button);
+      button.append(name, steam); button.addEventListener("click", () => loadProfile(player.id, { scroll: false })); list.appendChild(button);
     });
   }
 
@@ -431,21 +436,48 @@
       else { $("playerProfile").hidden = true; renderOpenTabs(); }
     } else activateProfile(state.activeId);
   }
-  async function loadProfile(playerID) {
+  function loadProfile(playerID, { scroll = true } = {}) {
     const id = String(playerID);
+    state.requestedProfileId = id;
     if (state.profiles.has(id)) { activateProfile(id); rememberPlayer(state.profiles.get(id).payload.player || { id }); return; }
-    state.profileController?.abort(); state.profileController = new AbortController();
-    $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "Loading player profile…"; $("playerProfileStatus").classList.remove("error");
-    try {
-      const payload = expandDenseProfile(await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=2`, { headers: { Accept: "application/json" }, signal: state.profileController.signal })));
-      const key = String(payload.player?.id ?? id);
-      state.profiles.set(key, { payload });
-      if (state.graphPlayers.size < MAX_GRAPH_PLAYERS) state.graphPlayers.add(key);
-      activateProfile(key); rememberPlayer(payload.player || { id: key });
-      $("playerProfile").scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch (error) {
-      if (error.name !== "AbortError") { $("playerProfileStatus").textContent = `Could not load player: ${error.message}`; $("playerProfileStatus").classList.add("error"); }
+    if (state.pendingProfiles.has(id)) return;
+    state.pendingProfiles.add(id);
+    state.profileQueue.push({ id, scroll });
+    $("playerProfile").hidden = false;
+    $("playerProfileStatus").classList.remove("error");
+    $("playerProfileStatus").textContent = `${state.pendingProfiles.size} profile${state.pendingProfiles.size === 1 ? "" : "s"} opening…`;
+    if (!state.profileLoading) drainProfileQueue();
+  }
+
+  async function drainProfileQueue() {
+    state.profileLoading = true;
+    const failures = [];
+    while (state.profileQueue.length) {
+      const { id, scroll } = state.profileQueue.shift();
+      try {
+        const payload = expandDenseProfile(await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=2`, {
+          headers: { Accept: "application/json" }, cache: "no-store"
+        })));
+        const key = String(payload.player?.id ?? id);
+        state.profiles.set(key, { payload });
+        if (state.graphPlayers.size < MAX_GRAPH_PLAYERS) state.graphPlayers.add(key);
+        rememberPlayer(payload.player || { id: key });
+        if (state.requestedProfileId === id || !activeProfile()) {
+          activateProfile(key);
+          if (scroll && state.requestedProfileId === id) $("playerProfile").scrollIntoView({ behavior: "smooth", block: "start" });
+        } else renderOpenTabs();
+      } catch (error) {
+        failures.push(error.message);
+      } finally {
+        state.pendingProfiles.delete(id);
+        if (state.profileQueue.length) {
+          $("playerProfileStatus").textContent = `${state.pendingProfiles.size} profile${state.pendingProfiles.size === 1 ? "" : "s"} opening…`;
+        }
+      }
     }
+    state.profileLoading = false;
+    $("playerProfileStatus").textContent = failures.length ? `Could not load ${failures.length} profile${failures.length === 1 ? "" : "s"}: ${failures[0]}` : "";
+    $("playerProfileStatus").classList.toggle("error", failures.length > 0);
   }
 
   async function refreshOpenProfiles() {
