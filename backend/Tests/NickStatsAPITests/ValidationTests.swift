@@ -28,6 +28,7 @@ private func emptySide() -> SideStatsPayload {
         trueKillRounds: .zero,
         weapons: [], duels: [], trades: [], contexts: [], assistedBy: [], flashes: []
     )
+    value.initiation = [:]
     value.profile = Array(repeating: 0, count: 16)
     value.trueMultikillRounds = 0
     return value
@@ -461,5 +462,40 @@ private func validFaceitDatePayload() -> FaceitDateSyncPayload {
     payload.players[0].sides.terrorist.clutchEconomics = ["win_survive_count": 1]
     #expect(throws: MatchValidationError.self) { try payload.validate() }
     payload.players[0].sides.terrorist.clutchEconomics = ["win_survive_measured": 1]
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+}
+
+
+@Test func initiationRoundTripsAndFlattensForProfiles() throws {
+    var stats = emptySide()
+    stats.initiation = ["initiation_contacts": 2, "initiation_damage_first": 1,
+                        "initiation_damage_taken_first": 1, "initiation_nonlethal_contacts": 2,
+                        "initiation_rounds": 1, "initiation_first_damage_dealt": 25]
+    let data = try JSONEncoder().encode(stats)
+    let decoded = try JSONDecoder().decode(SideStatsPayload.self, from: data)
+    #expect(decoded.initiation?["initiation_nonlethal_contacts"] == 2)
+    #expect(flattenedBuyStats(decoded)["initiation_contacts"] == 2)
+}
+
+@Test func initiationRequiresCurrentCountersAndPreservesSchema24Compatibility() throws {
+    var payload = validPayload()
+    payload.schema = compactSchema
+    for index in payload.players.indices { payload.players[index].roundSlices = [] }
+    try payload.validate()
+    payload.players[0].sides.terrorist.initiation = nil
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+    payload.schema = "nickstats.match/24"
+    try payload.validate()
+}
+
+@Test func initiationRejectsUnknownCountersAndInconsistentContactCounts() {
+    var payload = validPayload()
+    payload.players[0].sides.terrorist.initiation = ["kills": 1]
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+    payload.players[0].sides.terrorist.initiation = ["initiation_contacts": 1]
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+    payload.players[0].sides.terrorist.initiation = ["initiation_contacts": 0, "initiation_nonlethal_contacts": 1]
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+    payload.players[0].sides.terrorist.initiation = ["initiation_kills": 1]
     #expect(throws: MatchValidationError.self) { try payload.validate() }
 }

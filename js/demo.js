@@ -298,6 +298,12 @@
     rating: oneMode("rating", "Rating", player => player.rating ?? 0)
   };
 
+  for (const [key, label] of [["initiation_kills", "Non-trade K"], ["initiation_deaths", "Non-trade D"], ["initiation_contacts", "First contact"], ["initiation_damage_first", "Dealt first"], ["initiation_damage_taken_first", "Took first"], ["initiation_nonlethal_contacts", "No K/D contact"], ["initiation_rounds", "Contact rounds"]]) {
+    sortSpecs[key] = oneMode(key, label, player => player.initiation_available ? player.initiation?.[key] ?? 0 : null,
+      key === "initiation_deaths" ? "asc" : "desc");
+  }
+  sortSpecs.initiationSummary = oneMode("initiationSummary", "Non-trade diff", player => player.initiation_available
+    ? (player.initiation?.initiation_kills ?? 0) - (player.initiation?.initiation_deaths ?? 0) : null);
   for (let opponents = 5; opponents >= 1; opponents -= 1) {
     sortSpecs[`clutch${opponents}`] = oneMode(`clutch${opponents}`, `Win%`, player => clutchWinRate(player, opponents));
   }
@@ -577,7 +583,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260929-3");
+      const worker = new Worker("./js/demo-worker.js?v=20260929-4");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -910,6 +916,8 @@
       speed: mergeSpeed(left.speed, right.speed),
       clutches: sumArray(left.clutches, right.clutches, 5),
       clutch_attempts: sumArray(left.clutch_attempts, right.clutch_attempts, 5),
+      initiation: Object.fromEntries([...new Set([...Object.keys(left.initiation || {}), ...Object.keys(right.initiation || {})])]
+        .map(key => [key, numberValue(left.initiation?.[key]) + numberValue(right.initiation?.[key])])),
       clutch_economics: Object.fromEntries([...new Set([...Object.keys(left.clutch_economics || {}), ...Object.keys(right.clutch_economics || {})])]
         .map(key => [key, numberValue(left.clutch_economics?.[key]) + numberValue(right.clutch_economics?.[key])])),
       kill_rounds: sumArray(left.kill_rounds, right.kill_rounds, 5),
@@ -1202,9 +1210,9 @@
 
       return {
         ...player, ...timing,
-        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
-        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24"].includes(payload.schema),
-        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24"].includes(payload.schema),
+        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
+        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25"].includes(payload.schema),
+        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25"].includes(payload.schema),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -1332,13 +1340,15 @@
           victim_is_bot: identity(numberValue(row[0])).is_bot,
           flashes: numberValue(row[1]), blind_duration: numberValue(row[2]) / 1000
         })),
+        initiation: { ...stats.initiation },
+        initiation_available: Number(payload.schema?.split("/").pop()) >= 25,
         clutch_economics: { ...stats.clutch_economics },
         clutch_wins: Object.fromEntries((stats.clutches || []).map((value, index) => [index + 1, numberValue(value)])),
         clutch_attempts: Object.fromEntries((stats.clutch_attempts || []).map((value, index) => [index + 1, numberValue(value)])),
         kill_rounds: Object.fromEntries((stats.kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
         true_kill_rounds: Object.fromEntries((stats.true_kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
         true_multikill_rounds: numberValue(stats.true_multikill_rounds),
-        true_multikill_available: ["nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24"].includes(payload.schema),
+        true_multikill_available: ["nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25"].includes(payload.schema),
         rating: Math.max(0, rating)
       };
     }
@@ -1374,7 +1384,7 @@
     const teams = payload.teams.map((team, index) => ({
       id: team.id || String(index),
       name: team.name || `Team ${index + 1}`,
-      score: roundPhase === "ALL" ? team.score : !["nickstats.match/22", "nickstats.match/23", "nickstats.match/24"].includes(payload.schema) ? null : (payload.round_timing || []).filter(timing => {
+      score: roundPhase === "ALL" ? team.score : !["nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25"].includes(payload.schema) ? null : (payload.round_timing || []).filter(timing => {
         const round = numberValue(timing?.[0]);
         if (roundPhase === "REGULATION" ? round > 24 : round <= 24) return false;
         const economy = economyByRound.get(round);
@@ -1989,6 +1999,10 @@
       player.trade_opportunities ?? 0, player.trade_attempts ?? 0, `${player.trade_kills ?? 0} (${(player.trade_success_percent ?? 0).toFixed(0)}%)`,
       player.tradeable_deaths ?? 0, player.attempted_tradeable_deaths ?? 0, `${player.traded_deaths ?? 0} (${(player.traded_death_percent ?? 0).toFixed(0)}%)`
     ]);
+    const initiationValue = key => player.initiation_available ? player.initiation?.[key] ?? 0 : "—";
+    scoreboardCells(row, "initiation", player.initiation_available
+      ? eventPair(player.initiation?.initiation_kills, player.initiation?.initiation_deaths) : "—",
+      ["initiation_kills", "initiation_deaths", "initiation_contacts", "initiation_damage_first", "initiation_damage_taken_first", "initiation_nonlethal_contacts", "initiation_rounds"].map(initiationValue));
     scoreboardCells(row, "clutches", clutchResult(player), [5, 4, 3, 2, 1].map(opponents => clutchResult(player, opponents)));
     const multikillTotal = [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0);
     const multikillPercent = 100 * [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0) / Math.max(1, player.rounds_played ?? 0);
@@ -2085,6 +2099,7 @@
       const labels = {
         combat: "K/round-D/round-A/round",
         opening: "K/round-D/round · Att%",
+        initiation: "Non-trade K/round-D/round",
         trades: "K/round-D/round",
         clutches: "W/round / A/round · Win%",
         multikills: "Total / round",
@@ -2243,6 +2258,7 @@
         "K on ally flash": sortSpecs.assistedFlash,
         "K on your flash": sortSpecs.assistedOwnFlash
       },
+      initiation: { "Non-trade K-D": sortSpecs.initiationSummary, "Non-trade K": sortSpecs.initiation_kills, "Non-trade D": sortSpecs.initiation_deaths, "First contact": sortSpecs.initiation_contacts, "Dealt first": sortSpecs.initiation_damage_first, "Took first": sortSpecs.initiation_damage_taken_first, "No K/D contact": sortSpecs.initiation_nonlethal_contacts, "Contact rounds": sortSpecs.initiation_rounds },
       clutches: {
         Total: sortSpecs.clutchTotal,
         "Total W/A · Win%": sortSpecs.clutchTotal,
@@ -2340,6 +2356,7 @@
 
   function scoreboardSortValue(spec, mode, player, group) {
     const raw = mode.value(player);
+    if (raw == null || typeof raw === "number" && !Number.isFinite(raw)) return raw;
     if (state.scoreboardValueMode !== "round" || !group) return raw;
     const rateMode = roundInvariantSorts.has(spec.id) ||
       (spec.id === "opening" && ["Attempt rate", "Success", "Assist %"].includes(mode.label)) ||
@@ -3171,6 +3188,7 @@
         speed: [...speedArray(context.speed_on_kill), ...speedArray(context.killer_speed_on_death)],
         clutches: countArray(player.clutch_wins),
         clutch_attempts: countArray(player.clutch_attempts),
+        initiation: { ...player.initiation },
         clutch_economics: { ...player.clutch_economics },
         kill_rounds: countArray(player.kill_rounds),
         true_kill_rounds: countArray(player.true_kill_rounds),
@@ -3223,8 +3241,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/24",
-      nickstats_build: "2026.09.29.3",
+      schema: "nickstats.match/25",
+      nickstats_build: "2026.09.29.4",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260929-2">
+  <link rel="stylesheet" href="./styles.css?v=20260929-4">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.09.29.3</span>
+          <span class="demo-build">Build 2026.09.29.4</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -356,6 +356,7 @@
             <button class="player-profile-tab active" type="button" role="tab" aria-selected="true" data-player-view="overview">Overview</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="matches">Matches</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="openings">Opening</button>
+            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="initiation">Initiation</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="trades">Trades</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="rounds">Rounds</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="roundState">Round state</button>
@@ -408,6 +409,14 @@
               <section class="player-stat-section"><header><span>06</span><div><h3>Flash sources on opening deaths</h3><p>Who blinded the player before their opening death; sources can overlap</p></div></header><div class="player-detail-grid" id="playerOpeningDeathBlindStats"></div></section>
               <section class="player-stat-section"><header><span>07</span><div><h3>Help on enemy opening kills</h3><p>Opening deaths where the enemy killer received teammate help</p></div></header><div class="player-detail-grid" id="playerOpeningEnemySupportStats"></div></section>
             </div>
+          </div>
+          <div class="player-profile-view" data-player-profile-view="initiation" hidden>
+            <p class="player-context-note"><strong>Initiation:</strong> non-trade kills and deaths cover fresh lethal exchanges throughout the round. First contact identifies the first player on each team in a new gunfight, including contact that ends with no kill or death. Fights follow the players involved and reset after a two-second combat lull; active trade responses and chains are excluded.</p>
+            <div class="player-section-grid">
+              <section class="player-stat-section"><header><span>01</span><div><h3>Non-trade outcomes</h3><p>Kills/deaths outside active trade responses or anti-trade chains; utility kills are included</p></div></header><div class="player-detail-grid" id="playerInitiationOutcomeStats"></div></section>
+              <section class="player-stat-section"><header><span>02</span><div><h3>First gunfight contact</h3><p>First damaging hit or confirmed gun/knife kill; grenade and fire chip damage are excluded</p></div></header><div class="player-detail-grid" id="playerInitiationContactStats"></div></section>
+            </div>
+            <p class="method">Dealt/took damage first describes the first recorded hit, not who moved forward or intended to initiate. Independent fights can start simultaneously. Misses sustain an established fight when their shot path passes near an opponent, but do not start one.</p>
           </div>
           <div class="player-profile-view" data-player-profile-view="context" hidden>
             <p class="player-context-note"><strong>Paul Kill/Death:</strong> the victim had a grenade or knife out at death or within the preceding 1.4 seconds. <strong>Bullshit Kills/Deaths</strong> combine blind-killer, airborne, running, wallbang, smoke, and Paul events, counting overlaps once. Movement details live in the Movement tab.</p>
@@ -579,13 +588,13 @@
   <script defer src="./js/data-freshness.js?v=20260927-4"></script>
   <script defer src="./js/filters.js?v=20260925-06"></script>
   <script defer src="./js/dropdown.js?v=20260925-02"></script>
-  <script defer src="./js/stat-availability.js?v=20260929-3"></script>
-  <script defer src="./js/scoreboard.js?v=20260927-5"></script>
+  <script defer src="./js/stat-availability.js?v=20260929-4"></script>
+  <script defer src="./js/scoreboard.js?v=20260929-4"></script>
   <script defer src="./js/round-timeline.js?v=20260925-06"></script>
-  <script defer src="./js/graphs.js?v=20260927-5"></script>
-  <script defer src="./js/demo.js?v=20260929-3"></script>
-  <script defer src="./js/profile.js?v=20260929-3"></script>
-  <script defer src="./js/quick-comparison.js?v=20260929-2"></script>
+  <script defer src="./js/graphs.js?v=20260929-4"></script>
+  <script defer src="./js/demo.js?v=20260929-4"></script>
+  <script defer src="./js/profile.js?v=20260929-4"></script>
+  <script defer src="./js/quick-comparison.js?v=20260929-4"></script>
   <script defer src="./js/players.js?v=20260929-2"></script>
   <script defer src="./js/groups.js?v=20260927-4"></script>
 </body>

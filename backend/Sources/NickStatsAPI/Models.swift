@@ -1,8 +1,8 @@
 import Vapor
 
-let compactSchema = "nickstats.match/24"
-let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema])
-let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema])
+let compactSchema = "nickstats.match/25"
+let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema])
+let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"
@@ -139,6 +139,7 @@ struct SideStatsPayload: Content, Sendable {
     var clutches: ClutchWins
     var clutchAttempts: ClutchWins? = nil
     var clutchEconomics: [String: Int]? = nil
+    var initiation: [String: Int]? = nil
     var killRounds: KillRoundCounts
     var trueKillRounds: KillRoundCounts? = nil
     var trueMultikillRounds: Int? = nil
@@ -152,7 +153,7 @@ struct SideStatsPayload: Content, Sendable {
     var hero: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
-        case rounds, opening, utility, objectives, speed, clutches, weapons, duels, trades, contexts, flashes, profile, hero
+        case rounds, opening, utility, objectives, speed, clutches, weapons, duels, trades, contexts, flashes, profile, hero, initiation
         case combat = "kda"
         case kastRounds = "kast_rounds"
         case tradeKills = "trade_kills"

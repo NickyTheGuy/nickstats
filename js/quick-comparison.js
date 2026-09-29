@@ -129,6 +129,11 @@
 
     function columnDenominator(column, item) {
       let denominator = state.valueMode === "match" ? item.rows.length : number(item.stats.rounds);
+      if (column.group === "initiation") {
+        denominator = state.valueMode === "match"
+          ? item.rows.filter(row => availability.schemaVersion(row.schema) >= 25).length
+          : availability.rounds(item.stats, "initiation_kills");
+      }
       if (column.group === "utility" && state.perGrenadeUtility) {
         if (column.key === "utility-he-damage") denominator = number(item.stats.he_grenades_thrown);
         else if (column.key === "utility-fire-damage") denominator = number(item.stats.fire_grenades_thrown);
@@ -140,7 +145,9 @@
     function columnSortValue(column, item) {
       if (["opening", "trade-kills", "traded-deaths", "clutches"].includes(column.key) || column.key.startsWith("clutch-")) return column.value(item);
       const formatted = column.format(item);
-      return Scoreboard.normalizedSortValue(column.value(item), columnDenominator(column, item),
+      const value = column.value(item);
+      if (value == null || typeof value === "number" && !Number.isFinite(value)) return value;
+      return Scoreboard.normalizedSortValue(value, columnDenominator(column, item),
         columnScalesWithValueMode(column, formatted));
     }
 
@@ -329,6 +336,11 @@
             key: "clutches", label: "Total W/A · Win%", value: item => clutchRate(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt")),
             format: item => clutchDisplay(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt"))
           }];
+      const initiationColumns = state.expandedGroups.initiation ? [["initiation_kills", "Non-trade K"], ["initiation_deaths", "Non-trade D"], ["initiation_contacts", "First contact"], ["initiation_damage_first", "Dealt first"], ["initiation_damage_taken_first", "Took first"], ["initiation_nonlethal_contacts", "No K/D contact"], ["initiation_rounds", "Contact rounds"]].map(([key, label]) => ({
+        key, label, value: item => availability.value(item.stats, key), format: item => availableInteger(item, key)
+      })) : [{ key: "initiation", label: "Non-trade K-D",
+        value: item => availability.available(item.stats, "initiation_kills") ? number(item.stats.initiation_kills) - number(item.stats.initiation_deaths) : null,
+        format: item => availability.available(item.stats, "initiation_kills") ? `${integer(item.stats.initiation_kills)}-${integer(item.stats.initiation_deaths)}` : "—" }];
       const roundStateColumns = state.expandedGroups.roundState ? [
         { key: "context-clawback-bozo", label: "Clawback-Bozo K-D", value: item => number(item.stats.clawback_kills) - number(item.stats.bozo_deaths), format: item => availability.available(item.stats, "clawback_kills") ? `${integer(item.stats.clawback_kills)}-${integer(item.stats.bozo_deaths)}` : "—" },
         { key: "context-even", label: "Even K-D", value: item => number(item.stats.even_kills) - number(item.stats.even_deaths), format: item => availability.available(item.stats, "even_kills") ? `${integer(item.stats.even_kills)}-${integer(item.stats.even_deaths)}` : "—" },
@@ -458,6 +470,7 @@
         { columns: fixedColumns },
         { group: "combat", label: "Overview", columns: focusedColumns("combat", combatColumns) },
         { group: "opening", label: "Opening", columns: focusedColumns("opening", openingColumns) },
+        { group: "initiation", label: "Initiation", columns: focusedColumns("initiation", initiationColumns) },
         { group: "trades", label: "Trades", columns: focusedColumns("trades", tradesColumns) },
         { group: "clutches", label: "Clutches", columns: focusedColumns("clutches", clutchColumns) },
         { group: "multikills", label: "Kill rounds", columns: focusedColumns("multikills", multikillColumns) },

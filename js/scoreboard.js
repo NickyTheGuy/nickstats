@@ -10,13 +10,13 @@
 
   const sections = Object.freeze([
     ["overview", "Overview", ["combat"], "overview"], ["opening", "Opening", ["opening"], "opening"],
-    ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "objectives"], "rounds"],
+    ["initiation", "Initiation", ["initiation"], "initiation"], ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "objectives"], "rounds"],
     ["roundState", "Round state", ["roundState", "killStage", "timing"], "roundState"],
     ["context", "Context", ["killContext"], "killContext"], ["movement", "Movement", ["movement"], "movement"],
     ["utility", "Utility", ["utility"], "utility"]
   ]);
   const groups = Object.freeze([
-    ["combat", "Overview"], ["opening", "Opening"], ["trades", "Trades"], ["clutches", "Clutches"],
+    ["combat", "Overview"], ["opening", "Opening"], ["initiation", "Initiation"], ["trades", "Trades"], ["clutches", "Clutches"],
     ["multikills", "Kill rounds"], ["objectives", "Objectives"], ["roundState", "Man count"],
     ["killStage", "Kill stage"], ["timing", "Round timing"], ["killContext", "Context"],
     ["movement", "Movement"], ["utility", "Utility"]
@@ -24,6 +24,7 @@
   const columns = Object.freeze({
     combat: [["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A"],
     opening: [["K", "D", "Assisted K", "Dmg A", "K on ally flash", "Traded D", "Trade K", "A earned", "Dmg A earned", "A from your flash", "Enemy blind K", "K while blind", "D while blind", "D to blind killer", "Enemy assisted D", "Enemy dmg A D", "D on killer's ally flash", "K on your flash", "K on their flash", "D to killer's flash", "D to your side's flash", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
+    initiation: [["Non-trade K", "Non-trade D", "First contact", "Dealt first", "Took first", "No K/D contact", "Contact rounds"], "Non-trade K-D"],
     trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
     clutches: [["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A · Win%"],
     multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%", "5K", "4K", "3K", "2K", "TMK%"], "Total"],
@@ -49,6 +50,7 @@
   const expandedWidths = Object.freeze({
     combat: [54, 54, 54, 62, 62, 82, 88, 76, 72],
     opening: [58, 58, 82, 68, 126, 88, 68, 76, 76, 130, 82, 100, 100, 126, 104, 112, 164, 110, 112, 126, 152, 82, 62, 72, 76],
+    initiation: [100, 100, 102, 92, 92, 118, 110],
     trades: [58, 54, 96, 58, 54, 96], clutches: [94, 94, 94, 94, 94],
     multikills: [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], objectives: [74, 74],
     roundState: [128, 88, 168, 104], killStage: [92, 92, 92, 92, 92], timing: [82, 82, 84, 84, 84, 112],
@@ -56,7 +58,7 @@
     utility: [82, 82, 86, 94, 94, 94, 94, 58, 92, 58, 112, 58, 100, 58, 100, 128, 128]
   });
   const collapsedWidths = Object.freeze({
-    combat: 90, opening: 108, trades: 88, clutches: 122, multikills: 92, objectives: 128,
+    combat: 90, opening: 108, initiation: 118, trades: 88, clutches: 122, multikills: 92, objectives: 128,
     roundState: 112, killStage: 104, timing: 110, killContext: 112, movement: 112, utility: 176
   });
   const flashDescriptions = Object.freeze({

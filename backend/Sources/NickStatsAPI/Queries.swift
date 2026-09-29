@@ -356,6 +356,7 @@ private func flattenedBuyStats(_ value: SideStatsPayload, flashTargets: Comparis
         output["true_kill_rounds_\(index + 1)k"] = Double(count)
     }
     output["true_multikill_rounds"] = Double(value.trueMultikillRounds ?? 0)
+    for (name, amount) in value.initiation ?? [:] { output[name] = Double(amount) }
     for (name, amount) in value.clutchEconomics ?? [:] {
         output["clutch_econ_\(name)"] = Double(amount)
     }
@@ -1092,11 +1093,11 @@ private func comparisonSideData(
             side: side, buy: buy, opponentBuy: opponentBuy, result: roundResult, hero: stats.hero
         ))
         let flat = flattenedBuyStats(stats, flashTargets: flashTargetsByMatch[matchID])
-        // Unfiltered side totals use normalized SQL combat rows. Economic values
-        // live in the existing round JSON so they need no schema migration.
+        // Unfiltered side totals use normalized SQL combat rows. New economic
+        // and initiation counters are reconstructed from the existing round JSON.
         let baseKey = ComparisonSliceKey(side: side, buyType: "ALL", opponentBuyType: "ALL", roundResult: "ALL")
         if let index = resultIndexes[matchID]?[baseKey] {
-            for (name, amount) in flat where name.hasPrefix("clutch_econ_") {
+            for (name, amount) in flat where name.hasPrefix("clutch_econ_") || name.hasPrefix("initiation_") {
                 result[matchID]?[index].stats[name, default: 0] += amount
             }
         }
@@ -1830,6 +1831,10 @@ func getMatch(_ matchID: Int64, on database: any Database) async throws -> Match
         for (name, amount) in roundStats.clutchEconomics ?? [:] {
             total.clutchEconomics = total.clutchEconomics ?? [:]
             total.clutchEconomics?[name, default: 0] += amount
+        }
+        for (name, amount) in roundStats.initiation ?? [:] {
+            total.initiation = total.initiation ?? [:]
+            total.initiation?[name, default: 0] += amount
         }
         players[slot].sides[economicSide] = total
         players[slot].roundSlices = (players[slot].roundSlices ?? []) + [PlayerRoundSlice(

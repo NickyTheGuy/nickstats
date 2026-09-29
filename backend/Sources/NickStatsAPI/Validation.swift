@@ -72,6 +72,25 @@ extension MatchPayload {
     func validate() throws {
         guard acceptedCompactSchemas.contains(schema) else { try invalid("$.schema", "Supported schemas are nickstats.match/9 through \(compactSchema).") }
         func validateTrueKillRounds(_ stats: SideStatsPayload, path: String) throws {
+            if schema == compactSchema, stats.initiation == nil {
+                try invalid("\(path).initiation", "Schema 25 requires initiation counters.")
+            }
+            if let initiation = stats.initiation {
+                let allowed = Set(["initiation_kills", "initiation_deaths", "initiation_contacts", "initiation_damage_first", "initiation_damage_taken_first", "initiation_first_damage_dealt", "initiation_first_damage_taken", "initiation_rounds", "initiation_nonlethal_contacts"])
+                for (key, amount) in initiation {
+                    guard allowed.contains(key) else { try invalid("\(path).initiation", "Unknown initiation counter.") }
+                    try validateCount(amount, path: "\(path).initiation.\(key)", maximum: Int(UInt32.max))
+                }
+                let contacts = initiation["initiation_contacts"] ?? 0
+                guard contacts == (initiation["initiation_damage_first"] ?? 0) + (initiation["initiation_damage_taken_first"] ?? 0),
+                      (initiation["initiation_nonlethal_contacts"] ?? 0) <= contacts,
+                      (initiation["initiation_rounds"] ?? 0) <= min(contacts, stats.rounds.played),
+                      (initiation["initiation_kills"] ?? 0) <= stats.combat.kills,
+                      (initiation["initiation_deaths"] ?? 0) <= stats.combat.deaths else {
+                    try invalid("\(path).initiation", "Initiation counters must fit within contacts and combat totals.")
+                }
+            }
+
             if let economics = stats.clutchEconomics {
                 let outcomes = ["win_survive", "win_die", "loss_survive", "loss_die"]
                 let fields = ["count", "measured", "team_resources", "enemy_resources", "differential", "swing", "team_cash_change", "enemy_cash_change", "saved", "stripped", "kills"]
@@ -97,7 +116,7 @@ extension MatchPayload {
                 }
             }
 
-            guard ["nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema].contains(schema) else { return }
+            guard ["nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema].contains(schema) else { return }
             guard let trueKillRounds = stats.trueKillRounds else {
                 try invalid("\(path).true_kill_rounds", "\(compactSchema) requires true multi-kill round counts.")
             }
@@ -141,10 +160,10 @@ extension MatchPayload {
         if timingCompactSchemas.contains(schema), roundTiming == nil || deathEvents == nil {
             try invalid("$", "\(schema) requires round_timing and death_events.")
         }
-        if ["nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema].contains(schema), roundSurvivors == nil {
+        if ["nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema].contains(schema), roundSurvivors == nil {
             try invalid("$.round_survivors", "\(schema) requires round-end survivor counts.")
         }
-        if ["nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema].contains(schema), roundEconomy == nil {
+        if ["nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema].contains(schema), roundEconomy == nil {
             try invalid("$.round_economy", "\(compactSchema) requires round economy facts.")
         }
         var timingByRound: [Int: RoundTimingPayload] = [:]
@@ -167,7 +186,7 @@ extension MatchPayload {
             try validateCount(survivor.terroristAlive, path: "\(path)[1]", maximum: 16)
             try validateCount(survivor.counterTerroristAlive, path: "\(path)[2]", maximum: 16)
         }
-        if ["nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema].contains(schema), survivorRounds != Set(timingByRound.keys) {
+        if ["nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema].contains(schema), survivorRounds != Set(timingByRound.keys) {
             try invalid("$.round_survivors", "Expected exactly one survivor row for every timing row.")
         }
         var economyRounds = Set<Int>()
@@ -191,7 +210,7 @@ extension MatchPayload {
                 try invalid(path, "T and CT must reference two distinct valid teams.")
             }
         }
-        if ["nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema].contains(schema), economyRounds != Set(timingByRound.keys) {
+        if ["nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema].contains(schema), economyRounds != Set(timingByRound.keys) {
             try invalid("$.round_economy", "Expected exactly one economy row for every timing row.")
         }
         var eventKeys = Set<String>()
@@ -281,7 +300,7 @@ extension MatchPayload {
             guard player.sides.terrorist.rounds.played + player.sides.counterTerrorist.rounds.played <= rounds else {
                 try invalid("\(path).sides", "A player cannot play more rounds than the match contains.")
             }
-            if ["nickstats.match/22", "nickstats.match/23", compactSchema].contains(schema) {
+            if ["nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema].contains(schema) {
                 guard let slices = player.roundSlices else {
                     try invalid("\(path).round_slices", "Schema 22+ requires per-round player statistics.")
                 }
@@ -296,7 +315,7 @@ extension MatchPayload {
                           slice.result == nil || ["win", "loss"].contains(slice.result!) else {
                         try invalid(slicePath, "Invalid buy type or round result.")
                     }
-                    if schema == "nickstats.match/23" || schema == compactSchema {
+                    if ["nickstats.match/23", "nickstats.match/24", compactSchema].contains(schema) {
                         guard let hero = slice.hero, !hero || slice.buy == "eco" || slice.buy == "force" else {
                             try invalid("\(slicePath).hero", "Schema 23 requires a hero flag, limited to eco or force rounds.")
                         }
@@ -319,7 +338,7 @@ extension MatchPayload {
                     }
                 }
             }
-            if ["nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema].contains(schema) {
+            if ["nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema].contains(schema) {
                 guard let buys = player.buys, buys.count == 8 else {
                     try invalid("\(path).buys", "Schema 13 requires eight side/buy statistic slices.")
                 }
@@ -336,7 +355,7 @@ extension MatchPayload {
                     }
                 }
             }
-            if ["nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema].contains(schema) {
+            if ["nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema].contains(schema) {
                 guard let resultStats = player.roundResults, resultStats.count == 20 else {
                     try invalid("\(path).round_results", "Schema 14 requires twenty side/buy/round-result statistic slices.")
                 }
@@ -370,7 +389,7 @@ extension MatchPayload {
                     }
                 }
             }
-            if ["nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", compactSchema].contains(schema) {
+            if ["nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema].contains(schema) {
                 guard let matchups = player.economyMatchups, matchups.count <= 64 else {
                     try invalid("\(path).economy_matchups", "Schemas 18 through 20 require at most 64 sparse own-buy/enemy-buy/result/side statistic slices.")
                 }

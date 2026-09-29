@@ -571,6 +571,7 @@ async function parseDemo(fileName, buffer) {
     for (const row of stats.values()) {
       row.kills = 0;
       row.clutchEconomics = {};
+      row.initiation = {};
       row.sideStats = new Map();
       row.buySideStats = new Map();
       row.roundResultStats = new Map();
@@ -803,6 +804,7 @@ async function parseDemo(fileName, buffer) {
       trueKillRounds: { ...row.trueKillRoundsByCount },
       clutches: { ...row.clutchWins },
       clutchAttempts: { ...row.clutchAttempts },
+      initiation: { ...row.initiation },
       weapons: new Map([...row.weaponStats].map(([key, value]) => [key, { ...value }])),
       duels: new Map([...row.duelStats].map(([key, value]) => [key, { ...value }])),
       tradeMatchups: new Map([...row.tradeMatchups].map(([key, value]) => [key, { ...value }])),
@@ -867,6 +869,9 @@ async function parseDemo(fileName, buffer) {
     for (const field of ADDITIVE_STAT_FIELDS) {
       if (skipEventAttributedDamage && field === "damage") continue;
       target[field] += after.scalar[field] - before.scalar[field];
+    }
+    for (const key of INITIATION_KEYS) {
+      addInitiation(target, key, (after.initiation[key] || 0) - (before.initiation[key] || 0));
     }
     for (const [name, count] of after.tradedBy) {
       const difference = count - (before.tradedBy.get(name) || 0);
@@ -965,6 +970,7 @@ async function parseDemo(fileName, buffer) {
       });
       return false;
     }
+    finishInitiationEngagements(round);
     const inputWinnerSide = winningSide;
     const inference = inferWinnerSideDetails(trigger);
     if (winningSide !== 2 && winningSide !== 3) winningSide = inference.winner_side;
@@ -1690,6 +1696,23 @@ async function parseDemo(fileName, buffer) {
     if (assisterId !== null) round.participants.add(assisterId);
 
     if (enemyKill) {
+      const tradeExchange = initiationTradeExchange(round.pendingDeaths, attackerId, victimId,
+        attackerTeam, victimTeam, tick, tickInterval);
+      if (!tradeExchange) {
+        addInitiation(attacker, "initiation_kills");
+        addInitiation(victim, "initiation_deaths");
+      }
+      if (isInitiationDirectWeapon(combatEventWeapon(attacker, event.weapon))) {
+        noteInitiationContact(round, attacker, victim, attackerTeam, victimTeam,
+          tick, 0, true, tradeExchange, tickInterval);
+      } else {
+        expireInitiationEngagements(round, tick, tickInterval);
+        for (const encounter of round.initiationEngagements) {
+          if (encounter.players.has(attacker) && encounter.players.has(victim)) {
+            encounter.lethal.add(attacker); encounter.lethal.add(victim);
+          }
+        }
+      }
       for (const candidate of round.clutchCandidates) {
         if (candidate.row !== attacker) continue;
         candidate.kills += 1;
@@ -2142,6 +2165,10 @@ async function parseDemo(fileName, buffer) {
     // This keeps the numerator and the live-round denominator on the same side.
     ensureSideRow(row, attackerTeam).damage += damage;
     const resolvedWeapon = combatEventWeapon(row, event.weapon);
+    if (victim && damage > 0 && isInitiationDirectWeapon(resolvedWeapon)) {
+      noteInitiationContact(round, row, victim, attackerTeam, victimTeam, tick, damage, false,
+        initiationTradeExchange(round.pendingDeaths, attackerId, victimId, attackerTeam, victimTeam, tick, tickInterval), tickInterval);
+    }
     const damageWeapon = weaponStat(row, resolvedWeapon);
     if (damageWeapon) {
       damageWeapon.damage += damage;
@@ -2233,6 +2260,7 @@ async function parseDemo(fileName, buffer) {
     const shotOrigin = { x: origin.x, y: origin.y, z: origin.z + 64 };
     const shooterTeam = [...shooter.userIds].map(userId => teamNow.get(userId)).find(team => team === 2 || team === 3);
     let best = null;
+    refreshInitiationShot(round, shooter, positions, shotOrigin, impact, tick, tickInterval);
 
     for (const prior of round.pendingDeaths) {
       if (prior.killer !== shooterId) {
@@ -2772,6 +2800,8 @@ function freshRound() {
     traded: new Set(),
     clutchSides: new Set(),
     clutchCandidates: [],
+    initiationEngagements: [],
+    initiationRoundPlayers: new Set(),
     clutchResources: new Map(),
     clutchResourceTick: null,
     endTick: null,
@@ -3028,6 +3058,8 @@ function finishPlayer(row) {
     kill_rounds: row.killRoundsByCount,
     true_multikill_rounds: row.trueMultikillRounds,
     true_kill_rounds: row.trueKillRoundsByCount,
+    initiation: Object.fromEntries(INITIATION_KEYS.map(key => [key, row.initiation?.[key] || 0])),
+    initiation_available: true,
     clutch_economics: { ...row.clutchEconomics },
     clutch_wins: row.clutchWins,
     clutch_attempts: row.clutchAttempts,
@@ -3466,4 +3498,102 @@ function calculateClutchEconomics(candidate, end, deaths, nextCash, settled) {
 
 function clutchResourceNumber(value) {
   return value == null || value === "" ? null : numberOrNull(value);
+}
+
+
+const INITIATION_KEYS = Object.freeze([
+  "initiation_kills", "initiation_deaths", "initiation_contacts", "initiation_damage_first",
+  "initiation_damage_taken_first", "initiation_first_damage_dealt", "initiation_first_damage_taken",
+  "initiation_rounds", "initiation_nonlethal_contacts"
+]);
+function addInitiation(row, key, amount = 1) {
+  if (!row || !amount) return;
+  row.initiation ||= {};
+  row.initiation[key] = (row.initiation[key] || 0) + amount;
+}
+function isInitiationDirectWeapon(weapon) {
+  const id = normalizedWeapon(weapon);
+  return PRIMARY_WEAPONS.has(id) || PISTOL_WEAPONS.has(id) || id === "taser" ||
+    id === "bayonet" || id.startsWith("knife");
+}
+function initiationTradeExchange(pending, attacker, victim, attackerSide, victimSide, tick, interval) {
+  const window = Math.max(1, Math.round(TRADE_WINDOW_SECONDS / interval));
+  const lull = Math.max(1, Math.round(TRADE_ENGAGEMENT_LULL_SECONDS / interval));
+  const open = (prior, trader) => tick >= prior.tick &&
+    (tick - prior.tick <= window || Number.isFinite(prior.engagementTicks.get(trader)) && tick - prior.engagementTicks.get(trader) <= lull);
+  return pending.some(prior =>
+    prior.killer === victim && prior.victim !== attacker && prior.victimTeam === attackerSide && open(prior, attacker) ||
+    prior.killer === attacker && prior.victim !== victim && prior.victimTeam === victimSide && open(prior, victim));
+}
+function finishInitiationEncounter(encounter) {
+  for (const row of encounter.starters) {
+    if (!encounter.lethal.has(row)) addInitiation(row, "initiation_nonlethal_contacts");
+  }
+}
+function expireInitiationEngagements(round, tick, interval) {
+  const lull = Math.max(1, Math.round(TRADE_ENGAGEMENT_LULL_SECONDS / interval));
+  round.initiationEngagements = round.initiationEngagements.filter(encounter => {
+    if (tick - encounter.lastTick <= lull) return true;
+    finishInitiationEncounter(encounter);
+    return false;
+  });
+}
+function finishInitiationEngagements(round) {
+  for (const encounter of round.initiationEngagements) finishInitiationEncounter(encounter);
+  round.initiationEngagements = [];
+}
+function noteInitiationContact(round, attacker, victim, attackerSide, victimSide, tick, damage, killed, blocked, interval) {
+  if (!attacker || !victim || attacker === victim || attackerSide === victimSide || !Number.isFinite(tick)) return;
+  expireInitiationEngagements(round, tick, interval);
+  const related = round.initiationEngagements.filter(encounter => encounter.players.has(attacker) || encounter.players.has(victim));
+  let encounter;
+  if (!related.length) {
+    encounter = { players: new Set(), sides: new Map(), starters: new Set(), lethal: new Set(), lastTick: tick };
+    round.initiationEngagements.push(encounter);
+    if (!blocked) {
+      encounter.starters.add(attacker); encounter.starters.add(victim);
+      for (const row of [attacker, victim]) {
+        addInitiation(row, "initiation_contacts");
+        if (!round.initiationRoundPlayers.has(row)) {
+          round.initiationRoundPlayers.add(row); addInitiation(row, "initiation_rounds");
+        }
+      }
+      addInitiation(attacker, "initiation_damage_first");
+      addInitiation(victim, "initiation_damage_taken_first");
+      addInitiation(attacker, "initiation_first_damage_dealt", damage);
+      addInitiation(victim, "initiation_first_damage_taken", damage);
+    }
+  } else {
+    encounter = related[0];
+    for (const other of related.slice(1)) {
+      for (const row of other.players) encounter.players.add(row);
+      for (const [row, side] of other.sides) encounter.sides.set(row, side);
+      for (const row of other.starters) encounter.starters.add(row);
+      for (const row of other.lethal) encounter.lethal.add(row);
+    }
+    round.initiationEngagements = round.initiationEngagements.filter(value => value === encounter || !related.includes(value));
+  }
+  encounter.players.add(attacker); encounter.players.add(victim);
+  encounter.sides.set(attacker, attackerSide); encounter.sides.set(victim, victimSide);
+  encounter.lastTick = tick;
+  if (killed) { encounter.lethal.add(attacker); encounter.lethal.add(victim); }
+}
+
+function refreshInitiationShot(round, shooter, positions, shotOrigin, impact, tick, interval) {
+    // Established gunfights remain active while a player fires near an opponent,
+    // including misses. A missed shot alone never invents a new engagement.
+    expireInitiationEngagements(round, tick, interval);
+    for (const encounter of round.initiationEngagements) {
+      if (!encounter.players.has(shooter)) continue;
+      for (const targetRow of encounter.players) {
+        if (encounter.sides.get(targetRow) === encounter.sides.get(shooter)) continue;
+        const target = positions.get(targetRow.userId);
+        if (target && ![...targetRow.userIds].some(id => round.deaths.has(id)) &&
+            pointToSegmentDistance({ ...target, z: target.z + 40 }, shotOrigin, impact) <= BULLET_PATH_TOLERANCE_UNITS) {
+          encounter.lastTick = tick;
+          break;
+        }
+      }
+    }
+
 }

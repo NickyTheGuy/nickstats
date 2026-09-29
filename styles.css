@@ -1515,6 +1515,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .combat-heading { background: rgba(91, 128, 210, .18); }
 .overview-heading { background: rgba(91, 128, 210, .18); }
 .opening-heading { background: rgba(225, 153, 24, .26); }
+.initiation-heading { background: rgba(225, 153, 24, .16); }
+.initiation-cell { background: rgba(225, 153, 24, .07); }
 .trades-heading { background: rgba(35, 154, 133, .20); }
 .rounds-heading { background: rgba(112, 155, 52, .15); }
 .roundState-heading { background: rgba(181, 101, 61, .21); }
@@ -1535,6 +1537,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .demo-toggle-heading.combat-heading { border-top: 3px solid var(--blue); }
 .demo-toggle-heading.opening-heading { border-top: 3px dashed var(--amber); }
+.demo-toggle-heading.initiation-heading { border-top: 3px solid var(--amber); }
 .demo-toggle-heading.trades-heading { border-top: 3px solid var(--section-trades); }
 .demo-toggle-heading.roundState-heading { border-top: 3px double var(--section-timing); }
 .demo-toggle-heading.killContext-heading { border-top: 3px ridge var(--section-context); }
@@ -3675,3 +3678,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.player-profile-tab[data-player-view="initiation"].active,
+.player-profile-tab[data-combo-profile-view="initiation"].active { --tab-active-accent: var(--amber); }

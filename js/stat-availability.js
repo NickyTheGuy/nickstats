@@ -53,7 +53,16 @@
     true_kill_rounds_5k: 21,
     true_multikill_rounds: 21,
     trueMultikillPercent: 21,
-    clutchEconomics: 24
+    clutchEconomics: 24,
+    initiation_kills: 25,
+    initiation_deaths: 25,
+    initiation_contacts: 25,
+    initiation_damage_first: 25,
+    initiation_damage_taken_first: 25,
+    initiation_first_damage_dealt: 25,
+    initiation_first_damage_taken: 25,
+    initiation_rounds: 25,
+    initiation_nonlethal_contacts: 25
   });
   const thresholds = [...new Set(Object.values(minimumSchema))].sort((left, right) => left - right);
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
