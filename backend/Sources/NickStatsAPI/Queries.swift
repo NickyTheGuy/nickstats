@@ -1639,6 +1639,42 @@ func getPlayerProfileMatches(
     )
 }
 
+func getTeammateRatings(_ playerID: Int64, on database: any Database) async throws -> TeammateRatingResponse {
+    guard let sql = database as? any SQLDatabase else { throw Abort(.internalServerError) }
+    let rows = try await sql.raw("""
+        SELECT career.player_id,
+               CAST(SUM(s.rounds_played) AS SIGNED) AS rounds,
+               CAST(SUM(s.kills) AS SIGNED) AS kills,
+               CAST(SUM(s.deaths) AS SIGNED) AS deaths,
+               CAST(SUM(s.assists) AS SIGNED) AS assists,
+               CAST(SUM(s.damage) AS SIGNED) AS damage,
+               CAST(SUM(s.kast_rounds) AS SIGNED) AS kast_rounds
+        FROM (
+            SELECT DISTINCT teammate.player_id
+            FROM match_players own
+            JOIN match_players teammate ON teammate.match_team_id = own.match_team_id
+            WHERE own.player_id = \(bind: playerID)
+              AND teammate.player_id IS NOT NULL AND teammate.player_id <> \(bind: playerID)
+        ) teammates
+        JOIN match_players career ON career.player_id = teammates.player_id
+        JOIN player_side_stats s ON s.match_player_id = career.id
+        GROUP BY career.player_id
+        """).all()
+    var ratings: [String: Double] = [:]
+    for row in rows {
+        let rounds = Double(try integer(row, "rounds"))
+        guard rounds > 0 else { continue }
+        let kpr = Double(try integer(row, "kills")) / rounds
+        let dpr = Double(try integer(row, "deaths")) / rounds
+        let apr = Double(try integer(row, "assists")) / rounds
+        let adr = Double(try integer(row, "damage")) / rounds
+        let kast = 100 * Double(try integer(row, "kast_rounds")) / rounds
+        let impact = 2.13 * kpr + 0.42 * apr - 0.41
+        ratings[String(try int64(row, "player_id"))] = max(0, 0.0073 * kast + 0.3591 * kpr - 0.5329 * dpr + 0.2372 * impact + 0.0032 * adr + 0.1587)
+    }
+    return TeammateRatingResponse(ratings: ratings)
+}
+
 func getPlayerProfileData(
     _ playerID: Int64, on database: any Database, timing: ProfileTimingRecorder? = nil
 ) async throws -> PlayerProfileDataResponse {

@@ -44,6 +44,12 @@
     if (!response.ok) throw new Error(body?.reason || `The API returned HTTP ${response.status}.`);
     return body;
   }
+  async function teammateRatingsFor(id, signal) {
+    const payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}/teammate-ratings`, {
+      headers: { Accept: "application/json" }, cache: "no-store", signal
+    }));
+    return payload.ratings || {};
+  }
   function expandDenseProfile(payload) {
     const keys = Array.isArray(payload?.stat_keys) ? payload.stat_keys : [];
     if (!keys.length) return payload;
@@ -270,10 +276,22 @@
     }
     return { match, stats, weapons: [...weapons.values()] };
   }
-  function aggregate(matches, side, buy = "ALL", roundResult = "ALL", opponentBuy = "ALL", roundPhase = "ALL", heroOnly = false) {
+  function averageTeammateRating(views, ratings) {
+    let total = 0, samples = 0;
+    for (const view of views) {
+      if (number(view.stats.rounds) <= 0) continue;
+      for (const id of view.match.teammate_ids || []) {
+        const rating = ratings[String(id)];
+        if (Number.isFinite(rating)) { total += rating; samples += 1; }
+      }
+    }
+    return { rating: samples ? total / samples : null, samples };
+  }
+  function aggregate(matches, side, buy = "ALL", roundResult = "ALL", opponentBuy = "ALL", roundPhase = "ALL", heroOnly = false, teammateRatings = {}) {
     const stats = {}, weapons = new Map();
     const views = matches.map(match => matchView(match, side, buy, roundResult, opponentBuy, roundPhase, heroOnly));
     const qualifyingMatches = roundPhase === "ALL" && !heroOnly ? matches : views.filter(view => number(view.stats.rounds) > 0).map(view => view.match);
+    const teammateAverage = averageTeammateRating(views, teammateRatings);
     for (const view of views) {
       availability.add(stats, view.stats, view.match.schema);
       for (const weapon of view.weapons) {
@@ -291,6 +309,7 @@
     return {
       stats: availability.materialize(stats), weapons: [...weapons.values()].sort((a, b) => b.kills - a.kills || b.damage - a.damage),
       matches: qualifyingMatches.length, wins, losses, draws, rounds, rating, kd: ratio(kills, deaths), adr, kast,
+      teammateRating: teammateAverage.rating, teammateSamples: teammateAverage.samples,
       winRate: matchWinRate ? 100 * ratio(wins, qualifyingMatches.length) : 100 * ratio(stats.round_wins, rounds), winRateKind: matchWinRate ? "match" : "round", scores: scoreBreakdown(qualifyingMatches)
     };
   }
@@ -307,7 +326,7 @@
     const key = aggregationKey(map);
     if (!profile.summaryCache.has(key)) {
       const matches = matchesFor(profile.payload).filter(match => map === "ALL" || match.map === map);
-      profile.summaryCache.set(key, aggregate(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly));
+      profile.summaryCache.set(key, aggregate(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly, profile.payload.teammateRatings));
     }
     return profile.summaryCache.get(key);
   }
@@ -357,6 +376,7 @@
       kd: summary.kd,
       adr: summary.adr,
       rating: summary.rating,
+      teammateRating: summary.teammateRating,
       winRate: summary.winRate,
       winRateKind: summary.winRateKind,
       kast: summary.kast,
@@ -455,9 +475,14 @@
     while (state.profileQueue.length) {
       const { id, scroll } = state.profileQueue.shift();
       try {
-        const payload = expandDenseProfile(await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=2`, {
-          headers: { Accept: "application/json" }, cache: "no-store"
-        })));
+        const [profilePayload, teammateRatings] = await Promise.all([
+          fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=2`, {
+            headers: { Accept: "application/json" }, cache: "no-store"
+          }).then(apiJson),
+          teammateRatingsFor(id)
+        ]);
+        const payload = expandDenseProfile(profilePayload);
+        payload.teammateRatings = teammateRatings;
         const key = String(payload.player?.id ?? id);
         state.profiles.set(key, { payload });
         if (state.graphPlayers.size < MAX_GRAPH_PLAYERS) state.graphPlayers.add(key);
@@ -490,9 +515,14 @@
     status.classList.remove("error");
     try {
       const updated = await Promise.all([...state.profiles.keys()].map(async id => {
-        const payload = expandDenseProfile(await apiJson(await fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=2`, {
-          headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal
-        })));
+        const [profilePayload, teammateRatings] = await Promise.all([
+          fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=2`, {
+            headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal
+          }).then(apiJson),
+          teammateRatingsFor(id, controller.signal)
+        ]);
+        const payload = expandDenseProfile(profilePayload);
+        payload.teammateRatings = teammateRatings;
         return [id, payload];
       }));
       if (controller.signal.aborted) return;

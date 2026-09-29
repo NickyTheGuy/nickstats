@@ -122,7 +122,10 @@
       ? [summary.winRateKind === "match" ? "Match win rate" : "Round win rate", percent(summary.winRate), summary.winRateKind === "match" ? `${summary.wins} wins in ${summary.matches} matches` : `${integer(s.round_wins)} of ${integer(rounds)} rounds`]
       : [roundResult === "win" ? "Winning rounds" : "Losing rounds", integer(rounds), "Filtered round sample"];
     fillCards(headlineId, [
-      ["Average rating", decimal(summary.rating, 2), "Round-weighted", ratingClass], ["Average K/D", decimal(summary.kd, 2), `${integer(s.kills)} K · ${integer(s.deaths)} D`],
+      ["Average rating", decimal(summary.rating, 2), "Round-weighted", ratingClass],
+      ...(Object.hasOwn(summary, "teammateRating") ? [["Teammate rating", summary.teammateRating == null ? "—" : decimal(summary.teammateRating, 2),
+        summary.teammateSamples ? `${integer(summary.teammateSamples)} teammate appearances · overall ratings` : "No qualifying teammates"]] : []),
+      ["Average K/D", decimal(summary.kd, 2), `${integer(s.kills)} K · ${integer(s.deaths)} D`],
       ["Average ADR", decimal(summary.adr, 1), `${integer(s.damage)} total damage`], ["Average KAST", percent(summary.kast), `${integer(s.kast_rounds)} KAST rounds`],
       recordHeadline
     ]);

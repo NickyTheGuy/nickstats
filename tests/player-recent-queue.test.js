@@ -49,18 +49,19 @@ test("rapid selections load every distinct profile in click order and activate t
     activeProfile: () => state.profiles.get(state.activeId),
     activateProfile: id => { state.activeId = id; activations.push(id); }
   };
-  vm.runInNewContext(`${section("  function loadProfile(", "  async function refreshOpenProfiles(")} globalThis.loadProfile = loadProfile;`, context);
+  vm.runInNewContext(`${section("  async function teammateRatingsFor(", "  function expandDenseProfile(")}${section("  function loadProfile(", "  async function refreshOpenProfiles(")} globalThis.loadProfile = loadProfile;`, context);
   context.loadProfile("1", { scroll: false });
   context.loadProfile("2", { scroll: false });
   context.loadProfile("2", { scroll: false });
   context.loadProfile("3", { scroll: false });
-  assert.equal(requests.length, 1);
+  assert.equal(requests.length, 2);
   assert.equal(state.pendingProfiles.size, 3);
   for (let index = 0; index < 3; index += 1) {
-    requests[index].resolve({ player: { id: String(index + 1), name: `Player ${index + 1}` }, matches: [] });
+    requests[index * 2].resolve({ player: { id: String(index + 1), name: `Player ${index + 1}` }, matches: [] });
+    requests[index * 2 + 1].resolve({ ratings: {} });
     await new Promise(resolve => setImmediate(resolve));
   }
-  assert.deepEqual(requests.map(item => item.url.split("/").at(-1)), ["1?compact=true&wire=2", "2?compact=true&wire=2", "3?compact=true&wire=2"]);
+  assert.deepEqual(requests.map(item => item.url.split("/").at(-1)), ["1?compact=true&wire=2", "teammate-ratings", "2?compact=true&wire=2", "teammate-ratings", "3?compact=true&wire=2", "teammate-ratings"]);
   assert.deepEqual([...state.profiles.keys()], ["1", "2", "3"]);
   assert.deepEqual(activations, ["1", "3"]);
   assert.equal(state.pendingProfiles.size, 0);

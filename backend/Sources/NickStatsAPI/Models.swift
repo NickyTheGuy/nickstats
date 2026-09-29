@@ -310,6 +310,10 @@ struct PlayerProfileDataResponse: Content {
     var matches: [ComparisonMatch]
 }
 
+struct TeammateRatingResponse: Content {
+    var ratings: [String: Double]
+}
+
 /// A wire-efficient profile response. Statistic names are sent once and each
 /// side row carries only an aligned value array; null preserves unavailable
 /// statistics without repeating hundreds of JSON object keys per row.

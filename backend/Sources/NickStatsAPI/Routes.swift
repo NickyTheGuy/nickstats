@@ -137,6 +137,13 @@ func routes(_ app: Application) throws {
         try await listPlayers(request)
     }
 
+    app.get("players", ":id", "teammate-ratings") { request async throws -> TeammateRatingResponse in
+        guard let playerID = request.parameters.get("id", as: Int64.self), playerID > 0 else {
+            throw Abort(.badRequest, reason: "Invalid player ID.")
+        }
+        return try await getTeammateRatings(playerID, on: request.db)
+    }
+
     app.get("players", ":id") { request async throws -> Response in
         guard let playerID = request.parameters.get("id", as: Int64.self), playerID > 0 else {
             throw Abort(.badRequest, reason: "Invalid player ID.")
