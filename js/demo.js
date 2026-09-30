@@ -2003,14 +2003,14 @@
     const evenCount = player.round_state_available ? eventPair(context.even_kills, context.even_deaths) : "—";
     const advantageCount = player.round_state_available ? eventPair(context.advantage_kills, context.disadvantage_deaths) : "—";
     const cleanupCount = player.round_state_available ? eventPair(context.cleanup_kills, context.cleanup_deaths) : "—";
-    scoreboardCells(row, "trades", `${player.trade_kills ?? 0}-${player.traded_deaths ?? 0}`, [
-      player.trade_opportunities ?? 0, player.trade_attempts ?? 0, `${player.trade_kills ?? 0} (${(player.trade_success_percent ?? 0).toFixed(0)}%)`,
-      player.tradeable_deaths ?? 0, player.attempted_tradeable_deaths ?? 0, `${player.traded_deaths ?? 0} (${(player.traded_death_percent ?? 0).toFixed(0)}%)`
-    ]);
     const initiationValue = key => player.initiation_available ? player.initiation?.[key] ?? 0 : "—";
     scoreboardCells(row, "initiation", player.initiation_available
       ? eventPair(player.initiation?.initiation_kills, player.initiation?.initiation_deaths) : "—",
       ["initiation_kills", "initiation_deaths", "initiation_contacts", "initiation_damage_first", "initiation_damage_taken_first", "initiation_nonlethal_contacts", "initiation_rounds"].map(initiationValue));
+    scoreboardCells(row, "trades", `${player.trade_kills ?? 0}-${player.traded_deaths ?? 0}`, [
+      player.trade_opportunities ?? 0, player.trade_attempts ?? 0, `${player.trade_kills ?? 0} (${(player.trade_success_percent ?? 0).toFixed(0)}%)`,
+      player.tradeable_deaths ?? 0, player.attempted_tradeable_deaths ?? 0, `${player.traded_deaths ?? 0} (${(player.traded_death_percent ?? 0).toFixed(0)}%)`
+    ]);
     scoreboardCells(row, "clutches", clutchResult(player), [5, 4, 3, 2, 1].map(opponents => clutchResult(player, opponents)));
     const multikillTotal = [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0);
     const multikillPercent = 100 * [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0) / Math.max(1, player.rounds_played ?? 0);
