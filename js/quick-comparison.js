@@ -122,7 +122,7 @@
     const groupVisible = group => state.visibleSections.has(groupSection[group]);
 
     function columnScalesWithValueMode(column, formatted) {
-      if (state.valueMode === "totals" || !column.group) return false;
+      if (state.valueMode === "totals" || !column.group || column.key.startsWith("clutch-economy-")) return false;
       return !(/rate|success|percent|\bkd\b|adr|speed/.test(column.key) ||
         /^[-+−]?\d+(?:\.\d+)?%$/.test(formatted) || ["timing-kill", "timing-death"].includes(column.key));
     }
@@ -180,7 +180,7 @@
     }
 
     function displayedLabel(column) {
-      if (state.valueMode === "totals" || !column.group) return column.label;
+      if (state.valueMode === "totals" || !column.group || column.key.startsWith("clutch-economy-")) return column.label;
       const grenadeUnit = state.perGrenadeUtility && column.group === "utility" ? {
         "utility-he-damage": "HE", "utility-fire-damage": "fire", "utility-enemies-flashed": "flash",
         "utility-blind-seconds": "flash", "utility-teammates-flashed": "flash", "utility-teammate-blind-seconds": "flash",
@@ -336,6 +336,15 @@
             key: "clutches", label: "Total W/A · Win%", value: item => clutchRate(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt")),
             format: item => clutchDisplay(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt"))
           }];
+      if (state.expandedGroups.clutches) {
+        const economy = item => Scoreboard.clutchEconomics(availability.scope(item.stats, "clutchEconomics"), "clutch_econ_");
+        clutchColumns.push(
+          { key: "clutch-economy-total", label: "Net economy change", value: item => economy(item).total, format: item => Scoreboard.money(economy(item).total) },
+          { key: "clutch-economy-average", label: "Avg / attempt", value: item => economy(item).average, format: item => Scoreboard.money(economy(item).average) },
+          { key: "clutch-economy-measured", label: "Measured attempts", value: item => availability.scope(item.stats, "clutchEconomics") ? economy(item).measured : null,
+            format: item => availability.scope(item.stats, "clutchEconomics") ? `${integer(economy(item).measured)} / ${integer(economy(item).attempted)}` : "—" }
+        );
+      }
       const contactRoundPercent = item => {
         const rounds = availability.rounds(item.stats, "initiation_rounds");
         return availability.available(item.stats, "initiation_rounds") && rounds > 0 ? 100 * number(item.stats.initiation_rounds) / rounds : null;

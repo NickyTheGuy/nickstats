@@ -26,7 +26,7 @@
     opening: [["K", "D", "Assisted K", "Dmg A", "K on ally flash", "Traded D", "Trade K", "A earned", "Dmg A earned", "A from your flash", "Enemy blind K", "K while blind", "D while blind", "D to blind killer", "Enemy assisted D", "Enemy dmg A D", "D on killer's ally flash", "K on your flash", "K on their flash", "D to killer's flash", "D to your side's flash", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
     initiation: [["Initiations", "Initiation rounds %"], "Initiation rounds %"],
     trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
-    clutches: [["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A · Win%"],
+    clutches: [["1v5", "1v4", "1v3", "1v2", "1v1", "Net economy change", "Avg / attempt", "Measured attempts"], "Total W/A · Win%"],
     multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%", "5K", "4K", "3K", "2K", "TMK%"], "Total"],
     objectives: [["Plants", "Defuses"], "Plants/defuses"],
     roundState: [["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D"], "Clawback-Bozo K-D"],
@@ -42,6 +42,7 @@
       ["flashKills", "Flash kills", [10, 11, 17, 18], "Opening kills · flash"],
       ["flashDeaths", "Flash deaths", [12, 13, 19, 20], "Opening deaths · flash"],
       ["enemyAssists", "Enemy assists", [14, 15, 16], "Opening deaths · enemy assists"]],
+    clutches: [["performance", "Performance", [0, 1, 2, 3, 4], "Clutches"], ["economics", "Economics", [5, 6, 7], "Clutch economics"]],
     multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5], "Multi-kills"], ["true", "True", [6, 7, 8, 9, 10], "True multi-kills"]],
     killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4], "Visibility and cover"], ["readiness", "Readiness", [5, 6, 7, 8], "Readiness"]],
     movement: [["state", "State", [0, 1, 2, 3], "Movement"], ["speed", "Speed", [4, 5, 6, 7], "Movement speed"]],
@@ -51,7 +52,7 @@
     combat: [54, 54, 54, 62, 62, 82, 88, 76, 72],
     opening: [58, 58, 82, 68, 126, 88, 68, 76, 76, 130, 82, 100, 100, 126, 104, 112, 164, 110, 112, 126, 152, 82, 62, 72, 76],
     initiation: [110, 164],
-    trades: [58, 54, 96, 58, 54, 96], clutches: [94, 94, 94, 94, 94],
+    trades: [58, 54, 96, 58, 54, 96], clutches: [94, 94, 94, 94, 94, 160, 142, 132],
     multikills: [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], objectives: [74, 74],
     roundState: [128, 88, 168, 104], killStage: [92, 92, 92, 92, 92], timing: [82, 82, 84, 84, 84, 112],
     killContext: [104, 104, 98, 88, 88, 112, 104, 88, 88], movement: [88, 88, 88, 88, 116, 132, 126, 142],
@@ -62,27 +63,28 @@
     roundState: 112, killStage: 104, timing: 110, killContext: 112, movement: 112, utility: 176
   });
   const flashDescriptions = Object.freeze({
-    "Initiations": "Separate fights where you deal or take the first hit outside an active trade exchange; several can occur in one round",
-    "Initiation rounds %": "Percentage of compatible rounds where you had at least one initiation; each round counts once",
-    "K on ally flash": "Kills on enemies blinded by a teammate's flash",
-    "K on your flash": "Kills on enemies blinded by a flash you threw",
-    "K on their flash": "Opening kills on enemies blinded by their own side's flash, including their own flash",
-    "A from your flash": "Opening kills a teammate got after your flash blinded the enemy",
-    "D on killer's ally flash": "Opening deaths where the killer's teammate blinded you",
-    "D to killer's flash": "Opening deaths where the killer blinded you with their own flash",
-    "D to your side's flash": "Opening deaths where you were blinded by your own or a teammate's flash",
-    "Enemy blind K": "Opening kills on blinded enemies, regardless of who threw the flash",
-    "K while blind": "Opening kills while you were blinded",
-    "D while blind": "Opening deaths while you were blinded",
-    "D to blind killer": "Opening deaths to an opponent who was blinded",
-    "Ally blind sec": "Seconds teammates spent blinded by your flashes",
-    "Self-blind sec": "Seconds you spent blinded by your own flashes",
-    EF: "Enemies blinded by your flashes",
-    TF: "Teammates blinded by your flashes",
-    SF: "Times you blinded yourself with your flashes",
-    FA: "Teammate kills assisted by a flash you threw"
+    "Paul K-D": "Kills against enemies caught with a grenade or knife out at death or within the prior 1.4 seconds; deaths caught the same way"
   });
+
   const groupSection = Object.freeze(Object.fromEntries(sections.flatMap(([section, , values]) => values.map(group => [group, section]))));
+
+  function clutchEconomics(counters, prefix = "") {
+    if (!counters) return { attempted: 0, measured: 0, total: null, average: null };
+    const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
+    let attempted = 0, measured = 0, total = 0;
+    for (const outcome of ["win_survive", "win_die", "loss_survive", "loss_die"]) {
+      attempted += number(counters[`${prefix}${outcome}_count`]);
+      const samples = number(counters[`${prefix}${outcome}_measured`]);
+      measured += samples;
+      if (samples > 0) total += number(counters[`${prefix}${outcome}_swing`]);
+    }
+    return { attempted, measured, total: measured ? total : null, average: measured ? total / measured : null };
+  }
+
+  function money(value) {
+    if (value == null || !Number.isFinite(Number(value))) return "—";
+    return `${value > 0 ? "+" : value < 0 ? "−" : ""}$${Math.round(Math.abs(value)).toLocaleString()}`;
+  }
 
   function activeSubgroup(state, group) {
     const options = subgroups[group];
@@ -243,7 +245,7 @@
   }
 
   window.NickStatsScoreboard = {
-    sections, groups, columns, subgroups, expandedWidths, collapsedWidths, groupSection,
+    clutchEconomics, money, sections, groups, columns, subgroups, expandedWidths, collapsedWidths, groupSection,
     activeSubgroup, focus, cycle, minimumWidths, normalizedSortValue, compareSortValues,
     appendGroupHeader, scrollGroupIntoView, renderControls
   };

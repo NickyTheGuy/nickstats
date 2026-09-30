@@ -270,10 +270,8 @@
       economics.total == null ? "" : semanticClass(economics.total, 0, 0)));
     const coverage = $(`${prefix}ClutchEconomicsCoverage`);
     if (coverage) coverage.textContent = economics.available
-      ? `${integer(economics.measured)} of ${integer(economics.attempted)} clutch/save attempts measured. Incomplete snapshots are excluded.`
+      ? `${integer(economics.measured)} of ${integer(economics.attempted)} clutch/save attempts measured.`
       : "Earlier demos are unavailable, rather than counted as zero.";
-    const econNote = $(`${prefix}ClutchEconomicsNote`);
-    if (econNote) econNote.textContent = "We measure how your team's cash-and-equipment advantage over the enemy changes from the moment you become the last player alive until round rewards and post-round deaths settle. Wins, deaths, saves, and enemy equipment losses all feed this one total. Positive means your team's relative economy improved; negative means it worsened. This adds changes across attempts, not the money currently in your bank. It describes the observed economy change during your attempts, not the value versus choosing a different action or proof that a clutch decided the match.";
     const multikillRounds = [2, 3, 4, 5].reduce((total, kills) => total + number(s[`kill_rounds_${kills}k`]), 0);
     fillStrip(`${prefix}MultikillStats`, [
       ["Multi-kill %", percent(100 * ratio(multikillRounds, rounds)), `${integer(multikillRounds)} of ${integer(rounds)} rounds`],

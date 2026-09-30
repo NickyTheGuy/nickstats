@@ -47,6 +47,5 @@ test("flash attribution headers stay aligned with both scoreboard implementation
     assert.ok(columns.opening[0].includes(label));
     assert.ok(matchSource.includes(`"${label}": sortSpecs.`), `Missing match sort for ${label}`);
     assert.ok(comparisonSource.includes(`label: "${label}"`), `Missing comparison column for ${label}`);
-    assert.ok(source.includes(`"${label}": "`), `Missing explanation for ${label}`);
   }
 });

@@ -12,7 +12,7 @@ const demoSource = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), 
 const sandbox = { window: {} };
 vm.runInNewContext(scoreboardSource, sandbox);
 const Scoreboard = sandbox.window.NickStatsScoreboard;
-const matchSorts = vm.runInNewContext(`${demoSource.slice(demoSource.indexOf("  const sortSpecs ="), demoSource.indexOf("  function setStatus("))}\nsortSpecs`);
+const matchSorts = vm.runInNewContext(`${demoSource.slice(demoSource.indexOf("  const sortSpecs ="), demoSource.indexOf("  function setStatus("))}\nsortSpecs`, { Scoreboard });
 
 test("normalized scoreboard sort values use the displayed denominator", () => {
   assert.equal(Scoreboard.normalizedSortValue(24, 12, true), 2);
@@ -63,9 +63,10 @@ test("match body groups match header order with Initiation and Trades independen
   }
   const state = { expandedGroups: {}, scoreboardValueMode: "totals", visibleScoreboardSections: new Set(), scoreboardPerGrenadeUtility: false };
   const context = {
-    state, document: { createElement: () => new Node() },
+    state, Scoreboard, document: { createElement: () => new Node() },
     SCOREBOARD_GROUPS: Scoreboard.groups, SCOREBOARD_GROUP_SECTION: Scoreboard.groupSection,
-    numberValue: value => Number(value) || 0, scoreboardFocus: (_group, values) => values,
+    numberValue: value => Number(value) || 0, scoreboardFocus: (group, values) => Scoreboard.focus({ expanded: state.expandedGroups, subgroups: state.subgroups || {} }, group, values),
+    activeScoreboardSubgroup: group => Scoreboard.activeSubgroup({ subgroups: state.subgroups || {} }, group),
     clutchResult: () => "0/0", speedValue: () => "—",
     enemyFlashMatchups: () => [], teammateFlashMatchups: () => [], selfFlashMatchups: () => []
   };
@@ -93,6 +94,18 @@ test("match body groups match header order with Initiation and Trades independen
       if (trades) assert.equal(String(tradeCells[0].textContent), tradesExpanded ? mode === "round" ? "0.90" : "9" : mode === "round" ? "0.70-0.50" : "7-5");
     }
   }
+  state.expandedGroups = { clutches: true };
+  state.visibleScoreboardSections = new Set(["rounds"]);
+  state.subgroups = { clutches: "economics" };
+  player.clutch_economics = { win_survive_count: 2, win_survive_measured: 2, win_survive_swing: 12000,
+    loss_die_count: 3, loss_die_measured: 1, loss_die_swing: -3000 };
+  for (const mode of ["totals", "round"]) {
+    state.scoreboardValueMode = mode;
+    assert.deepEqual(render(player).cells.filter(cell => cell.classList.contains("clutches-cell")).map(cell => cell.textContent),
+      ["+$9,000", "+$3,000", "3 / 5"]);
+    assert.deepEqual(render({ ...player, clutch_economics_available: false }).cells.filter(cell => cell.classList.contains("clutches-cell")).map(cell => cell.textContent),
+      ["—", "—", "—"]);
+  }
 });
 
 test("first-contact round percentage sorts by frequency and excludes missing matches", () => {
@@ -102,4 +115,54 @@ test("first-contact round percentage sorts by frequency and excludes missing mat
   assert.equal(matchSorts.initiationRoundPercent.modes[0].value(highVolume), 30);
   assert.equal(matchSorts.initiationRoundPercent.modes[0].value({ rounds_played: 10 }), null);
   assert.equal(matchSorts.initiationRoundPercent.modes[0].value({ ...highFrequency, rounds_played: 0 }), null);
+});
+
+test("clutch economics pools measured outcomes and cycles matching columns and widths", () => {
+  const counters = { win_survive_count: 2, win_survive_measured: 2, win_survive_swing: 12000,
+    loss_die_count: 3, loss_die_measured: 1, loss_die_swing: -3000 };
+  const summary = Scoreboard.clutchEconomics(counters);
+  assert.equal(summary.attempted, 5);
+  assert.equal(summary.measured, 3);
+  assert.equal(summary.total, 9000);
+  assert.equal(summary.average, 3000);
+  assert.equal(Scoreboard.clutchEconomics({ loss_die_count: 2 }).total, null);
+  const layout = { expanded: { clutches: true }, subgroups: {} };
+  assert.equal(Scoreboard.focus(layout, "clutches", Scoreboard.columns.clutches[0]).length, 5);
+  Scoreboard.cycle(layout, "clutches");
+  assert.deepEqual(Array.from(Scoreboard.focus(layout, "clutches", Scoreboard.columns.clutches[0])),
+    ["Net economy change", "Avg / attempt", "Measured attempts"]);
+  assert.equal(Scoreboard.minimumWidths(layout, "clutches").length, 3);
+  for (const [field, expected] of [["total", 9000], ["average", 3000], ["measured", 3]]) {
+    const spec = matchSorts[`clutchEconomics_${field}`];
+    assert.equal(spec.modes[0].value({ clutch_economics: counters }), expected);
+    assert.equal(spec.modes[0].value({ clutch_economics: counters, clutch_economics_available: false }), null);
+  }
+});
+
+test("quick comparison economics columns preserve dollars and sample coverage in every value mode", () => {
+  const state = { expandedGroups: { clutches: true }, valueMode: "totals" };
+  const layout = { expanded: state.expandedGroups, subgroups: { clutches: "economics" } };
+  const context = { state, Scoreboard, number: value => Number(value) || 0,
+    integer: value => String(Number(value) || 0), titleCase: value => value,
+    availability: { scope: stats => stats.economics },
+    focusedColumns: (group, values) => Scoreboard.focus(layout, group, values),
+    groupVisible: group => group === "clutches",
+    minimumWidthsForGroup: group => Scoreboard.minimumWidths(layout, group) };
+  const start = quickSource.indexOf("    function renderTable(");
+  const end = quickSource.indexOf("      const sort = state.sort;", start);
+  const helpers = quickSource.slice(quickSource.indexOf("    function columnScalesWithValueMode("),
+    quickSource.indexOf("    function measuredColumnWidths("));
+  const api = vm.runInNewContext(`${helpers}\n${quickSource.slice(start, end)}\nreturn columns; }\n({renderTable, displayedValue, displayedLabel, columnSortValue})`, context);
+  const item = { rows: [{}, {}], stats: { rounds: 40, economics: {
+    clutch_econ_win_survive_count: 2, clutch_econ_win_survive_measured: 2, clutch_econ_win_survive_swing: 12000,
+    clutch_econ_loss_die_count: 3, clutch_econ_loss_die_measured: 1, clutch_econ_loss_die_swing: -3000 } } };
+  const columns = api.renderTable([item]).filter(column => column.group === "clutches");
+  assert.equal(columns.length, 3);
+  for (const mode of ["totals", "round", "match"]) {
+    state.valueMode = mode;
+    assert.deepEqual(Array.from(columns, column => api.displayedValue(column, item)), ["+$9,000", "+$3,000", "3 / 5"]);
+    assert.deepEqual(Array.from(columns, column => api.columnSortValue(column, item)), [9000, 3000, 3]);
+    assert.deepEqual(Array.from(columns, column => api.displayedLabel(column)), ["Net economy change", "Avg / attempt", "Measured attempts"]);
+    assert.deepEqual(Array.from(columns, column => api.displayedValue(column, { rows: [], stats: {} })), ["—", "—", "—"]);
+  }
 });

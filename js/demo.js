@@ -298,6 +298,11 @@
     rating: oneMode("rating", "Rating", player => player.rating ?? 0)
   };
 
+  for (const [field, label] of [["total", "Net economy change"], ["average", "Avg / attempt"], ["measured", "Measured attempts"]]) {
+    sortSpecs[`clutchEconomics_${field}`] = oneMode(`clutchEconomics_${field}`, label, player =>
+      player.clutch_economics_available === false || !player.clutch_economics ? null : Scoreboard.clutchEconomics(player.clutch_economics)[field]);
+  }
+
   sortSpecs.initiation_contacts = oneMode("initiation_contacts", "Initiations", player => player.initiation_available ? player.initiation?.initiation_contacts ?? 0 : null);
   sortSpecs.initiationRoundPercent = oneMode("initiationRoundPercent", "Initiation rounds %", player => player.initiation_available && player.rounds_played > 0
     ? 100 * (player.initiation?.initiation_rounds ?? 0) / player.rounds_played : null);
@@ -1343,6 +1348,7 @@
         initiation: { ...stats.initiation },
         initiation_available: Number(payload.schema?.split("/").pop()) >= 25,
         clutch_economics: { ...stats.clutch_economics },
+        clutch_economics_available: Number(payload.schema?.split("/").pop()) >= 24,
         clutch_wins: Object.fromEntries((stats.clutches || []).map((value, index) => [index + 1, numberValue(value)])),
         clutch_attempts: Object.fromEntries((stats.clutch_attempts || []).map((value, index) => [index + 1, numberValue(value)])),
         kill_rounds: Object.fromEntries((stats.kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
@@ -1891,6 +1897,7 @@
     const rounds = Math.max(1, numberValue(row.dataset.rounds));
     const values = state.scoreboardValueMode === "round"
       ? source.map(value => {
+          if (group === "clutches" && isExpanded && activeScoreboardSubgroup("clutches")?.[0] === "economics") return value;
           if (typeof value === "number") return (value / rounds).toFixed(2);
           if (!isExpanded) {
             const formatted = String(value);
@@ -2009,7 +2016,10 @@
       player.trade_opportunities ?? 0, player.trade_attempts ?? 0, `${player.trade_kills ?? 0} (${(player.trade_success_percent ?? 0).toFixed(0)}%)`,
       player.tradeable_deaths ?? 0, player.attempted_tradeable_deaths ?? 0, `${player.traded_deaths ?? 0} (${(player.traded_death_percent ?? 0).toFixed(0)}%)`
     ]);
-    scoreboardCells(row, "clutches", clutchResult(player), [5, 4, 3, 2, 1].map(opponents => clutchResult(player, opponents)));
+    const economics = Scoreboard.clutchEconomics(player.clutch_economics_available === false ? null : player.clutch_economics);
+    scoreboardCells(row, "clutches", clutchResult(player), [...[5, 4, 3, 2, 1].map(opponents => clutchResult(player, opponents)),
+      Scoreboard.money(economics.total), Scoreboard.money(economics.average),
+      player.clutch_economics_available === false || !player.clutch_economics ? "—" : `${economics.measured} / ${economics.attempted}`]);
     const multikillTotal = [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0);
     const multikillPercent = 100 * [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0) / Math.max(1, player.rounds_played ?? 0);
     const trueMultikillPercent = 100 * (player.true_multikill_rounds ?? 0) / Math.max(1, player.rounds_played ?? 0);
@@ -2083,8 +2093,6 @@
 
   function regularHeader(row, label) {
     const th = document.createElement("th");
-    if (label === "EF") th.title = "Enemies blinded by your flashes";
-    if (label === "FA") th.title = "Teammate kills assisted by your flash";
     th.rowSpan = 2;
     sortableHeader(th, label, {
       Player: sortSpecs.player,
@@ -2100,7 +2108,7 @@
   }
 
   function scoreboardRateLabel(group, detail, expanded) {
-    if (state.scoreboardValueMode !== "round") return detail;
+    if (state.scoreboardValueMode !== "round" || group === "clutches" && expanded && activeScoreboardSubgroup("clutches")?.[0] === "economics") return detail;
     if (!expanded) {
       const labels = {
         combat: "K/round-D/round-A/round",
@@ -2137,24 +2145,7 @@
       onToggle: toggleColumnGroup,
       onCycle: cycleScoreboardSubgroup,
       decorateDetail: (child, detail) => {
-      if (detail === "Enemy blind K-D") child.title = "Kills against blinded enemies – deaths while blinded";
-      if (detail === "Killer blind K-D") child.title = "Kills while you were blind – deaths to a blinded enemy";
-      if (detail === "Wallbang K-D") child.title = "Wallbang kills – wallbang deaths";
-      if (detail === "Smoke K-D") child.title = "Smoke kills – smoke deaths";
-      if (detail === "Air K-D") child.title = "Kills while airborne – deaths to airborne killers";
-      if (detail === "Paul K-D") child.title = "Kills against enemies caught with a grenade or knife out in the prior 1.4 seconds – deaths caught the same way";
-      if (detail === "Grenade out K-D") child.title = "Kills against enemies holding a grenade – deaths while holding a grenade";
-      if (detail === "Knife out K-D") child.title = "Kills against enemies holding a knife – deaths while holding a knife";
-      if (detail === "Move K-D") child.title = "Kills while moving above 1 unit/second – deaths to a moving killer";
-      if (detail === "Still K-D") child.title = "Kills while moving at most 1 unit/second – deaths to a stationary killer";
-      if (detail === "Run K-D") child.title = "Kills by a player moving above 34% of the held weapon's maximum speed – deaths to such a killer";
-      if (detail === "Spd% K-D") child.title = "Average horizontal killer speed as a percentage of the held weapon maximum: your kills – your deaths";
-      if (detail === "Bullshit K-D") child.title = "Unique kills and deaths where the killer was blind, airborne, or running; the kill was a wallbang or smoke kill; or the victim was caught for a Paul; overlaps count once";
-      if (detail === "Avg kill" || detail === "Avg death" || detail === "Avg K/D time") child.title = "Average time from freeze end; collapsed values are kill/death";
-      if (detail === "Early K-D") child.title = "Kills and deaths from 0–25 seconds after freeze end";
-      if (detail === "Mid K-D") child.title = "Kills and deaths from 25–75 seconds after freeze end";
-      if (detail === "Late K-D") child.title = "Kills and deaths after 75 seconds but before the bomb plant";
-      if (detail === "Post-plant K-D") child.title = "Kills and deaths after the bomb is planted";
+        if (detail === "Paul K-D") child.title = "Kills against enemies caught with a grenade or knife out at death or within the prior 1.4 seconds; deaths caught the same way";
       },
       sortHeader: (cell, detail, source, sourceGroup) => sortableHeader(cell, detail, groupSortSpec(sourceGroup, source), sourceGroup)
     });
@@ -2272,7 +2263,10 @@
         "1v4": sortSpecs.clutch4,
         "1v3": sortSpecs.clutch3,
         "1v2": sortSpecs.clutch2,
-        "1v1": sortSpecs.clutch1
+        "1v1": sortSpecs.clutch1,
+        "Net economy change": sortSpecs.clutchEconomics_total,
+        "Avg / attempt": sortSpecs.clutchEconomics_average,
+        "Measured attempts": sortSpecs.clutchEconomics_measured
       },
       multikills: {
         Total: sortSpecs.multikillTotal,
