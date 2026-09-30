@@ -359,6 +359,8 @@
     const previousSteamID = state.accountPlayerSteamID;
     state.authenticated = Boolean(session?.authenticated);
     state.authUsername = session?.username || null;
+    window.NickStatsAccountSession = state.authenticated ? { username: state.authUsername } : null;
+    window.dispatchEvent(new Event("nickstats:account-session"));
     state.accountPlayerID = session?.player_id == null ? null : String(session.player_id);
     state.accountPlayerName = session?.player_name || null;
     state.accountPlayerSteamID = state.authenticated && state.accountPlayerID ? session?.player_steam_id || null : null;
@@ -1582,7 +1584,8 @@
     return match.viewer_team_slot === 1 ? [teams[1], teams[0]] : teams;
   }
 
-  function renderMatchListInto(list, matches, onOpen) {
+  function renderMatchListInto(list, matches, onOpen, { actionsFor = null } = {}) {
+    const openMenuID = list.querySelector(".manual-match-menu[open]")?.closest(".manual-match-card")?.dataset.matchId;
     list.replaceChildren();
     for (const match of matches) {
       const button = document.createElement("button");
@@ -1652,7 +1655,12 @@
         : "";
       button.setAttribute("aria-label", `Open match ${match.id} on ${mapName}: ${scoreDescription}${statsDescription}`);
       button.addEventListener("click", () => onOpen(match));
-      list.appendChild(button);
+      const actions = actionsFor?.(match);
+      if (actions) {
+        const card = document.createElement("div"); card.className = "manual-match-card"; card.dataset.matchId = String(match.id);
+        if (String(match.id) === openMenuID) actions.open = true;
+        card.append(button, actions); list.appendChild(card);
+      } else list.appendChild(button);
     }
   }
 

@@ -29,6 +29,7 @@ private func requireUploadAuthorization(_ request: Request) throws {
 }
 
 func routes(_ app: Application) throws {
+    manualFilterRoutes(app)
     app.get("health") { request async throws -> HealthResponse in
         guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
         _ = try await sql.raw("SELECT 1").first()

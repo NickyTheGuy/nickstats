@@ -163,3 +163,9 @@ If a demo contains no recognizable completed rounds, the app offers a small diag
 - `database/README.md` — storage model and compact JSON import mapping
 - `backend/` — Swift/Vapor compact importer, public MySQL read API, container files, and deployment notes
 - `THIRD_PARTY_NOTICES.md` — parser dependency attribution
+
+### Manual Filters
+
+Signed-in accounts can create private manual filters from the checkbox menu beside Map in Player and Groups profiles. Choose True or False for each selected filter; all selected conditions must match and Unknown matches are omitted. Use the ⋯ menu on a Player profile’s Matches tab to set each match to True, False, or Unknown. Filters and assignments follow your account across browsers and devices and do not change public profiles or other accounts. Active filters apply locally to statistics, quick comparisons, graphs, Groups, and the profile match list; the latter paginates after filtering all loaded matches.
+
+Existing matches default to Unknown when you create a filter; subsequently uploaded matches default to False, even when their played date is older. Reparsing an existing match keeps its state. Apply migration 018 and deploy the updated API; reparsing demos is not required.

@@ -113,3 +113,5 @@ Migration 014 adds database-backed login accounts. Accounts listed in `NICKSTATS
 Migration 015 lets each login select the database player that represents them. The nullable foreign key is cleared automatically if that player is ever deleted.
 
 Migration 017 stores one statistics slice per played player round for Regulation (rounds 1–24) and Overtime (round 25 onward). Apply it before deploying the schema-22 backend. Existing matches remain available under All; reparse their demos to populate phase filters. The normal replace flow deletes old player rows and their phase slices in one transaction.
+
+Migration 018 adds `account_manual_filters` and `account_manual_filter_states`. Labels belong to signed-in accounts and capture the highest uploaded match ID at creation. Earlier matches default to Unknown, later matches to False, and explicit assignments override these defaults. Deleting a label or account cascades its assignments; deleting a match clears its assignments. Public statistics and match payloads are unaffected. Apply it before deploying the manual-filter API.

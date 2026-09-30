@@ -369,7 +369,7 @@
     const excluded = selectedPlayers("exclude");
     if (!included.length) return null;
     const first = included[0];
-    const eligible = player => player.rows.filter(row => mapFilter.matches(row.map) && dateFilter.matches(row.date));
+    const eligible = player => player.rows.filter(row => mapFilter.matches(row.map) && dateFilter.matches(row.date) && manualFilter.matches(row));
     const rowMaps = new Map(included.map(player => [player.profileId, new Map(eligible(player).map(row => [row.id, row]))]));
     const baseMatches = eligible(first).filter(row => included.every(player =>
       player.profileId === first.profileId || row.teammateIds.includes(player.profileId)
@@ -417,6 +417,7 @@
   const mapFilter = new window.NickStatsFilters.MultiMapFilter("groupMapFilter", { onChange: () => runCombination(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
   const dateFilter = new window.NickStatsFilters.DateRangeFilter("groupDateFilter", { onChange: () => runCombination() });
   const quickComparison = window.NickStatsQuickComparison.create({ prefix: "combo" });
+  const manualFilter = new window.NickStatsManualFilters.ManualFilterControl("groupManualFilter", { onChange: () => { if (state.players.length) runCombination(); } });
 
   function setComboProfileView(view) {
     state.comboView = view;
@@ -476,7 +477,7 @@
     const buyLabel = state.buy === "ALL" ? "All buys" : state.buy === "hero" ? "Hero rounds" : `${titleCase(state.buy)} buys`;
     const opponentBuyLabel = state.opponentBuy === "ALL" ? "All enemy buys" : `vs ${titleCase(state.opponentBuy)}`;
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
-    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(stats.n)} qualifying match${stats.n === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}`;
+    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(stats.n)} qualifying match${stats.n === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}`;
     const maps = new Map(); rows.forEach(row => { const collection = maps.get(row.map) || []; collection.push(row); maps.set(row.map, collection); });
     const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate, winRateKind: source.winRateKind, scores: source.scores });
     const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches)) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));

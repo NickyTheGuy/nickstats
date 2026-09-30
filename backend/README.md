@@ -1,6 +1,6 @@
 # NickStats API
 
-The API imports compact `nickstats.match/25` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 through 24 remain readable for existing stored matches; the browser still parses demos locally and uploads only the compact result. Run database migrations through 017 before deploying this backend. Hero flags are stored in existing round statistics JSON, so this change needs no new database migration.
+The API imports compact `nickstats.match/25` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 through 24 remain readable for existing stored matches; the browser still parses demos locally and uploads only the compact result. Run database migrations through 018 before deploying this backend. Hero flags are stored in existing round statistics JSON, so this change needs no new database migration.
 
 The compact format intentionally uses fixed-position arrays to keep uploads small. Inside the Swift service, those arrays decode into named domain types such as `TradeStats`, `KillContextStats`, `RoundTimingPayload`, and `DeathEventPayload`; database and validation code never rely on unexplained numeric indexes. Encoding those types reconstructs the same versioned wire format.
 
@@ -85,3 +85,9 @@ The service is written in Swift 6.3 with Vapor 4. The Docker build compiles it i
 Schema 24 adds `clutch_economics` counters to statistic JSON slices. Deploy the updated API before uploading schema-24 reparses. Existing migration 017 stores the per-round counters; no additional migration is required. Unfiltered profile and match side totals reconstruct these counters from the round JSON.
 
 Schema 25 adds validated `initiation` counters to each statistic JSON slice. Deploy the updated API before uploading schema-25 reparses. Profile and match side totals reconstruct these fields from existing per-round JSON; no migration beyond 017 is needed.
+
+## Manual filters
+
+Apply `database/migrations/018_manual_filters.sql` before deploying this API. Signed-in accounts can create private labels with `POST /auth/manual-filters`, read their definitions and explicit assignments with `GET /auth/manual-filters`, set a match to `true`, `false`, or `unknown` with `PUT /auth/manual-filters/:filter/matches/:match`, and remove a label with `DELETE /auth/manual-filters/:filter`. Ownership always comes from the signed session; upload bearer tokens do not grant access.
+
+Each definition captures the database’s latest uploaded match ID at creation. Earlier IDs default to Unknown and later IDs to False, independently of played dates, reparses, or which profiles were loaded. Explicit states override either default. Unknown games are excluded whenever that label is selected, including when selecting False. Filtering and statistics aggregation happen in the browser over the already-loaded compact profiles, including comparisons, graphs, and Groups. No demo reparse is needed.

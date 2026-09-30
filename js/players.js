@@ -32,12 +32,22 @@
   const dateFilter = new window.NickStatsFilters.DateRangeFilter(["playerDateFilter", "playerHistoryDateFilter"], {
     onChange: () => {
       state.profiles.forEach(profile => {
+        profile.manualHistoryOffset = 0;
         if (profile.matchHistory) { profile.matchHistory.controller?.abort(); profile.matchHistory.loaded = false; profile.matchHistory.loading = false; }
       });
       if (activeProfile()) { renderCurrentDisplay(); if (state.display === "profile" && state.view === "matches") renderPlayerMatches(); }
     }
   });
   const quickComparison = window.NickStatsQuickComparison.create({ prefix: "player" });
+  const manualFilter = new window.NickStatsManualFilters.ManualFilterControl(["playerManualFilter", "playerHistoryManualFilter"], {
+    onChange: ({ resetPagination = false } = {}) => {
+      state.profiles.forEach(profile => { profile.summaryCache?.clear(); if (resetPagination) profile.manualHistoryOffset = 0; });
+      if (activeProfile()) {
+        renderCurrentDisplay();
+        if (state.display === "profile" && state.view === "matches") renderPlayerMatches();
+      }
+    }
+  });
 
   async function apiJson(response) {
     const body = await response.json().catch(() => null);
@@ -167,6 +177,7 @@
   function renderPlayerMatches() {
     const profile = activeProfile();
     if (!profile) return;
+    if (manualFilter.active) { renderManualPlayerMatches(profile); return; }
     const history = matchHistory(profile);
     const status = $("playerMatchesStatus");
     if (!history.loaded && !history.loading) {
@@ -179,7 +190,7 @@
       status.textContent = "Loading match history…";
       return;
     }
-    matchList.render($("playerMatchesList"), history.matches, openHistoryMatch);
+    matchList.render($("playerMatchesList"), history.matches, openHistoryMatch, { actionsFor: window.NickStatsManualFilters.matchEditor });
     status.classList.remove("error");
     status.textContent = history.matches.length
       ? `${history.matches.length} match${history.matches.length === 1 ? "" : "es"} shown for ${profile.payload.player?.name || "this player"}.`
@@ -189,6 +200,34 @@
     $("playerMatchesNext").disabled = history.loading || history.matches.length < MATCH_HISTORY_LIMIT;
     $("playerMatchesPageLabel").textContent = history.matches.length
       ? `Matches ${history.offset + 1}–${history.offset + history.matches.length}` : "";
+  }
+
+  function renderManualPlayerMatches(profile) {
+    // All compact profile matches are already loaded. Do not query the public API
+    // with private filter conditions, or paginate before applying the conditions.
+    const rows = (profile.payload.matches || []).filter(match => manualFilter.matches(match) && dateFilter.matches(match.played_at));
+    const offset = Math.max(0, Math.min(profile.manualHistoryOffset || 0, Math.max(0, Math.ceil(rows.length / MATCH_HISTORY_LIMIT) - 1) * MATCH_HISTORY_LIMIT));
+    profile.manualHistoryOffset = offset;
+    const cached = new Map((profile.matchHistory?.matches || []).map(match => [String(match.id), match]));
+    const matches = rows.slice(offset, offset + MATCH_HISTORY_LIMIT).map(match => {
+      if (cached.has(String(match.id))) return cached.get(String(match.id));
+      const summary = aggregate([match], "ALL", "ALL", "ALL", "ALL", "ALL", false);
+      return {
+        id: match.id, map: match.map, played_at: match.played_at,
+        teams: match.score_for == null || match.score_against == null ? [] : [
+          { name: `${profile.payload.player?.name || "Player"}'s team`, score: match.score_for },
+          { name: "Opponents", score: match.score_against }
+        ], viewer_team_slot: 0,
+        viewer_stats: { rating: summary.rating, kills: summary.stats.kills || 0, deaths: summary.stats.deaths || 0, assists: summary.stats.assists || 0, adr: summary.adr }
+      };
+    });
+    matchList.render($("playerMatchesList"), matches, openHistoryMatch, { actionsFor: window.NickStatsManualFilters.matchEditor });
+    const status = $("playerMatchesStatus"); status.classList.remove("error");
+    status.textContent = `${rows.length} matching match${rows.length === 1 ? "" : "es"} · ${manualFilter.summary()} · Unknown excluded`;
+    $("playerMatchesPagination").hidden = rows.length <= MATCH_HISTORY_LIMIT;
+    $("playerMatchesPrevious").disabled = offset === 0;
+    $("playerMatchesNext").disabled = offset + MATCH_HISTORY_LIMIT >= rows.length;
+    $("playerMatchesPageLabel").textContent = matches.length ? `Matches ${offset + 1}–${offset + matches.length} of ${rows.length}` : "";
   }
 
   async function loadPlayerMatches(profile, offset) {
@@ -316,7 +355,7 @@
 
   function matchesFor(payload) {
     const selectedMaps = new Set(state.maps);
-    return (payload.matches || []).filter(match => (!selectedMaps.size || selectedMaps.has(match.map)) && matchResultMatches(match.result, state.result) && dateFilter.matches(match.played_at));
+    return (payload.matches || []).filter(match => (!selectedMaps.size || selectedMaps.has(match.map)) && matchResultMatches(match.result, state.result) && dateFilter.matches(match.played_at) && manualFilter.matches(match));
   }
   function aggregationKey(map = "ALL") {
     return [state.side, state.buy, state.heroOnly, state.opponentBuy, state.roundResult, state.roundPhase, state.result, [...state.maps].sort().join(","), dateFilter.from, dateFilter.through, map].join("|");
@@ -431,7 +470,7 @@
     const buyLabel = state.buy === "ALL" ? "All buys" : state.buy === "hero" ? "Hero rounds" : `${titleCase(state.buy)} buys`;
     const opponentBuyLabel = state.opponentBuy === "ALL" ? "All enemy buys" : `vs ${titleCase(state.opponentBuy)}`;
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
-    $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${state.maps.length ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}`;
+    $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${state.maps.length ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}`;
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
     const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: summaryFor(profile, map.name) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
@@ -586,10 +625,12 @@
   document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
   $("playerMatchesPrevious").addEventListener("click", () => {
     const profile = activeProfile(); if (!profile) return;
+    if (manualFilter.active) { profile.manualHistoryOffset = Math.max(0, (profile.manualHistoryOffset || 0) - MATCH_HISTORY_LIMIT); renderPlayerMatches(); return; }
     loadPlayerMatches(profile, Math.max(0, matchHistory(profile).offset - MATCH_HISTORY_LIMIT));
   });
   $("playerMatchesNext").addEventListener("click", () => {
     const profile = activeProfile(); if (!profile) return;
+    if (manualFilter.active) { profile.manualHistoryOffset = (profile.manualHistoryOffset || 0) + MATCH_HISTORY_LIMIT; renderPlayerMatches(); return; }
     loadPlayerMatches(profile, matchHistory(profile).offset + MATCH_HISTORY_LIMIT);
   });
   window.addEventListener("nickstats:account-player", () => {
