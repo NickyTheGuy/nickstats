@@ -298,12 +298,10 @@
     rating: oneMode("rating", "Rating", player => player.rating ?? 0)
   };
 
-  for (const [key, label] of [["initiation_kills", "Non-trade K"], ["initiation_deaths", "Non-trade D"], ["initiation_contacts", "First contact"], ["initiation_damage_first", "Dealt first"], ["initiation_damage_taken_first", "Took first"], ["initiation_nonlethal_contacts", "No K/D contact"], ["initiation_rounds", "Contact rounds"]]) {
-    sortSpecs[key] = oneMode(key, label, player => player.initiation_available ? player.initiation?.[key] ?? 0 : null,
-      key === "initiation_deaths" ? "asc" : "desc");
-  }
-  sortSpecs.initiationSummary = oneMode("initiationSummary", "Non-trade diff", player => player.initiation_available
-    ? (player.initiation?.initiation_kills ?? 0) - (player.initiation?.initiation_deaths ?? 0) : null);
+  sortSpecs.initiation_contacts = oneMode("initiation_contacts", "First contacts", player => player.initiation_available ? player.initiation?.initiation_contacts ?? 0 : null);
+  sortSpecs.initiationRoundPercent = oneMode("initiationRoundPercent", "First-contact rounds %", player => player.initiation_available && player.rounds_played > 0
+    ? 100 * (player.initiation?.initiation_rounds ?? 0) / player.rounds_played : null);
+
   for (let opponents = 5; opponents >= 1; opponents -= 1) {
     sortSpecs[`clutch${opponents}`] = oneMode(`clutch${opponents}`, `Win%`, player => clutchWinRate(player, opponents));
   }
@@ -2003,10 +2001,10 @@
     const evenCount = player.round_state_available ? eventPair(context.even_kills, context.even_deaths) : "—";
     const advantageCount = player.round_state_available ? eventPair(context.advantage_kills, context.disadvantage_deaths) : "—";
     const cleanupCount = player.round_state_available ? eventPair(context.cleanup_kills, context.cleanup_deaths) : "—";
-    const initiationValue = key => player.initiation_available ? player.initiation?.[key] ?? 0 : "—";
-    scoreboardCells(row, "initiation", player.initiation_available
-      ? eventPair(player.initiation?.initiation_kills, player.initiation?.initiation_deaths) : "—",
-      ["initiation_kills", "initiation_deaths", "initiation_contacts", "initiation_damage_first", "initiation_damage_taken_first", "initiation_nonlethal_contacts", "initiation_rounds"].map(initiationValue));
+    const initiationPercent = player.initiation_available && player.rounds_played > 0
+      ? `${(100 * (player.initiation?.initiation_rounds ?? 0) / player.rounds_played).toFixed(1)}%` : "—";
+    scoreboardCells(row, "initiation", initiationPercent,
+      [player.initiation_available ? player.initiation?.initiation_contacts ?? 0 : "—", initiationPercent]);
     scoreboardCells(row, "trades", `${player.trade_kills ?? 0}-${player.traded_deaths ?? 0}`, [
       player.trade_opportunities ?? 0, player.trade_attempts ?? 0, `${player.trade_kills ?? 0} (${(player.trade_success_percent ?? 0).toFixed(0)}%)`,
       player.tradeable_deaths ?? 0, player.attempted_tradeable_deaths ?? 0, `${player.traded_deaths ?? 0} (${(player.traded_death_percent ?? 0).toFixed(0)}%)`
@@ -2107,7 +2105,7 @@
       const labels = {
         combat: "K/round-D/round-A/round",
         opening: "K/round-D/round · Att%",
-        initiation: "Non-trade K/round-D/round",
+        initiation: "First-contact rounds %",
         trades: "K/round-D/round",
         clutches: "W/round / A/round · Win%",
         multikills: "Total / round",
@@ -2266,7 +2264,7 @@
         "K on ally flash": sortSpecs.assistedFlash,
         "K on your flash": sortSpecs.assistedOwnFlash
       },
-      initiation: { "Non-trade K-D": sortSpecs.initiationSummary, "Non-trade K": sortSpecs.initiation_kills, "Non-trade D": sortSpecs.initiation_deaths, "First contact": sortSpecs.initiation_contacts, "Dealt first": sortSpecs.initiation_damage_first, "Took first": sortSpecs.initiation_damage_taken_first, "No K/D contact": sortSpecs.initiation_nonlethal_contacts, "Contact rounds": sortSpecs.initiation_rounds },
+      initiation: { "First contacts": sortSpecs.initiation_contacts, "First-contact rounds %": sortSpecs.initiationRoundPercent },
       clutches: {
         Total: sortSpecs.clutchTotal,
         "Total W/A · Win%": sortSpecs.clutchTotal,
@@ -2359,7 +2357,7 @@
   const roundInvariantSorts = new Set([
     "kd", "hs", "adr", "openingAttempts", "openingSuccess", "openingAssistRate", "openingSummary", "tradeKResult", "tradeDResult", "clutchTotal",
     "multikillPercent", "trueMultikillPercent", "timingSummary", "averageKillTime", "averageDeathTime",
-    "killSpeedUnits", "killSpeedPercents", "deathSpeedUnits", "deathSpeedPercents"
+    "killSpeedUnits", "killSpeedPercents", "deathSpeedUnits", "deathSpeedPercents", "initiationRoundPercent"
   ]);
 
   function scoreboardSortValue(spec, mode, player, group) {

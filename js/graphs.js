@@ -79,12 +79,7 @@
       ["trade_success", "Trade success rate", percentage("trade_successes", "trade_attempts"), 1, "%"], ["traded_death_rate", "Tradeable deaths converted", percentage("traded_deaths", "tradeable_deaths"), 1, "%"]
     ]],
     ["Initiation", [
-      ["initiation_kpr", "Non-trade kills per round", rate("initiation_kills"), 3],
-      ["initiation_dpr", "Non-trade deaths per round", rate("initiation_deaths"), 3],
       ["initiation_contacts_pr", "First contacts per round", rate("initiation_contacts"), 3],
-      ["initiation_damage_first_pr", "Dealt damage first per round", rate("initiation_damage_first"), 3],
-      ["initiation_damage_taken_first_pr", "Took damage first per round", rate("initiation_damage_taken_first"), 3],
-      ["initiation_nonlethal_pr", "Contacts without kill/death per round", rate("initiation_nonlethal_contacts"), 3],
       ["initiation_round_percent", "Rounds with first contact", percentage("initiation_rounds", "rounds"), 1, "%"]
     ]],
     ["Utility", [

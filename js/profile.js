@@ -242,17 +242,11 @@
       ["Outnumbered deaths", statInteger("disadvantage_deaths"), statPerRound("disadvantage_deaths")],
       ["Cleanup deaths", statInteger("cleanup_deaths"), statPerRound("cleanup_deaths")]
     ]);
-    fillCards(`${prefix}InitiationOutcomeStats`, [
-      ["Non-trade kills", statInteger("initiation_kills"), statPerRound("initiation_kills")],
-      ["Non-trade deaths", statInteger("initiation_deaths"), statPerRound("initiation_deaths")],
-      ["Non-trade differential", statAvailable("initiation_kills") ? integer(number(s.initiation_kills) - number(s.initiation_deaths)) : "—", "Kills minus deaths outside trade exchanges"]
-    ]);
     fillCards(`${prefix}InitiationContactStats`, [
       ["First contacts", statInteger("initiation_contacts"), statPerRound("initiation_contacts")],
-      ["Dealt damage first", statInteger("initiation_damage_first"), statPerRound("initiation_damage_first")],
-      ["Took damage first", statInteger("initiation_damage_taken_first"), statPerRound("initiation_damage_taken_first")],
-      ["Contacts without kill/death", statInteger("initiation_nonlethal_contacts"), statPerRound("initiation_nonlethal_contacts")],
-      ["Rounds with first contact", statInteger("initiation_rounds"), statAvailable("initiation_rounds") ? percent(100 * ratio(s.initiation_rounds, availability.rounds(rawStats, "initiation_rounds"))) : "—"]
+      ["Rounds with a first contact", statAvailable("initiation_rounds") && availability.rounds(rawStats, "initiation_rounds") > 0
+        ? percent(100 * ratio(s.initiation_rounds, availability.rounds(rawStats, "initiation_rounds"))) : "—",
+        statAvailable("initiation_rounds") ? `${integer(s.initiation_rounds)} of ${integer(availability.rounds(rawStats, "initiation_rounds"))} compatible rounds` : "Reparse older demos to collect first contacts"]
     ]);
     const clutchTotals = [1, 2, 3, 4, 5].reduce((total, opponents) => {
       total.wins += number(s[`clutch_1v${opponents}`]);

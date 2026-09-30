@@ -73,7 +73,7 @@ test("match body groups match header order with Initiation and Trades independen
   const render = vm.runInNewContext(`${slice("cell", "speedValue")}\n${slice("scoreboardGroupVisible", "renderScoreboardControls")}\n${slice("playerRow", "regularHeader")}\nplayerRow`, context);
   const player = { name: "Nick", rating: 1.2, rounds_played: 10, kast: 80, headshot_percent: 50, adr: 100,
     trade_kills: 7, traded_deaths: 5, trade_opportunities: 9,
-    initiation_available: true, initiation: { initiation_kills: 3, initiation_deaths: 1, initiation_contacts: 8 } };
+    initiation_available: true, initiation: { initiation_kills: 3, initiation_deaths: 1, initiation_contacts: 8, initiation_rounds: 4 } };
   for (const mode of ["totals", "round"]) for (const initiation of [false, true]) for (const trades of [false, true]) {
     for (const initiationExpanded of [false, true]) for (const tradesExpanded of [false, true]) {
       state.scoreboardValueMode = mode;
@@ -88,8 +88,18 @@ test("match body groups match header order with Initiation and Trades independen
       assert.deepEqual(groupCells.map(cell => Scoreboard.groups.find(([group]) => cell.classList.contains(`${group}-cell`))[0]), expected);
       const initiationCells = row.cells.filter(cell => cell.classList.contains("initiation-cell"));
       const tradeCells = row.cells.filter(cell => cell.classList.contains("trades-cell"));
-      if (initiation) assert.equal(String(initiationCells[0].textContent), initiationExpanded ? mode === "round" ? "0.30" : "3" : mode === "round" ? "0.30-0.10" : "3-1");
+      if (initiation) assert.equal(String(initiationCells[0].textContent), initiationExpanded ? mode === "round" ? "0.80" : "8" : "40.0%");
+      if (initiation && initiationExpanded) assert.equal(initiationCells[1].textContent, "40.0%");
       if (trades) assert.equal(String(tradeCells[0].textContent), tradesExpanded ? mode === "round" ? "0.90" : "9" : mode === "round" ? "0.70-0.50" : "7-5");
     }
   }
+});
+
+test("first-contact round percentage sorts by frequency and excludes missing matches", () => {
+  const highFrequency = { initiation_available: true, rounds_played: 10, initiation: { initiation_rounds: 6, initiation_contacts: 8 } };
+  const highVolume = { initiation_available: true, rounds_played: 100, initiation: { initiation_rounds: 30, initiation_contacts: 50 } };
+  assert.equal(matchSorts.initiationRoundPercent.modes[0].value(highFrequency), 60);
+  assert.equal(matchSorts.initiationRoundPercent.modes[0].value(highVolume), 30);
+  assert.equal(matchSorts.initiationRoundPercent.modes[0].value({ rounds_played: 10 }), null);
+  assert.equal(matchSorts.initiationRoundPercent.modes[0].value({ ...highFrequency, rounds_played: 0 }), null);
 });

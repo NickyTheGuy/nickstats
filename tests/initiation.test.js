@@ -136,3 +136,35 @@ test("compact initiation composes across side, phase, buy, enemy buy, result and
   payload.schema = "nickstats.match/24";
   assert.equal(ctx.expandStoredMatch(payload, 1).teams[0].players[0].initiation_available, false);
 });
+
+test("Player and Groups focus on contacts and unique-round frequency using compatible rounds", () => {
+  class Element {
+    constructor() { this.children = []; this.dataset = {}; this.classList = { add() {} }; }
+    append(...nodes) { this.children.push(...nodes); }
+    appendChild(node) { this.children.push(node); }
+    replaceChildren(...nodes) { this.children = nodes; }
+    setAttribute() {} addEventListener() {}
+  }
+  const elements = new Map();
+  const ctx = vm.createContext({ window: {}, document: {
+    createElement: () => new Element(), getElementById: id => {
+      if (id === "playerProfileBody" || id === "comboProfileBody") return null;
+      if (!elements.has(id)) elements.set(id, new Element());
+      return elements.get(id);
+    }
+  } });
+  vm.runInContext(fs.readFileSync(path.join(root, "js/stat-availability.js"), "utf8"), ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, "js/profile.js"), "utf8"), ctx);
+  const stats = {};
+  ctx.window.NickStatsAvailability.add(stats, { rounds: 20, initiation_contacts: 6, initiation_rounds: 4 }, "nickstats.match/25");
+  ctx.window.NickStatsAvailability.add(stats, { rounds: 80 }, "nickstats.match/24");
+  for (const prefix of ["player", "combo"]) {
+    ctx.window.NickStatsProfile.render({ prefix, headlineId: `${prefix}Headline`, side: "ALL", summary: { stats }, maps: [] });
+    const target = elements.get(`${prefix}InitiationContactStats`);
+    assert.equal(target.children.length, 2);
+    assert.equal(target.children[0].children[1].textContent, "6");
+    assert.match(target.children[0].children[2].textContent, /^0\.30 per round/);
+    assert.equal(target.children[1].children[1].textContent, "20.0%");
+    assert.equal(target.children[1].children[2].textContent, "4 of 20 compatible rounds");
+  }
+});

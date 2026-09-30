@@ -132,7 +132,7 @@
       if (column.group === "initiation") {
         denominator = state.valueMode === "match"
           ? item.rows.filter(row => availability.schemaVersion(row.schema) >= 25).length
-          : availability.rounds(item.stats, "initiation_kills");
+          : availability.rounds(item.stats, "initiation_contacts");
       }
       if (column.group === "utility" && state.perGrenadeUtility) {
         if (column.key === "utility-he-damage") denominator = number(item.stats.he_grenades_thrown);
@@ -336,11 +336,16 @@
             key: "clutches", label: "Total W/A · Win%", value: item => clutchRate(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt")),
             format: item => clutchDisplay(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt"))
           }];
-      const initiationColumns = state.expandedGroups.initiation ? [["initiation_kills", "Non-trade K"], ["initiation_deaths", "Non-trade D"], ["initiation_contacts", "First contact"], ["initiation_damage_first", "Dealt first"], ["initiation_damage_taken_first", "Took first"], ["initiation_nonlethal_contacts", "No K/D contact"], ["initiation_rounds", "Contact rounds"]].map(([key, label]) => ({
-        key, label, value: item => availability.value(item.stats, key), format: item => availableInteger(item, key)
-      })) : [{ key: "initiation", label: "Non-trade K-D",
-        value: item => availability.available(item.stats, "initiation_kills") ? number(item.stats.initiation_kills) - number(item.stats.initiation_deaths) : null,
-        format: item => availability.available(item.stats, "initiation_kills") ? `${integer(item.stats.initiation_kills)}-${integer(item.stats.initiation_deaths)}` : "—" }];
+      const contactRoundPercent = item => {
+        const rounds = availability.rounds(item.stats, "initiation_rounds");
+        return availability.available(item.stats, "initiation_rounds") && rounds > 0 ? 100 * number(item.stats.initiation_rounds) / rounds : null;
+      };
+      const contactRoundsColumn = { key: "initiation_round_percent", label: "First-contact rounds %", value: contactRoundPercent,
+        format: item => contactRoundPercent(item) == null ? "—" : `${decimal(contactRoundPercent(item), 1)}%` };
+      const initiationColumns = state.expandedGroups.initiation ? [
+        { key: "initiation_contacts", label: "First contacts", value: item => availability.value(item.stats, "initiation_contacts"), format: item => availableInteger(item, "initiation_contacts") },
+        contactRoundsColumn
+      ] : [contactRoundsColumn];
       const roundStateColumns = state.expandedGroups.roundState ? [
         { key: "context-clawback-bozo", label: "Clawback-Bozo K-D", value: item => number(item.stats.clawback_kills) - number(item.stats.bozo_deaths), format: item => availability.available(item.stats, "clawback_kills") ? `${integer(item.stats.clawback_kills)}-${integer(item.stats.bozo_deaths)}` : "—" },
         { key: "context-even", label: "Even K-D", value: item => number(item.stats.even_kills) - number(item.stats.even_deaths), format: item => availability.available(item.stats, "even_kills") ? `${integer(item.stats.even_kills)}-${integer(item.stats.even_deaths)}` : "—" },
