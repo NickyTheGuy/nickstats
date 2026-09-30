@@ -79,8 +79,8 @@
       ["trade_success", "Trade success rate", percentage("trade_successes", "trade_attempts"), 1, "%"], ["traded_death_rate", "Tradeable deaths converted", percentage("traded_deaths", "tradeable_deaths"), 1, "%"]
     ]],
     ["Initiation", [
-      ["initiation_contacts_pr", "First contacts per round", rate("initiation_contacts"), 3],
-      ["initiation_round_percent", "Rounds with first contact", percentage("initiation_rounds", "rounds"), 1, "%"]
+      ["initiation_contacts_pr", "Initiations per round", rate("initiation_contacts"), 3],
+      ["initiation_round_percent", "Rounds with an initiation", percentage("initiation_rounds", "rounds"), 1, "%"]
     ]],
     ["Utility", [
       ["utility_dr", "Utility damage per round", stats => ratio(number(stats.he_damage) + number(stats.fire_damage), stats.rounds), 1],

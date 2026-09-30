@@ -340,10 +340,10 @@
         const rounds = availability.rounds(item.stats, "initiation_rounds");
         return availability.available(item.stats, "initiation_rounds") && rounds > 0 ? 100 * number(item.stats.initiation_rounds) / rounds : null;
       };
-      const contactRoundsColumn = { key: "initiation_round_percent", label: "First-contact rounds %", value: contactRoundPercent,
+      const contactRoundsColumn = { key: "initiation_round_percent", label: "Initiation rounds %", value: contactRoundPercent,
         format: item => contactRoundPercent(item) == null ? "—" : `${decimal(contactRoundPercent(item), 1)}%` };
       const initiationColumns = state.expandedGroups.initiation ? [
-        { key: "initiation_contacts", label: "First contacts", value: item => availability.value(item.stats, "initiation_contacts"), format: item => availableInteger(item, "initiation_contacts") },
+        { key: "initiation_contacts", label: "Initiations", value: item => availability.value(item.stats, "initiation_contacts"), format: item => availableInteger(item, "initiation_contacts") },
         contactRoundsColumn
       ] : [contactRoundsColumn];
       const roundStateColumns = state.expandedGroups.roundState ? [

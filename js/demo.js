@@ -298,8 +298,8 @@
     rating: oneMode("rating", "Rating", player => player.rating ?? 0)
   };
 
-  sortSpecs.initiation_contacts = oneMode("initiation_contacts", "First contacts", player => player.initiation_available ? player.initiation?.initiation_contacts ?? 0 : null);
-  sortSpecs.initiationRoundPercent = oneMode("initiationRoundPercent", "First-contact rounds %", player => player.initiation_available && player.rounds_played > 0
+  sortSpecs.initiation_contacts = oneMode("initiation_contacts", "Initiations", player => player.initiation_available ? player.initiation?.initiation_contacts ?? 0 : null);
+  sortSpecs.initiationRoundPercent = oneMode("initiationRoundPercent", "Initiation rounds %", player => player.initiation_available && player.rounds_played > 0
     ? 100 * (player.initiation?.initiation_rounds ?? 0) / player.rounds_played : null);
 
   for (let opponents = 5; opponents >= 1; opponents -= 1) {
@@ -2105,7 +2105,7 @@
       const labels = {
         combat: "K/round-D/round-A/round",
         opening: "K/round-D/round · Att%",
-        initiation: "First-contact rounds %",
+        initiation: "Initiation rounds %",
         trades: "K/round-D/round",
         clutches: "W/round / A/round · Win%",
         multikills: "Total / round",
@@ -2264,7 +2264,7 @@
         "K on ally flash": sortSpecs.assistedFlash,
         "K on your flash": sortSpecs.assistedOwnFlash
       },
-      initiation: { "First contacts": sortSpecs.initiation_contacts, "First-contact rounds %": sortSpecs.initiationRoundPercent },
+      initiation: { "Initiations": sortSpecs.initiation_contacts, "Initiation rounds %": sortSpecs.initiationRoundPercent },
       clutches: {
         Total: sortSpecs.clutchTotal,
         "Total W/A · Win%": sortSpecs.clutchTotal,

@@ -24,7 +24,7 @@
   const columns = Object.freeze({
     combat: [["K", "D", "A", "K/D", "HS%", "Damage", "Received", "Diff", "ADR"], "K-D-A"],
     opening: [["K", "D", "Assisted K", "Dmg A", "K on ally flash", "Traded D", "Trade K", "A earned", "Dmg A earned", "A from your flash", "Enemy blind K", "K while blind", "D while blind", "D to blind killer", "Enemy assisted D", "Enemy dmg A D", "D on killer's ally flash", "K on your flash", "K on their flash", "D to killer's flash", "D to your side's flash", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
-    initiation: [["First contacts", "First-contact rounds %"], "First-contact rounds %"],
+    initiation: [["Initiations", "Initiation rounds %"], "Initiation rounds %"],
     trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
     clutches: [["1v5", "1v4", "1v3", "1v2", "1v1"], "Total W/A · Win%"],
     multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%", "5K", "4K", "3K", "2K", "TMK%"], "Total"],
@@ -62,8 +62,8 @@
     roundState: 112, killStage: 104, timing: 110, killContext: 112, movement: 112, utility: 176
   });
   const flashDescriptions = Object.freeze({
-    "First contacts": "Separate fights where you deal or take the first hit outside an active trade exchange; several can occur in one round",
-    "First-contact rounds %": "Percentage of compatible rounds where you had at least one first contact; each round counts once",
+    "Initiations": "Separate fights where you deal or take the first hit outside an active trade exchange; several can occur in one round",
+    "Initiation rounds %": "Percentage of compatible rounds where you had at least one initiation; each round counts once",
     "K on ally flash": "Kills on enemies blinded by a teammate's flash",
     "K on your flash": "Kills on enemies blinded by a flash you threw",
     "K on their flash": "Opening kills on enemies blinded by their own side's flash, including their own flash",

@@ -12,7 +12,7 @@
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.09.30.4</span>
+          <span class="demo-build">Build 2026.09.30.5</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -413,9 +413,9 @@
             </div>
           </div>
           <div class="player-profile-view" data-player-profile-view="initiation" hidden>
-            <section class="player-stat-section"><header><span>01</span><div><h3>Fighting first</h3><p>How often you take the first contact in a separate fight, rather than join an active trade exchange.</p></div></header><div class="player-detail-grid" id="playerInitiationContactStats"></div></section>
-            <p class="method">First contacts count the fights where you deal or take the first damaging hit, even if you neither kill nor die. Rounds with a first contact counts each round once, so several separate fights in one round increase contacts but not rounds.</p>
-            <details class="clutch-economics-method"><summary>How first contacts are identified</summary><p class="method">Independent fights are tracked separately throughout the round. Contacts inside active trade exchanges and teammates joining an existing fight receive no new first-contact credit. A two-second lull ends an engagement. Grenade and fire chip damage do not start a gunfight; missed shots can sustain an existing fight but do not start one. The first recorded hit measures who was involved first, not who intended to push. Older demos are excluded from the rates until reparsed.</p></details>
+            <section class="player-stat-section"><header><span>01</span><div><h3>Initiations</h3><p>How often you initiate a separate fight, rather than join an active trade exchange.</p></div></header><div class="player-detail-grid" id="playerInitiationContactStats"></div></section>
+            <p class="method">Initiations count the fights where you deal or take the first damaging hit, even if you neither kill nor die. Rounds with an initiation counts each round once, so several separate fights in one round increase initiations but not rounds.</p>
+            <details class="clutch-economics-method"><summary>How initiations are identified</summary><p class="method">Independent fights are tracked separately throughout the round. Contacts inside active trade exchanges and teammates joining an existing fight receive no new initiation credit. A two-second lull ends an engagement. Grenade and fire chip damage do not start a gunfight; missed shots can sustain an existing fight but do not start one. The first recorded hit measures who was involved first, not who intended to push. Older demos are excluded from the rates until reparsed.</p></details>
           </div>
           <div class="player-profile-view" data-player-profile-view="context" hidden>
             <p class="player-context-note"><strong>Paul Kill/Death:</strong> the victim had a grenade or knife out at death or within the preceding 1.4 seconds. <strong>Bullshit Kills/Deaths</strong> combine blind-killer, airborne, running, wallbang, smoke, and Paul events, counting overlaps once. Movement details live in the Movement tab.</p>
@@ -589,12 +589,12 @@
   <script defer src="./js/manual-filters.js?v=20260930-1"></script>
   <script defer src="./js/dropdown.js?v=20260925-02"></script>
   <script defer src="./js/stat-availability.js?v=20260929-4"></script>
-  <script defer src="./js/scoreboard.js?v=20260930-4"></script>
+  <script defer src="./js/scoreboard.js?v=20260930-5"></script>
   <script defer src="./js/round-timeline.js?v=20260925-06"></script>
-  <script defer src="./js/graphs.js?v=20260930-4"></script>
-  <script defer src="./js/demo.js?v=20260930-4"></script>
-  <script defer src="./js/profile.js?v=20260930-4"></script>
-  <script defer src="./js/quick-comparison.js?v=20260930-4"></script>
+  <script defer src="./js/graphs.js?v=20260930-5"></script>
+  <script defer src="./js/demo.js?v=20260930-5"></script>
+  <script defer src="./js/profile.js?v=20260930-5"></script>
+  <script defer src="./js/quick-comparison.js?v=20260930-5"></script>
   <script defer src="./js/players.js?v=20260930-1"></script>
   <script defer src="./js/groups.js?v=20260930-1"></script>
 </body>

@@ -243,10 +243,10 @@
       ["Cleanup deaths", statInteger("cleanup_deaths"), statPerRound("cleanup_deaths")]
     ]);
     fillCards(`${prefix}InitiationContactStats`, [
-      ["First contacts", statInteger("initiation_contacts"), statPerRound("initiation_contacts")],
-      ["Rounds with a first contact", statAvailable("initiation_rounds") && availability.rounds(rawStats, "initiation_rounds") > 0
+      ["Initiations", statInteger("initiation_contacts"), statPerRound("initiation_contacts")],
+      ["Rounds with an initiation", statAvailable("initiation_rounds") && availability.rounds(rawStats, "initiation_rounds") > 0
         ? percent(100 * ratio(s.initiation_rounds, availability.rounds(rawStats, "initiation_rounds"))) : "—",
-        statAvailable("initiation_rounds") ? `${integer(s.initiation_rounds)} of ${integer(availability.rounds(rawStats, "initiation_rounds"))} compatible rounds` : "Reparse older demos to collect first contacts"]
+        statAvailable("initiation_rounds") ? `${integer(s.initiation_rounds)} of ${integer(availability.rounds(rawStats, "initiation_rounds"))} compatible rounds` : "Reparse older demos to collect initiations"]
     ]);
     const clutchTotals = [1, 2, 3, 4, 5].reduce((total, opponents) => {
       total.wins += number(s[`clutch_1v${opponents}`]);
