@@ -11,6 +11,24 @@ struct ImportResult: Sendable {
     let affectedPlayerIDs: [Int64]
 }
 
+struct MatchImportDate: Sendable {
+    var playedAt: Date?
+    var source: String?
+}
+
+func resolvedMatchImportDate(
+    existingDate: Date?, existingSource: String?, incomingDate: Date?, incomingSource: String?
+) -> MatchImportDate {
+    func valid(_ date: Date?) -> Bool {
+        guard let date else { return false }
+        // Zero is used as a missing timestamp in some old payloads.
+        return date.timeIntervalSince1970 > 0 && date.timeIntervalSince1970 <= 32_503_680_000
+    }
+    if valid(existingDate) { return MatchImportDate(playedAt: existingDate, source: existingSource) }
+    if valid(incomingDate) { return MatchImportDate(playedAt: incomingDate, source: incomingSource) }
+    return MatchImportDate(playedAt: nil, source: nil)
+}
+
 private func integerID(_ row: any SQLRow, column: String = "id") throws -> Int64 {
     if let value = try? row.decode(column: column, as: Int64.self) { return value }
     return Int64(try row.decode(column: column, as: UInt64.self))
@@ -104,10 +122,25 @@ func importMatch(
     var affectedPlayerIDs = Set<Int64>()
 
     let configID = try await parserConfigurationID(sql, rules: payload.rules)
-    let playedAt = payload.playedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) }
+    var importDate = resolvedMatchImportDate(
+        existingDate: nil, existingSource: nil,
+        incomingDate: payload.playedAt.map { Date(timeIntervalSince1970: TimeInterval($0)) },
+        incomingSource: payload.playedAtSource
+    )
     let provider: String? = payload.id.faceit == nil ? nil : "faceit"
     let matchID: Int64
     if let existingMatchID {
+        // Lock before reading the date so an extension sync cannot be overwritten
+        // by stale metadata while the match's statistics are being replaced.
+        guard let stored = try await sql.raw("""
+            SELECT played_at, played_at_source FROM matches
+            WHERE id = \(bind: existingMatchID) FOR UPDATE
+            """).first() else { throw Abort(.notFound, reason: "The match no longer exists.") }
+        importDate = resolvedMatchImportDate(
+            existingDate: try stored.decode(column: "played_at", as: Date?.self),
+            existingSource: try stored.decode(column: "played_at_source", as: String?.self),
+            incomingDate: importDate.playedAt, incomingSource: importDate.source
+        )
         let previousPlayers = try await sql.raw("""
             SELECT player_id FROM match_players
             WHERE match_id = \(bind: existingMatchID) AND player_id IS NOT NULL
@@ -130,8 +163,8 @@ func importMatch(
               demo_sha256 = UNHEX(\(bind: sha256)), payload_schema = \(bind: payload.schema),
               nickstats_build = \(bind: payload.nickstatsBuild), parser_name = \(bind: payload.parser.name),
               parser_version = \(bind: payload.parser.version), parser_config_id = \(bind: configID),
-              map_name = \(bind: payload.map), played_at = \(bind: playedAt),
-              played_at_source = \(bind: payload.playedAtSource), rounds = \(bind: payload.rounds)
+              map_name = \(bind: payload.map), played_at = \(bind: importDate.playedAt),
+              played_at_source = \(bind: importDate.source), rounds = \(bind: payload.rounds)
             WHERE id = \(bind: existingMatchID)
             """).run()
         matchID = existingMatchID
@@ -145,7 +178,7 @@ func importMatch(
               \(bind: provider), \(bind: payload.id.faceit), UNHEX(\(bind: sha256)),
               \(bind: payload.schema), \(bind: payload.nickstatsBuild),
               \(bind: payload.parser.name), \(bind: payload.parser.version), \(bind: configID),
-              \(bind: payload.map), \(bind: playedAt), \(bind: payload.playedAtSource), \(bind: payload.rounds)
+              \(bind: payload.map), \(bind: importDate.playedAt), \(bind: importDate.source), \(bind: payload.rounds)
             )
             """).run()
         matchID = try await lastInsertID(sql)
@@ -175,7 +208,7 @@ func importMatch(
             playerID = nil
         } else {
             let globalID = try await globalPlayerID(
-                sql, steamID: UInt64(player.steamID!)!, name: player.name, playedAt: playedAt
+                sql, steamID: UInt64(player.steamID!)!, name: player.name, playedAt: importDate.playedAt
             )
             playerID = globalID
             affectedPlayerIDs.insert(globalID)
