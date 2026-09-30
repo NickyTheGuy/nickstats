@@ -3713,3 +3713,9 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .player-profile-tab[data-player-view="initiation"].active,
 .player-profile-tab[data-combo-profile-view="initiation"].active { --tab-active-accent: var(--amber); }
+
+.clutch-economics-impact { grid-template-columns: minmax(0, 1fr); }
+.clutch-economics-impact .player-stat-card strong { font-size: clamp(28px, 4vw, 40px); }
+.clutch-economics-method { margin-top: 10px; }
+.clutch-economics-method summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+.clutch-economics-method .method { margin-top: 10px; max-width: 85ch; line-height: 1.6; }

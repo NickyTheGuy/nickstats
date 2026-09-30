@@ -267,26 +267,19 @@
         return [`1v${opponents}`, `${integer(wins)} / ${integer(attempts)}`, attempts ? `${percent(100 * ratio(wins, attempts))} won · ${integer(Math.max(0, attempts - wins))} failed` : "No attempts"];
       })
     ]);
-    const economics = availability.scope(rawStats, "clutchEconomics");
-    const outcomes = [["win_survive", "Win · survive"], ["win_die", "Win · die"],
-      ["loss_survive", "Lose · save"], ["loss_die", "Lose · die"]];
-    const econValue = (outcome, field) => number(economics?.[`clutch_econ_${outcome}_${field}`]);
-    const measured = outcomes.reduce((sum, [outcome]) => sum + econValue(outcome, "measured"), 0);
-    const attempted = outcomes.reduce((sum, [outcome]) => sum + econValue(outcome, "count"), 0);
-    const money = value => `${value < 0 ? "−" : ""}$${Math.round(Math.abs(value)).toLocaleString()}`;
-    const table = $(`${prefix}ClutchEconomicsTable`);
-    if (table) renderTable(table, ["Outcome", "Attempts", "Measured", "Your team", "Enemy team", "Difference", "Swing", "Your cash change", "Enemy cash change", "Saved gear", "Enemy gear removed", "Clutch kills"],
-      outcomes.map(([outcome, label]) => {
-        const n = econValue(outcome, "measured");
-        const average = key => n ? money(econValue(outcome, key) / n) : "—";
-        return [label, economics ? integer(econValue(outcome, "count")) : "—", economics ? integer(n) : "—",
-          ...["team_resources", "enemy_resources", "differential", "swing", "team_cash_change", "enemy_cash_change", "saved", "stripped"].map(average),
-          n ? decimal(econValue(outcome, "kills") / n, 2) : "—"];
-      }));
+    const economics = clutchEconomySummary(rawStats);
+    const money = value => `${value > 0 ? "+" : value < 0 ? "−" : ""}$${Math.round(Math.abs(value)).toLocaleString()}`;
+    const impact = $(`${prefix}ClutchEconomicsStats`);
+    if (impact) impact.replaceChildren(card("Net economy change", economics.total == null ? "—" : money(economics.total),
+      economics.average == null ? economics.available ? "No measured attempts in this selection" : "Reparse demos to collect clutch/save economics"
+        : `${money(economics.average)} per measured attempt`,
+      economics.total == null ? "" : semanticClass(economics.total, 0, 0)));
+    const coverage = $(`${prefix}ClutchEconomicsCoverage`);
+    if (coverage) coverage.textContent = economics.available
+      ? `${integer(economics.measured)} of ${integer(economics.attempted)} clutch/save attempts measured. Incomplete snapshots are excluded.`
+      : "Earlier demos are unavailable, rather than counted as zero.";
     const econNote = $(`${prefix}ClutchEconomicsNote`);
-    if (econNote) econNote.textContent = economics
-      ? `Dollar values and kills are averages per measured attempt. ${integer(measured)} of ${integer(attempted)} attempts have complete economic snapshots. Positive swing favors your team. Enemy gear removed is the equipment held by victims of your clutch kills; pickups can recover it. These are observed outcomes, not predictions of alternative decisions.`
-      : "Reparse demos to collect clutch economics. Earlier matches do not contribute zeroes.";
+    if (econNote) econNote.textContent = "We measure how your team's cash-and-equipment advantage over the enemy changes from the moment you become the last player alive until round rewards and post-round deaths settle. Wins, deaths, saves, and enemy equipment losses all feed this one total. Positive means your team's relative economy improved; negative means it worsened. This adds changes across attempts, not the money currently in your bank. It describes the observed economy change during your attempts, not the value versus choosing a different action or proof that a clutch decided the match.";
     const multikillRounds = [2, 3, 4, 5].reduce((total, kills) => total + number(s[`kill_rounds_${kills}k`]), 0);
     fillStrip(`${prefix}MultikillStats`, [
       ["Multi-kill %", percent(100 * ratio(multikillRounds, rounds)), `${integer(multikillRounds)} of ${integer(rounds)} rounds`],
@@ -365,6 +358,20 @@
     }));
   }
 
+  function clutchEconomySummary(rawStats) {
+    const economics = availability.scope(rawStats, "clutchEconomics");
+    const outcomes = ["win_survive", "win_die", "loss_survive", "loss_die"];
+    let attempted = 0, measured = 0, total = 0;
+    for (const outcome of outcomes) {
+      attempted += number(economics?.[`clutch_econ_${outcome}_count`]);
+      const samples = number(economics?.[`clutch_econ_${outcome}_measured`]);
+      measured += samples;
+      if (samples > 0) total += number(economics?.[`clutch_econ_${outcome}_swing`]);
+    }
+    return { available: economics != null, attempted, measured,
+      total: measured ? total : null, average: measured ? total / measured : null };
+  }
+
   function mountComparisonProfile() {
     const source = $("playerProfileBody"), target = $("comboProfileBody");
     if (!source || !target) return;
@@ -390,6 +397,6 @@
     target.replaceChildren(...component.childNodes);
   }
 
-  window.NickStatsProfile = Object.freeze({ render, renderTable, number, integer, decimal, percent, ratio, titleCase, countPerRound, perGrenade });
+  window.NickStatsProfile = Object.freeze({ render, renderTable, clutchEconomySummary, number, integer, decimal, percent, ratio, titleCase, countPerRound, perGrenade });
   mountComparisonProfile();
 })();
