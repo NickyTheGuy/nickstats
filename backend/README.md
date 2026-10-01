@@ -1,6 +1,6 @@
 # NickStats API
 
-The API imports compact `nickstats.match/25` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 through 24 remain readable for existing stored matches; the browser still parses demos locally and uploads only the compact result. Run database migrations through 018 before deploying this backend. Hero flags are stored in existing round statistics JSON, so this change needs no new database migration.
+The API imports compact `nickstats.match/26` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 through 25 remain readable for existing stored matches; the browser still parses demos locally and uploads only the compact result. Run database migrations through 018 before deploying this backend. Hero flags are stored in existing round statistics JSON, so this change needs no new database migration.
 
 The compact format intentionally uses fixed-position arrays to keep uploads small. Inside the Swift service, those arrays decode into named domain types such as `TradeStats`, `KillContextStats`, `RoundTimingPayload`, and `DeathEventPayload`; database and validation code never rely on unexplained numeric indexes. Encoding those types reconstructs the same versioned wire format.
 
@@ -85,6 +85,8 @@ The service is written in Swift 6.3 with Vapor 4. The Docker build compiles it i
 Schema 24 adds `clutch_economics` counters to statistic JSON slices. Deploy the updated API before uploading schema-24 reparses. Existing migration 017 stores the per-round counters; no additional migration is required. Unfiltered profile and match side totals reconstruct these counters from the round JSON.
 
 Schema 25 adds validated `initiation` counters to each statistic JSON slice. Deploy the updated API before uploading schema-25 reparses. Profile and match side totals reconstruct these fields from existing per-round JSON; no migration beyond 017 is needed.
+
+Schema 26 adds signed `*_save_impact` and `*_save_measured` counters to `clutch_economics`. These compare actual outcomes with modeled losses retaining the starting equipment. Schemas 24–25 keep their observed swing counters, but the frontend excludes them from the new comparison. Deploy this API before uploading schema-26 reparses; no new migration is required.
 
 ## Manual filters
 

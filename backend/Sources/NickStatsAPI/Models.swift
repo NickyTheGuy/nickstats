@@ -1,8 +1,8 @@
 import Vapor
 
-let compactSchema = "nickstats.match/25"
-let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema])
-let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", compactSchema])
+let compactSchema = "nickstats.match/26"
+let acceptedCompactSchemas = Set(["nickstats.match/9", "nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", compactSchema])
+let timingCompactSchemas = Set(["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", compactSchema])
 
 enum PlayerSide: String, CaseIterable, Codable, Sendable {
     case terrorist = "T"

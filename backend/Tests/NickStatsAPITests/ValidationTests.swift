@@ -465,6 +465,34 @@ private func validFaceitDatePayload() -> FaceitDateSyncPayload {
     #expect(throws: MatchValidationError.self) { try payload.validate() }
 }
 
+@Test func saveComparisonRoundTripsSignedValuesAndValidatesSamples() throws {
+    var payload = validPayload()
+    payload.schema = compactSchema
+    for index in payload.players.indices { payload.players[index].roundSlices = [] }
+    var played = emptySide()
+    played.rounds = RoundRecord(played: 1, won: 1)
+    played.clutchEconomics = ["win_die_count": 1, "win_die_measured": 1,
+                             "win_die_save_measured": 1, "win_die_save_impact": -4_000]
+    payload.players[0].sides.terrorist = played
+    payload.players[0].buys![0] = played
+    payload.players[0].roundResults![0] = played
+    payload.players[0].roundResults![4] = played
+    payload.players[0].economyMatchups = [EconomyMatchupStats(
+        ownBuyIndex: 0, opponentBuyIndex: 0, resultIndex: 0, sideIndex: 0, stats: played
+    )]
+    payload.players[0].roundSlices = [PlayerRoundSlice(
+        round: 1, side: .terrorist, buy: "pistol", opponentBuy: "pistol",
+        result: "win", stats: played, hero: false
+    )]
+    try payload.validate()
+    let decoded = try JSONDecoder().decode(SideStatsPayload.self, from: JSONEncoder().encode(played))
+    #expect(flattenedBuyStats(decoded)["clutch_econ_win_die_save_impact"] == -4_000)
+    payload.players[0].sides.terrorist.clutchEconomics?["win_die_save_measured"] = 2
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+    payload.players[0].sides.terrorist.clutchEconomics?["win_die_save_measured"] = 0
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+}
+
 
 @Test func initiationRoundTripsAndFlattensForProfiles() throws {
     var stats = emptySide()
@@ -485,6 +513,10 @@ private func validFaceitDatePayload() -> FaceitDateSyncPayload {
     payload.players[0].sides.terrorist.initiation = nil
     #expect(throws: MatchValidationError.self) { try payload.validate() }
     payload.schema = "nickstats.match/24"
+    try payload.validate()
+    payload.schema = "nickstats.match/25"
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+    payload.players[0].sides.terrorist.initiation = [:]
     try payload.validate()
 }
 
