@@ -264,10 +264,10 @@
     const economics = clutchEconomySummary(rawStats);
     const money = window.NickStatsScoreboard.money;
     const impact = $(`${prefix}ClutchEconomicsStats`);
-    if (impact) impact.replaceChildren(card("Expected attempt value", economics.total == null ? "—" : money(economics.total),
-      economics.average == null ? economics.available ? "Not enough history for an estimate" : "Reparse demos to collect prediction inputs"
-        : `${money(economics.average)} expected per situation`,
-      economics.total == null ? "" : semanticClass(economics.total, 0, 0)));
+    if (impact) impact.replaceChildren(...[["All / attempt", economics], ...[5, 4, 3, 2, 1].map(size => [`1v${size} / attempt`, economics.bySize[size]])]
+      .map(([label, value]) => card(label, money(value.average), value.measured
+        ? `${integer(value.measured)} attempts estimated` : economics.available ? "Not enough history" : "Reparse demos for estimates",
+      value.average == null ? "" : semanticClass(value.average, 0, 0))));
     const coverage = $(`${prefix}ClutchEconomicsCoverage`);
     if (coverage) coverage.textContent = economics.available
       ? `${integer(economics.measured)} of ${integer(economics.attempted)} situations estimated.`

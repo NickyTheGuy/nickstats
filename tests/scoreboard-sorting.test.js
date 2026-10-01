@@ -104,9 +104,9 @@ test("match body groups match header order with Initiation and Trades independen
   for (const mode of ["totals", "round"]) {
     state.scoreboardValueMode = mode;
     assert.deepEqual(render(player).cells.filter(cell => cell.classList.contains("clutches-cell")).map(cell => cell.textContent),
-      ["+$9,000", "+$3,000", "3 / 5"]);
+      ["+$3,000", "—", "—", "—", "—", "+$3,000"]);
     assert.deepEqual(render({ ...player, clutch_economics_available: false }).cells.filter(cell => cell.classList.contains("clutches-cell")).map(cell => cell.textContent),
-      ["—", "—", "—"]);
+      Array(6).fill("—"));
   }
 });
 
@@ -134,9 +134,9 @@ test("clutch economics pools measured outcomes and cycles matching columns and w
   assert.equal(Scoreboard.focus(layout, "clutches", Scoreboard.columns.clutches[0]).length, 5);
   Scoreboard.cycle(layout, "clutches");
   assert.deepEqual(Array.from(Scoreboard.focus(layout, "clutches", Scoreboard.columns.clutches[0])),
-    ["Expected attempt value", "Avg / situation", "Estimated situations"]);
-  assert.equal(Scoreboard.minimumWidths(layout, "clutches").length, 3);
-  for (const [field, expected] of [["total", 9000], ["average", 3000], ["measured", 3]]) {
+    ["All / attempt", "1v5 / attempt", "1v4 / attempt", "1v3 / attempt", "1v2 / attempt", "1v1 / attempt"]);
+  assert.equal(Scoreboard.minimumWidths(layout, "clutches").length, 6);
+  for (const [field, expected] of [["average", 3000], ["size1", 3000], ["size5", null]]) {
     const spec = matchSorts[`clutchEconomics_${field}`];
     assert.equal(spec.modes[0].value({ clutch_economics: counters }), expected);
     assert.equal(spec.modes[0].value({ clutch_economics: counters, clutch_economics_available: false }), null);
@@ -163,12 +163,12 @@ test("quick comparison economics columns preserve dollars and sample coverage in
     clutch_econ_loss_die_count: 3, clutch_econ_loss_die_ct1_count: 3, clutch_econ_loss_die_ct1_forecast: 1,
     clutch_econ_loss_die_ct1_victory: 7000, clutch_econ_loss_die_ct1_victory_dead: 7000 } } };
   const columns = api.renderTable([item]).filter(column => column.group === "clutches");
-  assert.equal(columns.length, 3);
+  assert.equal(columns.length, 6);
   for (const mode of ["totals", "round", "match"]) {
     state.valueMode = mode;
-    assert.deepEqual(Array.from(columns, column => api.displayedValue(column, item)), ["+$9,000", "+$3,000", "3 / 5"]);
-    assert.deepEqual(Array.from(columns, column => api.columnSortValue(column, item)), [9000, 3000, 3]);
-    assert.deepEqual(Array.from(columns, column => api.displayedLabel(column)), ["Expected attempt value", "Avg / situation", "Estimated situations"]);
-    assert.deepEqual(Array.from(columns, column => api.displayedValue(column, { rows: [], stats: {} })), ["—", "—", "—"]);
+    assert.deepEqual(Array.from(columns, column => api.displayedValue(column, item)), ["+$3,000", "—", "—", "—", "—", "+$3,000"]);
+    assert.deepEqual(Array.from(columns, column => api.columnSortValue(column, item)), [3000, null, null, null, null, 3000]);
+    assert.deepEqual(Array.from(columns, column => api.displayedLabel(column)), ["All / attempt", "1v5 / attempt", "1v4 / attempt", "1v3 / attempt", "1v2 / attempt", "1v1 / attempt"]);
+    assert.deepEqual(Array.from(columns, column => api.displayedValue(column, { rows: [], stats: {} })), Array(6).fill("—"));
   }
 });

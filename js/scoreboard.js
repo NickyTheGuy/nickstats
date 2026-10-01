@@ -26,7 +26,7 @@
     opening: [["K", "D", "Assisted K", "Dmg A", "K on ally flash", "Traded D", "Trade K", "A earned", "Dmg A earned", "A from your flash", "Enemy blind K", "K while blind", "D while blind", "D to blind killer", "Enemy assisted D", "Enemy dmg A D", "D on killer's ally flash", "K on your flash", "K on their flash", "D to killer's flash", "D to your side's flash", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
     initiation: [["Initiations", "Initiation rounds %"], "Initiation rounds %"],
     trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
-    clutches: [["1v5", "1v4", "1v3", "1v2", "1v1", "Expected attempt value", "Avg / situation", "Estimated situations"], "Total W/A · Win%"],
+    clutches: [["1v5", "1v4", "1v3", "1v2", "1v1", "All / attempt", "1v5 / attempt", "1v4 / attempt", "1v3 / attempt", "1v2 / attempt", "1v1 / attempt"], "Total W/A · Win%"],
     multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%", "5K", "4K", "3K", "2K", "TMK%"], "Total"],
     objectives: [["Plants", "Defuses"], "Plants/defuses"],
     roundState: [["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D"], "Clawback-Bozo K-D"],
@@ -42,7 +42,7 @@
       ["flashKills", "Flash kills", [10, 11, 17, 18], "Opening kills · flash"],
       ["flashDeaths", "Flash deaths", [12, 13, 19, 20], "Opening deaths · flash"],
       ["enemyAssists", "Enemy assists", [14, 15, 16], "Opening deaths · enemy assists"]],
-    clutches: [["performance", "Performance", [0, 1, 2, 3, 4], "Clutches"], ["economics", "Economics", [5, 6, 7], "Clutch economics"]],
+    clutches: [["performance", "Performance", [0, 1, 2, 3, 4], "Clutches"], ["economics", "Economics", [5, 6, 7, 8, 9, 10], "Clutch economics"]],
     multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5], "Multi-kills"], ["true", "True", [6, 7, 8, 9, 10], "True multi-kills"]],
     killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4], "Visibility and cover"], ["readiness", "Readiness", [5, 6, 7, 8], "Readiness"]],
     movement: [["state", "State", [0, 1, 2, 3], "Movement"], ["speed", "Speed", [4, 5, 6, 7], "Movement speed"]],
@@ -52,7 +52,7 @@
     combat: [54, 54, 54, 62, 62, 82, 88, 76, 72],
     opening: [58, 58, 82, 68, 126, 88, 68, 76, 76, 130, 82, 100, 100, 126, 104, 112, 164, 110, 112, 126, 152, 82, 62, 72, 76],
     initiation: [110, 164],
-    trades: [58, 54, 96, 58, 54, 96], clutches: [94, 94, 94, 94, 94, 176, 142, 146],
+    trades: [58, 54, 96, 58, 54, 96], clutches: [94, 94, 94, 94, 94, 120, 120, 120, 120, 120, 120],
     multikills: [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], objectives: [74, 74],
     roundState: [128, 88, 168, 104], killStage: [92, 92, 92, 92, 92], timing: [82, 82, 84, 84, 84, 112],
     killContext: [104, 104, 98, 88, 88, 112, 104, 88, 88], movement: [88, 88, 88, 88, 116, 132, 126, 142],
@@ -69,7 +69,8 @@
   const groupSection = Object.freeze(Object.fromEntries(sections.flatMap(([section, , values]) => values.map(group => [group, section]))));
 
   function clutchEconomics(counters, prefix = "") {
-    if (!counters) return { attempted: 0, measured: 0, total: null, average: null };
+    const bySize = Object.fromEntries([1, 2, 3, 4, 5].map(size => [size, { attempted: 0, measured: 0, total: null, average: null }]));
+    if (!counters) return { attempted: 0, measured: 0, total: null, average: null, bySize };
     const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
     const outcomes = ["win_survive", "win_die", "loss_survive", "loss_die"];
     const attempted = outcomes.reduce((sum, outcome) => sum + number(counters[`${prefix}${outcome}_count`]), 0);
@@ -78,6 +79,7 @@
       const read = (outcome, key) => number(counters[`${prefix}${outcome}_${side}${size}_${key}`]);
       const wins = read("win_survive", "count") + read("win_die", "count");
       const failures = read("loss_die", "count");
+      bySize[size].attempted += outcomes.reduce((sum, outcome) => sum + read(outcome, "count"), 0);
       // Saves do not count as failed attempts. Require a useful history and
       // smooth small samples with one win and one failure, rather than 0/100%.
       if (wins + failures < 5) continue;
@@ -85,11 +87,18 @@
       const dieOnWin = (read("win_die", "count") + 1) / (wins + 2);
       const lateFailure = failures ? read("loss_die", "late") / failures : 0;
       const sum = key => outcomes.reduce((value, outcome) => value + read(outcome, key), 0);
-      measured += sum("forecast");
-      total += winChance * ((1 - dieOnWin) * sum("victory") + dieOnWin * sum("victory_dead"))
+      const samples = sum("forecast");
+      const value = winChance * ((1 - dieOnWin) * sum("victory") + dieOnWin * sum("victory_dead"))
         + (1 - winChance) * ((1 - lateFailure) * sum("failure") + lateFailure * sum("failure_late"));
+      measured += samples;
+      total += value;
+      if (samples) {
+        bySize[size].measured += samples;
+        bySize[size].total = (bySize[size].total ?? 0) + value;
+        bySize[size].average = bySize[size].total / bySize[size].measured;
+      }
     }
-    return { attempted, measured, total: measured ? total : null, average: measured ? total / measured : null };
+    return { attempted, measured, total: measured ? total : null, average: measured ? total / measured : null, bySize };
   }
 
   function money(value) {

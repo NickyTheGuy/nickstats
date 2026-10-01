@@ -339,10 +339,9 @@
       if (state.expandedGroups.clutches) {
         const economy = item => Scoreboard.clutchEconomics(availability.scope(item.stats, "clutchEconomics"), "clutch_econ_");
         clutchColumns.push(
-          { key: "clutch-economy-total", label: "Expected attempt value", value: item => economy(item).total, format: item => Scoreboard.money(economy(item).total) },
-          { key: "clutch-economy-average", label: "Avg / situation", value: item => economy(item).average, format: item => Scoreboard.money(economy(item).average) },
-          { key: "clutch-economy-measured", label: "Estimated situations", value: item => availability.scope(item.stats, "clutchEconomics") ? economy(item).measured : null,
-            format: item => availability.scope(item.stats, "clutchEconomics") ? `${integer(economy(item).measured)} / ${integer(economy(item).attempted)}` : "—" }
+          { key: "clutch-economy-average", label: "All / attempt", value: item => economy(item).average, format: item => Scoreboard.money(economy(item).average) },
+          ...[5, 4, 3, 2, 1].map(size => ({ key: `clutch-economy-size${size}`, label: `1v${size} / attempt`,
+            value: item => economy(item).bySize[size].average, format: item => Scoreboard.money(economy(item).bySize[size].average) }))
         );
       }
       const contactRoundPercent = item => {

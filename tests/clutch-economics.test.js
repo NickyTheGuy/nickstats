@@ -226,7 +226,7 @@ test("pooled impact distinguishes negative, zero, incomplete, and unavailable me
   assert.equal(summarize({}).average, null);
 });
 
-test("Player and Groups render one signed aggregate with its average and measurement coverage", () => {
+test("Player and Groups render aggregate and size estimates per attempt with coverage", () => {
   class Element {
     constructor() { this.children = []; this.dataset = {}; this.classList = { add() {} }; }
     append(...nodes) { this.children.push(...nodes); }
@@ -251,10 +251,13 @@ test("Player and Groups render one signed aggregate with its average and measure
   for (const prefix of ["player", "combo"]) {
     ctx.window.NickStatsProfile.render({ prefix, headlineId: `${prefix}Headline`, side: "ALL", summary: { stats }, maps: [] });
     const target = elements.get(`${prefix}ClutchEconomicsStats`);
-    assert.equal(target.children.length, 1);
-    assert.equal(target.children[0].children[0].textContent, "Expected attempt value");
-    assert.equal(target.children[0].children[1].textContent, "+$9,000");
-    assert.equal(target.children[0].children[2].textContent, "+$3,000 expected per situation");
+    assert.equal(target.children.length, 6);
+    assert.equal(target.children[0].children[0].textContent, "All / attempt");
+    assert.equal(target.children[0].children[1].textContent, "+$3,000");
+    assert.equal(target.children[0].children[2].textContent, "3 attempts estimated");
+    assert.equal(target.children[5].children[0].textContent, "1v1 / attempt");
+    assert.equal(target.children[5].children[1].textContent, "+$3,000");
+    assert.equal(target.children[1].children[1].textContent, "—");
     assert.match(elements.get(`${prefix}ClutchEconomicsCoverage`).textContent, /^3 of 5 situations estimated/);
   }
   const html = fs.readFileSync(path.join(root, "index.html"), "utf8");

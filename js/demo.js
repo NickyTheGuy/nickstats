@@ -298,9 +298,12 @@
     rating: oneMode("rating", "Rating", player => player.rating ?? 0)
   };
 
-  for (const [field, label] of [["total", "Expected attempt value"], ["average", "Avg / situation"], ["measured", "Estimated situations"]]) {
-    sortSpecs[`clutchEconomics_${field}`] = oneMode(`clutchEconomics_${field}`, label, player =>
-      player.clutch_economics_available === false || !player.clutch_economics ? null : Scoreboard.clutchEconomics(player.clutch_economics)[field]);
+  for (const [field, label] of [["average", "All / attempt"], ...[5, 4, 3, 2, 1].map(size => [`size${size}`, `1v${size} / attempt`])]) {
+    sortSpecs[`clutchEconomics_${field}`] = oneMode(`clutchEconomics_${field}`, label, player => {
+      if (player.clutch_economics_available === false || !player.clutch_economics) return null;
+      const economics = Scoreboard.clutchEconomics(player.clutch_economics);
+      return field === "average" ? economics.average : economics.bySize[Number(field.slice(4))].average;
+    });
   }
 
   sortSpecs.initiation_contacts = oneMode("initiation_contacts", "Initiations", player => player.initiation_available ? player.initiation?.initiation_contacts ?? 0 : null);
@@ -2018,8 +2021,7 @@
     ]);
     const economics = Scoreboard.clutchEconomics(player.clutch_economics_available === false ? null : player.clutch_economics);
     scoreboardCells(row, "clutches", clutchResult(player), [...[5, 4, 3, 2, 1].map(opponents => clutchResult(player, opponents)),
-      Scoreboard.money(economics.total), Scoreboard.money(economics.average),
-      player.clutch_economics_available === false || !player.clutch_economics ? "—" : `${economics.measured} / ${economics.attempted}`]);
+      Scoreboard.money(economics.average), ...[5, 4, 3, 2, 1].map(size => Scoreboard.money(economics.bySize[size].average))]);
     const multikillTotal = [1, 2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0);
     const multikillPercent = 100 * [2, 3, 4, 5].reduce((sum, kills) => sum + (player.kill_rounds?.[kills] ?? 0), 0) / Math.max(1, player.rounds_played ?? 0);
     const trueMultikillPercent = 100 * (player.true_multikill_rounds ?? 0) / Math.max(1, player.rounds_played ?? 0);
@@ -2264,9 +2266,8 @@
         "1v3": sortSpecs.clutch3,
         "1v2": sortSpecs.clutch2,
         "1v1": sortSpecs.clutch1,
-        "Expected attempt value": sortSpecs.clutchEconomics_total,
-        "Avg / situation": sortSpecs.clutchEconomics_average,
-        "Estimated situations": sortSpecs.clutchEconomics_measured
+        "All / attempt": sortSpecs.clutchEconomics_average,
+        ...Object.fromEntries([5, 4, 3, 2, 1].map(size => [`1v${size} / attempt`, sortSpecs[`clutchEconomics_size${size}`]]))
       },
       multikills: {
         Total: sortSpecs.multikillTotal,

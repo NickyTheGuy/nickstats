@@ -88,3 +88,18 @@ test("settlement records a post-timeout death as a failed attempt, not a save", 
   assert.equal(target.clutchEconomics.loss_die_t1_forecast, 1);
   assert.equal(target.clutchEconomics.loss_survive_count, undefined);
 });
+
+test("size averages combine eligible sides and the aggregate weights covered attempts", () => {
+  const t = history(2, 3, 0, 0, "t1"), ct = history(0, 5, 0, 0, "ct1"), big = history(5, 0, 15, 0, "t5");
+  const combined = {};
+  for (const source of [t, ct, big]) for (const [key, value] of Object.entries(source)) combined[key] = (combined[key] || 0) + value;
+  const result = summarize(combined);
+  const one = (summarize(t).average + summarize(ct).average) / 2;
+  const five = summarize(big).average;
+  assert.ok(Math.abs(result.bySize[1].average - one) < 1e-9);
+  assert.equal(result.bySize[1].measured, 10);
+  assert.equal(result.bySize[5].measured, 20);
+  assert.ok(Math.abs(result.average - (one * 10 + five * 20) / 30) < 1e-9);
+  assert.equal(result.bySize[2].average, null);
+  assert.equal(summarize(null).bySize[1].average, null);
+});
