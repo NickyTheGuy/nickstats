@@ -1,6 +1,6 @@
 # NickStats API
 
-The API imports compact `nickstats.match/26` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 through 25 remain readable for existing stored matches; the browser still parses demos locally and uploads only the compact result. Run database migrations through 018 before deploying this backend. Hero flags are stored in existing round statistics JSON, so this change needs no new database migration.
+The API imports compact `nickstats.match/27` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 through 26 remain readable for existing stored matches; the browser still parses demos locally and uploads only the compact result. Run database migrations through 018 before deploying this backend. Hero flags are stored in existing round statistics JSON, so this change needs no new database migration.
 
 The compact format intentionally uses fixed-position arrays to keep uploads small. Inside the Swift service, those arrays decode into named domain types such as `TradeStats`, `KillContextStats`, `RoundTimingPayload`, and `DeathEventPayload`; database and validation code never rely on unexplained numeric indexes. Encoding those types reconstructs the same versioned wire format.
 
@@ -87,6 +87,8 @@ Schema 24 adds `clutch_economics` counters to statistic JSON slices. Deploy the 
 Schema 25 adds validated `initiation` counters to each statistic JSON slice. Deploy the updated API before uploading schema-25 reparses. Profile and match side totals reconstruct these fields from existing per-round JSON; no migration beyond 017 is needed.
 
 Schema 26 adds signed `*_save_impact` and `*_save_measured` counters to `clutch_economics`. These compare actual outcomes with modeled losses retaining the starting equipment. Schemas 24–25 keep their observed swing counters, but the frontend excludes them from the new comparison. Deploy this API before uploading schema-26 reparses; no new migration is required.
+
+Schema 27 adds per-side/per-1vX historical outcome counts, T post-timeout death counts, forecast coverage, and signed entry payoffs to `clutch_economics`. Predicted values are aggregated in the frontend using the selected history. Schemas through 26 remain readable but do not contribute substitute prediction inputs. Deploy this API before uploading schema-27 reparses; no new migration is required.
 
 ## Manual filters
 

@@ -472,7 +472,10 @@ private func validFaceitDatePayload() -> FaceitDateSyncPayload {
     var played = emptySide()
     played.rounds = RoundRecord(played: 1, won: 1)
     played.clutchEconomics = ["win_die_count": 1, "win_die_measured": 1,
-                             "win_die_save_measured": 1, "win_die_save_impact": -4_000]
+                             "win_die_save_measured": 1, "win_die_save_impact": -4_000,
+                             "win_die_t1_count": 1, "win_die_t1_forecast": 1,
+                             "win_die_t1_victory": 6_000, "win_die_t1_victory_dead": 2_000,
+                             "win_die_t1_failure": -3_000, "win_die_t1_failure_late": -5_000]
     payload.players[0].sides.terrorist = played
     payload.players[0].buys![0] = played
     payload.players[0].roundResults![0] = played
@@ -487,9 +490,16 @@ private func validFaceitDatePayload() -> FaceitDateSyncPayload {
     try payload.validate()
     let decoded = try JSONDecoder().decode(SideStatsPayload.self, from: JSONEncoder().encode(played))
     #expect(flattenedBuyStats(decoded)["clutch_econ_win_die_save_impact"] == -4_000)
+    #expect(flattenedBuyStats(decoded)["clutch_econ_win_die_t1_failure_late"] == -5_000)
     payload.players[0].sides.terrorist.clutchEconomics?["win_die_save_measured"] = 2
     #expect(throws: MatchValidationError.self) { try payload.validate() }
     payload.players[0].sides.terrorist.clutchEconomics?["win_die_save_measured"] = 0
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+    payload.players[0].sides.terrorist.clutchEconomics?["win_die_save_measured"] = 1
+    payload.players[0].sides.terrorist.clutchEconomics?["win_die_t1_forecast"] = 2
+    #expect(throws: MatchValidationError.self) { try payload.validate() }
+    payload.players[0].sides.terrorist.clutchEconomics?["win_die_t1_forecast"] = 1
+    payload.players[0].sides.terrorist.clutchEconomics?["win_die_t1_late"] = 1
     #expect(throws: MatchValidationError.self) { try payload.validate() }
 }
 
