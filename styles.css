@@ -3719,3 +3719,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .clutch-economics-method { margin-top: 10px; }
 .clutch-economics-method summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .clutch-economics-method .method { margin-top: 10px; max-width: 85ch; line-height: 1.6; }
+
+.manual-filter-option input[type="number"] { width: 70px; min-width: 0; padding: 5px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
+.manual-filter-create select { max-width: 105px; min-width: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
+.manual-tag-value { display: flex; gap: 6px; align-items: center; }
+.manual-tag-value input { width: 100px; min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }

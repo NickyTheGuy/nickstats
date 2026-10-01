@@ -2,6 +2,22 @@
   "use strict";
   const ENDPOINT = "/nickstats/api/auth/manual-filters";
   const states = ["true", "false", "unknown"];
+  const isNumeric = tag => tag.kind === "number";
+  const numeric = value => typeof value === "number" && Number.isFinite(value);
+  const operators = { gt: ">", gte: "≥", lt: "<", lte: "≤", eq: "=", between: "Between" };
+  function conditionMatches(value, condition) {
+    if (typeof condition === "string") return value === condition;
+    if (!numeric(value) || !numeric(condition?.value)) return false;
+    switch (condition.op) {
+      case "gt": return value > condition.value;
+      case "gte": return value >= condition.value;
+      case "lt": return value < condition.value;
+      case "lte": return value <= condition.value;
+      case "eq": return value === condition.value;
+      case "between": return numeric(condition.max) && value >= condition.value && value <= condition.max;
+      default: return false;
+    }
+  }
   const label = value => value[0].toUpperCase() + value.slice(1);
   const el = (tag, text = null, className = "") => {
     const node = document.createElement(tag);
@@ -12,6 +28,7 @@
   // IDs, rather than played dates or first observation, define upload order.
   function matchState(filter, matchID, assignments) {
     const explicit = assignments.get(`${filter.id}:${matchID}`);
+    if (isNumeric(filter)) return numeric(explicit) ? explicit : "unknown";
     if (states.includes(explicit)) return explicit;
     try { return BigInt(matchID) > BigInt(filter.cutoff_match_id) ? "false" : "unknown"; }
     catch (_) { return "unknown"; }
@@ -20,7 +37,7 @@
   class ManualFilterStore {
     constructor({ request = (...args) => fetch(...args) } = {}) {
       this.request = request; this.account = null; this.filters = []; this.assignments = new Map();
-      this.ready = false; this.loading = false; this.error = ""; this.version = 0; this.epoch = 0;
+      this.supportsNumeric = false; this.ready = false; this.loading = false; this.error = ""; this.version = 0; this.epoch = 0;
       this.listeners = new Set(); this.pending = new Set();
     }
     subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
@@ -31,14 +48,14 @@
         headers: { Accept: "application/json", ...(options.body ? { "Content-Type": "application/json" } : {}) }
       });
       const body = response.status === 204 ? null : await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.reason || `Manual filters returned HTTP ${response.status}.`);
+      if (!response.ok) throw new Error(body?.reason || `Tags returned HTTP ${response.status}.`);
       return body;
     }
     setAccount(username) {
       const next = username || null;
       if (next === this.account) return;
       this.epoch += 1; this.account = next; this.filters = []; this.assignments.clear(); this.pending.clear();
-      this.ready = false; this.loading = false; this.error = ""; this.emit();
+      this.supportsNumeric = false; this.ready = false; this.loading = false; this.error = ""; this.emit();
       if (next) this.load();
     }
     async load() {
@@ -47,9 +64,9 @@
       try {
         const body = await this.json();
         if (epoch !== this.epoch) return;
-        if (!Array.isArray(body?.filters) || !Array.isArray(body?.assignments)) throw new Error("Could not read manual filters.");
-        this.filters = body.filters;
-        this.assignments = new Map(body.assignments.map(row => [`${row.filter_id}:${row.match_id}`, row.state]));
+        if (!Array.isArray(body?.filters) || !Array.isArray(body?.assignments)) throw new Error("Could not read tags.");
+        this.filters = body.filters; this.supportsNumeric = body.supports_numeric === true;
+        this.assignments = new Map(body.assignments.map(row => [`${row.filter_id}:${row.match_id}`, numeric(row.value) ? row.value : row.state]));
         this.ready = true;
       } catch (error) { if (epoch === this.epoch) this.error = error.message; }
       finally { if (epoch === this.epoch) { this.loading = false; this.emit(); } }
@@ -65,8 +82,9 @@
       } catch (error) { if (epoch === this.epoch) this.error = error.message; return false; }
       finally { if (epoch === this.epoch) { this.pending.delete(key); this.emit(); } }
     }
-    create(name) {
-      return this.mutate("create", "", "POST", { name }, filter => {
+    create(name, kind = "boolean") {
+      if (kind === "number" && !this.supportsNumeric) return Promise.resolve(false);
+      return this.mutate("create", "", "POST", { name, kind }, filter => {
         this.filters.push(filter); this.filters.sort((a, b) => a.name.localeCompare(b.name));
       });
     }
@@ -77,9 +95,10 @@
       });
     }
     assign(id, matchID, state) {
-      if (!states.includes(state)) return Promise.resolve(false);
-      return this.mutate(id, `/${encodeURIComponent(id)}/matches/${encodeURIComponent(matchID)}`, "PUT", { state }, row => {
-        this.assignments.set(`${row.filter_id}:${row.match_id}`, row.state);
+      const filter = this.filters.find(filter => filter.id === id);
+      if (isNumeric(filter || {}) ? !numeric(state) && state !== "unknown" : !states.includes(state)) return Promise.resolve(false);
+      return this.mutate(id, `/${encodeURIComponent(id)}/matches/${encodeURIComponent(matchID)}`, "PUT", numeric(state) ? { state: "true", value: state } : { state }, row => {
+        this.assignments.set(`${row.filter_id}:${row.match_id}`, numeric(row.value) ? row.value : row.state);
       });
     }
   }
@@ -89,14 +108,18 @@
   function createForm() {
     const form = el("form", null, "manual-filter-create");
     const input = el("input"); input.type = "text"; input.maxLength = 64; input.required = true;
-    input.placeholder = "New filter name"; input.setAttribute("aria-label", "New manual filter name");
+    input.placeholder = "New tag name"; input.setAttribute("aria-label", "New tag name");
+    const kind = el("select"); kind.setAttribute("aria-label", "Tag type");
+    for (const [value, text] of [["boolean", "True/False"], ["number", "Number"]]) {
+      const option = el("option", text); option.value = value; option.disabled = value === "number" && !store.supportsNumeric; kind.appendChild(option);
+    }
     const add = el("button", "+ Add", "button button-secondary"); add.type = "submit";
     add.disabled = !store.ready || store.loading || store.pending.has("create");
-    form.append(input, add);
+    form.append(input, kind, add);
     form.addEventListener("submit", async event => {
       event.preventDefault(); const name = input.value.trim(); if (!name) return;
       add.disabled = true;
-      if (await store.create(name)) input.value = "";
+      if (await store.create(name, kind.value)) input.value = "";
       else { add.disabled = false; input.focus(); }
     });
     return form;
@@ -123,12 +146,12 @@
       if (!store.ready) return false;
       return [...this.selected].every(([id, state]) => {
         const filter = store.filters.find(filter => filter.id === id);
-        return filter && store.stateFor(filter, match.id) === state;
+        return filter && conditionMatches(store.stateFor(filter, match.id), state);
       });
     }
     summary() {
       if (!this.active) return "All matches";
-      return [...this.selected].map(([id, state]) => `${store.filters.find(filter => filter.id === id)?.name || "Filter"}: ${label(state)}`).join(" · ");
+      return [...this.selected].map(([id, state]) => `${store.filters.find(filter => filter.id === id)?.name || "Tag"}: ${typeof state === "string" ? label(state) : `${operators[state.op]} ${state.value ?? "…"}${state.op === "between" ? `–${state.max ?? "…"}` : ""}`}`).join(" · ");
     }
     render() {
       this.targets.forEach(target => {
@@ -136,14 +159,15 @@
         if (!store.account) { target.replaceChildren(); return; }
         const old = target.querySelector("details"), open = old?.open || false;
         const draft = target.querySelector(".manual-filter-create input")?.value || "";
+        const draftKind = target.querySelector(".manual-filter-create select")?.value || "boolean";
         const details = el("details", null, "map-filter-menu manual-filter-menu"); details.open = open;
-        details.appendChild(el("summary", this.active ? `${this.selected.size} manual filter${this.selected.size === 1 ? "" : "s"}` : "All matches"));
+        details.appendChild(el("summary", this.active ? `${this.selected.size} tag${this.selected.size === 1 ? "" : "s"}` : "All matches"));
         const panel = el("div", null, "map-filter-options manual-filter-options");
-        panel.appendChild(el("p", "Private to your account. Active filters exclude Unknown matches; all selected conditions must match.", "manual-filter-help"));
-        if (store.loading) panel.appendChild(el("p", "Loading filters…", "manual-filter-help"));
+        panel.appendChild(el("p", "Private to your account. Unknown values are excluded; all selected conditions must match.", "manual-filter-help"));
+        if (store.loading) panel.appendChild(el("p", "Loading tags…", "manual-filter-help"));
         if (store.error) {
           const error = el("p", store.error, "manual-filter-error"); error.setAttribute("role", "alert"); panel.appendChild(error);
-          const retry = el("button", "Reload filters", "button button-secondary"); retry.type = "button";
+          const retry = el("button", "Reload tags", "button button-secondary"); retry.type = "button";
           retry.addEventListener("click", event => { event.stopPropagation(); store.load(); }); panel.appendChild(retry);
         }
         if (store.ready) {
@@ -155,23 +179,38 @@
             check.type = "checkbox"; check.checked = this.selected.has(filter.id);
             checkLabel.append(check, el("span", filter.name)); row.appendChild(checkLabel);
             check.addEventListener("change", event => {
-              event.stopPropagation(); if (check.checked) this.selected.set(filter.id, "true"); else this.selected.delete(filter.id);
+              event.stopPropagation(); if (check.checked) this.selected.set(filter.id, isNumeric(filter) ? { op: "gte", value: null } : "true"); else this.selected.delete(filter.id);
               this.render(); this.onChange({ resetPagination: true });
             });
             const select = el("select"); select.setAttribute("aria-label", `${filter.name} condition`);
-            ["true", "false"].forEach(value => { const option = el("option", label(value)); option.value = value; select.appendChild(option); });
-            select.value = this.selected.get(filter.id) || "true"; select.disabled = !check.checked;
-            select.addEventListener("change", () => { this.selected.set(filter.id, select.value); this.render(); this.onChange({ resetPagination: true }); });
+            const choices = isNumeric(filter) ? Object.entries(operators) : [["true", "True"], ["false", "False"]];
+            choices.forEach(([value, text]) => { const option = el("option", text); option.value = value; select.appendChild(option); });
+            const selected = this.selected.get(filter.id);
+            select.value = isNumeric(filter) ? selected?.op || "gte" : selected || "true"; select.disabled = !check.checked;
+            const update = () => { this.render(); this.onChange({ resetPagination: true }); };
+            select.addEventListener("change", () => {
+              this.selected.set(filter.id, isNumeric(filter) ? { ...selected, op: select.value } : select.value); update();
+            });
+            row.appendChild(select);
+            if (isNumeric(filter)) {
+              for (const key of ["value", ...(selected?.op === "between" ? ["max"] : [])]) {
+                const input = el("input"); input.type = "number"; input.step = "any"; input.value = selected?.[key] ?? "";
+                input.disabled = !check.checked; input.setAttribute("aria-label", `${filter.name} ${key === "max" ? "maximum" : "value"}`);
+                input.addEventListener("change", () => {
+                  this.selected.set(filter.id, { ...this.selected.get(filter.id), [key]: input.value.trim() === "" ? null : Number(input.value) }); update();
+                }); row.appendChild(input);
+              }
+            }
             const remove = el("button", "×", "manual-filter-delete"); remove.type = "button"; remove.disabled = store.pending.has(filter.id);
-            remove.setAttribute("aria-label", `Delete ${filter.name} filter`);
+            remove.setAttribute("aria-label", `Delete ${filter.name} tag`);
             remove.addEventListener("click", event => {
               event.stopPropagation(); if (window.confirm(`Delete “${filter.name}” and its match assignments from your account?`)) store.remove(filter.id);
             });
-            row.append(select, remove); panel.appendChild(row);
+            row.appendChild(remove); panel.appendChild(row);
           });
         }
-        const form = createForm(); form.querySelector("input").value = draft; panel.appendChild(form);
-        details.appendChild(panel); target.replaceChildren(el("span", "Manual Filters", "manual-filter-heading"), details);
+        const form = createForm(); form.querySelector("input").value = draft; form.querySelector("select").value = draftKind; panel.appendChild(form);
+        details.appendChild(panel); target.replaceChildren(el("span", "Tags", "manual-filter-heading"), details);
       });
     }
   }
@@ -179,15 +218,29 @@
   function matchEditor(match) {
     if (!store.account || !store.ready) return null;
     const details = el("details", null, "manual-match-menu");
-    const summary = el("summary", "⋯"); summary.setAttribute("aria-label", `Manual filters for match ${match.id}`);
+    const summary = el("summary", "⋯"); summary.setAttribute("aria-label", `Tags for match ${match.id}`);
     details.appendChild(summary);
     const panel = el("div", null, "map-filter-options manual-match-options");
-    panel.appendChild(el("strong", `Match #${match.id} · Manual Filters`));
+    panel.appendChild(el("strong", `Match #${match.id} · Tags`));
     panel.appendChild(el("p", "Changes are private to your account.", "manual-filter-help"));
     store.filters.forEach(filter => {
       const row = el("div", null, "manual-match-state"), name = el("span", filter.name);
       const choices = el("div", null, "side-toggle"); choices.setAttribute("role", "group"); choices.setAttribute("aria-label", filter.name);
       const current = store.stateFor(filter, match.id);
+      if (isNumeric(filter)) {
+        const form = el("form", null, "manual-tag-value"), input = el("input");
+        input.type = "number"; input.step = "any"; input.value = numeric(current) ? current : "";
+        input.placeholder = "Unknown"; input.setAttribute("aria-label", `${filter.name} value`);
+        const save = el("button", "Save", "button button-secondary"); save.type = "submit";
+        save.disabled = store.pending.has(filter.id);
+        form.append(input, save);
+        form.addEventListener("submit", event => {
+          event.preventDefault(); event.stopPropagation();
+          if (!input.checkValidity()) return;
+          store.assign(filter.id, match.id, input.value.trim() === "" ? "unknown" : Number(input.value));
+        });
+        row.append(name, form); panel.appendChild(row); return;
+      }
       states.forEach(value => {
         const button = el("button", label(value), current === value ? "active" : ""); button.type = "button";
         button.setAttribute("aria-pressed", String(current === value)); button.disabled = store.pending.has(filter.id);
@@ -195,7 +248,7 @@
       });
       row.append(name, choices); panel.appendChild(row);
     });
-    if (!store.filters.length) panel.appendChild(el("p", "Create a filter to start labeling matches.", "manual-filter-help"));
+    if (!store.filters.length) panel.appendChild(el("p", "Create a tag to start labeling matches.", "manual-filter-help"));
     if (store.error) { const error = el("p", store.error, "manual-filter-error"); error.setAttribute("role", "alert"); panel.appendChild(error); }
     panel.appendChild(createForm()); details.appendChild(panel);
     details.addEventListener("toggle", () => {
@@ -208,5 +261,5 @@
   });
   window.addEventListener("nickstats:account-session", () => store.setAccount(window.NickStatsAccountSession?.username));
   window.addEventListener("focus", () => store.load());
-  window.NickStatsManualFilters = Object.freeze({ store, ManualFilterStore, ManualFilterControl, matchState, matchEditor });
+  window.NickStatsManualFilters = Object.freeze({ store, ManualFilterStore, ManualFilterControl, matchState, conditionMatches, matchEditor });
 })();

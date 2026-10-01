@@ -126,3 +126,53 @@ test("duplicate in-flight writes for the same filter are blocked", async () => {
   resolve(response({ filter_id: "a", match_id: 1, state: "true" })); await first;
   assert.equal(store.assignments.get("a:1"), "true");
 });
+
+test("numeric tags preserve zero and decimals while unassigned uploads remain Unknown", () => {
+  const { matchState } = api(), tag = { id: "sleep", kind: "number", cutoff_match_id: 100 };
+  const assignments = new Map([["sleep:1", 0], ["sleep:2", 8.5], ["sleep:3", "unknown"]]);
+  assert.equal(matchState(tag, 1, assignments), 0);
+  assert.equal(matchState(tag, 2, assignments), 8.5);
+  for (const id of [3, 50, 101]) assert.equal(matchState(tag, id, assignments), "unknown");
+});
+test("numeric ranges exclude Unknown and distinguish strict and inclusive boundaries", () => {
+  const { store, ManualFilterControl } = api();
+  store.account = "nick"; store.ready = true;
+  store.filters = [{ id: "sleep", name: "Sleep", kind: "number", cutoff_match_id: 1 }];
+  store.assignments = new Map([["sleep:1", 8], ["sleep:2", 8.5], ["sleep:3", 0]]);
+  const control = new ManualFilterControl([]);
+  for (const [condition, expected] of [
+    [{ op: "gt", value: 8 }, [false, true, false, false]],
+    [{ op: "gte", value: 8 }, [true, true, false, false]],
+    [{ op: "lt", value: 8 }, [false, false, true, false]],
+    [{ op: "lte", value: 8 }, [true, false, true, false]],
+    [{ op: "eq", value: 0 }, [false, false, true, false]],
+    [{ op: "between", value: 8, max: 8.5 }, [true, true, false, false]],
+    [{ op: "gte", value: null }, [false, false, false, false]]
+  ]) {
+    control.selected.set("sleep", condition);
+    assert.deepEqual([1, 2, 3, 4].map(id => control.matches({ id })), expected);
+  }
+});
+test("numeric assignments round-trip, clear to Unknown, and reject invalid boolean/number writes", async () => {
+  const { ManualFilterStore } = api(), calls = [];
+  const tag = { id: "sleep", kind: "number", cutoff_match_id: 1 };
+  let assignment;
+  const store = new ManualFilterStore({ request: async (_, options) => {
+    if (options.method === "PUT") {
+      const body = JSON.parse(options.body); calls.push(body);
+      assignment = { filter_id: "sleep", match_id: 2, ...body }; return response(assignment);
+    }
+    return response({ filters: [tag], assignments: assignment ? [assignment] : [], supports_numeric: true });
+  } });
+  store.setAccount("nick"); await flush();
+  assert.equal(store.supportsNumeric, true);
+  for (const value of [0, 8.5, -1]) {
+    assert.equal(await store.assign("sleep", 2, value), true);
+    await store.load(); assert.equal(store.stateFor(tag, 2), value);
+  }
+  for (const invalid of [NaN, Infinity, "false", "true"]) assert.equal(await store.assign("sleep", 2, invalid), false);
+  assert.equal(await store.assign("sleep", 2, "unknown"), true);
+  assert.equal(store.stateFor(tag, 2), "unknown");
+  assert.deepEqual(calls[0], { state: "true", value: 0 });
+  store.setAccount(null); assert.equal(store.supportsNumeric, false);
+});

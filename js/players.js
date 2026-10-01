@@ -41,7 +41,7 @@
   const quickComparison = window.NickStatsQuickComparison.create({ prefix: "player" });
   const manualFilter = new window.NickStatsManualFilters.ManualFilterControl(["playerManualFilter", "playerHistoryManualFilter"], {
     onChange: ({ resetPagination = false } = {}) => {
-      state.profiles.forEach(profile => { profile.summaryCache?.clear(); if (resetPagination) profile.manualHistoryOffset = 0; });
+      state.profiles.forEach(profile => { profile.summaryCache?.clear(); profile.graphCache?.clear(); if (resetPagination) profile.manualHistoryOffset = 0; });
       if (activeProfile()) {
         renderCurrentDisplay();
         if (state.display === "profile" && state.view === "matches") renderPlayerMatches();

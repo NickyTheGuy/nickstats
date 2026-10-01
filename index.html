@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20260930-9">
+  <link rel="stylesheet" href="./styles.css?v=20261001-3">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.10.01.2</span>
+          <span class="demo-build">Build 2026.10.01.3</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -471,7 +471,7 @@
                 <div class="graph-stat-controls">
                   <div class="graph-option-field"><span>Category</span><select id="playerGraphCategory" aria-label="Category"></select></div>
                   <div class="graph-statistic-field">
-                    <label for="playerGraphMetric">Statistic</label>
+                    <label for="playerGraphMetric">Statistic / Y-axis</label>
                     <input id="playerGraphMetric" type="search" role="combobox" aria-autocomplete="list" aria-controls="playerGraphSuggestions" aria-expanded="false" autocomplete="off" spellcheck="false">
                     <div class="graph-stat-suggestions" id="playerGraphSuggestions" role="listbox" hidden></div>
                   </div>
@@ -480,7 +480,8 @@
                   <legend>Graph settings</legend>
                   <div>
                     <div class="graph-option-field"><span>View</span><select id="playerGraphScope" aria-label="View"><option value="match">Match by match</option><option value="round">Round by round</option></select></div>
-                    <div class="graph-option-field" id="playerGraphTypeControl"><span>Graph type</span><select id="playerGraphType" aria-label="Graph type"><option value="distribution">Distribution</option><option value="trend">Trend</option></select></div>
+                    <div class="graph-option-field" id="playerGraphTypeControl"><span>Graph type</span><select id="playerGraphType" aria-label="Graph type"><option value="distribution">Distribution</option><option value="trend">Trend</option><option value="relationship">X vs. Y</option></select></div>
+                    <div class="graph-option-field" id="playerGraphXAxisControl" hidden><span>X-axis</span><select id="playerGraphXAxis" aria-label="X-axis"></select></div>
                     <div class="graph-option-field" id="playerGraphDistributionStyleControl"><span>Display</span><select id="playerGraphDistributionStyle" aria-label="Display"><option value="bars">Bars</option><option value="line">Line</option></select></div>
                     <div class="graph-bucket-control" id="playerGraphBucketControl">
                       <div class="graph-bucket-settings">
@@ -584,16 +585,16 @@
   <script defer src="./js/navigation.js?v=20260923-06"></script>
   <script defer src="./js/data-freshness.js?v=20260927-4"></script>
   <script defer src="./js/filters.js?v=20260925-06"></script>
-  <script defer src="./js/manual-filters.js?v=20260930-1"></script>
+  <script defer src="./js/manual-filters.js?v=20261001-3"></script>
   <script defer src="./js/dropdown.js?v=20260925-02"></script>
   <script defer src="./js/stat-availability.js?v=20260930-9"></script>
   <script defer src="./js/scoreboard.js?v=20261001-1"></script>
   <script defer src="./js/round-timeline.js?v=20260925-06"></script>
-  <script defer src="./js/graphs.js?v=20260930-5"></script>
+  <script defer src="./js/graphs.js?v=20261001-3"></script>
   <script defer src="./js/demo.js?v=20260930-9"></script>
   <script defer src="./js/profile.js?v=20261001-2"></script>
   <script defer src="./js/quick-comparison.js?v=20260930-9"></script>
-  <script defer src="./js/players.js?v=20260930-1"></script>
+  <script defer src="./js/players.js?v=20261001-3"></script>
   <script defer src="./js/groups.js?v=20260930-1"></script>
 </body>
 </html>

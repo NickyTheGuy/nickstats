@@ -30,7 +30,7 @@ test("bars and lines render for match trends and exact-round deaths", () => {
     createElementNS: (_, tag) => new Element(tag),
     addEventListener() {}
   };
-  for (const name of ["Type", "TypeControl", "Metric", "Category", "Scope", "DistributionStyle", "DistributionStyleControl", "BucketControl", "BucketMode", "BucketStepper", "BucketRange", "BucketManual", "BucketCutoffs", "BucketFrom", "BucketTo", "BucketIncrement", "Suggestions", "Svg", "Summary", "Legend", "Note"]) {
+  for (const name of ["XAxis", "XAxisControl", "Type", "TypeControl", "Metric", "Category", "Scope", "DistributionStyle", "DistributionStyleControl", "BucketControl", "BucketMode", "BucketStepper", "BucketRange", "BucketManual", "BucketCutoffs", "BucketFrom", "BucketTo", "BucketIncrement", "Suggestions", "Svg", "Summary", "Legend", "Note"]) {
     nodes.set(`playerGraph${name}`, new Element(name === "Category" ? "select" : "div"));
   }
   const type = nodes.get("playerGraphType"), scope = nodes.get("playerGraphScope");
@@ -111,4 +111,29 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   assert.equal(scope.matchOption.disabled, true);
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 2);
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Average round differential"));
+  // A tag can drive X buckets, with the statistic remaining on Y.
+  context.window.NickStatsManualFilters = { store: { account: "nick", ready: true,
+    filters: [{ id: "sleep", name: "Sleep", kind: "number" }], stateFor: (_, id) => id === "1" ? 8.5 : "unknown" } };
+  context.window.NickStatsGraphs.render({ prefix: "player", series });
+  nodes.get("playerGraphMetric").focus();
+  nodes.get("playerGraphSuggestions").children.find(child => child.children[0].textContent === "Rating")
+    .dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
+  const xAxis = nodes.get("playerGraphXAxis");
+  xAxis.value = "tag:sleep"; type.value = "relationship";
+  nodes.get("playerGraphBucketMode").value = "auto"; type.dispatch("change");
+  assert.equal(nodes.get("playerGraphXAxisControl").hidden, false);
+  assert.equal(nodes.get("playerGraphBucketControl").hidden, false);
+  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Sleep"));
+  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Average Rating"));
+  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 1);
+  assert.ok(svg.children.every(child => !Object.values(child.attributes).some(value => /NaN/.test(String(value)))));
+  // The same tag also works as Y; missing assignments exclude match samples.
+  nodes.get("playerGraphMetric").value = "Sleep";
+  nodes.get("playerGraphMetric").dispatch("input");
+  nodes.get("playerGraphSuggestions").children.find(child => child.children[0].textContent === "Sleep")
+    .dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
+  xAxis.value = "rating"; xAxis.dispatch("change");
+  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Average Sleep"));
+  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 1);
+
 });

@@ -145,6 +145,28 @@
   ];
 
   const registry = new Map(metrics.flatMap(([group, entries]) => entries.map(([id, label, value, digits, suffix = ""]) => [id, { id, group, label, value, digits, suffix }])));
+  function syncTagMetrics() {
+    for (const id of registry.keys()) if (id.startsWith("tag:")) registry.delete(id);
+    const store = window.NickStatsManualFilters?.store;
+    if (!store?.account || !store.ready) return;
+    for (const tag of store.filters.filter(tag => tag.kind === "number")) {
+      registry.set(`tag:${tag.id}`, { id: `tag:${tag.id}`, group: "Tags", label: tag.name,
+        digits: 2, suffix: "", value: (_, sample) => {
+          const value = store.stateFor(tag, sample.id);
+          return typeof value === "number" && Number.isFinite(value) ? value : Number.NaN;
+        } });
+    }
+  }
+  function relationshipSamples(series, xMetric, yMetric) {
+    return series.samples.map(sample => ({ ...sample, value: xMetric.value(sample.stats, sample), y: yMetric.value(sample.stats, sample) }))
+      .filter(point => Number.isFinite(point.value) && Number.isFinite(point.y));
+  }
+  function relationshipBuckets(points, edges) {
+    return edges.slice(1).map((upper, index) => {
+      const matches = points.filter(point => point.value >= edges[index] && (point.value < upper || index === edges.length - 2 && point.value === upper));
+      return { lower: edges[index], upper, count: matches.length, value: matches.length ? mean(matches.map(point => point.y)) : null };
+    });
+  }
   const roundMetrics = Object.freeze({ kills: "kills", kpr: "kills", deaths: "deaths", dpr: "deaths", damage: "damage", adr: "damage", awp_kills: "awp_kills", round_diff: "differential" });
   const roundLabel = metric => ({ adr: "damage", kpr: "kills", dpr: "deaths" })[metric.id] || metric.label.toLowerCase();
   const graphState = new Map();
@@ -223,7 +245,7 @@
   };
 
   function valuesFor(series, metric) {
-    return series.samples.map(sample => ({ ...sample, value: metric.value(sample.stats) })).filter(sample => Number.isFinite(sample.value));
+    return series.samples.map(sample => ({ ...sample, value: metric.value(sample.stats, sample) })).filter(sample => Number.isFinite(sample.value));
   }
 
   function independentTrendNeedsDates(series) {
@@ -373,6 +395,44 @@
     }
     svg.appendChild(svgElement("text", { x: left + width / 2, y: 448, class: "graph-axis-title", "text-anchor": "middle" }, metric.label));
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, "Share of matches"));
+  }
+
+  function drawRelationship(svg, prepared, domainPrepared, xMetric, yMetric, bins, displayStyle, customRange) {
+    const bounds = niceDistributionBounds(domainPrepared.length ? domainPrepared : prepared, xMetric, bins);
+    if (!bounds) return;
+    const edges = customRange ? [-Infinity, ...customRange.edges, Infinity]
+      : Array.from({ length: bins + 1 }, (_, index) => bounds.min + index * bounds.binWidth);
+    const bucketed = prepared.map(series => ({ ...series, buckets: relationshipBuckets(series.values, edges) }));
+    const values = bucketed.flatMap(series => series.buckets.filter(bucket => bucket.count).map(bucket => bucket.value));
+    const min = Math.min(0, ...values), max = Math.max(0, ...values), span = max - min || 1;
+    const left = 68, top = 24, width = 796, height = 318, groupWidth = width / (edges.length - 1);
+    drawAxes(svg, { left, top, width, height, min, max: min + span, metric: yMetric });
+    const yPosition = value => top + height - height * (value - min) / span;
+    bucketed.forEach((series, seriesIndex) => {
+      const color = colors[(series.colorIndex ?? seriesIndex) % colors.length];
+      let segment = [];
+      const flush = () => { if (segment.length > 1) svg.appendChild(svgElement("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: color })); segment = []; };
+      series.buckets.forEach((bucket, index) => {
+        if (!bucket.count) { flush(); return; }
+        const x = left + groupWidth * (index + .5), y = yPosition(bucket.value);
+        segment.push(`${x},${y}`);
+        const barWidth = groupWidth * .8 / bucketed.length;
+        const shape = displayStyle === "line" ? svgElement("circle", { cx: x, cy: y, r: 4, fill: color, class: "graph-point" })
+          : svgElement("rect", { x: left + index * groupWidth + groupWidth * .1 + seriesIndex * barWidth, y: Math.min(y, yPosition(0)),
+            width: Math.max(1, barWidth - 1), height: Math.max(1, Math.abs(y - yPosition(0))), fill: color, class: "graph-series-bar" });
+        svg.appendChild(shape);
+        attachTooltip(svg, shape, `${series.label}: ${format(bucket.value, yMetric)} · ${bucket.count} matches · ${bucket.lower === -Infinity ? "−∞" : format(bucket.lower, xMetric)}–${bucket.upper === Infinity ? "∞" : format(bucket.upper, xMetric)}`, x, y);
+      });
+      if (displayStyle === "line") flush();
+    });
+    for (let index = 0; index < edges.length - 1; index += 1) {
+      const lower = edges[index], upper = edges[index + 1];
+      const label = lower === -Infinity ? `<${format(upper, xMetric)}` : upper === Infinity ? `≥${format(lower, xMetric)}` : `${format(lower, xMetric)}–${format(upper, xMetric)}`;
+      const x = left + groupWidth * (index + .5), y = top + height + 20;
+      svg.appendChild(svgElement("text", { x, y, class: "graph-bucket-label", "text-anchor": "middle", ...(edges.length > 11 ? { transform: `rotate(-35 ${x} ${y})` } : {}) }, label));
+    }
+    svg.appendChild(svgElement("text", { x: left + width / 2, y: 448, class: "graph-axis-title", "text-anchor": "middle" }, xMetric.label));
+    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Average ${yMetric.label}`));
   }
 
   function drawTrend(svg, prepared, metric, displayStyle = "line") {
@@ -534,14 +594,15 @@
 
   function metricChoices(category, query) {
     const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-    return metrics.filter(([group]) => category === "All" || group === category || words.length).map(([group, entries]) => [group, entries.filter(([, label]) => words.every(word => `${group} ${label}`.toLocaleLowerCase().includes(word)))]).filter(([, entries]) => entries.length);
+    const choices = [...metrics, ["Tags", [...registry.values()].filter(metric => metric.group === "Tags").map(metric => [metric.id, metric.label])]];
+    return choices.filter(([group]) => category === "All" || group === category || words.length).map(([group, entries]) => [group, entries.filter(([, label]) => words.every(word => `${group} ${label}`.toLocaleLowerCase().includes(word)))]).filter(([, entries]) => entries.length);
   }
 
   function closeSuggestions(prefix) {
     const state = graphState.get(prefix), input = document.getElementById(`${prefix}GraphMetric`);
     const list = document.getElementById(`${prefix}GraphSuggestions`), category = document.getElementById(`${prefix}GraphCategory`);
     if (!state || !input || !list) return;
-    input.value = registry.get(state.metricId).label;
+    input.value = (registry.get(state.metricId) || registry.get("rating")).label;
     input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant");
     if (category) { category.value = state.category; window.NickStatsDropdown.sync(category); }
     list.hidden = true; list.replaceChildren(); state.suggestions = []; state.suggestionIndex = -1;
@@ -626,11 +687,17 @@
     const typeControl = document.getElementById(`${prefix}GraphTypeControl`);
     if (typeControl) typeControl.hidden = roundsMode;
     const metric = registry.get(state.metricId) || registry.get("rating");
-    if (bucketRange && state.bucketInputMetric !== metric.id) {
-      const values = state.customRanges.get(metric.id) || ["", "", ""];
+    const relationship = !roundsMode && type.value === "relationship";
+    const xSelect = document.getElementById(`${prefix}GraphXAxis`);
+    const xMetric = registry.get(xSelect?.value) || registry.get("opening_attempt_rate");
+    const bucketMetric = relationship ? xMetric : metric;
+    const xControl = document.getElementById(`${prefix}GraphXAxisControl`);
+    if (xControl) xControl.hidden = !relationship;
+    if (bucketRange && state.bucketInputMetric !== bucketMetric.id) {
+      const values = state.customRanges.get(bucketMetric.id) || ["", "", ""];
       bucketInputs.forEach((input, index) => { input.value = values[index]; });
-      if (cutoffInput) cutoffInput.value = state.manualCutoffs.get(metric.id) || "";
-      state.bucketInputMetric = metric.id;
+      if (cutoffInput) cutoffInput.value = state.manualCutoffs.get(bucketMetric.id) || "";
+      state.bucketInputMetric = bucketMetric.id;
     }
     const mode = bucketMode?.value || "auto";
     const range = mode === "range" ? parseBucketRange(...bucketInputs.map(input => input?.value || ""))
@@ -641,19 +708,21 @@
     bucketInputs.forEach(input => input?.setAttribute("aria-invalid", String(mode === "range" && !!range.error)));
     cutoffInput?.setAttribute("aria-invalid", String(mode === "manual" && !!range.error));
     const roundMetric = roundMetrics[metric.id];
-    const prepared = state.series.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
-    const domainPrepared = state.domainSeries.map(series => ({ ...series, values: valuesFor(series, metric) })).filter(series => series.values.length);
+    const prepared = state.series.map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
+    const domainPrepared = state.domainSeries.map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
     const roundPrepared = roundsMode ? state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || [], {}, roundMetric) })).filter(series => series.roundValues.length) : [];
     if (distributionStyleControl) distributionStyleControl.hidden = false;
-    if (bucketControl) bucketControl.hidden = roundsMode || type.value !== "distribution";
+    if (bucketControl) bucketControl.hidden = roundsMode || !["distribution", "relationship"].includes(type.value);
     if (bucketCount) bucketCount.textContent = String(state.bucketCount);
     if (bucketLess) bucketLess.disabled = state.bucketCount <= MIN_BUCKETS;
     if (bucketMore) bucketMore.disabled = state.bucketCount >= MAX_BUCKETS;
-    svg.setAttribute("viewBox", !roundsMode && type.value === "distribution" ? "0 0 900 460" : "0 0 900 420");
+    svg.setAttribute("viewBox", !roundsMode && ["distribution", "relationship"].includes(type.value) ? "0 0 900 460" : "0 0 900 420");
     svg.replaceChildren(); summary.replaceChildren(); legend.replaceChildren();
     const multiTrendNeedsDates = !roundsMode && type.value === "trend" && state.independent && independentTrendNeedsDates(prepared);
     note.textContent = roundsMode
       ? `Each ${distributionStyle?.value === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
+      : relationship
+      ? range?.error ? `${range.error} Showing automatic buckets until valid.` : "X sets the buckets; Y is the average match value. Matches missing either value are excluded."
       : type.value === "distribution"
       ? range?.error ? `${range.error} Showing automatic buckets until valid.`
         : mode === "manual" ? "Enter comma-separated cutoffs. For example, 5, 10, 15 makes <5, 5–<10, 10–<15, and ≥15."
@@ -680,7 +749,7 @@
     }
     prepared.forEach((series, index) => {
       const colorIndex = series.colorIndex ?? index;
-      const values = series.values.map(point => point.value), item = document.createElement("div"); item.className = "graph-summary-card";
+      const values = series.values.map(point => relationship ? point.y : point.value), item = document.createElement("div"); item.className = "graph-summary-card";
       item.style.setProperty("--series-color", colors[colorIndex % colors.length]);
       const label = document.createElement("strong"); label.textContent = series.label;
       const details = document.createElement("span"); details.textContent = `Mean ${format(mean(values), metric)} · Median ${format(median(values), metric)} · SD ${format(deviation(values), metric)} · Range ${format(Math.min(...values), metric)}–${format(Math.max(...values), metric)} · n=${values.length}`;
@@ -689,29 +758,56 @@
     });
     if (multiTrendNeedsDates) {
       svg.appendChild(svgElement("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
-    } else type.value === "trend" ? drawTrend(svg, prepared, metric, distributionStyle?.value || "bars") : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount, distributionStyle?.value || "bars", range?.edges ? range : null);
+    } else if (relationship) drawRelationship(svg, prepared, domainPrepared, xMetric, metric, state.bucketCount, distributionStyle?.value || "bars", range?.edges ? range : null);
+    else type.value === "trend" ? drawTrend(svg, prepared, metric, distributionStyle?.value || "bars") : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount, distributionStyle?.value || "bars", range?.edges ? range : null);
   }
 
   function render({ prefix, series, domainSeries = series, independent = false }) {
     const type = document.getElementById(`${prefix}GraphType`), input = document.getElementById(`${prefix}GraphMetric`);
     if (!type || !input) return;
+    syncTagMetrics();
+    const xSelect = document.getElementById(`${prefix}GraphXAxis`);
+    if (xSelect) {
+      const selected = xSelect.value || "opening_attempt_rate";
+      xSelect.replaceChildren();
+      for (const group of [...new Set([...registry.values()].filter(metric => metric.id !== "round_diff").map(metric => metric.group))]) {
+        const options = document.createElement("optgroup"); options.label = group;
+        for (const metric of registry.values()) if (metric.group === group && metric.id !== "round_diff") {
+          const option = document.createElement("option"); option.value = metric.id; option.textContent = metric.label; options.appendChild(option);
+        }
+        xSelect.appendChild(options);
+      }
+      xSelect.value = registry.has(selected) ? selected : "opening_attempt_rate";
+    }
     const category = document.getElementById(`${prefix}GraphCategory`), controls = input.closest(".graph-stat-controls");
     if (category && !category.options.length) {
-      ["All", ...metrics.map(([group]) => group)].forEach(group => {
+      ["All", ...metrics.map(([group]) => group), ...(window.NickStatsManualFilters?.store.account ? ["Tags"] : [])].forEach(group => {
         const option = document.createElement("option"); option.value = group; option.textContent = group === "All" ? "All categories" : group; category.appendChild(option);
       });
       category.value = "Core";
     }
     [category, type, document.getElementById(`${prefix}GraphScope`), document.getElementById(`${prefix}GraphDistributionStyle`), document.getElementById(`${prefix}GraphBucketMode`)]
       .forEach(select => window.NickStatsDropdown.enhance(select));
+    const tagCategory = category?.querySelector('option[value="Tags"]');
+    if (!window.NickStatsManualFilters?.store.account) tagCategory?.remove();
+    else if (category && !tagCategory) {
+      const option = document.createElement("option"); option.value = "Tags"; option.textContent = "Tags"; category.appendChild(option);
+    }
+    window.NickStatsDropdown.sync(category);
     const previous = graphState.get(prefix);
     graphState.set(prefix, { series: series || [], domainSeries: domainSeries || series || [], independent,
-      bucketCount: previous?.bucketCount || DEFAULT_BUCKETS, metricId: previous?.metricId || "rating",
-      category: previous?.category || "Core", suggestions: previous?.suggestions || [], suggestionIndex: previous?.suggestionIndex ?? -1,
+      bucketCount: previous?.bucketCount || DEFAULT_BUCKETS, metricId: registry.has(previous?.metricId) ? previous.metricId : "rating",
+      category: registry.has(previous?.metricId) ? previous.category : "Core", suggestions: previous?.suggestions || [], suggestionIndex: previous?.suggestionIndex ?? -1,
       customRanges: previous?.customRanges || new Map(), manualCutoffs: previous?.manualCutoffs || new Map(), bucketInputMetric: previous?.bucketInputMetric || null });
+    if (previous && !registry.has(previous.metricId)) {
+      input.value = registry.get("rating").label;
+      if (category) { category.value = "Core"; window.NickStatsDropdown.sync(category); }
+      closeSuggestions(prefix);
+    }
     if (!previous) {
       input.value = registry.get("rating").label;
       type.addEventListener("change", () => draw(prefix));
+      xSelect?.addEventListener("change", () => draw(prefix));
       document.getElementById(`${prefix}GraphScope`)?.addEventListener("change", () => draw(prefix));
       category?.addEventListener("change", () => { input.value = ""; input.focus(); showSuggestions(prefix); });
       input.addEventListener("focus", () => { input.select(); showSuggestions(prefix); });
@@ -735,12 +831,12 @@
       document.getElementById(`${prefix}GraphBucketMode`)?.addEventListener("change", () => draw(prefix));
       ["From", "To", "Increment"].forEach(key => document.getElementById(`${prefix}GraphBucket${key}`)?.addEventListener("input", () => {
         const current = graphState.get(prefix);
-        current.customRanges.set(current.metricId, ["From", "To", "Increment"].map(name => document.getElementById(`${prefix}GraphBucket${name}`).value));
+        current.customRanges.set(current.bucketInputMetric, ["From", "To", "Increment"].map(name => document.getElementById(`${prefix}GraphBucket${name}`).value));
         draw(prefix);
       }));
       document.getElementById(`${prefix}GraphBucketCutoffs`)?.addEventListener("input", event => {
         const current = graphState.get(prefix);
-        current.manualCutoffs.set(current.metricId, event.target.value);
+        current.manualCutoffs.set(current.bucketInputMetric, event.target.value);
         draw(prefix);
       });
       document.getElementById(`${prefix}GraphBucketsLess`)?.addEventListener("click", () => {
@@ -753,5 +849,5 @@
     draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks, drawRoundSeries: drawRounds, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, relationshipSamples, relationshipBuckets, syncTagMetrics, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks, drawRoundSeries: drawRounds, render });
 })();
