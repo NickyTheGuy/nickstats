@@ -12,7 +12,7 @@ function fixture() {
   const resources = new Map([[hero, { side: 3, cash: 1000, equipment: 4000 }],
     [mate, { side: 3, cash: 2000, equipment: null }], [foe, { side: 2, cash: 500, equipment: 5000 }]]);
   return { hero, mate, foe, resources, candidate: { row: hero, side: 3, resources, deaths: new Set([2]),
-    kills: 1, stripped: 5000, equipmentComplete: true, rosterComplete: true } };
+    opponents: 1, kills: 1, stripped: 5000, equipmentComplete: true, rosterComplete: true } };
 }
 test("winning clutch includes actual payout and excludes gear lost before entry", () => {
   const f = fixture();
@@ -178,7 +178,7 @@ test("schema-aware profile economics excludes older compatible combat matches", 
   const ctx = vm.createContext({ window: {} });
   vm.runInContext(fs.readFileSync(path.join(root, "js/stat-availability.js"), "utf8"), ctx);
   const availability = ctx.window.NickStatsAvailability, stats = {};
-  availability.add(stats, { rounds: 20, clutch_econ_win_survive_save_measured: 2, clutch_econ_win_survive_save_impact: 20000 }, "nickstats.match/26");
+  availability.add(stats, { rounds: 20, clutch_econ_win_survive_save_measured: 2, clutch_econ_win_survive_save_impact: 20000 }, "nickstats.match/27");
   availability.add(stats, { rounds: 30, clutch_econ_win_survive_save_measured: 99, clutch_econ_win_survive_save_impact: 99 }, "nickstats.match/23");
   availability.add(stats, { rounds: 30, clutch_econ_win_survive_count: 99, clutch_econ_win_survive_measured: 99,
     clutch_econ_win_survive_swing: 999999 }, "nickstats.match/25");
@@ -191,15 +191,13 @@ test("schema-aware profile economics excludes older compatible combat matches", 
 test("profile economy impact pools every clutch/save outcome and weights the average by measured attempts", () => {
   const ctx = vm.createContext({ window: {}, document: { getElementById: () => null } });
   vm.runInContext(fs.readFileSync(path.join(root, "js/stat-availability.js"), "utf8"), ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, "js/scoreboard.js"), "utf8"), ctx);
   vm.runInContext(fs.readFileSync(path.join(root, "js/profile.js"), "utf8"), ctx);
   const stats = {}, availability = ctx.window.NickStatsAvailability;
   availability.add(stats, {
     rounds: 30,
-    clutch_econ_win_survive_count: 4, clutch_econ_win_survive_save_measured: 3, clutch_econ_win_survive_save_impact: 30000,
-    clutch_econ_win_die_count: 1, clutch_econ_win_die_save_measured: 1, clutch_econ_win_die_save_impact: 6000,
-    clutch_econ_loss_survive_count: 2, clutch_econ_loss_survive_save_measured: 2, clutch_econ_loss_survive_save_impact: -4000,
-    clutch_econ_loss_die_count: 3, clutch_econ_loss_die_save_measured: 2, clutch_econ_loss_die_save_impact: -8000
-  }, "nickstats.match/26");
+    ...predictionCounters(4, 1, 2, 3, [3, 1, 2, 2], 5000)
+  }, "nickstats.match/27");
   // Legacy games never enter either the numerator or the denominator.
   availability.add(stats, { rounds: 10, clutch_econ_win_survive_count: 99, clutch_econ_win_survive_save_measured: 99, clutch_econ_win_survive_save_impact: 999999 }, "nickstats.match/23");
   const result = ctx.window.NickStatsProfile.clutchEconomySummary(stats);
@@ -212,14 +210,15 @@ test("profile economy impact pools every clutch/save outcome and weights the ave
 test("pooled impact distinguishes negative, zero, incomplete, and unavailable measurements", () => {
   const ctx = vm.createContext({ window: {}, document: { getElementById: () => null } });
   vm.runInContext(fs.readFileSync(path.join(root, "js/stat-availability.js"), "utf8"), ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, "js/scoreboard.js"), "utf8"), ctx);
   vm.runInContext(fs.readFileSync(path.join(root, "js/profile.js"), "utf8"), ctx);
   const availability = ctx.window.NickStatsAvailability, summarize = ctx.window.NickStatsProfile.clutchEconomySummary;
   const negative = {}, zero = {}, incomplete = {};
-  availability.add(negative, { clutch_econ_loss_die_count: 3, clutch_econ_loss_die_save_measured: 2, clutch_econ_loss_die_save_impact: -8000 }, "nickstats.match/26");
-  assert.equal(summarize(negative).average, -4000);
-  availability.add(zero, { clutch_econ_win_survive_count: 1, clutch_econ_win_survive_save_measured: 1, clutch_econ_win_survive_save_impact: 5000, clutch_econ_loss_die_count: 1, clutch_econ_loss_die_save_measured: 1, clutch_econ_loss_die_save_impact: -5000 }, "nickstats.match/26");
+  availability.add(negative, predictionCounters(2, 0, 0, 3, [2, 0, 0, 1], -7000), "nickstats.match/27");
+  assert.equal(summarize(negative).average, -3000);
+  availability.add(zero, predictionCounters(2, 0, 0, 3, [2, 0, 0, 1], 0), "nickstats.match/27");
   assert.equal(summarize(zero).total, 0);
-  availability.add(incomplete, { clutch_econ_loss_survive_count: 2 }, "nickstats.match/26");
+  availability.add(incomplete, { clutch_econ_loss_survive_count: 2 }, "nickstats.match/27");
   assert.equal(summarize(incomplete).total, null);
   assert.equal(summarize(incomplete).attempted, 2);
   assert.equal(summarize(incomplete).available, true);
@@ -244,21 +243,34 @@ test("Player and Groups render one signed aggregate with its average and measure
     }
   } });
   vm.runInContext(fs.readFileSync(path.join(root, "js/stat-availability.js"), "utf8"), ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, "js/scoreboard.js"), "utf8"), ctx);
   vm.runInContext(fs.readFileSync(path.join(root, "js/profile.js"), "utf8"), ctx);
   const stats = {};
-  ctx.window.NickStatsAvailability.add(stats, { rounds: 30, clutch_econ_win_survive_count: 3,
-    clutch_econ_win_survive_save_measured: 2, clutch_econ_win_survive_save_impact: 12000,
-    clutch_econ_loss_die_count: 2, clutch_econ_loss_die_save_measured: 1, clutch_econ_loss_die_save_impact: -3000 }, "nickstats.match/26");
+  ctx.window.NickStatsAvailability.add(stats, { rounds: 30,
+    ...predictionCounters(2, 0, 0, 3, [2, 0, 0, 1], 7000) }, "nickstats.match/27");
   for (const prefix of ["player", "combo"]) {
     ctx.window.NickStatsProfile.render({ prefix, headlineId: `${prefix}Headline`, side: "ALL", summary: { stats }, maps: [] });
     const target = elements.get(`${prefix}ClutchEconomicsStats`);
     assert.equal(target.children.length, 1);
-    assert.equal(target.children[0].children[0].textContent, "Value vs save");
+    assert.equal(target.children[0].children[0].textContent, "Expected attempt value");
     assert.equal(target.children[0].children[1].textContent, "+$9,000");
-    assert.equal(target.children[0].children[2].textContent, "+$3,000 per measured attempt");
-    assert.match(elements.get(`${prefix}ClutchEconomicsCoverage`).textContent, /^3 of 5 clutch\/save attempts measured/);
+    assert.equal(target.children[0].children[2].textContent, "+$3,000 expected per situation");
+    assert.match(elements.get(`${prefix}ClutchEconomicsCoverage`).textContent, /^3 of 5 situations estimated/);
   }
   const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.ok(html.includes('id="playerClutchEconomicsStats"'));
   assert.ok(!html.includes('id="playerClutchEconomicsTable"'));
 });
+
+function predictionCounters(win, deadWin, save, fail, forecasts, victory) {
+  const counters = {};
+  ["win_survive", "win_die", "loss_survive", "loss_die"].forEach((outcome, i) => {
+    const stem = `clutch_econ_${outcome}_`;
+    counters[`${stem}count`] = [win, deadWin, save, fail][i];
+    counters[`${stem}ct1_count`] = [win, deadWin, save, fail][i];
+    counters[`${stem}ct1_forecast`] = forecasts[i];
+    counters[`${stem}ct1_victory`] = forecasts[i] * victory;
+    counters[`${stem}ct1_victory_dead`] = forecasts[i] * victory;
+  });
+  return counters;
+}

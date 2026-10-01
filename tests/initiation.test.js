@@ -154,6 +154,7 @@ test("Player and Groups focus on contacts and unique-round frequency using compa
     }
   } });
   vm.runInContext(fs.readFileSync(path.join(root, "js/stat-availability.js"), "utf8"), ctx);
+  vm.runInContext(fs.readFileSync(path.join(root, "js/scoreboard.js"), "utf8"), ctx);
   vm.runInContext(fs.readFileSync(path.join(root, "js/profile.js"), "utf8"), ctx);
   const stats = {};
   ctx.window.NickStatsAvailability.add(stats, { rounds: 20, initiation_contacts: 6, initiation_rounds: 4 }, "nickstats.match/25");

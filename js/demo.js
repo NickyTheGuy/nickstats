@@ -298,7 +298,7 @@
     rating: oneMode("rating", "Rating", player => player.rating ?? 0)
   };
 
-  for (const [field, label] of [["total", "Value vs save"], ["average", "Avg / attempt"], ["measured", "Measured attempts"]]) {
+  for (const [field, label] of [["total", "Expected attempt value"], ["average", "Avg / situation"], ["measured", "Estimated situations"]]) {
     sortSpecs[`clutchEconomics_${field}`] = oneMode(`clutchEconomics_${field}`, label, player =>
       player.clutch_economics_available === false || !player.clutch_economics ? null : Scoreboard.clutchEconomics(player.clutch_economics)[field]);
   }
@@ -588,7 +588,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20260930-7");
+      const worker = new Worker("./js/demo-worker.js?v=20260930-8");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -1215,9 +1215,9 @@
 
       return {
         ...player, ...timing,
-        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", "nickstats.match/26"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
-        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", "nickstats.match/26"].includes(payload.schema),
-        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", "nickstats.match/26"].includes(payload.schema),
+        timing_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", "nickstats.match/26", "nickstats.match/27"].includes(payload.schema) && (payload.round_timing || []).length === numberValue(payload.rounds),
+        man_count_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", "nickstats.match/26", "nickstats.match/27"].includes(payload.schema),
+        round_state_available: ["nickstats.match/10", "nickstats.match/11", "nickstats.match/12", "nickstats.match/13", "nickstats.match/14", "nickstats.match/15", "nickstats.match/16", "nickstats.match/17", "nickstats.match/18", "nickstats.match/19", "nickstats.match/20", "nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", "nickstats.match/26", "nickstats.match/27"].includes(payload.schema),
         kills, deaths, assists, headshots, damage,
         damage_received: numberValue(stats.damage_received),
         headshot_percent: kills ? 100 * headshots / kills : 0,
@@ -1348,13 +1348,13 @@
         initiation: { ...stats.initiation },
         initiation_available: Number(payload.schema?.split("/").pop()) >= 25,
         clutch_economics: { ...stats.clutch_economics },
-        clutch_economics_available: Number(payload.schema?.split("/").pop()) >= 26,
+        clutch_economics_available: Number(payload.schema?.split("/").pop()) >= 27,
         clutch_wins: Object.fromEntries((stats.clutches || []).map((value, index) => [index + 1, numberValue(value)])),
         clutch_attempts: Object.fromEntries((stats.clutch_attempts || []).map((value, index) => [index + 1, numberValue(value)])),
         kill_rounds: Object.fromEntries((stats.kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
         true_kill_rounds: Object.fromEntries((stats.true_kill_rounds || []).map((value, index) => [index + 1, numberValue(value)])),
         true_multikill_rounds: numberValue(stats.true_multikill_rounds),
-        true_multikill_available: ["nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", "nickstats.match/26"].includes(payload.schema),
+        true_multikill_available: ["nickstats.match/21", "nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", "nickstats.match/26", "nickstats.match/27"].includes(payload.schema),
         rating: Math.max(0, rating)
       };
     }
@@ -1390,7 +1390,7 @@
     const teams = payload.teams.map((team, index) => ({
       id: team.id || String(index),
       name: team.name || `Team ${index + 1}`,
-      score: roundPhase === "ALL" ? team.score : !["nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", "nickstats.match/26"].includes(payload.schema) ? null : (payload.round_timing || []).filter(timing => {
+      score: roundPhase === "ALL" ? team.score : !["nickstats.match/22", "nickstats.match/23", "nickstats.match/24", "nickstats.match/25", "nickstats.match/26", "nickstats.match/27"].includes(payload.schema) ? null : (payload.round_timing || []).filter(timing => {
         const round = numberValue(timing?.[0]);
         if (roundPhase === "REGULATION" ? round > 24 : round <= 24) return false;
         const economy = economyByRound.get(round);
@@ -2264,9 +2264,9 @@
         "1v3": sortSpecs.clutch3,
         "1v2": sortSpecs.clutch2,
         "1v1": sortSpecs.clutch1,
-        "Value vs save": sortSpecs.clutchEconomics_total,
-        "Avg / attempt": sortSpecs.clutchEconomics_average,
-        "Measured attempts": sortSpecs.clutchEconomics_measured
+        "Expected attempt value": sortSpecs.clutchEconomics_total,
+        "Avg / situation": sortSpecs.clutchEconomics_average,
+        "Estimated situations": sortSpecs.clutchEconomics_measured
       },
       multikills: {
         Total: sortSpecs.multikillTotal,
@@ -3241,8 +3241,8 @@
     const trade = result.trade_definition || {};
     const movement = result.kill_context_definition || {};
     return {
-      schema: "nickstats.match/26",
-      nickstats_build: "2026.09.30.7",
+      schema: "nickstats.match/27",
+      nickstats_build: "2026.09.30.8",
       parser: [result.parser, result.parser_version],
       id: {
         faceit: result.provider_match_id || null,

@@ -262,15 +262,15 @@
       })
     ]);
     const economics = clutchEconomySummary(rawStats);
-    const money = value => `${value > 0 ? "+" : value < 0 ? "−" : ""}$${Math.round(Math.abs(value)).toLocaleString()}`;
+    const money = window.NickStatsScoreboard.money;
     const impact = $(`${prefix}ClutchEconomicsStats`);
-    if (impact) impact.replaceChildren(card("Value vs save", economics.total == null ? "—" : money(economics.total),
-      economics.average == null ? economics.available ? "No measured attempts in this selection" : "Reparse demos to collect clutch/save economics"
-        : `${money(economics.average)} per measured attempt`,
+    if (impact) impact.replaceChildren(card("Expected attempt value", economics.total == null ? "—" : money(economics.total),
+      economics.average == null ? economics.available ? "Not enough history for an estimate" : "Reparse demos to collect prediction inputs"
+        : `${money(economics.average)} expected per situation`,
       economics.total == null ? "" : semanticClass(economics.total, 0, 0)));
     const coverage = $(`${prefix}ClutchEconomicsCoverage`);
     if (coverage) coverage.textContent = economics.available
-      ? `${integer(economics.measured)} of ${integer(economics.attempted)} clutch/save attempts measured.`
+      ? `${integer(economics.measured)} of ${integer(economics.attempted)} situations estimated.`
       : "Earlier demos are unavailable, rather than counted as zero.";
     const multikillRounds = [2, 3, 4, 5].reduce((total, kills) => total + number(s[`kill_rounds_${kills}k`]), 0);
     fillStrip(`${prefix}MultikillStats`, [
@@ -352,16 +352,7 @@
 
   function clutchEconomySummary(rawStats) {
     const economics = availability.scope(rawStats, "clutchEconomics");
-    const outcomes = ["win_survive", "win_die", "loss_survive", "loss_die"];
-    let attempted = 0, measured = 0, total = 0;
-    for (const outcome of outcomes) {
-      attempted += number(economics?.[`clutch_econ_${outcome}_count`]);
-      const samples = number(economics?.[`clutch_econ_${outcome}_save_measured`]);
-      measured += samples;
-      if (samples > 0) total += number(economics?.[`clutch_econ_${outcome}_save_impact`]);
-    }
-    return { available: economics != null, attempted, measured,
-      total: measured ? total : null, average: measured ? total / measured : null };
+    return { available: economics != null, ...window.NickStatsScoreboard.clutchEconomics(economics, "clutch_econ_") };
   }
 
   function mountComparisonProfile() {

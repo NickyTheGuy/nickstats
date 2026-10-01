@@ -26,7 +26,7 @@
     opening: [["K", "D", "Assisted K", "Dmg A", "K on ally flash", "Traded D", "Trade K", "A earned", "Dmg A earned", "A from your flash", "Enemy blind K", "K while blind", "D while blind", "D to blind killer", "Enemy assisted D", "Enemy dmg A D", "D on killer's ally flash", "K on your flash", "K on their flash", "D to killer's flash", "D to your side's flash", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
     initiation: [["Initiations", "Initiation rounds %"], "Initiation rounds %"],
     trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
-    clutches: [["1v5", "1v4", "1v3", "1v2", "1v1", "Value vs save", "Avg / attempt", "Measured attempts"], "Total W/A · Win%"],
+    clutches: [["1v5", "1v4", "1v3", "1v2", "1v1", "Expected attempt value", "Avg / situation", "Estimated situations"], "Total W/A · Win%"],
     multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%", "5K", "4K", "3K", "2K", "TMK%"], "Total"],
     objectives: [["Plants", "Defuses"], "Plants/defuses"],
     roundState: [["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D"], "Clawback-Bozo K-D"],
@@ -52,7 +52,7 @@
     combat: [54, 54, 54, 62, 62, 82, 88, 76, 72],
     opening: [58, 58, 82, 68, 126, 88, 68, 76, 76, 130, 82, 100, 100, 126, 104, 112, 164, 110, 112, 126, 152, 82, 62, 72, 76],
     initiation: [110, 164],
-    trades: [58, 54, 96, 58, 54, 96], clutches: [94, 94, 94, 94, 94, 160, 142, 132],
+    trades: [58, 54, 96, 58, 54, 96], clutches: [94, 94, 94, 94, 94, 176, 142, 146],
     multikills: [55, 55, 55, 55, 55, 72, 55, 55, 55, 55, 72], objectives: [74, 74],
     roundState: [128, 88, 168, 104], killStage: [92, 92, 92, 92, 92], timing: [82, 82, 84, 84, 84, 112],
     killContext: [104, 104, 98, 88, 88, 112, 104, 88, 88], movement: [88, 88, 88, 88, 116, 132, 126, 142],
@@ -71,19 +71,31 @@
   function clutchEconomics(counters, prefix = "") {
     if (!counters) return { attempted: 0, measured: 0, total: null, average: null };
     const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
-    let attempted = 0, measured = 0, total = 0;
-    for (const outcome of ["win_survive", "win_die", "loss_survive", "loss_die"]) {
-      attempted += number(counters[`${prefix}${outcome}_count`]);
-      const samples = number(counters[`${prefix}${outcome}_save_measured`]);
-      measured += samples;
-      if (samples > 0) total += number(counters[`${prefix}${outcome}_save_impact`]);
+    const outcomes = ["win_survive", "win_die", "loss_survive", "loss_die"];
+    const attempted = outcomes.reduce((sum, outcome) => sum + number(counters[`${prefix}${outcome}_count`]), 0);
+    let measured = 0, total = 0;
+    for (const side of ["t", "ct"]) for (let size = 1; size <= 5; size++) {
+      const read = (outcome, key) => number(counters[`${prefix}${outcome}_${side}${size}_${key}`]);
+      const wins = read("win_survive", "count") + read("win_die", "count");
+      const failures = read("loss_die", "count");
+      // Saves do not count as failed attempts. Require a useful history and
+      // smooth small samples with one win and one failure, rather than 0/100%.
+      if (wins + failures < 5) continue;
+      const winChance = (wins + 1) / (wins + failures + 2);
+      const dieOnWin = (read("win_die", "count") + 1) / (wins + 2);
+      const lateFailure = failures ? read("loss_die", "late") / failures : 0;
+      const sum = key => outcomes.reduce((value, outcome) => value + read(outcome, key), 0);
+      measured += sum("forecast");
+      total += winChance * ((1 - dieOnWin) * sum("victory") + dieOnWin * sum("victory_dead"))
+        + (1 - winChance) * ((1 - lateFailure) * sum("failure") + lateFailure * sum("failure_late"));
     }
     return { attempted, measured, total: measured ? total : null, average: measured ? total / measured : null };
   }
 
   function money(value) {
     if (value == null || !Number.isFinite(Number(value))) return "—";
-    return `${value > 0 ? "+" : value < 0 ? "−" : ""}$${Math.round(Math.abs(value)).toLocaleString()}`;
+    const rounded = Math.round(Number(value));
+    return `${rounded > 0 ? "+" : rounded < 0 ? "−" : ""}$${Math.abs(rounded).toLocaleString()}`;
   }
 
   function activeSubgroup(state, group) {

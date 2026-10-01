@@ -97,8 +97,10 @@ test("match body groups match header order with Initiation and Trades independen
   state.expandedGroups = { clutches: true };
   state.visibleScoreboardSections = new Set(["rounds"]);
   state.subgroups = { clutches: "economics" };
-  player.clutch_economics = { win_survive_count: 2, win_survive_save_measured: 2, win_survive_save_impact: 12000,
-    loss_die_count: 3, loss_die_save_measured: 1, loss_die_save_impact: -3000 };
+  player.clutch_economics = { win_survive_count: 2, win_survive_ct1_count: 2, win_survive_ct1_forecast: 2,
+    win_survive_ct1_victory: 14000, win_survive_ct1_victory_dead: 14000,
+    loss_die_count: 3, loss_die_ct1_count: 3, loss_die_ct1_forecast: 1,
+    loss_die_ct1_victory: 7000, loss_die_ct1_victory_dead: 7000 };
   for (const mode of ["totals", "round"]) {
     state.scoreboardValueMode = mode;
     assert.deepEqual(render(player).cells.filter(cell => cell.classList.contains("clutches-cell")).map(cell => cell.textContent),
@@ -118,8 +120,10 @@ test("first-contact round percentage sorts by frequency and excludes missing mat
 });
 
 test("clutch economics pools measured outcomes and cycles matching columns and widths", () => {
-  const counters = { win_survive_count: 2, win_survive_save_measured: 2, win_survive_save_impact: 12000,
-    loss_die_count: 3, loss_die_save_measured: 1, loss_die_save_impact: -3000 };
+  const counters = { win_survive_count: 2, win_survive_ct1_count: 2, win_survive_ct1_forecast: 2,
+    win_survive_ct1_victory: 14000, win_survive_ct1_victory_dead: 14000,
+    loss_die_count: 3, loss_die_ct1_count: 3, loss_die_ct1_forecast: 1,
+    loss_die_ct1_victory: 7000, loss_die_ct1_victory_dead: 7000 };
   const summary = Scoreboard.clutchEconomics(counters);
   assert.equal(summary.attempted, 5);
   assert.equal(summary.measured, 3);
@@ -130,7 +134,7 @@ test("clutch economics pools measured outcomes and cycles matching columns and w
   assert.equal(Scoreboard.focus(layout, "clutches", Scoreboard.columns.clutches[0]).length, 5);
   Scoreboard.cycle(layout, "clutches");
   assert.deepEqual(Array.from(Scoreboard.focus(layout, "clutches", Scoreboard.columns.clutches[0])),
-    ["Value vs save", "Avg / attempt", "Measured attempts"]);
+    ["Expected attempt value", "Avg / situation", "Estimated situations"]);
   assert.equal(Scoreboard.minimumWidths(layout, "clutches").length, 3);
   for (const [field, expected] of [["total", 9000], ["average", 3000], ["measured", 3]]) {
     const spec = matchSorts[`clutchEconomics_${field}`];
@@ -154,15 +158,17 @@ test("quick comparison economics columns preserve dollars and sample coverage in
     quickSource.indexOf("    function measuredColumnWidths("));
   const api = vm.runInNewContext(`${helpers}\n${quickSource.slice(start, end)}\nreturn columns; }\n({renderTable, displayedValue, displayedLabel, columnSortValue})`, context);
   const item = { rows: [{}, {}], stats: { rounds: 40, economics: {
-    clutch_econ_win_survive_count: 2, clutch_econ_win_survive_save_measured: 2, clutch_econ_win_survive_save_impact: 12000,
-    clutch_econ_loss_die_count: 3, clutch_econ_loss_die_save_measured: 1, clutch_econ_loss_die_save_impact: -3000 } } };
+    clutch_econ_win_survive_count: 2, clutch_econ_win_survive_ct1_count: 2, clutch_econ_win_survive_ct1_forecast: 2,
+    clutch_econ_win_survive_ct1_victory: 14000, clutch_econ_win_survive_ct1_victory_dead: 14000,
+    clutch_econ_loss_die_count: 3, clutch_econ_loss_die_ct1_count: 3, clutch_econ_loss_die_ct1_forecast: 1,
+    clutch_econ_loss_die_ct1_victory: 7000, clutch_econ_loss_die_ct1_victory_dead: 7000 } } };
   const columns = api.renderTable([item]).filter(column => column.group === "clutches");
   assert.equal(columns.length, 3);
   for (const mode of ["totals", "round", "match"]) {
     state.valueMode = mode;
     assert.deepEqual(Array.from(columns, column => api.displayedValue(column, item)), ["+$9,000", "+$3,000", "3 / 5"]);
     assert.deepEqual(Array.from(columns, column => api.columnSortValue(column, item)), [9000, 3000, 3]);
-    assert.deepEqual(Array.from(columns, column => api.displayedLabel(column)), ["Value vs save", "Avg / attempt", "Measured attempts"]);
+    assert.deepEqual(Array.from(columns, column => api.displayedLabel(column)), ["Expected attempt value", "Avg / situation", "Estimated situations"]);
     assert.deepEqual(Array.from(columns, column => api.displayedValue(column, { rows: [], stats: {} })), ["—", "—", "—"]);
   }
 });

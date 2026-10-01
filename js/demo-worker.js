@@ -17,6 +17,7 @@ const CLUTCH_CASH_RULES = Object.freeze({
   cash_team_planted_bomb_but_defused: 600, cash_team_terrorist_win_bomb: 3500,
   cash_team_win_by_defusing_bomb: 3500, cash_team_win_by_time_running_out_bomb: 3250,
   cash_player_bomb_planted: 300, cash_player_bomb_defused: 300,
+  cash_team_elimination_bomb_map: 3250,
   mp_maxmoney: 16000, mp_starting_losses: 1, mp_consecutive_loss_aversion: 1
 });
 const isRegulationPistolRound = roundNumber => roundNumber === 1 || roundNumber === 13;
@@ -547,6 +548,13 @@ async function parseDemo(fileName, buffer) {
       const metrics = calculateClutchEconomics(candidate, ended.clutchResources, ended.deaths,
         nextRoundCash, ended.clutchResourceTick > pending.endTick);
       const data = { [`${outcome}_count`]: 1 };
+      const bucket = `${candidate.side === 2 ? "t" : "ct"}${candidate.opponents}`;
+      data[`${outcome}_${bucket}_count`] = 1;
+      if (outcome === "loss_die" && candidate.survivedTimeout) data[`${outcome}_${bucket}_late`] = 1;
+      if (candidate.prediction) {
+        data[`${outcome}_${bucket}_forecast`] = 1;
+        for (const [key, value] of Object.entries(candidate.prediction)) data[`${outcome}_${bucket}_${key}`] = value;
+      }
       if (metrics) {
         data[`${outcome}_measured`] = 1;
         for (const [key, value] of Object.entries(metrics)) data[`${outcome}_${key}`] = value;
@@ -1129,6 +1137,8 @@ async function parseDemo(fileName, buffer) {
     }
     for (const candidate of round.clutchCandidates) {
       const row = candidate.row, side = candidate.side, result = side === winningSide ? "win" : "loss";
+      candidate.survivedTimeout = side === 2 && winningSide === 3 && !round.bombPlanted &&
+        ![...row.userIds].some(id => round.deaths.has(id));
       candidate.economicsTargets = [row, ensureSideRow(row, side), ensureBuySideRow(row, buyFor(side), side),
         ensureRoundResultRow(row, "ALL", side, result), ensureRoundResultRow(row, buyFor(side), side, result),
         ensureEconomyMatchupRow(row, buyFor(side), buyFor(side === 2 ? 3 : 2), side, result),
@@ -2108,11 +2118,13 @@ async function parseDemo(fileName, buffer) {
       sampleClutchResources(null);
       round.clutchSides.add(side);
       alive[0].clutchAttempts[opponents] += 1;
-      round.clutchCandidates.push({ row: alive[0], side, opponents,
+      const candidate = { row: alive[0], side, opponents,
         rosterComplete: round.clutchResources.size === participants.size,
         resources: new Map([...round.clutchResources].map(([row, value]) => [row, { ...value }])),
         deaths: new Set(round.deaths), stripped: 0, kills: 0, equipmentComplete: true,
-        saveBaseline: clutchSaveBaseline(side, round.bombPlanted, clutchLossLevels, clutchCashRules) });
+        saveBaseline: clutchSaveBaseline(side, round.bombPlanted, clutchLossLevels, clutchCashRules) };
+      candidate.prediction = clutchPredictionValues(candidate, round.bombPlanted, clutchLossLevels, clutchCashRules);
+      round.clutchCandidates.push(candidate);
     }
   }
 
@@ -3584,6 +3596,47 @@ function calculateClutchSaveImpact(candidate, actual) {
   // lets a surviving enemy with cash capacity complete the conceded objective.
   enemy += Math.min(baseline.enemyObjectiveAward, recordedObjectiveRoom ?? objectiveRoom);
   return Math.round(actual.differential - (team - enemy));
+}
+
+// Predict the round-payout and own-equipment components only. Future kills,
+// enemy kit removal, purchases and pickups are deliberately not forecast.
+function clutchPredictionValues(candidate, planted, levels, rules) {
+  if (candidate.rosterComplete === false) return null;
+  const ownWin = planted ? candidate.side === 2 ? rules.cash_team_terrorist_win_bomb
+    : rules.cash_team_win_by_defusing_bomb : rules.cash_team_elimination_bomb_map;
+  const enemySide = candidate.side === 2 ? 3 : 2;
+  const enemyLoss = rules.cash_team_loser_bonus + Math.min(4, Math.max(0, levels[enemySide])) * rules.cash_team_loser_bonus_consecutive_rounds
+    + (enemySide === 2 && planted ? rules.cash_team_planted_bomb_but_defused : 0);
+  const enemyWin = planted ? enemySide === 2 ? rules.cash_team_terrorist_win_bomb
+    : rules.cash_team_win_by_defusing_bomb : rules.cash_team_elimination_bomb_map;
+  const values = {};
+  for (const scenario of ["victory", "victory_dead", "failure", "failure_late"]) {
+    const won = scenario.startsWith("victory"), retained = scenario === "victory";
+    let team = 0, enemy = 0, enemyObjectiveRoom = 0;
+    for (const [row, initial] of candidate.resources) {
+      const initiallyDead = [...row.userIds].some(id => candidate.deaths.has(id));
+      const equipment = initiallyDead ? 0 : initial.equipment;
+      if (![initial.cash, equipment].every(value => Number.isFinite(value) && value >= 0)) return null;
+      const friendly = initial.side === candidate.side;
+      let award = friendly ? won ? ownWin : candidate.saveBaseline.teamAward : won ? enemyLoss : enemyWin;
+      if (row === candidate.row) {
+        if (scenario === "failure_late" && candidate.side === 2 && !planted) award = 0;
+        if (won && candidate.side === 3 && planted) award += rules.cash_player_bomb_defused;
+      }
+      const cash = Math.min(rules.mp_maxmoney, initial.cash + award);
+      const gear = row === candidate.row ? retained ? equipment : 0 : equipment;
+      if (friendly) team += cash + gear;
+      else {
+        enemy += cash + gear;
+        if (!initiallyDead) enemyObjectiveRoom = Math.max(enemyObjectiveRoom, rules.mp_maxmoney - cash);
+      }
+    }
+    if (!won && candidate.side === 2 && planted) enemy += Math.min(rules.cash_player_bomb_defused, enemyObjectiveRoom);
+    const value = calculateClutchSaveImpact(candidate, { differential: team - enemy });
+    if (value == null) return null;
+    values[scenario] = value;
+  }
+  return values;
 }
 
 
