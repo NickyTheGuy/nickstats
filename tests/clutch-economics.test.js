@@ -226,7 +226,7 @@ test("pooled impact distinguishes negative, zero, incomplete, and unavailable me
   assert.equal(summarize({}).average, null);
 });
 
-test("Player and Groups render aggregate and size estimates per attempt with coverage", () => {
+test("Player and Groups render aggregate and size estimates per attempt without sample-count notes", () => {
   class Element {
     constructor() { this.children = []; this.dataset = {}; this.classList = { add() {} }; }
     append(...nodes) { this.children.push(...nodes); }
@@ -254,14 +254,16 @@ test("Player and Groups render aggregate and size estimates per attempt with cov
     assert.equal(target.children.length, 6);
     assert.equal(target.children[0].children[0].textContent, "All / attempt");
     assert.equal(target.children[0].children[1].textContent, "+$2,800");
-    assert.equal(target.children[0].children[2].textContent, "3 attempts estimated");
+    assert.equal(target.children[0].children.length, 2);
     assert.equal(target.children[5].children[0].textContent, "1v1 / attempt");
     assert.equal(target.children[5].children[1].textContent, "+$2,800");
     assert.equal(target.children[1].children[1].textContent, "—");
-    assert.match(elements.get(`${prefix}ClutchEconomicsCoverage`).textContent, /^3 of 5 situations estimated/);
+    assert.equal(target.children[5].children.length, 2);
   }
   const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.ok(html.includes('id="playerClutchEconomicsStats"'));
+  assert.ok(html.includes('<h3>Expected Clutch Value</h3>'));
+  assert.ok(!html.includes('ClutchEconomicsCoverage'));
   assert.ok(!html.includes('id="playerClutchEconomicsTable"'));
 });
 
