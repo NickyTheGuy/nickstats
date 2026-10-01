@@ -43,13 +43,13 @@ test("prediction uses entry payouts and equipment, with no income for post-timeo
   candidate.resources.get(candidate.row).cash = null;
   assert.equal(ctx.clutchPredictionValues(candidate, false, levels, rules), null);
 });
-test("expected value combines smoothed success, win survival and failure timing probabilities", () => {
+test("expected value combines observed success, win survival and failure timing probabilities", () => {
   const ordinary = summarize(history());
-  // P(win)=3/7; P(die|win)=1/4; expected win=5000, failed attempt=-3000.
-  assert.ok(Math.abs(ordinary.average - (3 / 7 * 5000 - 4 / 7 * 3000)) < 1e-9);
+  // Two wins from five attempts, both survived; failed attempt=-3000.
+  assert.ok(Math.abs(ordinary.average - (2 / 5 * 6000 - 3 / 5 * 3000)) < 1e-9);
   const late = summarize(history(2, 3, 0, 3));
   assert.ok(late.average < ordinary.average);
-  assert.ok(Math.abs(late.average - (3 / 7 * 5000 - 4 / 7 * 5000)) < 1e-9);
+  assert.ok(Math.abs(late.average - (2 / 5 * 6000 - 3 / 5 * 5000)) < 1e-9);
 });
 test("lost-round survivors are saves and do not lower the attempt win probability", () => {
   const original = summarize(history());
@@ -57,6 +57,28 @@ test("lost-round survivors are saves and do not lower the attempt win probabilit
   assert.ok(Math.abs(withSaves.average - original.average) < 1e-9);
   assert.equal(withSaves.measured, 25);
   assert.ok(Math.abs(withSaves.total - original.average * 25) < 1e-9);
+});
+test("zero observed wins never receive hypothetical victory value", () => {
+  const counters = history(0, 5, 0, 0, "t5");
+  counters.loss_die_t5_victory = 1000000;
+  counters.loss_die_t5_victory_dead = 1000000;
+  assert.equal(summarize(counters).average, -3000);
+  assert.equal(summarize(counters).bySize[5].average, -3000);
+  // A cheap T kit can still make early-death loss income exceed saving.
+  counters.loss_die_t5_failure = 5000;
+  assert.equal(summarize(counters).average, 1000);
+});
+test("winning survival uses observed deaths without adding imaginary deaths", () => {
+  assert.equal(summarize(history(5, 0)).average, 6000);
+  const counters = history(3, 2);
+  for (const key of ["count", "forecast", "victory", "victory_dead", "failure", "failure_late"]) {
+    const original = counters[`win_survive_t1_${key}`];
+    counters[`win_die_t1_${key}`] = original / 3;
+    counters[`win_survive_t1_${key}`] = original * 2 / 3;
+  }
+  counters.win_survive_count = 2;
+  counters.win_die_count = 1;
+  assert.ok(Math.abs(summarize(counters).average - 1600) < 1e-9);
 });
 test("side and 1vX histories stay separate and sparse contexts never become zero estimates", () => {
   assert.equal(summarize(history(1, 3)).total, null);

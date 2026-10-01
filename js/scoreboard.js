@@ -81,10 +81,10 @@
       const failures = read("loss_die", "count");
       bySize[size].attempted += outcomes.reduce((sum, outcome) => sum + read(outcome, "count"), 0);
       // Saves do not count as failed attempts. Require a useful history and
-      // smooth small samples with one win and one failure, rather than 0/100%.
+      // use this player's observed outcomes without adding hypothetical wins.
       if (wins + failures < 5) continue;
-      const winChance = (wins + 1) / (wins + failures + 2);
-      const dieOnWin = (read("win_die", "count") + 1) / (wins + 2);
+      const winChance = wins / (wins + failures);
+      const dieOnWin = wins ? read("win_die", "count") / wins : 0;
       const lateFailure = failures ? read("loss_die", "late") / failures : 0;
       const sum = key => outcomes.reduce((value, outcome) => value + read(outcome, key), 0);
       const samples = sum("forecast");

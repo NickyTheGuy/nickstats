@@ -203,8 +203,8 @@ test("profile economy impact pools every clutch/save outcome and weights the ave
   const result = ctx.window.NickStatsProfile.clutchEconomySummary(stats);
   assert.equal(result.attempted, 10);
   assert.equal(result.measured, 8);
-  assert.equal(result.total, 24000);
-  assert.equal(result.average, 3000);
+  assert.equal(result.total, 25000);
+  assert.equal(result.average, 3125);
 });
 
 test("pooled impact distinguishes negative, zero, incomplete, and unavailable measurements", () => {
@@ -215,7 +215,7 @@ test("pooled impact distinguishes negative, zero, incomplete, and unavailable me
   const availability = ctx.window.NickStatsAvailability, summarize = ctx.window.NickStatsProfile.clutchEconomySummary;
   const negative = {}, zero = {}, incomplete = {};
   availability.add(negative, predictionCounters(2, 0, 0, 3, [2, 0, 0, 1], -7000), "nickstats.match/27");
-  assert.equal(summarize(negative).average, -3000);
+  assert.equal(summarize(negative).average, -2800);
   availability.add(zero, predictionCounters(2, 0, 0, 3, [2, 0, 0, 1], 0), "nickstats.match/27");
   assert.equal(summarize(zero).total, 0);
   availability.add(incomplete, { clutch_econ_loss_survive_count: 2 }, "nickstats.match/27");
@@ -253,10 +253,10 @@ test("Player and Groups render aggregate and size estimates per attempt with cov
     const target = elements.get(`${prefix}ClutchEconomicsStats`);
     assert.equal(target.children.length, 6);
     assert.equal(target.children[0].children[0].textContent, "All / attempt");
-    assert.equal(target.children[0].children[1].textContent, "+$3,000");
+    assert.equal(target.children[0].children[1].textContent, "+$2,800");
     assert.equal(target.children[0].children[2].textContent, "3 attempts estimated");
     assert.equal(target.children[5].children[0].textContent, "1v1 / attempt");
-    assert.equal(target.children[5].children[1].textContent, "+$3,000");
+    assert.equal(target.children[5].children[1].textContent, "+$2,800");
     assert.equal(target.children[1].children[1].textContent, "—");
     assert.match(elements.get(`${prefix}ClutchEconomicsCoverage`).textContent, /^3 of 5 situations estimated/);
   }
