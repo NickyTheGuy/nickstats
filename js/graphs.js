@@ -799,6 +799,7 @@
       bucketCount: previous?.bucketCount || DEFAULT_BUCKETS, metricId: registry.has(previous?.metricId) ? previous.metricId : "rating",
       category: registry.has(previous?.metricId) ? previous.category : "Core", suggestions: previous?.suggestions || [], suggestionIndex: previous?.suggestionIndex ?? -1,
       customRanges: previous?.customRanges || new Map(), manualCutoffs: previous?.manualCutoffs || new Map(), bucketInputMetric: previous?.bucketInputMetric || null });
+    if (previous) closeSuggestions(prefix);
     if (previous && !registry.has(previous.metricId)) {
       input.value = registry.get("rating").label;
       if (category) { category.value = "Core"; window.NickStatsDropdown.sync(category); }
