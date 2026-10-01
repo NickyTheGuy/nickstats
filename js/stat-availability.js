@@ -53,7 +53,7 @@
     true_kill_rounds_5k: 21,
     true_multikill_rounds: 21,
     trueMultikillPercent: 21,
-    clutchEconomics: 24,
+    clutchEconomics: 26,
     initiation_kills: 25,
     initiation_deaths: 25,
     initiation_contacts: 25,

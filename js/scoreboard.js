@@ -26,7 +26,7 @@
     opening: [["K", "D", "Assisted K", "Dmg A", "K on ally flash", "Traded D", "Trade K", "A earned", "Dmg A earned", "A from your flash", "Enemy blind K", "K while blind", "D while blind", "D to blind killer", "Enemy assisted D", "Enemy dmg A D", "D on killer's ally flash", "K on your flash", "K on their flash", "D to killer's flash", "D to your side's flash", "Attempt rate", "Diff", "Success", "Assist %"], "K-D · Att%"],
     initiation: [["Initiations", "Initiation rounds %"], "Initiation rounds %"],
     trades: [["K Opp", "K Att", "K (Succ%)", "D Opp", "D Att", "D (Succ%)"], "K-D"],
-    clutches: [["1v5", "1v4", "1v3", "1v2", "1v1", "Net economy change", "Avg / attempt", "Measured attempts"], "Total W/A · Win%"],
+    clutches: [["1v5", "1v4", "1v3", "1v2", "1v1", "Value vs save", "Avg / attempt", "Measured attempts"], "Total W/A · Win%"],
     multikills: [["5K", "4K", "3K", "2K", "1K", "Multi%", "5K", "4K", "3K", "2K", "TMK%"], "Total"],
     objectives: [["Plants", "Defuses"], "Plants/defuses"],
     roundState: [["Clawback-Bozo K-D", "Even K-D", "Advantage K / Outnumbered D", "Cleanup K-D"], "Clawback-Bozo K-D"],
@@ -74,9 +74,9 @@
     let attempted = 0, measured = 0, total = 0;
     for (const outcome of ["win_survive", "win_die", "loss_survive", "loss_die"]) {
       attempted += number(counters[`${prefix}${outcome}_count`]);
-      const samples = number(counters[`${prefix}${outcome}_measured`]);
+      const samples = number(counters[`${prefix}${outcome}_save_measured`]);
       measured += samples;
-      if (samples > 0) total += number(counters[`${prefix}${outcome}_swing`]);
+      if (samples > 0) total += number(counters[`${prefix}${outcome}_save_impact`]);
     }
     return { attempted, measured, total: measured ? total : null, average: measured ? total / measured : null };
   }

@@ -264,7 +264,7 @@
     const economics = clutchEconomySummary(rawStats);
     const money = value => `${value > 0 ? "+" : value < 0 ? "−" : ""}$${Math.round(Math.abs(value)).toLocaleString()}`;
     const impact = $(`${prefix}ClutchEconomicsStats`);
-    if (impact) impact.replaceChildren(card("Net economy change", economics.total == null ? "—" : money(economics.total),
+    if (impact) impact.replaceChildren(card("Value vs save", economics.total == null ? "—" : money(economics.total),
       economics.average == null ? economics.available ? "No measured attempts in this selection" : "Reparse demos to collect clutch/save economics"
         : `${money(economics.average)} per measured attempt`,
       economics.total == null ? "" : semanticClass(economics.total, 0, 0)));
@@ -356,9 +356,9 @@
     let attempted = 0, measured = 0, total = 0;
     for (const outcome of outcomes) {
       attempted += number(economics?.[`clutch_econ_${outcome}_count`]);
-      const samples = number(economics?.[`clutch_econ_${outcome}_measured`]);
+      const samples = number(economics?.[`clutch_econ_${outcome}_save_measured`]);
       measured += samples;
-      if (samples > 0) total += number(economics?.[`clutch_econ_${outcome}_swing`]);
+      if (samples > 0) total += number(economics?.[`clutch_econ_${outcome}_save_impact`]);
     }
     return { available: economics != null, attempted, measured,
       total: measured ? total : null, average: measured ? total / measured : null };

@@ -10,6 +10,15 @@ const demoSizeLimitMessage = bytes => {
 };
 const ECO_MAX_EQUIPMENT_PER_PLAYER = 1000;
 const FULL_BUY_MIN_EQUIPMENT_PER_PLAYER = 3500;
+// Model a successful concession using competitive cash rules. Recorded convars
+// override these defaults, including historical/current plant bonus differences.
+const CLUTCH_CASH_RULES = Object.freeze({
+  cash_team_loser_bonus: 1400, cash_team_loser_bonus_consecutive_rounds: 500,
+  cash_team_planted_bomb_but_defused: 600, cash_team_terrorist_win_bomb: 3500,
+  cash_team_win_by_defusing_bomb: 3500, cash_team_win_by_time_running_out_bomb: 3250,
+  cash_player_bomb_planted: 300, cash_player_bomb_defused: 300,
+  mp_maxmoney: 16000, mp_starting_losses: 1, mp_consecutive_loss_aversion: 1
+});
 const isRegulationPistolRound = roundNumber => roundNumber === 1 || roundNumber === 13;
 const equipmentBuyType = (value, players, pistolRound = false) => {
   if (pistolRound) return "pistol";
@@ -191,6 +200,7 @@ async function parseDemo(fileName, buffer) {
   const parser = new Parser(new ParserConfiguration({
     entityClasses: ["CCSTeam", "CCSGameRulesProxy", "CCSPlayerController", "CCSPlayerPawn", ...WEAPON_ENTITY_CLASSES],
     messagePacketTypes: [
+      MessagePacketType.NET_SET_CON_VAR,
       MessagePacketType.SVC_SERVER_INFO,
       MessagePacketType.SVC_PACKET_ENTITIES,
       MessagePacketType.GE_SOURCE1_LEGACY_GAME_EVENT_LIST,
@@ -203,6 +213,8 @@ async function parseDemo(fileName, buffer) {
 
   const descriptors = new Map();
   const stats = new Map();
+  const clutchCashRules = { ...CLUTCH_CASH_RULES };
+  let clutchLossLevels = { 2: 1, 3: 1 };
   const identityRows = new Map();
   const teamNow = new Map();
   const originalTeam = new Map();
@@ -538,6 +550,12 @@ async function parseDemo(fileName, buffer) {
       if (metrics) {
         data[`${outcome}_measured`] = 1;
         for (const [key, value] of Object.entries(metrics)) data[`${outcome}_${key}`] = value;
+        candidate.baselineObjectiveRow = candidate.side === 3 ? ended.bombPlanter : ended.bombDefuser;
+        const impact = calculateClutchSaveImpact(candidate, metrics);
+        if (impact != null) {
+          data[`${outcome}_save_measured`] = 1;
+          data[`${outcome}_save_impact`] = impact;
+        }
       }
       for (const target of candidate.economicsTargets || []) {
         target.clutchEconomics ||= {};
@@ -547,6 +565,7 @@ async function parseDemo(fileName, buffer) {
   }
 
   function resetMatchCounters() {
+    clutchLossLevels = { 2: clutchCashRules.mp_starting_losses, 3: clutchCashRules.mp_starting_losses };
     completedRounds = 0;
     pendingClutchEconomics = null;
     round = freshRound();
@@ -1115,7 +1134,10 @@ async function parseDemo(fileName, buffer) {
         ensureEconomyMatchupRow(row, buyFor(side), buyFor(side === 2 ? 3 : 2), side, result),
         playerRoundSlices.findLast(slice => slice.row === row && slice.round === completedRounds + 1)?.stats].filter(Boolean);
     }
-    if (winningSide === 2 || winningSide === 3) pendingClutchEconomics = { round, winner: winningSide, endTick: tick };
+    if (winningSide === 2 || winningSide === 3) {
+      pendingClutchEconomics = { round, winner: winningSide, endTick: tick };
+      clutchLossLevels = clutchNextLossLevels(clutchLossLevels, winningSide, clutchCashRules);
+    }
     round.endTick = tick;
     completedRounds += 1;
     round.finished = true;
@@ -2089,7 +2111,8 @@ async function parseDemo(fileName, buffer) {
       round.clutchCandidates.push({ row: alive[0], side, opponents,
         rosterComplete: round.clutchResources.size === participants.size,
         resources: new Map([...round.clutchResources].map(([row, value]) => [row, { ...value }])),
-        deaths: new Set(round.deaths), stripped: 0, kills: 0, equipmentComplete: true });
+        deaths: new Set(round.deaths), stripped: 0, kills: 0, equipmentComplete: true,
+        saveBaseline: clutchSaveBaseline(side, round.bombPlanted, clutchLossLevels, clutchCashRules) });
     }
   }
 
@@ -2303,6 +2326,14 @@ async function parseDemo(fileName, buffer) {
   });
 
   parser.registerPostInterceptor(InterceptorStage.MESSAGE_PACKET, async (demoPacket, messagePacket) => {
+    if (messagePacket.type === MessagePacketType.NET_SET_CON_VAR) {
+      for (const variable of messagePacket.data.convars?.cvars || []) {
+        if (!Object.hasOwn(CLUTCH_CASH_RULES, variable.name)) continue;
+        const value = clutchResourceNumber(variable.value);
+        if (Number.isFinite(value) && value >= 0) clutchCashRules[variable.name] = value;
+      }
+      return;
+    }
     if (messagePacket.type === MessagePacketType.SVC_SERVER_INFO) {
       packetCounts.server_info += 1;
       mapName = messagePacket.data.mapName || mapName;
@@ -2374,6 +2405,9 @@ async function parseDemo(fileName, buffer) {
         const nextNumber = completedRounds + 1;
         const cashReset = nextNumber === 13 || nextNumber >= 25 && (nextNumber - 25) % 3 === 0;
         settleClutchEconomics(cashReset ? null : nextCash);
+        if (nextNumber === 1 || cashReset) {
+          clutchLossLevels = { 2: clutchCashRules.mp_starting_losses, 3: clutchCashRules.mp_starting_losses };
+        }
         detectClutchCandidates();
         break;
       case "round_officially_ended":
@@ -2383,12 +2417,14 @@ async function parseDemo(fileName, buffer) {
         finishRound(null, true, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
         break;
       case "bomb_planted":
+        round.bombPlanter = stats.get(integer(gameEvent.userid)) || null;
         round.bombPlanted = true;
         round.bombPlantTick = demoPacket.tick;
         if (round.live) recordObjective(gameEvent, "bombPlants");
         round.objectiveEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         break;
       case "bomb_defused":
+        round.bombDefuser = stats.get(integer(gameEvent.userid)) || null;
         round.winnerSide = 3;
         if (round.live) recordObjective(gameEvent, "bombDefuses");
         round.objectiveEvents.push({ event: descriptor.name, tick: demoPacket.tick });
@@ -3498,6 +3534,56 @@ function calculateClutchEconomics(candidate, end, deaths, nextCash, settled) {
 
 function clutchResourceNumber(value) {
   return value == null || value === "" ? null : numberOrNull(value);
+}
+
+function clutchSaveBaseline(side, bombPlanted, lossLevels, rules) {
+  const loss = rules.cash_team_loser_bonus + Math.min(4, Math.max(0, lossLevels[side])) * rules.cash_team_loser_bonus_consecutive_rounds;
+  return {
+    maxCash: rules.mp_maxmoney,
+    teamAward: loss + (side === 2 && bombPlanted ? rules.cash_team_planted_bomb_but_defused : 0),
+    // A T conceding without a plant survives a timeout without loss income.
+    saverAward: side === 2 && !bombPlanted ? 0 : loss + (side === 2 ? rules.cash_team_planted_bomb_but_defused : 0),
+    // CT concession lets the T side complete the bomb objective; T concession
+    // lets CTs defuse an existing plant, or win on time without one.
+    enemyAward: side === 3 ? rules.cash_team_terrorist_win_bomb : bombPlanted
+      ? rules.cash_team_win_by_defusing_bomb : rules.cash_team_win_by_time_running_out_bomb,
+    enemyObjectiveAward: side === 3 ? bombPlanted ? 0 : rules.cash_player_bomb_planted
+      : bombPlanted ? rules.cash_player_bomb_defused : 0
+  };
+}
+
+function clutchNextLossLevels(levels, winner, rules) {
+  return Object.fromEntries([2, 3].map(side => [side, side === winner
+    ? Math.max(0, levels[side] - rules.mp_consecutive_loss_aversion)
+    : Math.min(4, levels[side] + 1)]));
+}
+
+function calculateClutchSaveImpact(candidate, actual) {
+  const baseline = candidate.saveBaseline;
+  if (!baseline || !actual || ![baseline.maxCash, baseline.teamAward, baseline.saverAward, baseline.enemyAward, baseline.enemyObjectiveAward]
+    .every(value => Number.isFinite(value) && value >= 0)) return null;
+  let team = 0, enemy = 0, objectiveRoom = 0, recordedObjectiveRoom = null;
+  for (const [row, initial] of candidate.resources) {
+    const dead = [...row.userIds].some(id => candidate.deaths.has(id));
+    const equipment = dead ? 0 : initial.equipment;
+    if (![initial.cash, equipment].every(value => Number.isFinite(value) && value >= 0)) return null;
+    const friendly = initial.side === candidate.side;
+    const award = friendly ? row === candidate.row ? baseline.saverAward : baseline.teamAward : baseline.enemyAward;
+    const resources = Math.min(baseline.maxCash, initial.cash + award) + equipment;
+    if (friendly) team += resources;
+    else {
+      enemy += resources;
+      if (!dead) {
+        const room = Math.max(0, baseline.maxCash - Math.min(baseline.maxCash, initial.cash + award));
+        objectiveRoom = Math.max(objectiveRoom, room);
+        if (row === candidate.baselineObjectiveRow) recordedObjectiveRoom = room;
+      }
+    }
+  }
+  // Use the observed objective player where available. Otherwise the model
+  // lets a surviving enemy with cash capacity complete the conceded objective.
+  enemy += Math.min(baseline.enemyObjectiveAward, recordedObjectiveRoom ?? objectiveRoom);
+  return Math.round(actual.differential - (team - enemy));
 }
 
 
