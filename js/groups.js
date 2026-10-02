@@ -4,6 +4,7 @@
   const PLAYER_ENDPOINT = "/nickstats/api/players";
   const GROUP_DATA_ENDPOINT = "/nickstats/api/groups";
   const MAX_GROUP = 10;
+  const MATCH_LIST_LIMIT = 50;
   const MAX_INCLUDED = 5;
   const GROUP_SELECTION_KEY = "nickstats.groupSelection.v1";
   const $ = id => document.getElementById(id);
@@ -31,7 +32,7 @@
     choices: new Map(savedRoster.map(({ player, choice }) => [String(player.id), choice])),
     searchController: null, groupController: null, groupStale: false, searchTimer: null,
     side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL",
-    comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile"
+    comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile", matchListKey: "", matchListOffset: 0
   };
 
   function num(value) {
@@ -412,6 +413,34 @@
       .filter(row => row && matchResultMatches(row.result, state.result));
   }
 
+  function renderComboMatches(rows, player) {
+    const matches = rows.filter(row => (state.roundPhase === "ALL" && !state.heroOnly) || num(selectedView(row).stats.rounds) > 0)
+      .slice().sort((a, b) => b.date - a.date || String(b.id).localeCompare(String(a.id), undefined, { numeric: true }));
+    const key = JSON.stringify([player.profileId, state.comboCondition, matches.map(row => row.id)]);
+    if (state.matchListKey !== key) { state.matchListKey = key; state.matchListOffset = 0; }
+    const offset = state.matchListOffset = Math.max(0, Math.min(state.matchListOffset,
+      Math.max(0, Math.ceil(matches.length / MATCH_LIST_LIMIT) - 1) * MATCH_LIST_LIMIT));
+    const page = matches.slice(offset, offset + MATCH_LIST_LIMIT).map(row => {
+      const summary = summarize([row]);
+      return {
+        id: row.id, map: row.map, played_at: row.date,
+        teams: row.score?.[0] == null || row.score?.[1] == null ? [] : [
+          { name: `${player.label}'s team`, score: row.score[0] },
+          { name: "Opponents", score: row.score[1] }
+        ], viewer_team_slot: 0,
+        viewer_stats: { rating: summary.rating, kills: summary.kills, deaths: summary.deaths, assists: summary.assists, adr: summary.adr }
+      };
+    });
+    window.NickStatsMatchList.render($("comboMatchesList"), page, match => {
+      location.hash = `#match/${encodeURIComponent(match.id)}`;
+    }, { actionsFor: window.NickStatsManualFilters.matchEditor });
+    $("comboMatchesStatus").textContent = `${matches.length} qualifying match${matches.length === 1 ? "" : "es"} for ${player.label}.`;
+    $("comboMatchesPagination").hidden = matches.length <= MATCH_LIST_LIMIT;
+    $("comboMatchesPrevious").disabled = offset === 0;
+    $("comboMatchesNext").disabled = offset + MATCH_LIST_LIMIT >= matches.length;
+    $("comboMatchesPageLabel").textContent = page.length ? `Matches ${offset + 1}–${offset + page.length} of ${matches.length}` : "";
+  }
+
   const { integer, decimal, percent, ratio, titleCase } = window.NickStatsProfile;
   const { bindSegmentedToggle, matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
   const mapFilter = new window.NickStatsFilters.MultiMapFilter("groupMapFilter", { onChange: () => runCombination(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
@@ -482,6 +511,7 @@
     const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate, winRateKind: source.winRateKind, scores: source.scores });
     const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches)) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "combo", headlineId: "comboProfileHeadline", summary: normalize(stats), side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
+    renderComboMatches(rows, player);
     window.NickStatsGraphs.render({ prefix: "combo", series: current.included.map(candidate => {
       const matches = comboProfileRows(current, candidate);
       return { label: candidate.label,
@@ -539,6 +569,8 @@
     if (!query) { $("groupSearchResults").replaceChildren(); return; }
     if (query.length >= 2) state.searchTimer = setTimeout(searchPlayers, 250);
   });
+  $("comboMatchesPrevious").addEventListener("click", () => { state.matchListOffset -= MATCH_LIST_LIMIT; runCombination(); });
+  $("comboMatchesNext").addEventListener("click", () => { state.matchListOffset += MATCH_LIST_LIMIT; runCombination(); });
   $("groupBuildButton").addEventListener("click", () => buildGroup());
   $("groupClearButton").addEventListener("click", clear);
   document.querySelectorAll("[data-combo-profile-view]").forEach(button => button.addEventListener("click", () => setComboProfileView(button.dataset.comboProfileView)));
