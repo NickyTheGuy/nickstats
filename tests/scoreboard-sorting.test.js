@@ -73,6 +73,7 @@ test("match body groups match header order with Initiation and Trades independen
   const slice = (start, end) => demoSource.slice(demoSource.indexOf(`  function ${start}(`), demoSource.indexOf(`  function ${end}(`));
   const render = vm.runInNewContext(`${slice("cell", "speedValue")}\n${slice("scoreboardGroupVisible", "renderScoreboardControls")}\n${slice("playerRow", "regularHeader")}\nplayerRow`, context);
   const player = { name: "Nick", rating: 1.2, rounds_played: 10, kast: 80, headshot_percent: 50, adr: 100,
+    kills: 1234, deaths: 1000, assists: 200,
     trade_kills: 7, traded_deaths: 5, trade_opportunities: 9,
     initiation_available: true, initiation: { initiation_kills: 3, initiation_deaths: 1, initiation_contacts: 8, initiation_rounds: 4 } };
   for (const mode of ["totals", "round"]) for (const initiation of [false, true]) for (const trades of [false, true]) {
@@ -87,6 +88,8 @@ test("match body groups match header order with Initiation and Trades independen
       const expected = Array.from(Scoreboard.groups).filter(([group]) => state.visibleScoreboardSections.has(Scoreboard.groupSection[group]))
         .flatMap(([group]) => Array(state.expandedGroups[group] ? Scoreboard.columns[group][0].length : 1).fill(group));
       assert.deepEqual(groupCells.map(cell => Scoreboard.groups.find(([group]) => cell.classList.contains(`${group}-cell`))[0]), expected);
+      assert.equal(row.cells.find(cell => cell.classList.contains("combat-cell")).textContent,
+        mode === "round" ? "123.40-100.00-20.00" : "1234-1000-200");
       const initiationCells = row.cells.filter(cell => cell.classList.contains("initiation-cell"));
       const tradeCells = row.cells.filter(cell => cell.classList.contains("trades-cell"));
       if (initiation) assert.equal(String(initiationCells[0].textContent), initiationExpanded ? mode === "round" ? "0.80" : "8" : "40.0%");
@@ -170,5 +173,36 @@ test("quick comparison economics columns preserve dollars and sample coverage in
     assert.deepEqual(Array.from(columns, column => api.columnSortValue(column, item)), [2800, null, null, null, null, 2800]);
     assert.deepEqual(Array.from(columns, column => api.displayedLabel(column)), ["All / attempt", "1v5 / attempt", "1v4 / attempt", "1v3 / attempt", "1v2 / attempt", "1v1 / attempt"]);
     assert.deepEqual(Array.from(columns, column => api.displayedValue(column, { rows: [], stats: {} })), Array(6).fill("—"));
+  }
+});
+
+test("comparison K-D-A keeps all three rates when localized totals exceed 999", () => {
+  const state = { valueMode: "totals", perGrenadeUtility: false };
+  const context = { state, Scoreboard, number: value => Number(value) || 0,
+    decimal: (value, digits) => value.toFixed(digits) };
+  const helpers = quickSource.slice(quickSource.indexOf("    function columnScalesWithValueMode("),
+    quickSource.indexOf("    function measuredColumnWidths("));
+  const api = vm.runInNewContext(`${helpers}\n({displayedValue, columnSortValue})`, context);
+  for (const locale of ["en-US", "de-DE", "fr-FR"]) {
+    const column = { key: "combat", group: "combat", value: item => item.stats.kills,
+      format: item => ["kills", "deaths", "assists"].map(key => item.stats[key].toLocaleString(locale)).join("-") };
+    for (const stats of [
+      { rounds: 2000, kills: 1234, deaths: 1000, assists: 200 },
+      { rounds: 2000, kills: 900, deaths: 1234, assists: 1000 },
+      { rounds: 2000, kills: 0, deaths: 0, assists: 0 }
+    ]) {
+      const item = { stats, rows: [{}, {}, {}, {}] };
+      state.valueMode = "totals";
+      assert.equal(api.displayedValue(column, item), column.format(item));
+      for (const mode of ["round", "match"]) {
+        state.valueMode = mode;
+        const denominator = mode === "round" ? stats.rounds : item.rows.length;
+        assert.equal(api.displayedValue(column, item), [stats.kills, stats.deaths, stats.assists]
+          .map(value => (value / denominator).toFixed(2)).join("-"));
+        assert.equal(api.columnSortValue(column, item), stats.kills / denominator);
+      }
+      state.valueMode = "round";
+      assert.equal(api.displayedValue(column, { stats: { ...stats, rounds: 0 }, rows: [] }), "—");
+    }
   }
 });

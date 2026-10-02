@@ -160,6 +160,10 @@
       if (!columnScalesWithValueMode(column, formatted)) return formatted;
       const denominator = columnDenominator(column, item);
       if (!denominator) return "—";
+      // Use the counters directly: localized totals such as 1,234 must not
+      // make the combined K-D-A column fall back to a single kill rate.
+      if (column.key === "combat") return ["kills", "deaths", "assists"]
+        .map(key => decimal(number(item.stats[key]) / denominator, 2)).join("-");
       const kda = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
       if (kda) return kda.slice(1).map(part => decimal(number(part) / denominator, 2)).join("-");
       const opening = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?) · (.+)$/);
