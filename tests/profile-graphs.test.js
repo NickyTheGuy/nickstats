@@ -212,3 +212,21 @@ test("distribution boundaries align with the statistic's displayed precision", (
   assert.equal(Number(bounds.min.toFixed(2)), .88);
   assert.equal(Number(bounds.max.toFixed(2)), 1.98);
 });
+
+test("non-opening assisted kills are graphable as counts and rates with schema coverage", () => {
+  const stats = { __schema: "nickstats.match/27", rounds: 20, damage_assisted_kills: 6, teammate_flash_assisted_kills: 3, own_flash_kills: 2 };
+  for (const [countID, rateID, expected] of [
+    ["damage_assisted_kills", "damage_assisted_kpr", 6],
+    ["teammate_flash_assisted_kills", "teammate_flash_assisted_kpr", 3],
+    ["own_flash_kills", "own_flash_kpr", 2]
+  ]) {
+    assert.equal(metrics.get(countID).group, "Utility");
+    assert.equal(metrics.get(countID).value(stats), expected);
+    assert.equal(metrics.get(rateID).value(stats), expected / 20);
+    assert.equal(metrics.get(rateID).value({ ...stats, [countID]: 0 }), 0);
+  }
+  const old = { ...stats, __schema: "nickstats.match/14" };
+  assert.ok(Number.isNaN(metrics.get("teammate_flash_assisted_kills").value(old)));
+  assert.ok(Number.isNaN(metrics.get("teammate_flash_assisted_kpr").value(old)));
+  assert.equal(metrics.get("damage_assisted_kills").value(old), 6);
+});

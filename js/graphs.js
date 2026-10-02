@@ -83,6 +83,12 @@
       ["initiation_round_percent", "Rounds with an initiation", percentage("initiation_rounds", "rounds"), 1, "%"]
     ]],
     ["Utility", [
+      ["damage_assisted_kills", "Damage-assisted kills", count("damage_assisted_kills"), 0],
+      ["damage_assisted_kpr", "Damage-assisted kills per round", rate("damage_assisted_kills"), 3],
+      ["teammate_flash_assisted_kills", "Kills on teammate flashes", count("teammate_flash_assisted_kills"), 0],
+      ["teammate_flash_assisted_kpr", "Kills on teammate flashes per round", rate("teammate_flash_assisted_kills"), 3],
+      ["own_flash_kills", "Kills on your flashes", count("own_flash_kills"), 0],
+      ["own_flash_kpr", "Kills on your flashes per round", rate("own_flash_kills"), 3],
       ["utility_dr", "Utility damage per round", stats => ratio(number(stats.he_damage) + number(stats.fire_damage), stats.rounds), 1],
       ["he_dr", "HE damage per round", rate("he_damage"), 1], ["fire_dr", "Fire damage per round", rate("fire_damage"), 1],
       ["enemies_flashed_r", "Enemies flashed per round", rate("enemies_flashed"), 2],
@@ -603,20 +609,22 @@
 
   function closeSuggestions(prefix, axis = "y") {
     const state = pickerState(prefix, axis), input = document.getElementById(pickerID(prefix, axis, "Metric"));
-    const list = document.getElementById(pickerID(prefix, axis, "Suggestions")), category = document.getElementById(pickerID(prefix, axis, "Category"));
+    const list = document.getElementById(pickerID(prefix, axis, "Suggestions"));
     if (!state || !input || !list) return;
-    input.value = (registry.get(state.metricId) || registry.get("rating")).label;
     input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant");
-    if (category) { category.value = state.category; window.NickStatsDropdown.sync(category); }
     list.hidden = true; list.replaceChildren(); state.suggestions = []; state.suggestionIndex = -1;
   }
 
   function selectMetric(prefix, id, axis = "y") {
     const state = pickerState(prefix, axis), metric = registry.get(id);
     if (!state || !metric) return;
-    state.metricId = id;
+    state.metricId = id; state.query = null;
+    document.getElementById(pickerID(prefix, axis, "Metric")).value = metric.label;
     const category = document.getElementById(pickerID(prefix, axis, "Category"));
-    if (category) state.category = category.value === "All" ? "All" : metric.group;
+    if (category) {
+      state.category = category.value === "All" ? "All" : metric.group;
+      category.value = state.category; window.NickStatsDropdown.sync(category);
+    }
     closeSuggestions(prefix, axis); draw(prefix);
   }
 
@@ -773,14 +781,20 @@
     const list = document.getElementById(pickerID(prefix, axis, "Suggestions"));
     if (!input || !list) return;
     const controls = input.closest(".graph-stat-controls");
-    category?.addEventListener("change", () => { input.value = ""; input.focus(); showSuggestions(prefix, "", axis); });
-    input.addEventListener("focus", () => { input.select(); showSuggestions(prefix, "", axis); });
-    input.addEventListener("input", () => showSuggestions(prefix, input.value, axis));
+    category?.addEventListener("change", () => {
+      const state = pickerState(prefix, axis); state.category = category.value; state.query = "";
+      input.value = ""; input.focus(); showSuggestions(prefix, "", axis);
+    });
+    input.addEventListener("focus", () => { input.select(); showSuggestions(prefix, pickerState(prefix, axis).query ?? "", axis); });
+    input.addEventListener("input", () => { pickerState(prefix, axis).query = input.value; showSuggestions(prefix, input.value, axis); });
     input.addEventListener("keydown", event => {
-      if (event.key === "Escape") { closeSuggestions(prefix, axis); input.blur(); }
+      if (event.key === "Escape") {
+        const state = pickerState(prefix, axis); state.query = null; input.value = registry.get(state.metricId).label;
+        closeSuggestions(prefix, axis); input.blur();
+      }
       else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
-        if (list.hidden) showSuggestions(prefix, "", axis);
+        if (list.hidden) showSuggestions(prefix, pickerState(prefix, axis).query ?? "", axis);
         moveSuggestion(prefix, event.key === "ArrowDown" ? 1 : -1, axis);
       } else if (event.key === "Enter") {
         const state = pickerState(prefix, axis);
@@ -816,13 +830,20 @@
     [type, document.getElementById(`${prefix}GraphScope`), document.getElementById(`${prefix}GraphDistributionStyle`), document.getElementById(`${prefix}GraphBucketMode`)]
       .forEach(select => window.NickStatsDropdown.enhance(select));
     const previous = graphState.get(prefix);
-    graphState.set(prefix, { series: series || [], domainSeries: domainSeries || series || [], independent,
+    const account = window.NickStatsManualFilters?.store.account || null;
+    const sameAccount = previous?.account === account;
+    graphState.set(prefix, { account, series: series || [], domainSeries: domainSeries || series || [], independent,
       bucketCount: previous?.bucketCount || DEFAULT_BUCKETS, metricId: registry.has(previous?.metricId) ? previous.metricId : "rating",
       xAxis: { metricId: registry.has(previous?.xAxis?.metricId) ? previous.xAxis.metricId : "opening_attempt_rate",
-        category: registry.has(previous?.xAxis?.metricId) ? previous.xAxis.category : "Opening", suggestions: [], suggestionIndex: -1 },
-      category: registry.has(previous?.metricId) ? previous.category : "Core", suggestions: previous?.suggestions || [], suggestionIndex: previous?.suggestionIndex ?? -1,
+        category: registry.has(previous?.xAxis?.metricId) && (account || previous.xAxis.category !== "Tags") ? previous.xAxis.category : "Opening",
+        query: sameAccount && registry.has(previous?.xAxis?.metricId) ? previous.xAxis.query : null, suggestions: [], suggestionIndex: -1 },
+      category: registry.has(previous?.metricId) && (account || previous.category !== "Tags") ? previous.category : "Core",
+      query: sameAccount && registry.has(previous?.metricId) ? previous.query : null, suggestions: previous?.suggestions || [], suggestionIndex: previous?.suggestionIndex ?? -1,
       customRanges: previous?.customRanges || new Map(), manualCutoffs: previous?.manualCutoffs || new Map(), bucketInputMetric: previous?.bucketInputMetric || null });
     for (const axis of ["y", "x"]) {
+      const state = pickerState(prefix, axis), category = document.getElementById(pickerID(prefix, axis, "Category"));
+      document.getElementById(pickerID(prefix, axis, "Metric")).value = state.query ?? registry.get(state.metricId).label;
+      if (category) { category.value = state.category; window.NickStatsDropdown.sync(category); }
       closeSuggestions(prefix, axis);
       if (!previous) bindMetricPicker(prefix, axis);
     }
