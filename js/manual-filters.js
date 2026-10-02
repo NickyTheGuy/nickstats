@@ -210,7 +210,7 @@
           input.addEventListener("change", event => { event.stopPropagation(); this.selected.clear(); this.render(); this.onChange({ resetPagination: true }); });
           all.append(input, el("span", "All matches")); panel.appendChild(all);
           store.filters.forEach(filter => {
-            const row = el("div", null, "manual-filter-option"), checkLabel = el("label"), check = el("input");
+            const row = el("div", null, `manual-filter-option${isNumeric(filter) ? " manual-filter-numeric" : ""}`), checkLabel = el("label"), check = el("input");
             check.type = "checkbox"; check.checked = this.selected.has(filter.id);
             checkLabel.append(check, el("span", displayName(filter))); row.appendChild(checkLabel);
             check.addEventListener("change", event => {
@@ -226,24 +226,27 @@
             select.addEventListener("change", () => {
               this.selected.set(filter.id, isNumeric(filter) ? { ...selected, op: select.value } : select.value); update();
             });
-            row.appendChild(select);
+            const conditions = el("div", null, "manual-filter-conditions");
+            conditions.appendChild(select); row.appendChild(conditions);
             if (isNumeric(filter)) {
               for (const key of ["value", ...(selected?.op === "between" ? ["max"] : [])]) {
                 const input = el("input"); input.type = "number"; input.step = "any"; input.value = selected?.[key] ?? "";
+                input.placeholder = key === "max" ? "Maximum" : selected?.op === "between" ? "Minimum" : "Value";
                 input.disabled = !check.checked; input.setAttribute("aria-label", `${filter.name} ${key === "max" ? "maximum" : "value"}`);
                 input.addEventListener("change", () => {
                   this.selected.set(filter.id, { ...this.selected.get(filter.id), [key]: input.value.trim() === "" ? null : Number(input.value) }); update();
-                }); row.appendChild(input);
+                }); conditions.appendChild(input);
               }
             }
             if (!store.canEdit(filter)) { panel.appendChild(row); return; }
-            if (store.supportsSharing) row.appendChild(shareMenu(filter));
+            const actions = el("div", null, "manual-filter-actions");
+            if (store.supportsSharing) actions.appendChild(shareMenu(filter));
             const remove = el("button", "×", "manual-filter-delete"); remove.type = "button"; remove.disabled = store.pending.has(filter.id);
             remove.setAttribute("aria-label", `Delete ${filter.name} tag`);
             remove.addEventListener("click", event => {
               event.stopPropagation(); if (window.confirm(`Delete “${filter.name}” and its match assignments from your account?`)) store.remove(filter.id);
             });
-            row.appendChild(remove); panel.appendChild(row);
+            actions.appendChild(remove); row.appendChild(actions); panel.appendChild(row);
           });
         }
         const form = createForm(); form.querySelector("input").value = draft; form.querySelector("select").value = draftKind; panel.appendChild(form);

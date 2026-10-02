@@ -2672,16 +2672,30 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .manual-filter-control { min-width: 180px; }
 .manual-filter-control[hidden] { display: none; }
-.manual-filter-options { width: min(390px, 85vw); max-height: 440px; }
+.manual-filter-options { width: min(480px, calc(100vw - 32px)); max-height: min(520px, 70vh); padding: 8px; }
 .manual-filter-help { margin: 6px 4px 10px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .manual-filter-error { margin: 8px 4px; color: #b33524; font-size: 13px; }
-.manual-filter-option { display: flex; gap: 6px; align-items: center; }
-.manual-filter-option label { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.manual-filter-option select { width: 75px; padding: 5px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
-.manual-filter-delete { border: 0; padding: 6px; background: transparent; color: var(--muted); font-size: 20px; }
-.manual-filter-create { display: flex; gap: 6px; margin: 10px 4px 4px; }
-.manual-filter-create input { width: 0; flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 8px; background: var(--surface); color: var(--text); }
-.manual-filter-create .button { padding: 8px 10px; white-space: nowrap; }
+.manual-filter-option { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px 8px; align-items: center; padding: 6px 4px; border-top: 1px solid var(--line); }
+.manual-filter-option > label { min-width: 0; padding: 4px; white-space: normal; overflow-wrap: anywhere; }
+.manual-filter-option > label input { flex-shrink: 0; margin: 0; }
+.manual-filter-option > label span { min-width: 0; }
+.manual-filter-actions { display: flex; gap: 4px; align-items: center; justify-self: end; }
+.manual-filter-conditions { display: grid; grid-template-columns: minmax(108px, 1fr); gap: 8px; min-width: 0; }
+.manual-filter-numeric { grid-template-columns: minmax(0, 1fr) auto; }
+.manual-filter-numeric .manual-filter-actions { grid-column: 2; grid-row: 1; }
+.manual-filter-numeric .manual-filter-conditions { grid-column: 1 / -1; grid-row: 2; grid-template-columns: minmax(108px, 1fr) minmax(0, 1fr); }
+.manual-filter-numeric .manual-filter-conditions:has(input + input) { grid-template-columns: minmax(108px, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+.manual-filter-delete { width: 28px; height: 28px; border: 0; padding: 0; border-radius: 9px; background: transparent; color: var(--muted); font-size: 20px; line-height: 1; }
+.manual-filter-create { display: grid; grid-template-columns: minmax(0, 1fr) 116px auto; gap: 8px; margin: 10px 4px 4px; }
+.manual-filter-create:has(input + button) { grid-template-columns: minmax(0, 1fr) auto; }
+.manual-filter-options input:not([type="checkbox"]), .manual-filter-options select,
+.manual-match-options input:not([type="checkbox"]), .manual-match-options select {
+  width: 100%; min-width: 0; max-width: none; height: 30px; min-height: 30px;
+  padding: 4px 9px; border: 1px solid var(--line-strong); border-radius: 9px;
+  background: var(--surface); color: var(--text); font: inherit; font-size: 12px; line-height: 20px;
+}
+.manual-filter-options select, .manual-match-options select { padding-right: 24px; }
+.manual-filter-options .button, .manual-match-options .button { min-height: 30px; height: 30px; padding: 4px 10px; border-radius: 9px; font-size: 12px; line-height: 20px; white-space: nowrap; }
 .manual-match-card { position: relative; display: flex; align-items: stretch; gap: 5px; }
 .manual-match-card > .match-list-item { flex: 1; min-width: 0; }
 .manual-match-menu { flex: 0 0 38px; }
@@ -3720,14 +3734,17 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .clutch-economics-method summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 .clutch-economics-method .method { margin-top: 10px; max-width: 85ch; line-height: 1.6; }
 
-.manual-filter-option input[type="number"] { width: 70px; min-width: 0; padding: 5px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
-.manual-filter-create select { max-width: 105px; min-width: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
-.manual-tag-value { display: flex; gap: 6px; align-items: center; }
-.manual-tag-value input { width: 100px; min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
-
+.manual-tag-value { display: grid; grid-template-columns: minmax(100px, 150px) auto; gap: 8px; align-items: center; }
 .tag-share-menu { position: relative; font-size: 12px; }
-.tag-share-menu > summary { cursor: pointer; color: var(--accent); padding: 6px; }
-.tag-share-panel { position: absolute; right: 0; top: 100%; width: min(320px, 72vw); z-index: 70; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 25px rgba(0,0,0,.2); }
+.tag-share-menu > summary { cursor: pointer; color: var(--accent); padding: 4px 6px; border-radius: 9px; line-height: 20px; }
+.tag-share-panel { position: absolute; right: 0; top: 100%; width: min(320px, 72vw); z-index: 70; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: 0 8px 25px rgba(0,0,0,.2); }
 .tag-share-recipient { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px; }
-.tag-share-recipient .button { padding: 4px 8px; font-size: 11px; }
-.filter-reset { align-self: center; white-space: nowrap; }
+.tag-share-recipient .button { min-height: 26px; height: 26px; padding: 2px 8px; font-size: 11px; }
+.filter-reset { align-self: flex-start; margin-top: 16px; min-height: 36px; height: 36px; padding: 6px 11px; border-radius: 9px; font-size: 12px; line-height: 22px; white-space: nowrap; }
+@media (max-width: 600px) {
+  .manual-filter-options { position: fixed; top: 12vh; left: 16px; right: 16px; width: auto; max-height: 76vh; }
+  .manual-filter-numeric .manual-filter-conditions:has(input + input) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .manual-filter-numeric .manual-filter-conditions:has(input + input) select { grid-column: 1 / -1; }
+  .manual-tag-create { grid-template-columns: minmax(0, 1fr) 116px; }
+  .manual-tag-create .button { grid-column: 1 / -1; justify-self: end; }
+}
