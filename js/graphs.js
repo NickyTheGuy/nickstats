@@ -598,9 +598,12 @@
     return choices.filter(([group]) => category === "All" || group === category || words.length).map(([group, entries]) => [group, entries.filter(([, label]) => words.every(word => `${group} ${label}`.toLocaleLowerCase().includes(word)))]).filter(([, entries]) => entries.length);
   }
 
-  function closeSuggestions(prefix) {
-    const state = graphState.get(prefix), input = document.getElementById(`${prefix}GraphMetric`);
-    const list = document.getElementById(`${prefix}GraphSuggestions`), category = document.getElementById(`${prefix}GraphCategory`);
+  const pickerID = (prefix, axis, part) => `${prefix}Graph${axis === "x" ? "X" : ""}${part}`;
+  const pickerState = (prefix, axis) => axis === "x" ? graphState.get(prefix)?.xAxis : graphState.get(prefix);
+
+  function closeSuggestions(prefix, axis = "y") {
+    const state = pickerState(prefix, axis), input = document.getElementById(pickerID(prefix, axis, "Metric"));
+    const list = document.getElementById(pickerID(prefix, axis, "Suggestions")), category = document.getElementById(pickerID(prefix, axis, "Category"));
     if (!state || !input || !list) return;
     input.value = (registry.get(state.metricId) || registry.get("rating")).label;
     input.setAttribute("aria-expanded", "false"); input.removeAttribute("aria-activedescendant");
@@ -608,20 +611,20 @@
     list.hidden = true; list.replaceChildren(); state.suggestions = []; state.suggestionIndex = -1;
   }
 
-  function selectMetric(prefix, id) {
-    const state = graphState.get(prefix), metric = registry.get(id);
+  function selectMetric(prefix, id, axis = "y") {
+    const state = pickerState(prefix, axis), metric = registry.get(id);
     if (!state || !metric) return;
     state.metricId = id;
-    const category = document.getElementById(`${prefix}GraphCategory`);
+    const category = document.getElementById(pickerID(prefix, axis, "Category"));
     if (category) state.category = category.value === "All" ? "All" : metric.group;
-    closeSuggestions(prefix); draw(prefix);
+    closeSuggestions(prefix, axis); draw(prefix);
   }
 
-  function showSuggestions(prefix, query = "") {
-    const state = graphState.get(prefix), input = document.getElementById(`${prefix}GraphMetric`);
-    const list = document.getElementById(`${prefix}GraphSuggestions`), category = document.getElementById(`${prefix}GraphCategory`);
+  function showSuggestions(prefix, query = "", axis = "y") {
+    const state = pickerState(prefix, axis), input = document.getElementById(pickerID(prefix, axis, "Metric"));
+    const list = document.getElementById(pickerID(prefix, axis, "Suggestions")), category = document.getElementById(pickerID(prefix, axis, "Category"));
     if (!state || !input || !list) return;
-    const choices = metricChoices(category?.value || "All", query).flatMap(([group, entries]) => entries.map(([id, label]) => ({ id, label, group })));
+    const choices = metricChoices(category?.value || "All", query).flatMap(([group, entries]) => entries.map(([id, label]) => ({ id, label, group }))).filter(choice => axis !== "x" || choice.id !== "round_diff");
     state.suggestions = choices.slice(0, 30); state.suggestionIndex = -1;
     list.replaceChildren(); list.hidden = false;
     input.setAttribute("aria-expanded", "true"); input.removeAttribute("aria-activedescendant");
@@ -629,7 +632,7 @@
       const empty = document.createElement("p"); empty.textContent = "No matching statistics"; list.appendChild(empty);
     }
     state.suggestions.forEach((choice, index) => {
-      const button = document.createElement("button"); button.type = "button"; button.id = `${prefix}GraphSuggestion${index}`;
+      const button = document.createElement("button"); button.type = "button"; button.id = pickerID(prefix, axis, `Suggestion${index}`);
       button.setAttribute("role", "option"); button.setAttribute("aria-selected", "false");
       const name = document.createElement("span"); name.textContent = choice.label;
       const group = document.createElement("small"); group.textContent = choice.group;
@@ -637,22 +640,22 @@
       let chosenByPointer = false;
       button.addEventListener("pointerdown", event => {
         event.preventDefault(); event.stopPropagation();
-        chosenByPointer = true; selectMetric(prefix, choice.id);
+        chosenByPointer = true; selectMetric(prefix, choice.id, axis);
       });
-      button.addEventListener("click", () => { if (!chosenByPointer) selectMetric(prefix, choice.id); });
+      button.addEventListener("click", () => { if (!chosenByPointer) selectMetric(prefix, choice.id, axis); });
       list.appendChild(button);
     });
   }
 
-  function moveSuggestion(prefix, amount) {
-    const state = graphState.get(prefix), input = document.getElementById(`${prefix}GraphMetric`);
+  function moveSuggestion(prefix, amount, axis = "y") {
+    const state = pickerState(prefix, axis), input = document.getElementById(pickerID(prefix, axis, "Metric"));
     if (!state?.suggestions.length) return;
     state.suggestionIndex = state.suggestionIndex < 0
       ? amount > 0 ? 0 : state.suggestions.length - 1
       : (state.suggestionIndex + amount + state.suggestions.length) % state.suggestions.length;
-    const list = document.getElementById(`${prefix}GraphSuggestions`);
+    const list = document.getElementById(pickerID(prefix, axis, "Suggestions"));
     [...list.querySelectorAll('[role="option"]')].forEach((button, index) => button.setAttribute("aria-selected", String(index === state.suggestionIndex)));
-    const active = document.getElementById(`${prefix}GraphSuggestion${state.suggestionIndex}`);
+    const active = document.getElementById(pickerID(prefix, axis, `Suggestion${state.suggestionIndex}`));
     input.setAttribute("aria-activedescendant", active.id);
     active.scrollIntoView({ block: "nearest" });
   }
@@ -688,8 +691,10 @@
     if (typeControl) typeControl.hidden = roundsMode;
     const metric = registry.get(state.metricId) || registry.get("rating");
     const relationship = !roundsMode && type.value === "relationship";
-    const xSelect = document.getElementById(`${prefix}GraphXAxis`);
-    const xMetric = registry.get(xSelect?.value) || registry.get("opening_attempt_rate");
+    const xMetric = registry.get(state.xAxis.metricId) || registry.get("opening_attempt_rate");
+    const metricLabel = document.getElementById(`${prefix}GraphMetricLabel`);
+    if (metricLabel) metricLabel.textContent = relationship ? "Y-axis" : "Statistic";
+    metricInput.setAttribute("aria-label", relationship ? "Y-axis" : "Statistic");
     const bucketMetric = relationship ? xMetric : metric;
     const xControl = document.getElementById(`${prefix}GraphXAxisControl`);
     if (xControl) xControl.hidden = !relationship;
@@ -762,72 +767,68 @@
     else type.value === "trend" ? drawTrend(svg, prepared, metric, distributionStyle?.value || "bars") : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount, distributionStyle?.value || "bars", range?.edges ? range : null);
   }
 
+  function bindMetricPicker(prefix, axis) {
+    const input = document.getElementById(pickerID(prefix, axis, "Metric"));
+    const category = document.getElementById(pickerID(prefix, axis, "Category"));
+    const list = document.getElementById(pickerID(prefix, axis, "Suggestions"));
+    if (!input || !list) return;
+    const controls = input.closest(".graph-stat-controls");
+    category?.addEventListener("change", () => { input.value = ""; input.focus(); showSuggestions(prefix, "", axis); });
+    input.addEventListener("focus", () => { input.select(); showSuggestions(prefix, "", axis); });
+    input.addEventListener("input", () => showSuggestions(prefix, input.value, axis));
+    input.addEventListener("keydown", event => {
+      if (event.key === "Escape") { closeSuggestions(prefix, axis); input.blur(); }
+      else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        if (list.hidden) showSuggestions(prefix, "", axis);
+        moveSuggestion(prefix, event.key === "ArrowDown" ? 1 : -1, axis);
+      } else if (event.key === "Enter") {
+        const state = pickerState(prefix, axis);
+        if (state.suggestions.length) {
+          event.preventDefault(); selectMetric(prefix, state.suggestions[Math.max(0, state.suggestionIndex)].id, axis);
+        }
+      }
+    });
+    controls?.addEventListener("focusout", event => { if (!controls.contains(event.relatedTarget)) closeSuggestions(prefix, axis); });
+    document.addEventListener("pointerdown", event => { if (!controls?.contains(event.target)) closeSuggestions(prefix, axis); });
+  }
+
   function render({ prefix, series, domainSeries = series, independent = false }) {
     const type = document.getElementById(`${prefix}GraphType`), input = document.getElementById(`${prefix}GraphMetric`);
     if (!type || !input) return;
     syncTagMetrics();
-    const xSelect = document.getElementById(`${prefix}GraphXAxis`);
-    if (xSelect) {
-      const selected = xSelect.value || "opening_attempt_rate";
-      xSelect.replaceChildren();
-      for (const group of [...new Set([...registry.values()].filter(metric => metric.id !== "round_diff").map(metric => metric.group))]) {
-        const options = document.createElement("optgroup"); options.label = group;
-        for (const metric of registry.values()) if (metric.group === group && metric.id !== "round_diff") {
-          const option = document.createElement("option"); option.value = metric.id; option.textContent = metric.label; options.appendChild(option);
-        }
-        xSelect.appendChild(options);
+    for (const axis of ["y", "x"]) {
+      const category = document.getElementById(pickerID(prefix, axis, "Category"));
+      if (!category) continue;
+      if (!category.options.length) {
+        ["All", ...metrics.map(([group]) => group)].forEach(group => {
+          const option = document.createElement("option"); option.value = group; option.textContent = group === "All" ? "All categories" : group; category.appendChild(option);
+        });
+        category.value = axis === "x" ? "Opening" : "Core";
       }
-      xSelect.value = registry.has(selected) ? selected : "opening_attempt_rate";
+      const tagCategory = category.querySelector('option[value="Tags"]');
+      if (!window.NickStatsManualFilters?.store.account) tagCategory?.remove();
+      else if (!tagCategory) {
+        const option = document.createElement("option"); option.value = "Tags"; option.textContent = "Tags"; category.appendChild(option);
+      }
+      window.NickStatsDropdown.enhance(category); window.NickStatsDropdown.sync(category);
     }
-    const category = document.getElementById(`${prefix}GraphCategory`), controls = input.closest(".graph-stat-controls");
-    if (category && !category.options.length) {
-      ["All", ...metrics.map(([group]) => group), ...(window.NickStatsManualFilters?.store.account ? ["Tags"] : [])].forEach(group => {
-        const option = document.createElement("option"); option.value = group; option.textContent = group === "All" ? "All categories" : group; category.appendChild(option);
-      });
-      category.value = "Core";
-    }
-    [category, type, document.getElementById(`${prefix}GraphScope`), document.getElementById(`${prefix}GraphDistributionStyle`), document.getElementById(`${prefix}GraphBucketMode`)]
+    [type, document.getElementById(`${prefix}GraphScope`), document.getElementById(`${prefix}GraphDistributionStyle`), document.getElementById(`${prefix}GraphBucketMode`)]
       .forEach(select => window.NickStatsDropdown.enhance(select));
-    const tagCategory = category?.querySelector('option[value="Tags"]');
-    if (!window.NickStatsManualFilters?.store.account) tagCategory?.remove();
-    else if (category && !tagCategory) {
-      const option = document.createElement("option"); option.value = "Tags"; option.textContent = "Tags"; category.appendChild(option);
-    }
-    window.NickStatsDropdown.sync(category);
     const previous = graphState.get(prefix);
     graphState.set(prefix, { series: series || [], domainSeries: domainSeries || series || [], independent,
       bucketCount: previous?.bucketCount || DEFAULT_BUCKETS, metricId: registry.has(previous?.metricId) ? previous.metricId : "rating",
+      xAxis: { metricId: registry.has(previous?.xAxis?.metricId) ? previous.xAxis.metricId : "opening_attempt_rate",
+        category: registry.has(previous?.xAxis?.metricId) ? previous.xAxis.category : "Opening", suggestions: [], suggestionIndex: -1 },
       category: registry.has(previous?.metricId) ? previous.category : "Core", suggestions: previous?.suggestions || [], suggestionIndex: previous?.suggestionIndex ?? -1,
       customRanges: previous?.customRanges || new Map(), manualCutoffs: previous?.manualCutoffs || new Map(), bucketInputMetric: previous?.bucketInputMetric || null });
-    if (previous) closeSuggestions(prefix);
-    if (previous && !registry.has(previous.metricId)) {
-      input.value = registry.get("rating").label;
-      if (category) { category.value = "Core"; window.NickStatsDropdown.sync(category); }
-      closeSuggestions(prefix);
+    for (const axis of ["y", "x"]) {
+      closeSuggestions(prefix, axis);
+      if (!previous) bindMetricPicker(prefix, axis);
     }
     if (!previous) {
-      input.value = registry.get("rating").label;
       type.addEventListener("change", () => draw(prefix));
-      xSelect?.addEventListener("change", () => draw(prefix));
       document.getElementById(`${prefix}GraphScope`)?.addEventListener("change", () => draw(prefix));
-      category?.addEventListener("change", () => { input.value = ""; input.focus(); showSuggestions(prefix); });
-      input.addEventListener("focus", () => { input.select(); showSuggestions(prefix); });
-      input.addEventListener("input", () => showSuggestions(prefix, input.value));
-      input.addEventListener("keydown", event => {
-        if (event.key === "Escape") { closeSuggestions(prefix); input.blur(); }
-        else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-          event.preventDefault();
-          if (document.getElementById(`${prefix}GraphSuggestions`).hidden) showSuggestions(prefix, "");
-          moveSuggestion(prefix, event.key === "ArrowDown" ? 1 : -1);
-        } else if (event.key === "Enter") {
-          const state = graphState.get(prefix);
-          if (state.suggestions.length) {
-            event.preventDefault(); selectMetric(prefix, state.suggestions[Math.max(0, state.suggestionIndex)].id);
-          }
-        }
-      });
-      controls?.addEventListener("focusout", event => { if (!controls.contains(event.relatedTarget)) closeSuggestions(prefix); });
-      document.addEventListener("pointerdown", event => { if (!controls?.contains(event.target)) closeSuggestions(prefix); });
       document.getElementById(`${prefix}GraphDistributionStyle`)?.addEventListener("change", () => draw(prefix));
       document.getElementById(`${prefix}GraphBucketMode`)?.addEventListener("change", () => draw(prefix));
       ["From", "To", "Increment"].forEach(key => document.getElementById(`${prefix}GraphBucket${key}`)?.addEventListener("input", () => {

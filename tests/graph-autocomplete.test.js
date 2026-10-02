@@ -6,7 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-test("choosing an untyped statistic suggestion updates the graph", () => {
+test("axis pickers support independent category, search, and keyboard selection", () => {
   const nodes = new Map();
   class Element {
     constructor(tag = "div") { this.tag = tag; this.children = []; this.listeners = {}; this.attributes = {}; this.style = { setProperty() {} }; this.value = ""; this.hidden = false; }
@@ -19,19 +19,24 @@ test("choosing an untyped statistic suggestion updates the graph", () => {
     addEventListener(key, callback) { this.listeners[key] = callback; }
     dispatch(key, event = {}) { this.listeners[key]?.(event); }
     querySelector(selector) { return selector === 'option[value="round"]' ? this.roundOption : null; }
+    querySelectorAll() { return this.children.filter(child => child.attributes.role === "option"); }
     closest() { return controls; }
+    blur() {}
     select() {}
     focus() { this.dispatch("focus"); }
     scrollIntoView() {}
   }
   const controls = new Element(); controls.contains = element => element === controls;
   const document = {
-    getElementById: id => nodes.get(id) || null,
+    getElementById: id => {
+      const find = node => node.id === id ? node : node.children.map(find).find(Boolean);
+      return nodes.get(id) || [...nodes.values()].map(find).find(Boolean) || null;
+    },
     createElement: tag => new Element(tag),
     addEventListener() {}
   };
-  for (const name of ["Type", "Metric", "Category", "Scope", "DistributionStyle", "Suggestions", "Svg", "Summary", "Legend", "Note"]) {
-    nodes.set(`playerGraph${name}`, new Element(name === "Category" ? "select" : "div"));
+  for (const name of ["XMetric", "XCategory", "XSuggestions", "XAxisControl", "MetricLabel", "Type", "Metric", "Category", "Scope", "DistributionStyle", "Suggestions", "Svg", "Summary", "Legend", "Note"]) {
+    nodes.set(`playerGraph${name}`, new Element(name.endsWith("Category") ? "select" : "div"));
   }
   const type = nodes.get("playerGraphType"); type.value = "distribution";
   const scope = nodes.get("playerGraphScope"); scope.value = "match"; scope.roundOption = { disabled: true };
@@ -50,4 +55,27 @@ test("choosing an untyped statistic suggestion updates the graph", () => {
   assert.equal(input.value, "Kills");
   assert.equal(scope.roundOption.disabled, false);
   assert.equal(list.hidden, true);
+  type.value = "relationship"; type.dispatch("change");
+  assert.equal(nodes.get("playerGraphMetricLabel").textContent, "Y-axis");
+  const xInput = nodes.get("playerGraphXMetric"), xList = nodes.get("playerGraphXSuggestions"), xCategory = nodes.get("playerGraphXCategory");
+  assert.equal(xInput.value, "Opening attempt rate");
+  xInput.value = "ADR"; xInput.dispatch("input");
+  assert.equal(xList.children.length, 1);
+  xInput.dispatch("keydown", { key: "ArrowDown", preventDefault() {} });
+  assert.match(xInput.attributes["aria-activedescendant"], /^playerGraphXSuggestion/);
+  assert.equal(xList.children[0].attributes["aria-selected"], "true");
+  xInput.dispatch("keydown", { key: "Enter", preventDefault() {} });
+  assert.equal(xInput.value, "ADR"); assert.equal(input.value, "Kills");
+  assert.equal(xList.hidden, true);
+  xCategory.value = "Utility"; xCategory.dispatch("change");
+  assert.ok(xList.children.some(child => child.children[0].textContent === "HE damage per round"));
+  xInput.dispatch("keydown", { key: "Escape" });
+  assert.equal(xInput.value, "ADR"); assert.equal(xCategory.value, "Core");
+  type.value = "trend"; type.dispatch("change");
+  assert.equal(nodes.get("playerGraphMetricLabel").textContent, "Statistic");
+  assert.equal(nodes.get("playerGraphXAxisControl").hidden, true);
+  context.window.NickStatsGraphs.render({ prefix: "player", series: [] });
+  type.value = "relationship"; type.dispatch("change");
+  assert.equal(xInput.value, "ADR"); assert.equal(input.value, "Kills");
+
 });

@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20261001-6">
+  <link rel="stylesheet" href="./styles.css?v=20261001-7">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.10.01.6</span>
+          <span class="demo-build">Build 2026.10.01.7</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -472,20 +472,29 @@
             </section>
             <section class="player-graph-builder">
               <div class="player-graph-controls">
+                <div class="graph-axis-controls">
+                <div class="graph-stat-controls" id="playerGraphXAxisControl" hidden>
+                  <div class="graph-option-field"><span>Category</span><select id="playerGraphXCategory" aria-label="X-axis category"></select></div>
+                  <div class="graph-statistic-field">
+                    <label for="playerGraphXMetric">X-axis</label>
+                    <input id="playerGraphXMetric" type="search" role="combobox" aria-autocomplete="list" aria-controls="playerGraphXSuggestions" aria-expanded="false" autocomplete="off" spellcheck="false">
+                    <div class="graph-stat-suggestions" id="playerGraphXSuggestions" role="listbox" hidden></div>
+                  </div>
+                </div>
                 <div class="graph-stat-controls">
                   <div class="graph-option-field"><span>Category</span><select id="playerGraphCategory" aria-label="Category"></select></div>
                   <div class="graph-statistic-field">
-                    <label for="playerGraphMetric">Statistic / Y-axis</label>
+                    <label for="playerGraphMetric" id="playerGraphMetricLabel">Statistic</label>
                     <input id="playerGraphMetric" type="search" role="combobox" aria-autocomplete="list" aria-controls="playerGraphSuggestions" aria-expanded="false" autocomplete="off" spellcheck="false">
                     <div class="graph-stat-suggestions" id="playerGraphSuggestions" role="listbox" hidden></div>
                   </div>
+                </div>
                 </div>
                 <fieldset class="graph-display-controls">
                   <legend>Graph settings</legend>
                   <div>
                     <div class="graph-option-field"><span>View</span><select id="playerGraphScope" aria-label="View"><option value="match">Match by match</option><option value="round">Round by round</option></select></div>
                     <div class="graph-option-field" id="playerGraphTypeControl"><span>Graph type</span><select id="playerGraphType" aria-label="Graph type"><option value="distribution">Distribution</option><option value="trend">Trend</option><option value="relationship">X vs. Y</option></select></div>
-                    <div class="graph-option-field" id="playerGraphXAxisControl" hidden><span>X-axis</span><select id="playerGraphXAxis" aria-label="X-axis"></select></div>
                     <div class="graph-option-field" id="playerGraphDistributionStyleControl"><span>Display</span><select id="playerGraphDistributionStyle" aria-label="Display"><option value="bars">Bars</option><option value="line">Line</option></select></div>
                     <div class="graph-bucket-control" id="playerGraphBucketControl">
                       <div class="graph-bucket-settings">
@@ -594,7 +603,7 @@
   <script defer src="./js/stat-availability.js?v=20260930-9"></script>
   <script defer src="./js/scoreboard.js?v=20261001-1"></script>
   <script defer src="./js/round-timeline.js?v=20260925-06"></script>
-  <script defer src="./js/graphs.js?v=20261001-5"></script>
+  <script defer src="./js/graphs.js?v=20261001-7"></script>
   <script defer src="./js/demo.js?v=20261001-5"></script>
   <script defer src="./js/profile.js?v=20261001-2"></script>
   <script defer src="./js/quick-comparison.js?v=20260930-9"></script>

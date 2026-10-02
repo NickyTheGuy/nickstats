@@ -3748,3 +3748,10 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   .manual-tag-create { grid-template-columns: minmax(0, 1fr) 116px; }
   .manual-tag-create .button { grid-column: 1 / -1; justify-self: end; }
 }
+
+.graph-axis-controls { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: flex-end; }
+.graph-axis-controls > .graph-stat-controls { flex: 1 1 430px; min-width: 0; }
+.graph-axis-controls .graph-statistic-field { flex: 1; min-width: 0; }
+@media (max-width: 600px) {
+  .graph-axis-controls > .graph-stat-controls { flex-basis: 100%; }
+}
