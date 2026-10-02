@@ -547,10 +547,15 @@
     if (button.disabled) return;
     state.comboCondition = button.dataset.comboCondition; runCombination();
   }));
-  window.NickStatsFilters.bindSideToggle({ selector: "[data-group-side]", valueFor: button => button.dataset.groupSide, onChange: side => { state.side = side; runCombination(); } });
+  const groupSideFilter = window.NickStatsFilters.bindSideToggle({ selector: "[data-group-side]", valueFor: button => button.dataset.groupSide, onChange: side => { state.side = side; runCombination(); } });
   const groupBuyFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-buy]", valueFor: button => button.dataset.groupBuy, onChange: buy => { state.buy = buy; state.heroOnly = buy === "hero"; runCombination(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-enemy-buy]", valueFor: button => button.dataset.groupEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; runCombination(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-round-result]", valueFor: button => button.dataset.groupRoundResult, onChange: roundResult => { state.roundResult = roundResult; runCombination(); } });
+  const groupEnemyBuyFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-enemy-buy]", valueFor: button => button.dataset.groupEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; runCombination(); } });
+  const groupRoundResultFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-round-result]", valueFor: button => button.dataset.groupRoundResult, onChange: roundResult => { state.roundResult = roundResult; runCombination(); } });
   const groupRoundPhaseFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-round-phase]", valueFor: button => button.dataset.groupRoundPhase, onChange: phase => { state.roundPhase = phase; runCombination(); } });
+  $("groupResetFilters").addEventListener("click", () => {
+    window.NickStatsFilters.resetProfileFilters({ state, mapFilter, dateFilter, tagFilter: manualFilter,
+      toggles: [groupSideFilter, groupBuyFilter, groupEnemyBuyFilter, groupRoundResultFilter, groupRoundPhaseFilter, comboResultFilter],
+      onReset: () => { if (state.players.length) runCombination(); } });
+  });
   renderSelectedRoster();
 })();

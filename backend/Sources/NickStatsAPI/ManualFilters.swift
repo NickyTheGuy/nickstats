@@ -16,8 +16,11 @@ struct ManualFilter: Content, Sendable {
     var name: String
     var cutoffMatchID: Int64
     var kind: ManualTagKind = .boolean
+    var owner: String? = nil
+    var sharedWith: [String] = []
     enum CodingKeys: String, CodingKey {
-        case id, name, kind
+        case id, name, kind, owner
+        case sharedWith = "shared_with"
         case cutoffMatchID = "cutoff_match_id"
     }
 }
@@ -38,7 +41,10 @@ struct ManualFiltersResponse: Content, Sendable {
     var filters: [ManualFilter]
     var assignments: [ManualFilterAssignment]
     var supports_numeric: Bool = true
+    var supports_sharing: Bool = true
 }
+struct ManualTagShareRequest: Content { var username: String }
+
 struct ManualFilterNameRequest: Content { var name: String; var kind: ManualTagKind? }
 struct ManualFilterStateRequest: Content { var state: ManualMatchState; var value: Double? }
 
@@ -63,27 +69,47 @@ private func requireManualFilterOwner(_ id: String, username: String, sql: any S
 }
 
 func getManualFilters(username: String, on database: any Database) async throws -> ManualFiltersResponse {
-    let sql = try manualFilterSQL(database)
-    let rows = try await sql.raw("SELECT id, name, cutoff_match_id, kind FROM account_manual_filters WHERE username = \(bind: username) ORDER BY name, id").all()
-    let assignments = try await sql.raw("""
-        SELECT s.filter_id, s.match_id, s.state, s.numeric_value
-        FROM account_manual_filter_states s
-        JOIN account_manual_filters f ON f.id = s.filter_id
-        WHERE f.username = \(bind: username)
-        """).all()
-    return try ManualFiltersResponse(filters: rows.map { row in
-        ManualFilter(id: try row.decode(column: "id", as: String.self),
-                     name: try row.decode(column: "name", as: String.self),
-                     cutoffMatchID: try row.decode(column: "cutoff_match_id", as: Int64.self),
-                     kind: try row.decode(column: "kind", as: ManualTagKind.self))
-    }, assignments: assignments.map { row in
-        guard let state = ManualMatchState(rawValue: try row.decode(column: "state", as: String.self)) else {
-            throw Abort(.internalServerError)
+    return try await database.transaction { database in
+        let sql = try manualFilterSQL(database)
+        let rows = try await sql.raw("""
+            SELECT f.id, f.name, f.cutoff_match_id, f.kind, f.username
+            FROM account_manual_filters f
+            WHERE f.username = \(bind: username) OR EXISTS
+              (SELECT 1 FROM account_manual_filter_shares a WHERE a.filter_id = f.id AND a.username = \(bind: username))
+            ORDER BY f.name, f.username, f.id
+            """).all()
+        let grants = try await sql.raw("""
+            SELECT a.filter_id, a.username FROM account_manual_filter_shares a
+            JOIN account_manual_filters f ON f.id = a.filter_id
+            WHERE f.username = \(bind: username) ORDER BY a.username
+            """).all()
+        var recipients: [String: [String]] = [:]
+        for row in grants {
+            recipients[try row.decode(column: "filter_id", as: String.self), default: []].append(try row.decode(column: "username", as: String.self))
         }
-        return ManualFilterAssignment(filterID: try row.decode(column: "filter_id", as: String.self),
-                                      matchID: try row.decode(column: "match_id", as: Int64.self), state: state,
-                                      value: try row.decode(column: "numeric_value", as: Double?.self))
-    })
+        let assignments = try await sql.raw("""
+            SELECT s.filter_id, s.match_id, s.state, s.numeric_value
+            FROM account_manual_filter_states s
+            JOIN account_manual_filters f ON f.id = s.filter_id
+            WHERE f.username = \(bind: username) OR EXISTS
+              (SELECT 1 FROM account_manual_filter_shares a WHERE a.filter_id = f.id AND a.username = \(bind: username))
+            """).all()
+        return try ManualFiltersResponse(filters: rows.map { row in
+            ManualFilter(id: try row.decode(column: "id", as: String.self),
+                         name: try row.decode(column: "name", as: String.self),
+                         cutoffMatchID: try row.decode(column: "cutoff_match_id", as: Int64.self),
+                         kind: try row.decode(column: "kind", as: ManualTagKind.self),
+                         owner: try row.decode(column: "username", as: String.self),
+                         sharedWith: recipients[try row.decode(column: "id", as: String.self)] ?? [])
+        }, assignments: assignments.map { row in
+            guard let state = ManualMatchState(rawValue: try row.decode(column: "state", as: String.self)) else {
+                throw Abort(.internalServerError)
+            }
+            return ManualFilterAssignment(filterID: try row.decode(column: "filter_id", as: String.self),
+                                          matchID: try row.decode(column: "match_id", as: Int64.self), state: state,
+                                          value: try row.decode(column: "numeric_value", as: Double?.self))
+        })
+    }
 }
 
 func createManualFilter(username: String, name raw: String, kind: ManualTagKind = .boolean, on database: any Database) async throws -> ManualFilter {
@@ -107,7 +133,7 @@ func createManualFilter(username: String, name raw: String, kind: ManualTagKind 
         guard let row = try await sql.raw("SELECT cutoff_match_id FROM account_manual_filters WHERE id = \(bind: id)").first() else {
             throw Abort(.internalServerError)
         }
-        return ManualFilter(id: id, name: name, cutoffMatchID: try row.decode(column: "cutoff_match_id", as: Int64.self), kind: kind)
+        return ManualFilter(id: id, name: name, cutoffMatchID: try row.decode(column: "cutoff_match_id", as: Int64.self), kind: kind, owner: username)
     }
 }
 
@@ -139,6 +165,35 @@ func setManualFilterState(_ id: String, matchID: Int64, state: ManualMatchState,
     return ManualFilterAssignment(filterID: id, matchID: matchID, state: state, value: value)
 }
 
+func shareManualTag(_ id: String, recipient raw: String, owner: String, revoke: Bool = false, on database: any Database) async throws {
+    let name = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !name.isEmpty, name.count <= 64 else { throw Abort(.badRequest, reason: "Enter an account username.") }
+    try await database.transaction { database in
+        let sql = try manualFilterSQL(database)
+        try await requireManualFilterOwner(id, username: owner, sql: sql)
+        guard let account = try await sql.raw("SELECT username FROM auth_users WHERE username = \(bind: name)").first() else {
+            throw Abort(.notFound, reason: "Account not found.")
+        }
+        let recipient = try account.decode(column: "username", as: String.self)
+        guard recipient.caseInsensitiveCompare(owner) != .orderedSame else {
+            throw Abort(.badRequest, reason: "You already own this tag.")
+        }
+        if revoke {
+            try await sql.raw("DELETE FROM account_manual_filter_shares WHERE filter_id = \(bind: id) AND username = \(bind: recipient)").run()
+        } else {
+            let grants = try await sql.raw("SELECT username FROM account_manual_filter_shares WHERE filter_id = \(bind: id)").all()
+            guard grants.count < 100 || grants.contains(where: { (try? $0.decode(column: "username", as: String.self)) == recipient }) else {
+                throw Abort(.badRequest, reason: "A tag can be shared with up to 100 accounts.")
+            }
+            try await sql.raw("""
+                INSERT INTO account_manual_filter_shares (filter_id, username)
+                VALUES (\(bind: id), \(bind: recipient))
+                ON DUPLICATE KEY UPDATE username = VALUES(username)
+                """).run()
+        }
+    }
+}
+
 private func manualFilterUsername(_ request: Request) throws -> String {
     guard let value = authenticatedUsername(request) else { throw Abort(.unauthorized, reason: "Log in to use tags.") }
     return value
@@ -157,6 +212,19 @@ func manualFilterRoutes(_ app: Application) {
         let account = try manualFilterUsername(request)
         let body = try request.content.decode(ManualFilterNameRequest.self)
         return try await createManualFilter(username: account, name: body.name, kind: body.kind ?? .boolean, on: request.db)
+    }
+    app.put("auth", "manual-filters", ":filter", "shares") { request async throws -> ManualFiltersResponse in
+        let owner = try manualFilterUsername(request)
+        guard let id = request.parameters.get("filter") else { throw Abort(.badRequest) }
+        let body = try request.content.decode(ManualTagShareRequest.self)
+        try await shareManualTag(id, recipient: body.username, owner: owner, on: request.db)
+        return try await getManualFilters(username: owner, on: request.db)
+    }
+    app.delete("auth", "manual-filters", ":filter", "shares", ":recipient") { request async throws -> ManualFiltersResponse in
+        let owner = try manualFilterUsername(request)
+        guard let id = request.parameters.get("filter"), let recipient = request.parameters.get("recipient") else { throw Abort(.badRequest) }
+        try await shareManualTag(id, recipient: recipient, owner: owner, revoke: true, on: request.db)
+        return try await getManualFilters(username: owner, on: request.db)
     }
     app.delete("auth", "manual-filters", ":filter") { request async throws -> Response in
         let account = try manualFilterUsername(request)

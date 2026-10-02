@@ -115,6 +115,17 @@ CREATE TABLE IF NOT EXISTS account_manual_filter_states (
 ) ENGINE = InnoDB;
 
 
+CREATE TABLE IF NOT EXISTS account_manual_filter_shares (
+  filter_id CHAR(36) NOT NULL,
+  username VARCHAR(64) NOT NULL,
+  PRIMARY KEY (filter_id, username),
+  KEY idx_manual_tag_recipient (username),
+  CONSTRAINT fk_manual_tag_share_filter FOREIGN KEY (filter_id) REFERENCES account_manual_filters (id)
+    ON DELETE CASCADE ON UPDATE RESTRICT,
+  CONSTRAINT fk_manual_tag_share_account FOREIGN KEY (username) REFERENCES auth_users (username)
+    ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE = InnoDB;
+
 CREATE TABLE IF NOT EXISTS match_teams (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   match_id BIGINT UNSIGNED NOT NULL,
@@ -601,5 +612,6 @@ INSERT INTO schema_migrations (version, description) VALUES
   (16, 'Count separate true multi-kill chains'),
   (17, 'Player statistics per played round for regulation and overtime'),
   (18, 'Private account manual filters and match states'),
-  (19, 'Numeric private account tags')
+  (19, 'Numeric private account tags'),
+  (20, 'Read-only shared private tags')
 ON DUPLICATE KEY UPDATE description = VALUES(description);

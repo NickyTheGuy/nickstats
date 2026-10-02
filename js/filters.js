@@ -286,6 +286,14 @@
     return { get value() { return value; }, set };
   }
 
+  function resetProfileFilters({ state, mapFilter, dateFilter, tagFilter, toggles, onReset = () => {} }) {
+    Object.assign(state, { side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL", maps: [] });
+    if (Object.hasOwn(state, "comboCondition")) state.comboCondition = "without";
+    for (const toggle of toggles) toggle.set("ALL", { notify: false });
+    mapFilter.reset(); dateFilter.reset(); dateFilter.closeMenus(); tagFilter.reset();
+    onReset();
+  }
+
   function matchResultMatches(result, filter) {
     return filter === "ALL" || result === filter;
   }
@@ -320,6 +328,7 @@
   window.NickStatsFilters = Object.freeze({
     MultiMapFilter,
     DateRangeFilter,
+    resetProfileFilters,
     bindSegmentedToggle,
     bindSideToggle: bindSegmentedToggle,
     matchResultMatches,

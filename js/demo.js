@@ -68,6 +68,7 @@
     formatLabel: value => String(value || "Unknown").replace(/^de_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase())
   });
   const matchDateFilter = new window.NickStatsFilters.DateRangeFilter("matchDateFilter", { onChange: () => loadMatches(0) });
+  $("matchResetFilters").addEventListener("click", () => { matchMapFilter.reset(); matchDateFilter.reset(); matchDateFilter.closeMenus(); loadMatches(0); });
   let demoSideControl, demoBuyControl, demoEnemyBuyControl, demoRoundResultControl, demoRoundPhaseControl;
   let authSessionReady = Promise.resolve();
   const scoreboardLayoutState = () => ({
@@ -3457,6 +3458,10 @@
   demoEnemyBuyControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-enemy-buy]", valueFor: button => button.dataset.demoEnemyBuy, onChange: buy => setEnemyBuyFilter(buy) });
   demoRoundResultControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-result]", valueFor: button => button.dataset.demoRoundResult, onChange: result => setRoundResultFilter(result) });
   demoRoundPhaseControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-phase]", valueFor: button => button.dataset.demoRoundPhase, onChange: phase => setRoundPhaseFilter(phase) });
+  $("demoResetFilters").addEventListener("click", () => {
+    for (const set of [setSideFilter, setBuyFilter, setEnemyBuyFilter, setRoundResultFilter, setRoundPhaseFilter]) set("ALL", false);
+    if (state.result) render(state.result);
+  });
   window.NickStatsDropdown.enhance($("demoTimelineMetric"));
   window.NickStatsDropdown.enhance($("demoTimelineDisplay"));
   $("demoTimelineMetric").addEventListener("change", () => { if (state.result) renderTimeline(state.result); });

@@ -3724,3 +3724,10 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .manual-filter-create select { max-width: 105px; min-width: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
 .manual-tag-value { display: flex; gap: 6px; align-items: center; }
 .manual-tag-value input { width: 100px; min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
+
+.tag-share-menu { position: relative; font-size: 12px; }
+.tag-share-menu > summary { cursor: pointer; color: var(--accent); padding: 6px; }
+.tag-share-panel { position: absolute; right: 0; top: 100%; width: min(320px, 72vw); z-index: 70; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 25px rgba(0,0,0,.2); }
+.tag-share-recipient { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px; }
+.tag-share-recipient .button { padding: 4px 8px; font-size: 11px; }
+.filter-reset { align-self: center; white-space: nowrap; }

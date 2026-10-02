@@ -176,3 +176,42 @@ test("numeric assignments round-trip, clear to Unknown, and reject invalid boole
   assert.deepEqual(calls[0], { state: "true", value: 0 });
   store.setAccount(null); assert.equal(store.supportsNumeric, false);
 });
+
+test("shared tags are usable but recipients cannot edit, delete, or reshare them", async () => {
+  const { store, ManualFilterControl, displayName } = api();
+  store.account = "reader"; store.ready = true; store.supportsSharing = true;
+  store.filters = [{ id: "shared", owner: "owner", name: "Sleep", kind: "number", cutoff_match_id: 10 }];
+  store.assignments.set("shared:1", 8.5);
+  store.request = () => { throw new Error("Read-only tag attempted a write"); };
+  assert.equal(store.canEdit(store.filters[0]), false);
+  assert.equal(await store.assign("shared", 1, 9), false);
+  assert.equal(await store.remove("shared"), false);
+  assert.equal(await store.share("shared", "someone"), false);
+  assert.equal(displayName(store.filters[0]), "Sleep · owner");
+  const control = new ManualFilterControl([]); control.selected.set("shared", { op: "gt", value: 8 });
+  assert.equal(control.matches({ id: 1 }), true);
+  assert.match(control.summary(), /Sleep · owner/);
+  control.reset(); assert.equal(control.active, false);
+  assert.equal(store.stateFor(store.filters[0], 1), 8.5);
+});
+test("owner sharing and revocation persist, and recipient refresh discards revoked filters", async () => {
+  const { store, ManualFilterControl } = api();
+  const tag = { id: "a", owner: "owner", name: "Solo", cutoff_match_id: 10, shared_with: [] };
+  const calls = []; let revoked = false;
+  store.account = "owner"; store.ready = true; store.supportsSharing = true; store.filters = [tag];
+  store.request = async (url, options) => {
+    calls.push({ url, ...options });
+    if (options.method === "PUT") tag.shared_with = [JSON.parse(options.body).username];
+    if (options.method === "DELETE") { tag.shared_with = []; revoked = true; }
+    return response({ filters: store.account === "reader" && revoked ? [] : [structuredClone(tag)], assignments: [], supports_sharing: true });
+  };
+  assert.equal(await store.share("a", "reader"), true);
+  assert.deepEqual(Array.from(store.filters[0].shared_with), ["reader"]);
+  assert.equal(await store.share("a", "reader", true), true);
+  assert.ok(calls[0].url.endsWith("/a/shares"));
+  assert.ok(calls[1].url.endsWith("/a/shares/reader"));
+  store.account = "reader";
+  const control = new ManualFilterControl([]); control.selected.set("a", "true");
+  await store.load();
+  assert.equal(store.filters.length, 0); assert.equal(control.active, false);
+});

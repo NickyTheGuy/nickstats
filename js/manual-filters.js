@@ -4,6 +4,7 @@
   const states = ["true", "false", "unknown"];
   const isNumeric = tag => tag.kind === "number";
   const numeric = value => typeof value === "number" && Number.isFinite(value);
+  const displayName = tag => tag.owner && tag.owner !== store.account ? `${tag.name} · ${tag.owner}` : tag.name;
   const operators = { gt: ">", gte: "≥", lt: "<", lte: "≤", eq: "=", between: "Between" };
   function conditionMatches(value, condition) {
     if (typeof condition === "string") return value === condition;
@@ -37,7 +38,7 @@
   class ManualFilterStore {
     constructor({ request = (...args) => fetch(...args) } = {}) {
       this.request = request; this.account = null; this.filters = []; this.assignments = new Map();
-      this.supportsNumeric = false; this.ready = false; this.loading = false; this.error = ""; this.version = 0; this.epoch = 0;
+      this.supportsSharing = false; this.supportsNumeric = false; this.ready = false; this.loading = false; this.error = ""; this.version = 0; this.epoch = 0;
       this.listeners = new Set(); this.pending = new Set();
     }
     subscribe(listener) { this.listeners.add(listener); return () => this.listeners.delete(listener); }
@@ -55,7 +56,7 @@
       const next = username || null;
       if (next === this.account) return;
       this.epoch += 1; this.account = next; this.filters = []; this.assignments.clear(); this.pending.clear();
-      this.supportsNumeric = false; this.ready = false; this.loading = false; this.error = ""; this.emit();
+      this.supportsSharing = false; this.supportsNumeric = false; this.ready = false; this.loading = false; this.error = ""; this.emit();
       if (next) this.load();
     }
     async load() {
@@ -65,7 +66,7 @@
         const body = await this.json();
         if (epoch !== this.epoch) return;
         if (!Array.isArray(body?.filters) || !Array.isArray(body?.assignments)) throw new Error("Could not read tags.");
-        this.filters = body.filters; this.supportsNumeric = body.supports_numeric === true;
+        this.filters = body.filters; this.supportsNumeric = body.supports_numeric === true; this.supportsSharing = body.supports_sharing === true;
         this.assignments = new Map(body.assignments.map(row => [`${row.filter_id}:${row.match_id}`, numeric(row.value) ? row.value : row.state]));
         this.ready = true;
       } catch (error) { if (epoch === this.epoch) this.error = error.message; }
@@ -88,7 +89,18 @@
         this.filters.push(filter); this.filters.sort((a, b) => a.name.localeCompare(b.name));
       });
     }
+    canEdit(tag) { return Boolean(this.account && tag && (!tag.owner || tag.owner === this.account)); }
+    share(id, username, revoke = false) {
+      if (!this.supportsSharing || !this.canEdit(this.filters.find(tag => tag.id === id))) return Promise.resolve(false);
+      const path = `/${encodeURIComponent(id)}/shares${revoke ? `/${encodeURIComponent(username)}` : ""}`;
+      return this.mutate(id, path, revoke ? "DELETE" : "PUT", revoke ? null : { username }, body => {
+        this.filters = body.filters;
+        this.assignments = new Map(body.assignments.map(row => [`${row.filter_id}:${row.match_id}`, numeric(row.value) ? row.value : row.state]));
+      });
+    }
     remove(id) {
+      const tag = this.filters.find(tag => tag.id === id);
+      if (tag && !this.canEdit(tag)) return Promise.resolve(false);
       return this.mutate(id, `/${encodeURIComponent(id)}`, "DELETE", null, () => {
         this.filters = this.filters.filter(filter => filter.id !== id);
         for (const key of this.assignments.keys()) if (key.startsWith(`${id}:`)) this.assignments.delete(key);
@@ -96,6 +108,7 @@
     }
     assign(id, matchID, state) {
       const filter = this.filters.find(filter => filter.id === id);
+      if (filter && !this.canEdit(filter)) return Promise.resolve(false);
       if (isNumeric(filter || {}) ? !numeric(state) && state !== "unknown" : !states.includes(state)) return Promise.resolve(false);
       return this.mutate(id, `/${encodeURIComponent(id)}/matches/${encodeURIComponent(matchID)}`, "PUT", numeric(state) ? { state: "true", value: state } : { state }, row => {
         this.assignments.set(`${row.filter_id}:${row.match_id}`, numeric(row.value) ? row.value : row.state);
@@ -106,7 +119,7 @@
   const store = new ManualFilterStore();
 
   function createForm() {
-    const form = el("form", null, "manual-filter-create");
+    const form = el("form", null, "manual-filter-create manual-tag-create");
     const input = el("input"); input.type = "text"; input.maxLength = 64; input.required = true;
     input.placeholder = "New tag name"; input.setAttribute("aria-label", "New tag name");
     const kind = el("select"); kind.setAttribute("aria-label", "Tag type");
@@ -125,6 +138,24 @@
     return form;
   }
 
+  function shareMenu(tag) {
+    const menu = el("details", null, "tag-share-menu");
+    menu.appendChild(el("summary", "Share"));
+    const panel = el("div", null, "tag-share-panel");
+    panel.appendChild(el("p", "Recipients can filter and graph these values. Only you can edit them.", "manual-filter-help"));
+    for (const username of tag.shared_with || []) {
+      const row = el("div", null, "tag-share-recipient"), revoke = el("button", "Remove", "button button-secondary"); revoke.type = "button";
+      revoke.disabled = store.pending.has(tag.id); revoke.setAttribute("aria-label", `Stop sharing ${tag.name} with ${username}`);
+      revoke.addEventListener("click", event => { event.stopPropagation(); store.share(tag.id, username, true); });
+      row.append(el("span", username), revoke); panel.appendChild(row);
+    }
+    const form = el("form", null, "manual-filter-create"), input = el("input"), submit = el("button", "Share", "button button-secondary");
+    input.required = true; input.maxLength = 64; input.placeholder = "Account username"; input.setAttribute("aria-label", `Share ${tag.name} with account`);
+    submit.type = "submit"; submit.disabled = store.pending.has(tag.id); form.append(input, submit);
+    form.addEventListener("submit", event => { event.preventDefault(); event.stopPropagation(); if (input.value.trim()) store.share(tag.id, input.value.trim()); });
+    panel.appendChild(form); menu.appendChild(panel); return menu;
+  }
+
   class ManualFilterControl {
     constructor(targets, { onChange = () => {} } = {}) {
       this.targets = (Array.isArray(targets) ? targets : [targets]).map(target => typeof target === "string" ? document.getElementById(target) : target).filter(Boolean);
@@ -140,6 +171,10 @@
       });
       this.render();
     }
+    reset({ notify = false } = {}) {
+      this.selected.clear(); this.render();
+      if (notify) this.onChange({ resetPagination: true });
+    }
     get active() { return Boolean(store.account && this.selected.size); }
     matches(match) {
       if (!this.active) return true;
@@ -151,19 +186,19 @@
     }
     summary() {
       if (!this.active) return "All matches";
-      return [...this.selected].map(([id, state]) => `${store.filters.find(filter => filter.id === id)?.name || "Tag"}: ${typeof state === "string" ? label(state) : `${operators[state.op]} ${state.value ?? "…"}${state.op === "between" ? `–${state.max ?? "…"}` : ""}`}`).join(" · ");
+      return [...this.selected].map(([id, state]) => `${displayName(store.filters.find(filter => filter.id === id) || { name: "Tag" })}: ${typeof state === "string" ? label(state) : `${operators[state.op]} ${state.value ?? "…"}${state.op === "between" ? `–${state.max ?? "…"}` : ""}`}`).join(" · ");
     }
     render() {
       this.targets.forEach(target => {
         target.hidden = !store.account;
         if (!store.account) { target.replaceChildren(); return; }
         const old = target.querySelector("details"), open = old?.open || false;
-        const draft = target.querySelector(".manual-filter-create input")?.value || "";
-        const draftKind = target.querySelector(".manual-filter-create select")?.value || "boolean";
+        const draft = target.querySelector(".manual-tag-create input")?.value || "";
+        const draftKind = target.querySelector(".manual-tag-create select")?.value || "boolean";
         const details = el("details", null, "map-filter-menu manual-filter-menu"); details.open = open;
         details.appendChild(el("summary", this.active ? `${this.selected.size} tag${this.selected.size === 1 ? "" : "s"}` : "All matches"));
         const panel = el("div", null, "map-filter-options manual-filter-options");
-        panel.appendChild(el("p", "Private to your account. Unknown values are excluded; all selected conditions must match.", "manual-filter-help"));
+        panel.appendChild(el("p", "Unknown values are excluded; all selected conditions must match.", "manual-filter-help"));
         if (store.loading) panel.appendChild(el("p", "Loading tags…", "manual-filter-help"));
         if (store.error) {
           const error = el("p", store.error, "manual-filter-error"); error.setAttribute("role", "alert"); panel.appendChild(error);
@@ -177,7 +212,7 @@
           store.filters.forEach(filter => {
             const row = el("div", null, "manual-filter-option"), checkLabel = el("label"), check = el("input");
             check.type = "checkbox"; check.checked = this.selected.has(filter.id);
-            checkLabel.append(check, el("span", filter.name)); row.appendChild(checkLabel);
+            checkLabel.append(check, el("span", displayName(filter))); row.appendChild(checkLabel);
             check.addEventListener("change", event => {
               event.stopPropagation(); if (check.checked) this.selected.set(filter.id, isNumeric(filter) ? { op: "gte", value: null } : "true"); else this.selected.delete(filter.id);
               this.render(); this.onChange({ resetPagination: true });
@@ -201,6 +236,8 @@
                 }); row.appendChild(input);
               }
             }
+            if (!store.canEdit(filter)) { panel.appendChild(row); return; }
+            if (store.supportsSharing) row.appendChild(shareMenu(filter));
             const remove = el("button", "×", "manual-filter-delete"); remove.type = "button"; remove.disabled = store.pending.has(filter.id);
             remove.setAttribute("aria-label", `Delete ${filter.name} tag`);
             remove.addEventListener("click", event => {
@@ -222,11 +259,15 @@
     details.appendChild(summary);
     const panel = el("div", null, "map-filter-options manual-match-options");
     panel.appendChild(el("strong", `Match #${match.id} · Tags`));
-    panel.appendChild(el("p", "Changes are private to your account.", "manual-filter-help"));
+    panel.appendChild(el("p", "Edit your tags here. Shared tags are read-only.", "manual-filter-help"));
     store.filters.forEach(filter => {
-      const row = el("div", null, "manual-match-state"), name = el("span", filter.name);
+      const row = el("div", null, "manual-match-state"), name = el("span", displayName(filter));
       const choices = el("div", null, "side-toggle"); choices.setAttribute("role", "group"); choices.setAttribute("aria-label", filter.name);
       const current = store.stateFor(filter, match.id);
+      if (!store.canEdit(filter)) {
+        row.append(name, el("span", numeric(current) ? String(current) : label(current), "manual-filter-help"));
+        panel.appendChild(row); return;
+      }
       if (isNumeric(filter)) {
         const form = el("form", null, "manual-tag-value"), input = el("input");
         input.type = "number"; input.step = "any"; input.value = numeric(current) ? current : "";
@@ -261,5 +302,5 @@
   });
   window.addEventListener("nickstats:account-session", () => store.setAccount(window.NickStatsAccountSession?.username));
   window.addEventListener("focus", () => store.load());
-  window.NickStatsManualFilters = Object.freeze({ store, ManualFilterStore, ManualFilterControl, matchState, conditionMatches, matchEditor });
+  window.NickStatsManualFilters = Object.freeze({ store, ManualFilterStore, ManualFilterControl, matchState, conditionMatches, displayName, matchEditor });
 })();

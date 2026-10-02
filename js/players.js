@@ -644,11 +644,24 @@
     }
     if (state.view === "matches" && state.display === "profile" && activeProfile()) renderPlayerMatches();
   });
-  window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { state.side = side; if (activeProfile()) renderCurrentDisplay(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-buy]", valueFor: button => button.dataset.playerBuy, onChange: buy => { state.buy = buy; state.heroOnly = buy === "hero"; if (activeProfile()) renderCurrentDisplay(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-enemy-buy]", valueFor: button => button.dataset.playerEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; if (activeProfile()) renderCurrentDisplay(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-round-result]", valueFor: button => button.dataset.playerRoundResult, onChange: roundResult => { state.roundResult = roundResult; if (activeProfile()) renderCurrentDisplay(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-round-phase]", valueFor: button => button.dataset.playerRoundPhase, onChange: phase => { state.roundPhase = phase; if (activeProfile()) renderCurrentDisplay(); } });
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-result]", valueFor: button => button.dataset.playerResult, onChange: result => { state.result = result; if (activeProfile()) renderCurrentDisplay(); } });
+  const playerFilterToggles = [
+    window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { state.side = side; if (activeProfile()) renderCurrentDisplay(); } }),
+    window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-buy]", valueFor: button => button.dataset.playerBuy, onChange: buy => { state.buy = buy; state.heroOnly = buy === "hero"; if (activeProfile()) renderCurrentDisplay(); } }),
+    window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-enemy-buy]", valueFor: button => button.dataset.playerEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; if (activeProfile()) renderCurrentDisplay(); } }),
+    window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-round-result]", valueFor: button => button.dataset.playerRoundResult, onChange: roundResult => { state.roundResult = roundResult; if (activeProfile()) renderCurrentDisplay(); } }),
+    window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-round-phase]", valueFor: button => button.dataset.playerRoundPhase, onChange: phase => { state.roundPhase = phase; if (activeProfile()) renderCurrentDisplay(); } }),
+    window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-result]", valueFor: button => button.dataset.playerResult, onChange: result => { state.result = result; if (activeProfile()) renderCurrentDisplay(); } }),
+  ];
+  function resetPlayerFilters() {
+    window.NickStatsFilters.resetProfileFilters({ state, mapFilter, dateFilter, tagFilter: manualFilter, toggles: playerFilterToggles, onReset: () => {
+      state.profiles.forEach(profile => {
+        profile.summaryCache?.clear(); profile.graphCache?.clear(); profile.manualHistoryOffset = 0;
+        if (profile.matchHistory) { profile.matchHistory.controller?.abort(); profile.matchHistory.loaded = false; profile.matchHistory.loading = false; }
+      });
+      if (activeProfile()) { renderCurrentDisplay(); if (state.display === "profile" && state.view === "matches") renderPlayerMatches(); }
+    } });
+  }
+  $("playerResetFilters").addEventListener("click", resetPlayerFilters);
+  $("playerHistoryResetFilters").addEventListener("click", resetPlayerFilters);
   renderRecent(); renderOpenTabs();
 })();

@@ -50,3 +50,14 @@ import Testing
     let decoded = try JSONDecoder().decode(ManualFilterAssignment.self, from: JSONEncoder().encode(row))
     #expect(decoded.value == 8.5)
 }
+
+@Test func sharedTagsIncludeOwnerAndReadOnlySharingMetadata() throws {
+    let tag = ManualFilter(id: "sleep", name: "Sleep", cutoffMatchID: 100, kind: .number, owner: "owner", sharedWith: ["reader"])
+    let payload = ManualFiltersResponse(filters: [tag], assignments: [])
+    let decoded = try JSONDecoder().decode(ManualFiltersResponse.self, from: JSONEncoder().encode(payload))
+    #expect(decoded.filters[0].owner == "owner")
+    #expect(decoded.filters[0].sharedWith == ["reader"])
+    #expect(decoded.supports_sharing)
+    let request = try JSONDecoder().decode(ManualTagShareRequest.self, from: Data(#"{"username":"reader"}"#.utf8))
+    #expect(request.username == "reader")
+}

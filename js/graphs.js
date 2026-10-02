@@ -150,7 +150,7 @@
     const store = window.NickStatsManualFilters?.store;
     if (!store?.account || !store.ready) return;
     for (const tag of store.filters.filter(tag => tag.kind === "number")) {
-      registry.set(`tag:${tag.id}`, { id: `tag:${tag.id}`, group: "Tags", label: tag.name,
+      registry.set(`tag:${tag.id}`, { id: `tag:${tag.id}`, group: "Tags", label: window.NickStatsManualFilters.displayName?.(tag) || tag.name,
         digits: 2, suffix: "", value: (_, sample) => {
           const value = store.stateFor(tag, sample.id);
           return typeof value === "number" && Number.isFinite(value) ? value : Number.NaN;
