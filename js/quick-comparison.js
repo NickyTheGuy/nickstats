@@ -39,7 +39,7 @@
     sectionSubscribers.forEach(subscriber => subscriber(sharedSections));
   }
 
-  function create({ prefix }) {
+  function create({ prefix, onGraphs = null }) {
     const state = {
       map: "ALL",
       expandedGroups: Object.fromEntries(columnGroups.map(([key]) => [key, false])),
@@ -612,6 +612,11 @@
       if (state.map !== "ALL" && !maps.includes(state.map)) state.map = "ALL";
       const tabs = byId("Maps");
       tabs.replaceChildren();
+      if (onGraphs) {
+        const graphs = element("button", "Graphs", "match-browser-tab");
+        graphs.type = "button"; graphs.setAttribute("role", "tab"); graphs.setAttribute("aria-selected", "false");
+        graphs.addEventListener("click", onGraphs); tabs.appendChild(graphs);
+      }
       [["ALL", "All maps"], ...maps.map(map => [map, titleCase(map.replace(/^de_/, ""))])].forEach(([value, label]) => {
         const active = state.map === value;
         const button = element("button", label, `match-browser-tab${active ? " active" : ""}`);

@@ -38,7 +38,7 @@
       if (activeProfile()) { renderCurrentDisplay(); if (state.display === "profile" && state.view === "matches") renderPlayerMatches(); }
     }
   });
-  const quickComparison = window.NickStatsQuickComparison.create({ prefix: "player" });
+  const quickComparison = window.NickStatsQuickComparison.create({ prefix: "player", onGraphs: () => { setPlayerView("graphs"); setPlayerDisplay("profile"); } });
   const manualFilter = new window.NickStatsManualFilters.ManualFilterControl(["playerManualFilter", "playerHistoryManualFilter"], {
     onChange: ({ resetPagination = false } = {}) => {
       state.profiles.forEach(profile => { profile.summaryCache?.clear(); profile.graphCache?.clear(); if (resetPagination) profile.manualHistoryOffset = 0; });
