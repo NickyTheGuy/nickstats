@@ -145,4 +145,40 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   assert.equal(nodes.get("playerGraphMetricLabel").textContent, "Statistic");
   assert.equal(nodes.get("playerGraphXAxisControl").hidden, true);
 
+  // Empty buckets split line segments, but must never create lines in bar mode.
+  const sleep = { "1": .5, "2": 1.5, "3": 4.5, "4": 5.5 };
+  context.window.NickStatsManualFilters.store.stateFor = (_, id) => sleep[id] ?? "unknown";
+  nodes.get("playerGraphMetric").value = "Kills"; nodes.get("playerGraphMetric").dispatch("input");
+  nodes.get("playerGraphSuggestions").children.find(child => child.children[0].textContent === "Kills")
+    .dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
+  xAxis.value = "Sleep"; xAxis.dispatch("input");
+  nodes.get("playerGraphXSuggestions").children.find(child => child.children[0].textContent === "Sleep")
+    .dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
+  type.value = "relationship"; display.value = "bars";
+  context.window.NickStatsGraphs.render({ prefix: "player", series: [{ label: "Player", samples: [
+    ...[1, 3, 5, 7].map((kills, index) => ({ id: String(index + 1), stats: { kills, rounds: 20 } })),
+    { id: "unknown", stats: { kills: 1000, rounds: 20 } }
+  ] }] });
+  nodes.get("playerGraphBucketMode").value = "manual";
+  nodes.get("playerGraphBucketCutoffs").value = "0, 1, 2, 3, 4, 5, 6";
+  nodes.get("playerGraphBucketCutoffs").dispatch("input", { target: nodes.get("playerGraphBucketCutoffs") });
+  const marks = className => svg.children.filter(child => child.attributes.class === className);
+  assert.equal(marks("graph-series-bar").length, 4);
+  assert.equal(marks("graph-series-line").length, 0);
+  assert.equal(marks("graph-point").length, 0);
+  const card = nodes.get("playerGraphSummary").children[0];
+  assert.equal(card.children[0].textContent, "Player");
+  assert.match(card.children[1].textContent, /^X · Sleep: Mean 3(?:\.0+)? · Median 3/);
+  assert.match(card.children[2].textContent, /^Y · Kills: Mean 4 · Median 4 · SD 2 · Range 1–7$/);
+  assert.equal(card.children[3].textContent, "4 paired matches");
+  display.value = "line"; display.dispatch("change");
+  assert.equal(marks("graph-series-bar").length, 0);
+  assert.equal(marks("graph-point").length, 4);
+  assert.equal(marks("graph-series-line").length, 2);
+  display.value = "bars"; display.dispatch("change");
+  assert.equal(marks("graph-series-line").length, 0);
+  type.value = "distribution"; type.dispatch("change");
+  assert.equal(nodes.get("playerGraphSummary").children[0].children.length, 2);
+  assert.match(nodes.get("playerGraphSummary").children[0].children[1].textContent, /^Mean .* · n=5$/);
+
 });

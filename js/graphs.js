@@ -417,7 +417,7 @@
     bucketed.forEach((series, seriesIndex) => {
       const color = colors[(series.colorIndex ?? seriesIndex) % colors.length];
       let segment = [];
-      const flush = () => { if (segment.length > 1) svg.appendChild(svgElement("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: color })); segment = []; };
+      const flush = () => { if (displayStyle === "line" && segment.length > 1) svg.appendChild(svgElement("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: color })); segment = []; };
       series.buckets.forEach((bucket, index) => {
         if (!bucket.count) { flush(); return; }
         const x = left + groupWidth * (index + .5), y = yPosition(bucket.value);
@@ -762,11 +762,20 @@
     }
     prepared.forEach((series, index) => {
       const colorIndex = series.colorIndex ?? index;
-      const values = series.values.map(point => relationship ? point.y : point.value), item = document.createElement("div"); item.className = "graph-summary-card";
+      const item = document.createElement("div"); item.className = "graph-summary-card";
       item.style.setProperty("--series-color", colors[colorIndex % colors.length]);
       const label = document.createElement("strong"); label.textContent = series.label;
-      const details = document.createElement("span"); details.textContent = `Mean ${format(mean(values), metric)} · Median ${format(median(values), metric)} · SD ${format(deviation(values), metric)} · Range ${format(Math.min(...values), metric)}–${format(Math.max(...values), metric)} · n=${values.length}`;
-      item.append(label, details); summary.appendChild(item);
+      item.appendChild(label);
+      const axes = relationship ? [["X", xMetric, "value"], ["Y", metric, "y"]] : [["", metric, "value"]];
+      axes.forEach(([axis, axisMetric, key]) => {
+        const values = series.values.map(point => point[key]), details = document.createElement("span");
+        details.textContent = `${axis ? `${axis} · ${axisMetric.label}: ` : ""}Mean ${format(mean(values), axisMetric)} · Median ${format(median(values), axisMetric)} · SD ${format(deviation(values), axisMetric)} · Range ${format(Math.min(...values), axisMetric)}–${format(Math.max(...values), axisMetric)}${relationship ? "" : ` · n=${values.length}`}`;
+        item.appendChild(details);
+      });
+      if (relationship) {
+        const count = document.createElement("span"); count.textContent = `${series.values.length} paired matches`; item.appendChild(count);
+      }
+      summary.appendChild(item);
       const key = document.createElement("span"); key.className = "graph-legend-item"; key.style.setProperty("--series-color", colors[colorIndex % colors.length]); key.textContent = series.label; legend.appendChild(key);
     });
     if (multiTrendNeedsDates) {
