@@ -376,6 +376,26 @@
     target.replaceChildren(...component.childNodes);
   }
 
+  function mountQuickGraphs() {
+    const source = document.querySelector?.('[data-player-profile-view="graphs"]');
+    if (!source) return;
+    for (const prefix of ["playerQuick", "comboQuick"]) {
+      const target = $(`${prefix}Graphs`); if (!target) continue;
+      const component = source.cloneNode(true); component.hidden = false;
+      component.removeAttribute("data-player-profile-view");
+      component.classList.remove("player-profile-view");
+      component.querySelectorAll("[id]").forEach(node => { node.id = node.id.replace(/^player/, prefix); });
+      component.querySelectorAll("[for], [aria-controls], [aria-describedby]").forEach(node => {
+        for (const attr of ["for", "aria-controls", "aria-describedby"]) {
+          const value = node.getAttribute(attr); if (value) node.setAttribute(attr, value.replace(/\bplayer(?=[A-Z])/g, prefix));
+        }
+      });
+      component.querySelectorAll("[data-standalone-profile-only]").forEach(node => node.removeAttribute("data-standalone-profile-only"));
+      target.replaceChildren(component);
+    }
+  }
+
   window.NickStatsProfile = Object.freeze({ render, renderTable, clutchEconomySummary, number, integer, decimal, percent, ratio, titleCase, countPerRound, perGrenade });
   mountComparisonProfile();
+  mountQuickGraphs();
 })();

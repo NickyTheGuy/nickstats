@@ -445,7 +445,7 @@
   const { bindSegmentedToggle, matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
   const mapFilter = new window.NickStatsFilters.MultiMapFilter("groupMapFilter", { onChange: () => runCombination(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
   const dateFilter = new window.NickStatsFilters.DateRangeFilter("groupDateFilter", { onChange: () => runCombination() });
-  const quickComparison = window.NickStatsQuickComparison.create({ prefix: "combo", onGraphs: () => { setComboProfileView("graphs"); setComboDisplay("profile"); } });
+  const quickComparison = window.NickStatsQuickComparison.create({ prefix: "combo" });
   const manualFilter = new window.NickStatsManualFilters.ManualFilterControl("groupManualFilter", { onChange: () => { if (state.players.length) runCombination(); } });
 
   function setComboProfileView(view) {
@@ -531,6 +531,8 @@
     quickComparison.render({
       players: current.included.map(player => ({ ...player, rows: comboProfileRows(current, player) })),
       summarize,
+      graphOptions: { side: state.side, buy: state.buy, opponentBuy: state.opponentBuy, result: state.roundResult,
+        phase: state.roundPhase, heroOnly: state.heroOnly, independent: false },
       metaSuffix: state.comboCondition === "with" ? "With excluded players" : "Without excluded players"
     });
     $("comboResults").hidden = false;

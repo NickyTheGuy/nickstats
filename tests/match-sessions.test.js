@@ -48,6 +48,7 @@ test("session history paginates whole sessions and keeps match opening and tags"
     $: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); },
     manualFilter: { active: false, matches: () => true }, dateFilter: { matches: () => true },
     profileMatchSummaries: (_, rows) => rows, openHistoryMatch: () => {},
+    aggregate: rows => ({ rating: 1.2, adr: 80, stats: { kills: rows.length * 20, deaths: rows.length * 10, assists: rows.length * 5 } }),
     matchList: { render: (list, matches, onOpen, options) => calls.push({ list, matches, onOpen, options }) }
   };
   const start = source.indexOf("  function renderPlayerSessions("), end = source.indexOf("  async function loadPlayerMatches", start);
@@ -61,6 +62,9 @@ test("session history paginates whole sessions and keeps match opening and tags"
   assert.equal(nodes.get("playerMatchesNext").disabled, false);
   profile.sessionHistoryOffset = 25; calls.length = 0; render(profile);
   assert.equal(calls.length, 1); assert.equal(calls[0].matches.length, 30);
+  const preview = nodes.get("playerMatchesList").children[0].children[0].children[2];
+  assert.deepEqual(preview.children.map(item => item.children[1].textContent), ["1.20", "600-300-150", "80.0"]);
+  assert.equal(preview.children[0].children[1].className, "demo-rating rating-good");
   assert.equal(calls[0].onOpen, sandbox.openHistoryMatch);
   assert.equal(calls[0].options.actionsFor(calls[0].matches[0]).open, false);
   assert.equal(nodes.get("playerMatchesNext").disabled, true);

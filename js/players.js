@@ -38,7 +38,7 @@
       if (activeProfile()) { renderCurrentDisplay(); if (state.display === "profile" && state.view === "matches") renderPlayerMatches(); }
     }
   });
-  const quickComparison = window.NickStatsQuickComparison.create({ prefix: "player", onGraphs: () => { setPlayerView("graphs"); setPlayerDisplay("profile"); } });
+  const quickComparison = window.NickStatsQuickComparison.create({ prefix: "player" });
   const manualFilter = new window.NickStatsManualFilters.ManualFilterControl(["playerManualFilter", "playerHistoryManualFilter"], {
     onChange: ({ resetPagination = false } = {}) => {
       state.profiles.forEach(profile => { profile.summaryCache?.clear(); profile.graphCache?.clear(); if (resetPagination) { profile.manualHistoryOffset = 0; profile.sessionHistoryOffset = 0; } });
@@ -257,8 +257,22 @@
       const wins = session.matches.filter(match => match.result === "w").length;
       const losses = session.matches.filter(match => match.result === "l").length;
       const draws = session.matches.filter(match => match.result === "n").length;
-      record.textContent = `${session.matches.length} match${session.matches.length === 1 ? "" : "es"} · ${wins}W ${losses}L ${draws}D`;
-      heading.append(title, record);
+      record.className = "session-record";
+      const count = document.createElement("span"); count.textContent = `${session.matches.length} match${session.matches.length === 1 ? "" : "es"} · `;
+      record.appendChild(count);
+      for (const [value, label, className] of [[wins, "W", "session-win"], [losses, "L", "session-loss"], [draws, "D", "session-draw"]]) {
+        const part = document.createElement("span"); part.className = className; part.textContent = `${value}${label} `; record.appendChild(part);
+      }
+      const summary = aggregate(session.matches, "ALL", "ALL", "ALL", "ALL", "ALL", false);
+      const preview = document.createElement("span"); preview.className = "match-list-preview session-preview";
+      for (const [label, value] of [["Rating", summary.rating.toFixed(2)],
+        ["K-D-A", `${summary.stats.kills || 0}-${summary.stats.deaths || 0}-${summary.stats.assists || 0}`], ["ADR", summary.adr.toFixed(1)]]) {
+        const item = document.createElement("span"), name = document.createElement("span"), amount = document.createElement("strong");
+        item.className = "match-list-preview-stat"; name.textContent = label; amount.textContent = value;
+        if (label === "Rating") amount.className = `demo-rating ${summary.rating >= 1.10 ? "rating-good" : summary.rating <= .90 ? "rating-bad" : "rating-average"}`;
+        item.append(name, amount); preview.appendChild(item);
+      }
+      heading.append(title, record, preview);
       const list = document.createElement("div"); list.className = "match-list";
       matchList.render(list, profileMatchSummaries(profile, session.matches), openHistoryMatch, { actionsFor: match => {
         const actions = window.NickStatsManualFilters.matchEditor(match);
@@ -485,6 +499,8 @@
           summarize: (rows, map) => quickSummary(rows, summaryFor(candidate, map))
         })),
       summarize: quickSummary,
+      graphOptions: { side: state.side, buy: state.buy, opponentBuy: state.opponentBuy, result: state.roundResult,
+        phase: state.roundPhase, heroOnly: state.heroOnly, independent: true },
       metaSuffix: resultFilterLabel(state.result)
     });
   }

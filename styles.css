@@ -3761,5 +3761,11 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-match-session { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .player-match-session > summary { padding: 12px; cursor: pointer; }
 .player-match-session > summary strong { font-size: 13px; }
-.player-match-session > summary span { display: block; margin: 4px 0 0 18px; color: var(--muted); font-size: 12px; }
+.player-match-session .session-record { display: block; margin: 4px 0 8px 18px; color: var(--muted); font-size: 12px; }
 .player-match-session > .match-list { padding: 0 10px 10px; }
+
+.player-match-session .session-win { color: var(--green); }
+.player-match-session .session-loss { color: var(--red); }
+.player-match-session .session-draw { color: var(--muted); }
+.player-match-session .session-preview { margin-left: 18px; flex-wrap: wrap; }
+.quick-comparison-panel [hidden] { display: none !important; }
