@@ -3755,3 +3755,11 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 @media (max-width: 600px) {
   .graph-axis-controls > .graph-stat-controls { flex-basis: 100%; }
 }
+
+.player-history-view { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+.player-history-view small { color: var(--muted); font-size: 12px; }
+.player-match-session { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.player-match-session > summary { padding: 12px; cursor: pointer; }
+.player-match-session > summary strong { font-size: 13px; }
+.player-match-session > summary span { display: block; margin: 4px 0 0 18px; color: var(--muted); font-size: 12px; }
+.player-match-session > .match-list { padding: 0 10px 10px; }

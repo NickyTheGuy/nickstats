@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20261001-8">
+  <link rel="stylesheet" href="./styles.css?v=20261005-3">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.10.05.2</span>
+          <span class="demo-build">Build 2026.10.05.3</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -383,6 +383,13 @@
           </div>
           <div class="player-profile-view player-matches-view" data-player-profile-view="matches" hidden>
             <div class="stats-toolbar player-history-date" data-standalone-profile-only><div class="date-range-filter" id="playerHistoryDateFilter" role="group" aria-label="Player match history dates"></div><div class="stats-filter manual-filter-control" id="playerHistoryManualFilter" hidden></div><button class="button button-secondary filter-reset" id="playerHistoryResetFilters" type="button">Reset filters</button></div>
+            <div class="player-history-view" data-standalone-profile-only>
+              <div class="side-toggle" role="group" aria-label="Match history view">
+                <button type="button" data-player-history-view="matches" class="active" aria-pressed="true">Matches</button>
+                <button type="button" data-player-history-view="sessions" aria-pressed="false">Sessions</button>
+              </div>
+              <small id="playerSessionsHelp" hidden>A new session starts after a 2-hour gap between match starts. Undated games are shown separately.</small>
+            </div>
             <div class="match-list-status" id="playerMatchesStatus" role="status" aria-live="polite"></div>
             <div class="match-list" id="playerMatchesList"></div>
             <div class="match-list-pagination" id="playerMatchesPagination" hidden>
@@ -607,7 +614,8 @@
   <script defer src="./js/demo.js?v=20261001-5"></script>
   <script defer src="./js/profile.js?v=20261001-2"></script>
   <script defer src="./js/quick-comparison.js?v=20261005-2"></script>
-  <script defer src="./js/players.js?v=20261005-2"></script>
+  <script defer src="./js/match-sessions.js?v=20261005-3"></script>
+  <script defer src="./js/players.js?v=20261005-3"></script>
   <script defer src="./js/groups.js?v=20261005-2"></script>
 </body>
 </html>
