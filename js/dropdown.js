@@ -68,5 +68,37 @@
     });
   });
 
+  // Activate menu buttons on touch release instead of relying on the browser's
+  // compatibility mouse click. Keep the existing click handlers (and native
+  // keyboard/mouse behavior), and cancel that compatibility click to avoid
+  // applying an action twice. Do not intercept swipes or native form inputs.
+  const touchMenus = ".stats-dropdown-menu, .date-range-panel, .map-filter-options, .tag-share-panel";
+  let tap = null;
+  document.addEventListener("touchstart", event => {
+    tap = null;
+    if (event.touches.length !== 1) return;
+    const button = event.target.closest?.("button");
+    if (!button || button.disabled || !button.closest(touchMenus)) return;
+    const touch = event.touches[0];
+    tap = { button, id: touch.identifier, x: touch.clientX, y: touch.clientY };
+  }, { passive: true });
+  document.addEventListener("touchmove", event => {
+    const touch = [...event.touches].find(touch => touch.identifier === tap?.id);
+    if (!touch || Math.hypot(touch.clientX - tap.x, touch.clientY - tap.y) > 10) tap = null;
+  }, { passive: true });
+  document.addEventListener("touchcancel", () => { tap = null; }, { passive: true });
+  document.addEventListener("scroll", () => { tap = null; }, { passive: true, capture: true });
+  document.addEventListener("touchend", event => {
+    const gesture = tap; tap = null;
+    if (!gesture || event.touches.length || !event.cancelable) return;
+    const touch = [...event.changedTouches].find(touch => touch.identifier === gesture.id);
+    const { button, x, y } = gesture;
+    if (!touch || !button.isConnected || button.disabled ||
+        Math.hypot(touch.clientX - x, touch.clientY - y) > 10 ||
+        !button.contains(document.elementFromPoint(touch.clientX, touch.clientY))) return;
+    event.preventDefault();
+    button.click();
+  }, { passive: false });
+
   window.NickStatsDropdown = Object.freeze({ enhance, sync });
 })();
