@@ -1,53 +1,71 @@
 "use strict";
 const test = require("node:test"), assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), vm = require("node:vm");
-const source = fs.readFileSync(path.join(__dirname, "../js/quick-comparison.js"), "utf8");
-test("quick graphs stay in comparison, follow map filters, and preserve player choices", () => {
-  class Node {
-    constructor(text) { this.textContent = text; this.children = []; this.listeners = {}; this.attributes = {}; this.parentElement = {}; }
-    replaceChildren() { this.children = []; }
-    append(...children) { this.children.push(...children); }
-    appendChild(child) { this.children.push(child); }
-    setAttribute(key, value) { this.attributes[key] = value; }
-    addEventListener(key, callback) { this.listeners[key] = callback; }
-    click() { this.listeners.click(); }
-  }
+const read = file => fs.readFileSync(path.join(__dirname, "../", file), "utf8");
+const source = read("js/quick-comparison.js"), playersSource = read("js/players.js"), groupsSource = read("js/groups.js");
+class Node {
+  constructor(text) { this.textContent = text; this.children = []; this.listeners = {}; this.attributes = {}; this.dataset = {}; this.classList = { toggle() {} }; }
+  replaceChildren(...children) { this.children = children; }
+  append(...children) { this.children.push(...children); }
+  appendChild(child) { this.children.push(child); }
+  setAttribute(key, value) { this.attributes[key] = value; }
+  addEventListener(key, callback) { this.listeners[key] = callback; }
+  click() { this.listeners.click(); }
+}
+const functionSource = (source, name, next) => source.slice(source.indexOf(`  function ${name}(`), source.indexOf(`  function ${next}(`));
+
+test("quick comparison map tabs contain only scoreboards and still filter their rows", () => {
   for (const prefix of ["player", "combo"]) {
-    const nodes = new Map(), calls = [], tables = [], state = { view: "table", map: "ALL", graphPlayers: null };
+    const nodes = new Map(), tables = [], state = { map: "ALL" };
     const sandbox = { state, prefix,
       byId: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); },
       element: (_, text) => new Node(text), integer: String, titleCase: value => value,
       mapsFor: players => [...new Set(players.flatMap(player => player.rows.map(row => row.map)))],
-      renderSections() {}, renderTable: rows => tables.push(rows),
-      window: { NickStatsGraphs: { samplesForMatches: rows => rows.map(row => ({ id: row.id })), render: options => calls.push(options) },
-        NickStatsRoundTimeline: { withDifferentials: rows => rows, matchesFilters: () => true } }
+      renderSections() {}, renderTable: rows => tables.push(rows)
     };
-    const start = source.indexOf("    function renderGraphs("), end = source.indexOf("    function reset()", start);
-    const render = vm.runInNewContext(`${source.slice(start, end)}\nrender`, sandbox);
-    const input = { players: Array.from({ length: 6 }, (_, index) => ({ id: String(index), label: `Player ${index}`, rows: [
-      { id: `${index}-dust`, map: "de_dust2", round_kills: [] }, { id: `${index}-mirage`, map: "de_mirage", round_kills: [] }
-    ] })), summarize: () => ({}), graphOptions: { independent: prefix === "player" } };
-    render(input);
-    nodes.get("Maps").children.find(node => node.textContent === "dust2").click();
-    nodes.get("Maps").children[0].click();
-    assert.equal(state.view, "graphs");
-    assert.equal(calls.at(-1).prefix, `${prefix}Quick`);
-    assert.equal(calls.at(-1).series.length, 5);
-    assert.ok(calls.at(-1).series.every(series => series.samples.length === 1 && series.samples[0].id.endsWith("-dust")));
-    assert.equal(nodes.get("Table").parentElement.hidden, true);
-    assert.equal(nodes.get("Sections").parentElement.hidden, true);
-    assert.equal(nodes.get("Graphs").hidden, false);
-    assert.equal(nodes.get("Maps").children[0].attributes["aria-selected"], "true");
-    const choices = nodes.get("GraphPlayers");
-    assert.equal(choices.children[5].children[0].disabled, true);
-    const first = choices.children[0].children[0]; first.checked = false; first.listeners.change();
-    assert.equal(calls.at(-1).series.length, 4);
-    const sixth = choices.children[5].children[0]; assert.equal(sixth.disabled, false);
-    sixth.checked = true; sixth.listeners.change(); assert.equal(calls.at(-1).series.length, 5);
-    nodes.get("Maps").children.find(node => node.textContent === "All maps").click();
-    assert.equal(state.view, "table"); assert.equal(nodes.get("Graphs").hidden, true);
-    assert.equal(tables.at(-1)[0].rows.length, 2);
-    nodes.get("Maps").children[0].click();
-    assert.ok(!calls.at(-1).series.some(series => series.id === "0"));
-    assert.ok(calls.at(-1).series.some(series => series.id === "5"));
+    const render = vm.runInNewContext(`${functionSource(source, "render", "reset")}\nrender`, sandbox);
+    render({ players: [{ id: "1", rows: [{ map: "de_dust2" }, { map: "de_mirage" }] }], summarize: () => ({}) });
+    assert.deepEqual(nodes.get("Maps").children.map(node => node.textContent), ["All maps", "dust2", "mirage"]);
+    nodes.get("Maps").children[1].click();
+    assert.equal(state.map, "de_dust2"); assert.equal(tables.at(-1)[0].rows.length, 1);
+    assert.equal(nodes.has("Graphs"), false);
   }
+});
+
+test("Graphs is a fixed peer tab and hides profile and quick comparison panels", () => {
+  const tabs = new Node(), panels = ["profile", "quick", "graphs"].map(display => ({ dataset: { playerDisplayPanel: display } }));
+  const state = { display: "profile", view: "matches", profiles: new Map([["1", { payload: { player: { name: "Nick" } } }], ["2", { payload: { player: { name: "Friend" } } }]]), activeId: "1" };
+  const renders = [], sandbox = { state, $: () => tabs, activeProfile: () => state.profiles.get(state.activeId),
+    document: { createElement: () => new Node(), querySelectorAll: () => panels },
+    syncStatsToolbar() {}, renderCurrentDisplay: () => renders.push(state.display),
+    activateProfile(id) { state.activeId = id; }, closeProfile() {}
+  };
+  const api = vm.runInNewContext(`${functionSource(playersSource, "setPlayerDisplay", "syncStatsToolbar")}\n${functionSource(playersSource, "renderOpenTabs", "renderProfile")}\n({setPlayerDisplay, renderOpenTabs})`, sandbox);
+  api.renderOpenTabs();
+  assert.deepEqual(tabs.children.map(item => item.children[0].textContent), ["Quick comparison", "Graphs", "Nick", "Friend"]);
+  assert.equal(tabs.children[1].children.length, 1, "Graphs has no profile close button");
+  tabs.children[1].children[0].click();
+  assert.equal(state.display, "graphs"); assert.equal(state.activeId, "1"); assert.equal(state.view, "matches");
+  assert.deepEqual(panels.map(panel => panel.hidden), [true, true, false]);
+  assert.equal(tabs.children[1].children[0].attributes["aria-selected"], "true");
+  tabs.children[0].children[0].click();
+  assert.deepEqual(renders, ["graphs", "quick"]);
+});
+
+test("standalone group graphs preserve player selection across redraws and cap it at five", () => {
+  const nodes = new Map(), calls = [], current = { included: Array.from({ length: 6 }, (_, i) => ({ profileId: String(i), label: `Player ${i}` })) };
+  const state = { graphPlayers: null, side: "CT", buy: "full", roundResult: "win", opponentBuy: "eco", roundPhase: "REGULATION", heroOnly: false };
+  const sandbox = { state, $: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); }, el: (_, text) => new Node(text),
+    comboProfileRows: (_, player) => [{ id: player.profileId, round_kills: [] }],
+    window: { NickStatsGraphs: { samplesForMatches: (...args) => args, render: options => calls.push(options) },
+      NickStatsRoundTimeline: { withDifferentials: rows => rows, matchesFilters: () => true } }
+  };
+  const render = vm.runInNewContext(`${functionSource(groupsSource, "renderComboGraphs", "runCombination")}\nrenderComboGraphs`, sandbox);
+  render(current);
+  assert.equal(calls.at(-1).prefix, "combo"); assert.equal(calls.at(-1).series.length, 5); assert.equal(calls.at(-1).domainSeries.length, 6);
+  assert.deepEqual(Array.from(calls.at(-1).series[0].samples).slice(1), ["CT", "full", "win", "eco", "REGULATION", false]);
+  const choices = nodes.get("comboGraphPlayers"); assert.equal(choices.children[5].children[0].disabled, true);
+  const first = choices.children[0].children[0]; first.checked = false; first.listeners.change();
+  const sixth = choices.children[5].children[0]; assert.equal(sixth.disabled, false); sixth.checked = true; sixth.listeners.change();
+  render(current);
+  assert.ok(!calls.at(-1).series.some(player => player.id === "0")); assert.ok(calls.at(-1).series.some(player => player.id === "5"));
 });

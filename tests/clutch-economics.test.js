@@ -237,7 +237,7 @@ test("Player and Groups render aggregate and size estimates per attempt without 
   const elements = new Map();
   const ctx = vm.createContext({ window: {}, document: {
     createElement: () => new Element(), getElementById: id => {
-      if (id === "playerProfileBody" || id === "comboProfileBody") return null;
+      if (["playerProfileBody", "comboProfileBody", "playerGraphs", "comboGraphs"].includes(id)) return null;
       if (!elements.has(id)) elements.set(id, new Element());
       return elements.get(id);
     }

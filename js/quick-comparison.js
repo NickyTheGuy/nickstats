@@ -41,7 +41,7 @@
 
   function create({ prefix }) {
     const state = {
-      map: "ALL", view: "table", graphPlayers: null,
+      map: "ALL",
       expandedGroups: Object.fromEntries(columnGroups.map(([key]) => [key, false])),
       sectionSubgroups: {},
       valueMode: "totals",
@@ -604,47 +604,19 @@
       });
     }
 
-    function renderGraphs(comparison) {
-      const options = state.input.graphOptions || {};
-      const idFor = item => String(item.player.id ?? item.player.profileId);
-      if (state.graphPlayers == null) state.graphPlayers = new Set(comparison.slice(0, 5).map(idFor));
-      const choices = byId("GraphPlayers"); choices.replaceChildren();
-      comparison.forEach(item => {
-        const label = element("label", null, "graph-player-choice"), check = element("input");
-        check.type = "checkbox"; check.checked = state.graphPlayers.has(idFor(item));
-        check.disabled = !check.checked && comparison.filter(candidate => state.graphPlayers.has(idFor(candidate))).length >= 5;
-        check.addEventListener("change", () => {
-          check.checked ? state.graphPlayers.add(idFor(item)) : state.graphPlayers.delete(idFor(item)); renderGraphs(comparison);
-        });
-        label.append(check, element("span", item.player.label)); choices.appendChild(label);
-      });
-      const series = comparison.map((item, colorIndex) => ({ id: idFor(item), colorIndex, label: item.player.label,
-        samples: window.NickStatsGraphs.samplesForMatches(item.rows, options.side, options.buy, options.result, options.opponentBuy, options.phase, options.heroOnly),
-        roundMatches: item.rows.map(match => ({ round_kills: window.NickStatsRoundTimeline.withDifferentials(match.round_kills || [])
-          .filter(row => window.NickStatsRoundTimeline.matchesFilters(row, options)) }))
-      }));
-      const selected = series.filter(item => state.graphPlayers.has(item.id));
-      byId("GraphPlayerStatus").textContent = `${selected.length} of ${series.length} players selected`;
-      window.NickStatsGraphs.render({ prefix: `${prefix}Quick`, series: selected, domainSeries: series, independent: !!options.independent });
-    }
-
     function render(input) {
       state.input = input;
-      if (state.view === "table") renderSections();
+      renderSections();
       const players = input?.players || [];
       const maps = mapsFor(players);
       if (state.map !== "ALL" && !maps.includes(state.map)) state.map = "ALL";
       const tabs = byId("Maps");
       tabs.replaceChildren();
-      const graphsActive = state.view === "graphs";
-      const graphs = element("button", "Graphs", `match-browser-tab${graphsActive ? " active" : ""}`);
-      graphs.type = "button"; graphs.setAttribute("role", "tab"); graphs.setAttribute("aria-selected", String(graphsActive));
-      graphs.addEventListener("click", () => { state.view = "graphs"; render(state.input); }); tabs.appendChild(graphs);
       [["ALL", "All maps"], ...maps.map(map => [map, titleCase(map.replace(/^de_/, ""))])].forEach(([value, label]) => {
-        const active = state.view === "table" && state.map === value;
+        const active = state.map === value;
         const button = element("button", label, `match-browser-tab${active ? " active" : ""}`);
         button.type = "button"; button.setAttribute("role", "tab"); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
-        button.addEventListener("click", () => { state.map = value; state.view = "table"; render(state.input); });
+        button.addEventListener("click", () => { state.map = value; render(state.input); });
         tabs.appendChild(button);
       });
       const comparison = players.map(player => {
@@ -658,16 +630,11 @@
         : `${integer(minimum)}–${integer(maximum)} qualifying matches per player`;
       const mapLabel = state.map === "ALL" ? "All maps" : titleCase(state.map.replace(/^de_/, ""));
       byId("Meta").textContent = [mapLabel, matchLabel, input.metaSuffix].filter(Boolean).join(" · ");
-      byId("Table").parentElement.hidden = graphsActive;
-      byId("Sections").parentElement.hidden = graphsActive;
-      byId("Graphs").hidden = !graphsActive;
-      if (byId("Title")) byId("Title").textContent = graphsActive ? "Comparison graphs" : `${prefix === "combo" ? "Group" : "Player"} scoreboard`;
-      if (graphsActive) renderGraphs(comparison); else renderTable(comparison);
-      byId("Empty").hidden = graphsActive || maximum > 0;
+      renderTable(comparison);
+      byId("Empty").hidden = maximum > 0;
     }
 
     function reset() {
-      state.view = "table"; state.graphPlayers = null;
       state.map = "ALL";
       state.expandedGroups = Object.fromEntries(columnGroups.map(([key]) => [key, false]));
       state.sectionSubgroups = {};

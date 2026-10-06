@@ -89,13 +89,9 @@
     document.querySelectorAll("[data-player-profile-view]").forEach(panel => { panel.hidden = panel.dataset.playerProfileView !== view; });
     syncStatsToolbar();
     if (view === "matches" && state.display === "profile" && activeProfile()) renderPlayerMatches();
-    if (view === "graphs" && state.display === "profile" && activeProfile()) {
-      renderGraphPlayers();
-      renderGraphs();
-    }
   }
   function setPlayerDisplay(display) {
-    state.display = display === "quick" ? "quick" : "profile";
+    state.display = ["quick", "graphs"].includes(display) ? display : "profile";
     document.querySelectorAll("[data-player-display-panel]").forEach(panel => {
       panel.hidden = panel.dataset.playerDisplayPanel !== state.display;
     });
@@ -110,6 +106,7 @@
 
   function renderCurrentDisplay() {
     if (state.display === "quick") renderQuickComparison();
+    else if (state.display === "graphs") { renderGraphPlayers(); renderGraphs(); }
     else renderProfile();
   }
 
@@ -499,8 +496,6 @@
           summarize: (rows, map) => quickSummary(rows, summaryFor(candidate, map))
         })),
       summarize: quickSummary,
-      graphOptions: { side: state.side, buy: state.buy, opponentBuy: state.opponentBuy, result: state.roundResult,
-        phase: state.roundPhase, heroOnly: state.heroOnly, independent: true },
       metaSuffix: resultFilterLabel(state.result)
     });
   }
@@ -513,6 +508,12 @@
     quick.setAttribute("aria-selected", String(quickActive)); quick.tabIndex = quickActive ? 0 : -1; quick.textContent = "Quick comparison";
     quick.addEventListener("click", () => setPlayerDisplay("quick"));
     quickItem.appendChild(quick); tabs.appendChild(quickItem);
+    const graphsActive = state.display === "graphs";
+    const graphsItem = document.createElement("div"); graphsItem.className = `player-open-tab single${graphsActive ? " active" : ""}`;
+    const graphs = document.createElement("button"); graphs.type = "button"; graphs.className = "player-open-tab-label"; graphs.setAttribute("role", "tab");
+    graphs.setAttribute("aria-selected", String(graphsActive)); graphs.tabIndex = graphsActive ? 0 : -1; graphs.textContent = "Graphs";
+    graphs.addEventListener("click", () => setPlayerDisplay("graphs"));
+    graphsItem.appendChild(graphs); tabs.appendChild(graphsItem);
     state.profiles.forEach((profile, id) => {
       const active = state.display === "profile" && id === state.activeId;
       const item = document.createElement("div"); item.className = `player-open-tab${active ? " active" : ""}`;
@@ -537,7 +538,6 @@
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
     const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: summaryFor(profile, map.name) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
-    if (state.view === "graphs") { renderGraphPlayers(); renderGraphs(); }
     $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "";
   }
 

@@ -32,7 +32,7 @@
     choices: new Map(savedRoster.map(({ player, choice }) => [String(player.id), choice])),
     searchController: null, groupController: null, groupStale: false, searchTimer: null,
     side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL",
-    comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile", matchListKey: "", matchListOffset: 0
+    comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile", graphPlayers: null, matchListKey: "", matchListOffset: 0
   };
 
   function num(value) {
@@ -322,6 +322,7 @@
       if (controller.signal.aborted) return;
       state.players = (payload.players || []).map(normalizePlayer).sort((a, b) => a.label.localeCompare(b.label));
       populateMaps({ reset: !refresh });
+      if (!refresh) state.graphPlayers = null;
       state.players.forEach(player => { if (!state.choices.has(player.profileId)) state.choices.set(player.profileId, "include"); });
       state.players.forEach(player => {
         const selected = state.selected.get(player.profileId);
@@ -458,10 +459,10 @@
   }
 
   function setComboDisplay(display) {
-    state.comboDisplay = display === "quick" ? "quick" : "profile";
+    state.comboDisplay = ["quick", "graphs"].includes(display) ? display : "profile";
     document.querySelectorAll("[data-combo-player-id], [data-combo-display]").forEach(button => {
-      const active = button.dataset.comboDisplay === "quick"
-        ? state.comboDisplay === "quick"
+      const active = button.dataset.comboDisplay
+        ? state.comboDisplay === button.dataset.comboDisplay
         : state.comboDisplay === "profile" && button.dataset.comboPlayerId === state.comboPlayerId;
       button.closest(".player-open-tab")?.classList.toggle("active", active);
       button.setAttribute("aria-selected", String(active));
@@ -470,6 +471,7 @@
     document.querySelectorAll("[data-combo-display-panel]").forEach(panel => {
       panel.hidden = panel.dataset.comboDisplayPanel !== state.comboDisplay;
     });
+    if (state.comboDisplay === "graphs") renderComboGraphs(findCombination());
   }
 
   function renderComboProfile(current) {
@@ -490,6 +492,13 @@
     quickButton.setAttribute("aria-selected", String(quickActive)); quickButton.tabIndex = quickActive ? 0 : -1;
     quickButton.addEventListener("click", () => setComboDisplay("quick"));
     quickItem.appendChild(quickButton); profileTabs.appendChild(quickItem);
+    const graphsActive = state.comboDisplay === "graphs";
+    const graphsItem = el("div", "", `player-open-tab single${graphsActive ? " active" : ""}`);
+    const graphsButton = el("button", "Graphs", "player-open-tab-label");
+    graphsButton.type = "button"; graphsButton.setAttribute("role", "tab"); graphsButton.dataset.comboDisplay = "graphs";
+    graphsButton.setAttribute("aria-selected", String(graphsActive)); graphsButton.tabIndex = graphsActive ? 0 : -1;
+    graphsButton.addEventListener("click", () => setComboDisplay("graphs"));
+    graphsItem.appendChild(graphsButton); profileTabs.appendChild(graphsItem);
     current.included.forEach(player => {
       const active = state.comboDisplay === "profile" && player.profileId === state.comboPlayerId;
       const item = el("div", "", `player-open-tab single${active ? " active" : ""}`);
@@ -512,15 +521,35 @@
     const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches)) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "combo", headlineId: "comboProfileHeadline", summary: normalize(stats), side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
     renderComboMatches(rows, player);
-    window.NickStatsGraphs.render({ prefix: "combo", series: current.included.map(candidate => {
+    setComboProfileView(state.comboView);
+  }
+
+  function renderComboGraphs(current) {
+    if (!current) return;
+    const idFor = player => String(player.profileId);
+    if (state.graphPlayers == null) state.graphPlayers = new Set(current.included.slice(0, 5).map(idFor));
+    const choices = $("comboGraphPlayers"); choices.replaceChildren();
+    const selectedCount = current.included.filter(player => state.graphPlayers.has(idFor(player))).length;
+    current.included.forEach(player => {
+      const label = el("label", null, "graph-player-choice"), check = el("input");
+      check.type = "checkbox"; check.checked = state.graphPlayers.has(idFor(player));
+      check.disabled = !check.checked && selectedCount >= 5;
+      check.addEventListener("change", () => {
+        check.checked ? state.graphPlayers.add(idFor(player)) : state.graphPlayers.delete(idFor(player));
+        renderComboGraphs(current);
+      });
+      label.append(check, el("span", player.label)); choices.appendChild(label);
+    });
+    $("comboGraphPlayerStatus").textContent = `${selectedCount} of ${current.included.length} players selected`;
+    const series = current.included.map((candidate, colorIndex) => {
       const matches = comboProfileRows(current, candidate);
-      return { label: candidate.label,
+      return { id: idFor(candidate), colorIndex, label: candidate.label,
         samples: window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly),
         roundMatches: matches.map(match => ({ round_kills: window.NickStatsRoundTimeline.withDifferentials(match.round_kills).filter(row => window.NickStatsRoundTimeline.matchesFilters(row, {
           side: state.side, buy: state.buy, opponentBuy: state.opponentBuy, result: state.roundResult, phase: state.roundPhase, heroOnly: state.heroOnly
         })) })) };
-    }) });
-    setComboProfileView(state.comboView);
+    });
+    window.NickStatsGraphs.render({ prefix: "combo", series: series.filter(player => state.graphPlayers.has(player.id)), domainSeries: series, independent: false });
   }
 
   function runCombination() {
@@ -531,8 +560,6 @@
     quickComparison.render({
       players: current.included.map(player => ({ ...player, rows: comboProfileRows(current, player) })),
       summarize,
-      graphOptions: { side: state.side, buy: state.buy, opponentBuy: state.opponentBuy, result: state.roundResult,
-        phase: state.roundPhase, heroOnly: state.heroOnly, independent: false },
       metaSuffix: state.comboCondition === "with" ? "With excluded players" : "Without excluded players"
     });
     $("comboResults").hidden = false;
@@ -554,7 +581,7 @@
     state.roundResult = "ALL";
     state.roundPhase = "ALL";
     groupRoundPhaseFilter.set("ALL", { notify: false });
-    state.comboDisplay = "profile";
+    state.comboDisplay = "profile"; state.graphPlayers = null;
     quickComparison.reset();
     comboResultFilter.set("ALL", { notify: false });
     invalidateGroupResults();

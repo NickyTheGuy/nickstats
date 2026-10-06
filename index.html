@@ -12,7 +12,7 @@
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.10.06.1</span>
+          <span class="demo-build">Build 2026.10.06.2</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -234,7 +234,7 @@
         <div class="group-results" id="groupResults" hidden>
             <div class="warning-list" id="comboWarnings"></div>
             <div class="combo-results" id="comboResults" hidden>
-              <nav class="player-open-profiles unified-profile-tabs" id="comboProfilePlayers" role="tablist" aria-label="Included player profiles and quick comparison"></nav>
+              <nav class="player-open-profiles unified-profile-tabs" id="comboProfilePlayers" role="tablist" aria-label="Included player profiles, quick comparison and graphs"></nav>
 
               <div class="stats-toolbar combo-profile-toolbar">
                 <div class="stats-filter"><span>Map</span><div class="map-multiselect" id="groupMapFilter"></div></div>
@@ -268,9 +268,9 @@
                 <div class="player-profile-table-wrap">
                   <table class="player-profile-table quick-comparison-table" id="comboQuickTable"></table>
                 </div>
-                <div id="comboQuickGraphs" hidden></div>
                 <p class="quick-comparison-empty" id="comboQuickEmpty" hidden>No qualifying matches for this map and filter combination.</p>
               </section>
+              <section class="panel player-profile combo-display-panel" id="comboGraphs" data-combo-display-panel="graphs" hidden></section>
           </div>
         </div>
       </div>
@@ -299,7 +299,7 @@
         </section>
 
         <section class="player-profile-results" id="playerProfile" hidden>
-          <nav class="player-open-profiles unified-profile-tabs" id="playerOpenProfiles" role="tablist" aria-label="Open player profiles and quick comparison" hidden></nav>
+          <nav class="player-open-profiles unified-profile-tabs" id="playerOpenProfiles" role="tablist" aria-label="Player profiles, quick comparison and graphs" hidden></nav>
           <div class="player-profile-status" id="playerDataStatus" role="status" aria-live="polite" hidden></div>
 
           <div class="stats-toolbar" id="playerStatsToolbar">
@@ -372,7 +372,6 @@
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="utility">Utility</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="weapons">Weapons</button>
             <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="maps">Maps</button>
-            <button class="player-profile-tab" type="button" role="tab" aria-selected="false" data-player-view="graphs">Graphs</button>
           </nav>
 
           <div class="player-profile-view" data-player-profile-view="overview">
@@ -473,9 +472,13 @@
           <div class="player-profile-view" data-player-profile-view="maps" hidden>
             <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerMapsTable"></table></div>
           </div>
-          <div class="player-profile-view" data-player-profile-view="graphs" hidden>
-            <section class="graph-player-picker" data-standalone-profile-only>
-              <div><strong>Players</strong><span id="playerGraphPlayerStatus">Choose open profiles to compare</span></div>
+
+          </div>
+          </div>
+
+          <section class="panel player-profile player-display-panel" id="playerGraphs" data-player-display-panel="graphs" hidden>
+            <section class="graph-player-picker">
+              <div><strong>Players</strong><span id="playerGraphPlayerStatus">Choose players to graph</span></div>
               <div class="graph-player-choices" id="playerGraphPlayers"></div>
             </section>
             <section class="player-graph-builder">
@@ -526,9 +529,7 @@
               <svg id="playerGraphSvg" viewBox="0 0 900 460" role="img" aria-label="Player statistic graph"></svg>
             </div>
             <div class="graph-legend" id="playerGraphLegend"></div>
-          </div>
-          </div>
-          </div>
+          </section>
 
           <section class="panel quick-comparison-panel player-quick-comparison player-display-panel" data-player-display-panel="quick" hidden>
             <header class="section-head quick-comparison-heading">
@@ -539,7 +540,6 @@
             <div class="player-profile-table-wrap">
               <table class="player-profile-table quick-comparison-table" id="playerQuickTable"></table>
             </div>
-            <div id="playerQuickGraphs" hidden></div>
                 <p class="quick-comparison-empty" id="playerQuickEmpty" hidden>No qualifying matches for this map and filter combination.</p>
           </section>
         </section>
@@ -614,10 +614,10 @@
   <script defer src="./js/round-timeline.js?v=20260925-06"></script>
   <script defer src="./js/graphs.js?v=20261005-1"></script>
   <script defer src="./js/demo.js?v=20261001-5"></script>
-  <script defer src="./js/profile.js?v=20261005-4"></script>
-  <script defer src="./js/quick-comparison.js?v=20261005-4"></script>
+  <script defer src="./js/profile.js?v=20261006-2"></script>
+  <script defer src="./js/quick-comparison.js?v=20261006-2"></script>
   <script defer src="./js/match-sessions.js?v=20261005-3"></script>
-  <script defer src="./js/players.js?v=20261005-4"></script>
-  <script defer src="./js/groups.js?v=20261005-4"></script>
+  <script defer src="./js/players.js?v=20261006-2"></script>
+  <script defer src="./js/groups.js?v=20261006-2"></script>
 </body>
 </html>

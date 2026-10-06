@@ -199,7 +199,7 @@ test("quick comparison uses every open profile while graphs auto-select new prof
   assert.doesNotMatch(playersSource, /playerQuickPlayers|playerQuickPlayerStatus/);
   assert.match(playersSource, /if \(state\.graphPlayers\.size < MAX_GRAPH_PLAYERS\) state\.graphPlayers\.add\(key\)/);
   assert.match(playersSource, /if \(state\.display === "quick"\) renderQuickComparison\(\);/);
-  assert.match(playersSource, /if \(state\.view === "graphs"\) \{ renderGraphPlayers\(\); renderGraphs\(\); \}/);
+  assert.match(playersSource, /if \(state\.display === "graphs"\) \{ renderGraphPlayers\(\); renderGraphs\(\); \}/);
   assert.match(playersSource, /summaryCache \|\|= new Map\(\)/);
 });
 
