@@ -30,6 +30,7 @@ struct PlayerQuery: Content {
 
 struct ComparisonQuery: Content {
     var players: String
+    var matches: String?
 }
 
 private func int64(_ row: any SQLRow, _ column: String) throws -> Int64 {
@@ -1213,9 +1214,22 @@ private func comparisonMatches(
         }
 }
 
+// A supplied scope must never silently fall back to an entire history.
+func comparisonMatchIDs(_ raw: String?) throws -> [Int64]? {
+    guard let raw else { return nil }
+    let tokens = raw.split(separator: ",", omittingEmptySubsequences: false)
+    let ids = tokens.compactMap { Int64($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+    guard (1...100).contains(tokens.count), ids.count == tokens.count,
+          ids.allSatisfy({ $0 > 0 }), Set(ids).count == ids.count else {
+        throw Abort(.badRequest, reason: "matches must contain 1-100 unique positive match IDs.")
+    }
+    return ids
+}
+
 func comparisonData(_ request: Request) async throws -> ComparisonResponse {
     guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
     let query = try request.query.decode(ComparisonQuery.self)
+    let matchIDs = try comparisonMatchIDs(query.matches)
     let tokens = query.players.split(separator: ",")
     let requestedIDs = tokens.compactMap { Int64($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
     let playerIDs = requestedIDs.reduce(into: [Int64]()) { result, id in
@@ -1235,7 +1249,7 @@ func comparisonData(_ request: Request) async throws -> ComparisonResponse {
             id: try int64(identity, "id"),
             steamID: try identity.decode(column: "steam_id", as: String.self),
             name: try identity.decode(column: "current_name", as: String.self),
-            matches: try await comparisonMatches(playerID: playerID, sql: sql)
+            matches: try await comparisonMatches(playerID: playerID, matchIDs: matchIDs, sql: sql)
         ))
     }
     return ComparisonResponse(players: players)

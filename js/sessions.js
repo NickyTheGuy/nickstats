@@ -57,6 +57,7 @@
     try {
       const profile = profiles.get(entry.playerID) || window.NickStatsPlayerStats.expandDenseProfile(
         await json(`/nickstats/api/players/${entry.playerID}?compact=true&wire=2`, controller.signal));
+      profiles.set(entry.playerID, profile);
       const session = window.NickStatsMatchSessions.group(profile.matches || [])
         .find(session => session.matches.some(match => String(match.id) === entry.anchorID));
       if (!session) throw new Error("This session's match is no longer in the player's history.");
@@ -64,24 +65,30 @@
       const teammateIDs = [...new Set(session.matches.flatMap(match => match.teammate_ids || []).map(String))]
         .filter(id => id !== entry.playerID && /^[1-9]\d*$/.test(id));
       const players = [{ id: entry.playerID, label: profile.player?.name || "Player", rows: session.matches }];
-      // Reuse the existing comparison API. Restrict every player's rows to this
-      // session's exact match IDs; simultaneous games and other sessions cannot leak in.
+      // Scope the database queries before building stats, rather than downloading
+      // every teammate's entire history. Keep requests bounded for long sessions.
+      const sessionIDs = [...matchIDs];
+      const participants = new Map();
       for (let offset = 0; offset < teammateIDs.length; offset += 20) {
         const ids = teammateIDs.slice(offset, offset + 20);
-        let teammates;
-        if (ids.length === 1) {
-          const payload = window.NickStatsPlayerStats.expandDenseProfile(
-            await json(`/nickstats/api/players/${ids[0]}?compact=true&wire=2`, controller.signal));
-          teammates = [{ ...payload.player, matches: payload.matches }];
-        } else {
-          const payload = await json(`/nickstats/api/groups?${new URLSearchParams({ players: ids.join(",") })}`, controller.signal);
-          teammates = payload.players || [];
+        // The comparison API requires at least two players. Including the anchor
+        // also keeps a single-teammate request compatible with older backends.
+        const requestedIDs = ids.length === 1 ? [...ids, entry.playerID] : ids;
+        for (let matchOffset = 0; matchOffset < sessionIDs.length; matchOffset += 100) {
+          const payload = await json(`/nickstats/api/groups?${new URLSearchParams({
+            players: requestedIDs.join(","), matches: sessionIDs.slice(matchOffset, matchOffset + 100).join(",")
+          })}`, controller.signal);
+          for (const player of payload.players || []) {
+            const id = String(player.id);
+            if (!ids.includes(id)) continue;
+            const participant = participants.get(id) || { id, label: player.name || "Player", rows: [] };
+            const seen = new Set(participant.rows.map(match => String(match.id)));
+            participant.rows.push(...(player.matches || []).filter(match => matchIDs.has(String(match.id)) && !seen.has(String(match.id))));
+            participants.set(id, participant);
+          }
         }
-        teammates.forEach(player => {
-          const rows = (player.matches || []).filter(match => matchIDs.has(String(match.id)));
-          if (rows.length) players.push({ id: String(player.id), label: player.name || "Player", rows });
-        });
       }
+      players.push(...[...participants.values()].filter(player => player.rows.length));
       if (controller.signal.aborted) return;
       const date = session.start == null ? "Date unknown" : new Date(session.start * 1000).toLocaleString();
       entry.label = `Session · ${profile.player?.name || "Player"} · ${date}`;

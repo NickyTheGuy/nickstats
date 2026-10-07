@@ -71,3 +71,37 @@ test("leaving a loading session aborts its request and prevents obsolete results
   const app = setup(); app.location.hash = "#match"; await flush();
   assert.equal(app.requests[0].signal.aborted, true); assert.equal(app.renders.length, 0);
 });
+
+
+test("session requests scope teammate stats to the session before downloading them", async () => {
+  const app = setup(); await flush();
+  const query = new URLSearchParams(app.requests[1].url.split("?")[1]);
+  assert.deepEqual(query.get("matches").split(",").sort(), ["100", "101"]);
+  assert.equal(query.get("players"), "2,3");
+  app.location.hash = "#session/1/200"; await flush();
+  assert.equal(app.requests.filter(request => request.url.includes("/players/")).length, 1, "reuse the anchor history across cold-linked sessions");
+  assert.equal(new URLSearchParams(app.requests.at(-1).url.split("?")[1]).get("matches"), "200");
+});
+
+test("single-teammate sessions use scoped comparisons rather than full profiles", async () => {
+  const app = setup("#players");
+  app.profile.matches.forEach(match => { match.teammate_ids = [2]; });
+  app.window.NickStatsSessions.open(1, 100, app.profile); await flush();
+  assert.equal(app.requests.length, 1);
+  const query = new URLSearchParams(app.requests[0].url.split("?")[1]);
+  assert.equal(query.get("players"), "2,1");
+  assert.deepEqual(Array.from(app.renders[0].players, player => player.id), ["1", "2"]);
+});
+
+test("large sessions bound match requests and merge without duplicate participant rows", async () => {
+  const app = setup("#players");
+  app.profile.matches.splice(0, app.profile.matches.length, ...Array.from({ length: 101 }, (_, i) => ({ id: 1000 + i, played_at: 1700000000 + i * 60, teammate_ids: [2,3] })));
+  app.window.NickStatsSessions.open(1, 1000, app.profile); await flush();
+  assert.equal(app.requests.length, 2);
+  assert.deepEqual(app.requests.map(request => new URLSearchParams(request.url.split("?")[1]).get("matches").split(",").length), [100,1]);
+  assert.equal(app.renders[0].players.length, 3);
+  for (const player of app.renders[0].players) {
+    assert.equal(player.rows.length, 101);
+    assert.equal(new Set(Array.from(player.rows, row => row.id)).size, 101);
+  }
+});
