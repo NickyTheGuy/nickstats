@@ -158,8 +158,9 @@
     for (const tag of store.filters.filter(tag => tag.kind === "number")) {
       registry.set(`tag:${tag.id}`, { id: `tag:${tag.id}`, group: "Tags", label: window.NickStatsManualFilters.displayName?.(tag) || tag.name,
         digits: 2, suffix: "", value: (_, sample) => {
-          const value = store.stateFor(tag, sample.id);
-          return typeof value === "number" && Number.isFinite(value) ? value : Number.NaN;
+          const values = (sample.matchIDs || [sample.id]).map(id => store.stateFor(tag, id))
+            .filter(value => typeof value === "number" && Number.isFinite(value));
+          return values.length ? mean(values) : Number.NaN;
         } });
     }
   }
@@ -212,6 +213,18 @@
       map: match.map,
       stats: statsForMatch(match, side, buy, roundResult, opponentBuy, roundPhase, heroOnly)
     })).filter(sample => number(sample.stats.rounds) > 0);
+  }
+
+  // Build boundaries from the complete history, then pool only qualifying samples.
+  function sessionSamples(samples, matches = samples) {
+    const byID = new Map(samples.map(sample => [String(sample.id), sample]));
+    return window.NickStatsMatchSessions.group(matches.map(match => ({ ...match, played_at: match.played_at ?? match.date })))
+      .map(session => {
+        const selected = session.matches.map(match => byID.get(String(match.id))).filter(Boolean);
+        const stats = {};
+        selected.forEach(sample => availability.add(stats, sample.stats, sample.stats.__schema));
+        return { id: session.id, date: session.start || 0, matchIDs: selected.map(sample => sample.id), stats };
+      }).filter(sample => sample.matchIDs.length);
   }
 
   const svgElement = (tag, attributes = {}, text = null) => {
@@ -316,7 +329,7 @@
     }
   }
 
-  function drawDistribution(svg, prepared, domainSeries, metric, bins, displayStyle, customRange = null) {
+  function drawDistribution(svg, prepared, domainSeries, metric, bins, displayStyle, customRange = null, units = "matches") {
     const bounds = niceDistributionBounds(domainSeries.length ? domainSeries : prepared, metric, bins);
     if (!bounds) return;
     const { min, max, binWidth } = bounds;
@@ -361,9 +374,9 @@
       svg.appendChild(svgElement("text", attributes, label));
     }
     const pointTitle = (series, value, index) => {
-      if (edges) return `${series.label}: ${value.toFixed(1)}% of matches · ${bucketLabel(index)}`;
+      if (edges) return `${series.label}: ${value.toFixed(1)}% of ${units} · ${bucketLabel(index)}`;
       const lower = formatBoundary(min + index * binWidth), upper = formatBoundary(min + (index + 1) * binWidth);
-      return `${series.label}: ${value.toFixed(1)}% of matches · ${lower} ≤ value ${index === bins - 1 ? "≤" : "<"} ${upper}`;
+      return `${series.label}: ${value.toFixed(1)}% of ${units} · ${lower} ≤ value ${index === bins - 1 ? "≤" : "<"} ${upper}`;
     };
     if (displayStyle === "line") {
       histograms.forEach((series, seriesIndex) => {
@@ -400,10 +413,10 @@
       });
     }
     svg.appendChild(svgElement("text", { x: left + width / 2, y: 448, class: "graph-axis-title", "text-anchor": "middle" }, metric.label));
-    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, "Share of matches"));
+    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Share of ${units}`));
   }
 
-  function drawRelationship(svg, prepared, domainPrepared, xMetric, yMetric, bins, displayStyle, customRange) {
+  function drawRelationship(svg, prepared, domainPrepared, xMetric, yMetric, bins, displayStyle, customRange, units = "matches") {
     const bounds = niceDistributionBounds(domainPrepared.length ? domainPrepared : prepared, xMetric, bins);
     if (!bounds) return;
     const edges = customRange ? [-Infinity, ...customRange.edges, Infinity]
@@ -427,7 +440,7 @@
           : svgElement("rect", { x: left + index * groupWidth + groupWidth * .1 + seriesIndex * barWidth, y: Math.min(y, yPosition(0)),
             width: Math.max(1, barWidth - 1), height: Math.max(1, Math.abs(y - yPosition(0))), fill: color, class: "graph-series-bar" });
         svg.appendChild(shape);
-        attachTooltip(svg, shape, `${series.label}: ${format(bucket.value, yMetric)} · ${bucket.count} matches · ${bucket.lower === -Infinity ? "−∞" : format(bucket.lower, xMetric)}–${bucket.upper === Infinity ? "∞" : format(bucket.upper, xMetric)}`, x, y);
+        attachTooltip(svg, shape, `${series.label}: ${format(bucket.value, yMetric)} · ${bucket.count} ${units} · ${bucket.lower === -Infinity ? "−∞" : format(bucket.lower, xMetric)}–${bucket.upper === Infinity ? "∞" : format(bucket.upper, xMetric)}`, x, y);
       });
       if (displayStyle === "line") flush();
     });
@@ -441,7 +454,7 @@
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Average ${yMetric.label}`));
   }
 
-  function drawTrend(svg, prepared, metric, displayStyle = "line") {
+  function drawTrend(svg, prepared, metric, displayStyle = "line", unit = "Match") {
     const allPoints = prepared.flatMap(series => series.values);
     if (!allPoints.length) return;
     let min = Math.min(...allPoints.map(point => point.value)), max = Math.max(...allPoints.map(point => point.value));
@@ -506,11 +519,11 @@
         const mark = displayStyle === "bars"
           ? svgElement("rect", { x: x + (seriesIndex - (prepared.length - 1) / 2) * barWidth - barWidth / 2, y: Math.min(y, zeroY), width: barWidth, height: Math.max(2, Math.abs(y - zeroY)), fill: colors[colorIndex % colors.length], class: "graph-series-bar" })
           : svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
-        const date = point.date > 0 ? new Date(point.date * 1000).toLocaleDateString() : `Match #${point.id}`;
-        svg.appendChild(mark); attachTooltip(svg, mark, `${series.label} · ${date}: ${format(point.value, metric)}`, x, y);
+        const date = point.date > 0 ? new Date(point.date * 1000).toLocaleDateString() : `${unit} #${point.id}`;
+        svg.appendChild(mark); attachTooltip(svg, mark, `${series.label} · ${date}${point.matchIDs ? ` · ${point.matchIDs.length} matches` : ""}: ${format(point.value, metric)}`, x, y);
       });
     });
-    svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, hasDateRange ? "Match date (matches evenly spaced)" : "Match order"));
+    svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, hasDateRange ? `${unit} date (${unit.toLowerCase()}s evenly spaced)` : `${unit} order`));
     svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, metric.label));
   }
 
@@ -688,6 +701,8 @@
     const roundOnly = state.metricId === "round_diff";
     const supportsRounds = Object.hasOwn(roundMetrics, state.metricId);
     const matchOption = scope?.querySelector('option[value="match"]');
+    const sessionOption = scope?.querySelector('option[value="session"]');
+    if (sessionOption) sessionOption.disabled = roundOnly;
     const roundOption = scope?.querySelector('option[value="round"]');
     if (matchOption) matchOption.disabled = roundOnly;
     if (roundOption) roundOption.disabled = !supportsRounds;
@@ -695,6 +710,8 @@
     if (!supportsRounds && scope?.value === "round") scope.value = "match";
     window.NickStatsDropdown.sync(scope);
     const roundsMode = scope?.value === "round";
+    const sessionsMode = scope?.value === "session";
+    const unit = sessionsMode ? "session" : "match";
     const typeControl = document.getElementById(`${prefix}GraphTypeControl`);
     if (typeControl) typeControl.hidden = roundsMode;
     const metric = registry.get(state.metricId) || registry.get("rating");
@@ -721,8 +738,9 @@
     bucketInputs.forEach(input => input?.setAttribute("aria-invalid", String(mode === "range" && !!range.error)));
     cutoffInput?.setAttribute("aria-invalid", String(mode === "manual" && !!range.error));
     const roundMetric = roundMetrics[metric.id];
-    const prepared = state.series.map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
-    const domainPrepared = state.domainSeries.map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
+    const scopedSeries = series => sessionsMode ? { ...series, samples: sessionSamples(series.samples, series.sessionMatches) } : series;
+    const prepared = state.series.map(scopedSeries).map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
+    const domainPrepared = state.domainSeries.map(scopedSeries).map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
     const roundPrepared = roundsMode ? state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || [], {}, roundMetric) })).filter(series => series.roundValues.length) : [];
     if (distributionStyleControl) distributionStyleControl.hidden = false;
     if (bucketControl) bucketControl.hidden = roundsMode || !["distribution", "relationship"].includes(type.value);
@@ -735,17 +753,17 @@
     note.textContent = roundsMode
       ? `Each ${distributionStyle?.value === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
       : relationship
-      ? range?.error ? `${range.error} Showing automatic buckets until valid.` : "X sets the buckets; Y is the average match value. Matches missing either value are excluded."
+      ? range?.error ? `${range.error} Showing automatic buckets until valid.` : `X sets the buckets; Y is the average ${unit} value. ${sessionsMode ? "Sessions" : "Matches"} missing either value are excluded.`
       : type.value === "distribution"
       ? range?.error ? `${range.error} Showing automatic buckets until valid.`
         : mode === "manual" ? "Enter comma-separated cutoffs. For example, 5, 10, 15 makes <5, 5–<10, 10–<15, and ≥15."
           : ""
       : multiTrendNeedsDates
-        ? "Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for match order, or use Distribution for comparisons now."
-        : "Each match gets one horizontal slot in date order. Lines pause across long gaps in a player's games. Hover for the exact date and value.";
+        ? `Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for ${unit} order, or use Distribution for comparisons now.`
+        : `Each ${unit} gets one horizontal slot in date order. Lines pause across long gaps in a player's games. Hover for the exact date and value.`;
     note.hidden = !note.textContent;
     if (!(roundsMode ? roundPrepared : prepared).length) {
-      const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = roundsMode ? "No per-round data for these matches. Reparse older demos to add round data." : "No qualifying match samples for this statistic."; summary.appendChild(empty); return;
+      const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = roundsMode ? "No per-round data for these matches. Reparse older demos to add round data." : `No qualifying ${unit} samples for this statistic.`; summary.appendChild(empty); return;
     }
     if (roundsMode) {
       roundPrepared.forEach((series, index) => {
@@ -773,15 +791,15 @@
         item.appendChild(details);
       });
       if (relationship) {
-        const count = document.createElement("span"); count.textContent = `${series.values.length} paired matches`; item.appendChild(count);
+        const count = document.createElement("span"); count.textContent = `${series.values.length} paired ${unit === "session" ? "sessions" : "matches"}`; item.appendChild(count);
       }
       summary.appendChild(item);
       const key = document.createElement("span"); key.className = "graph-legend-item"; key.style.setProperty("--series-color", colors[colorIndex % colors.length]); key.textContent = series.label; legend.appendChild(key);
     });
     if (multiTrendNeedsDates) {
       svg.appendChild(svgElement("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
-    } else if (relationship) drawRelationship(svg, prepared, domainPrepared, xMetric, metric, state.bucketCount, distributionStyle?.value || "bars", range?.edges ? range : null);
-    else type.value === "trend" ? drawTrend(svg, prepared, metric, distributionStyle?.value || "bars") : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount, distributionStyle?.value || "bars", range?.edges ? range : null);
+    } else if (relationship) drawRelationship(svg, prepared, domainPrepared, xMetric, metric, state.bucketCount, distributionStyle?.value || "bars", range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
+    else type.value === "trend" ? drawTrend(svg, prepared, metric, distributionStyle?.value || "bars", sessionsMode ? "Session" : "Match") : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount, distributionStyle?.value || "bars", range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
   }
 
   function bindMetricPicker(prefix, axis) {
@@ -881,5 +899,5 @@
     draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, relationshipSamples, relationshipBuckets, syncTagMetrics, metricChoices, statsForMatch, samplesForMatches, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks, drawRoundSeries: drawRounds, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, relationshipSamples, relationshipBuckets, syncTagMetrics, metricChoices, statsForMatch, samplesForMatches, sessionSamples, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks, drawRoundSeries: drawRounds, render });
 })();

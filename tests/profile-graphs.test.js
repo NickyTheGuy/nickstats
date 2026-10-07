@@ -8,6 +8,7 @@ const source = fs.readFileSync(path.join(__dirname, "../js/graphs.js"), "utf8");
 const availabilitySource = fs.readFileSync(path.join(__dirname, "../js/stat-availability.js"), "utf8");
 const context = vm.createContext({ window: {}, document: {} });
 vm.runInContext(availabilitySource, context);
+vm.runInContext(fs.readFileSync(path.join(__dirname, "../js/match-sessions.js"), "utf8"), context);
 vm.runInContext(source, context);
 
 const { metrics, metricChoices, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks } = context.window.NickStatsGraphs;
@@ -229,4 +230,46 @@ test("non-opening assisted kills are graphable as counts and rates with schema c
   assert.ok(Number.isNaN(metrics.get("teammate_flash_assisted_kills").value(old)));
   assert.ok(Number.isNaN(metrics.get("teammate_flash_assisted_kpr").value(old)));
   assert.equal(metrics.get("damage_assisted_kills").value(old), 6);
+});
+
+
+test("session graphs preserve history boundaries and pool rates, maxima, and schema coverage", () => {
+  const history = [
+    { id: "1", date: 1700000000, stats: { rounds: 10, kills: 5, damage: 1000, initiation_kills: 9, clutch_cost_max: 500, __schema: "nickstats.match/24" } },
+    { id: "2", date: 1700006000, stats: { rounds: 20, kills: 20, damage: 1000, initiation_kills: 4, clutch_cost_max: 300, __schema: "nickstats.match/27" } },
+    { id: "3", date: 1700012000, stats: { rounds: 30, kills: 15, damage: 3000, initiation_kills: 6, clutch_cost_max: 900, __schema: "nickstats.match/27" } },
+    { id: "4", date: 1700019200, stats: { rounds: 10, kills: 10, __schema: "nickstats.match/27" } },
+    { id: "5", date: 0, stats: { rounds: 10, kills: 1 } }
+  ];
+  const sessions = context.window.NickStatsGraphs.sessionSamples([history[0], history[2], history[3], history[4]], history);
+  assert.equal(sessions.length, 3);
+  const pooled = sessions.find(session => session.id === "1");
+  assert.deepEqual(Array.from(pooled.matchIDs), ["3", "1"]);
+  assert.equal(pooled.date, history[0].date);
+  assert.equal(metrics.get("kpr").value(pooled.stats), .5);
+  assert.equal(metrics.get("adr").value(pooled.stats), 100);
+  assert.equal(pooled.stats.clutch_cost_max, 900);
+  assert.equal(context.window.NickStatsAvailability.scope(pooled.stats, "initiation_kills").rounds, 30);
+  assert.equal(context.window.NickStatsAvailability.scope(pooled.stats, "initiation_kills").initiation_kills, 6);
+  assert.equal(context.window.NickStatsGraphs.sessionSamples([], history).length, 0);
+});
+
+test("every match graph statistic evaluates on pooled session stats", () => {
+  const a = { rounds: 10, kills: 7, deaths: 5, damage: 850, assists: 2, kast_rounds: 6, timed_rounds: 10, kill_time_samples: 7, kill_time_total_ms: 70000, __schema: "nickstats.match/27" };
+  const b = { ...a, rounds: 20, kills: 20, damage: 2000 };
+  const [session] = context.window.NickStatsGraphs.sessionSamples([{ id: "1", date: 1000, stats: a }, { id: "2", date: 1500, stats: b }]);
+  const expected = { __schema: "nickstats.match/27" };
+  for (const key of Object.keys(a).filter(key => key !== "__schema")) expected[key] = a[key] + b[key];
+  for (const metric of metrics.values()) {
+    if (metric.id === "round_diff" || metric.id.startsWith("tag:")) continue;
+    assert.equal(metric.value(session.stats, session), metric.value(expected, session), metric.id);
+  }
+});
+
+test("session numeric tags average known match assignments", () => {
+  context.window.NickStatsManualFilters = { store: { account: true, ready: true, filters: [{ id: "session-test", kind: "number", name: "Sleep" }], stateFor: (_, id) => ({ "1": 4, "2": 8 })[id] } };
+  context.window.NickStatsGraphs.syncTagMetrics();
+  const metric = metrics.get("tag:session-test");
+  assert.equal(metric.value({}, { matchIDs: ["1", "2", "3"] }), 6);
+  assert.ok(Number.isNaN(metric.value({}, { matchIDs: ["3"] })));
 });
