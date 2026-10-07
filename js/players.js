@@ -247,7 +247,6 @@
     for (const session of page) {
       const details = document.createElement("details"); details.className = "player-match-session";
       details.open = profile.openSessions.has(session.id);
-      details.addEventListener("toggle", () => { details.open ? profile.openSessions.add(session.id) : profile.openSessions.delete(session.id); });
       const heading = document.createElement("summary"), title = document.createElement("strong"), record = document.createElement("span");
       title.textContent = session.start == null ? "Date unknown" : session.start === session.lastStart
         ? date(session.start) : `${date(session.start)} – ${date(session.lastStart)}`;
@@ -270,6 +269,22 @@
         item.append(name, amount); preview.appendChild(item);
       }
       heading.append(title, record, preview);
+      heading.addEventListener("click", event => {
+        event.preventDefault();
+        window.NickStatsSessions.open(profile.payload.player.id, session.id, profile.payload);
+      });
+      const expand = document.createElement("button"); expand.type = "button"; expand.className = "session-expand";
+      expand.textContent = "Show matches";
+      expand.setAttribute("aria-expanded", String(details.open));
+      expand.addEventListener("click", event => {
+        event.preventDefault(); event.stopPropagation(); details.open = !details.open;
+      });
+      details.addEventListener("toggle", () => {
+        details.open ? profile.openSessions.add(session.id) : profile.openSessions.delete(session.id);
+        expand.textContent = details.open ? "Hide matches" : "Show matches";
+        expand.setAttribute("aria-expanded", String(details.open));
+      });
+      heading.appendChild(expand);
       const list = document.createElement("div"); list.className = "match-list";
       matchList.render(list, profileMatchSummaries(profile, session.matches), openHistoryMatch, { actionsFor: match => {
         const actions = window.NickStatsManualFilters.matchEditor(match);
@@ -733,4 +748,8 @@
   $("playerResetFilters").addEventListener("click", resetPlayerFilters);
   $("playerHistoryResetFilters").addEventListener("click", resetPlayerFilters);
   renderRecent(); renderOpenTabs();
+  window.NickStatsPlayerStats = Object.freeze({
+    expandDenseProfile,
+    sessionSummary: matches => quickSummary(matches, aggregate(matches, "ALL", "ALL", "ALL", "ALL", "ALL", false))
+  });
 })();

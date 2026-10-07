@@ -1454,6 +1454,8 @@
     });
     $("matchListView").hidden = view !== "list";
     $("matchDetailView").hidden = view !== "detail";
+    $("sessionView").hidden = view !== "session";
+    window.dispatchEvent(new CustomEvent("nickstats:match-browser-view", { detail: { view } }));
   }
 
   const matchRouteID = () => {
@@ -3485,6 +3487,7 @@
     if (!event.detail?.local && !$("matchPage").hidden) loadMatches(state.matchListOffset);
   });
   window.addEventListener("nickstats:page", event => {
+    if (event.detail?.page === "match") syncMatchRoute();
     if (event.detail?.page === "match" && matchListStale) loadMatches(state.matchListOffset);
   });
   $("matchListPreviousButton").addEventListener("click", () => loadMatches(Math.max(0, state.matchListOffset - MATCH_LIST_LIMIT)));
@@ -3502,6 +3505,7 @@
   drop.addEventListener("drop", event => chooseFiles(event.dataTransfer.files));
   window.addEventListener("hashchange", syncMatchRoute);
   window.NickStatsMatchList = Object.freeze({ render: renderMatchListInto });
+  window.NickStatsMatchBrowser = Object.freeze({ showView: setMatchBrowserView });
   updateAuthenticationDisplay();
   authSessionReady = loadAuthSession();
   loadMatches(0);

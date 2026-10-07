@@ -3769,3 +3769,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .player-match-session .session-draw { color: var(--muted); }
 .player-match-session .session-preview { margin-left: 18px; flex-wrap: wrap; }
 .quick-comparison-panel [hidden] { display: none !important; }
+
+.player-match-session > summary { list-style: none; }
+.player-match-session > summary::-webkit-details-marker { display: none; }
+.session-expand { margin: 8px 0 0 18px; padding: 5px 9px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-size: 12px; }
