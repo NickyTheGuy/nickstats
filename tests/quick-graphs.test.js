@@ -16,7 +16,7 @@ const functionSource = (source, name, next) => source.slice(source.indexOf(`  fu
 test("quick comparison map tabs contain only scoreboards and still filter their rows", () => {
   for (const prefix of ["player", "combo"]) {
     const nodes = new Map(), tables = [], state = { map: "ALL" };
-    const sandbox = { state, prefix,
+    const sandbox = { state, prefix, onUpdate: null, viewMeta: {},
       byId: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); },
       element: (_, text) => new Node(text), integer: String, titleCase: value => value,
       mapsFor: players => [...new Set(players.flatMap(player => player.rows.map(row => row.map)))],

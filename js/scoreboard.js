@@ -266,7 +266,7 @@
   }
 
   window.NickStatsScoreboard = {
-    clutchEconomics, money, sections, groups, columns, subgroups, expandedWidths, collapsedWidths, groupSection,
+    clutchEconomics, money, sections, groups, columns, columnDescriptions: flashDescriptions, subgroups, expandedWidths, collapsedWidths, groupSection,
     activeSubgroup, focus, cycle, minimumWidths, normalizedSortValue, compareSortValues,
     appendGroupHeader, scrollGroupIntoView, renderControls
   };

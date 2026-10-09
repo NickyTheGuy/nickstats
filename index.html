@@ -12,7 +12,7 @@
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.10.07.2</span>
+          <span class="demo-build">Build 2026.10.09.1</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -97,15 +97,7 @@
         </div>
 
         <section class="match-browser-view" id="sessionView" role="tabpanel" aria-label="Session" hidden>
-          <header class="section-head"><div><h2>Session</h2><p id="sessionQuickMeta"></p></div></header>
-          <p id="sessionStatus" role="status" aria-live="polite"></p>
-          <button class="button button-secondary" id="sessionRetry" type="button" hidden>Retry</button>
-          <div id="sessionContent" hidden>
-            <div class="quick-comparison-controls"><div class="quick-comparison-sections" id="sessionQuickSections"></div></div>
-            <nav class="match-browser-tabs quick-comparison-map-tabs" id="sessionQuickMaps" role="tablist" aria-label="Session maps"></nav>
-            <div class="player-profile-table-wrap"><table class="player-profile-table quick-comparison-table" id="sessionQuickTable"></table></div>
-            <p id="sessionQuickEmpty" hidden>No qualifying matches for this map.</p>
-          </div>
+          <div id="sessionApp"></div>
         </section>
 
         <div class="match-browser-view" id="matchDetailView" role="tabpanel" aria-labelledby="matchDetailTab" hidden>
@@ -622,15 +614,16 @@
   <script defer src="./js/manual-filters.js?v=20261001-6"></script>
   <script defer src="./js/dropdown.js?v=20261006-1"></script>
   <script defer src="./js/stat-availability.js?v=20260930-9"></script>
-  <script defer src="./js/scoreboard.js?v=20261001-1"></script>
+  <script defer src="./js/scoreboard.js?v=20261009-1"></script>
   <script defer src="./js/round-timeline.js?v=20260925-06"></script>
   <script defer src="./js/graphs.js?v=20261007-1"></script>
   <script defer src="./js/demo.js?v=20261006-3"></script>
   <script defer src="./js/profile.js?v=20261006-2"></script>
-  <script defer src="./js/quick-comparison.js?v=20261006-2"></script>
+  <script defer src="./js/quick-comparison.js?v=20261009-1"></script>
   <script defer src="./js/match-sessions.js?v=20261005-3"></script>
   <script defer src="./js/players.js?v=20261007-1"></script>
   <script defer src="./js/groups.js?v=20261007-1"></script>
-  <script defer src="./js/sessions.js?v=20261007-2"></script>
+  <script defer src="./assets/ui/nickstats-ui.js?v=20261009-1"></script>
+  <script defer src="./js/sessions.js?v=20261009-1"></script>
 </body>
 </html>

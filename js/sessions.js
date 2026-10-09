@@ -2,7 +2,9 @@
   "use strict";
   const $ = id => document.getElementById(id);
   const tabs = new Map(), profiles = new Map();
-  const comparison = window.NickStatsQuickComparison.create({ prefix: "session" });
+  const comparison = window.NickStatsSessionUI.create({ onRetry: () => {
+    const entry = tabs.get(active); if (entry) { profiles.delete(entry.playerID); load(entry); }
+  } });
   let active = null, pending = null;
   const route = () => {
     const match = location.hash.match(/^#session\/(\d+)\/(\d+)$/);
@@ -44,16 +46,13 @@
 
   function display(entry) {
     if (!sameRoute(entry.key)) return;
-    $("sessionStatus").textContent = ""; $("sessionRetry").hidden = true; $("sessionContent").hidden = false;
     comparison.render({ players: entry.players, summarize: window.NickStatsPlayerStats.sessionSummary, metaSuffix: entry.label });
   }
 
   async function load(entry) {
     pending?.controller.abort();
     const controller = new AbortController(); pending = { key: entry.key, controller };
-    $("sessionContent").hidden = true; $("sessionRetry").hidden = true;
-    $("sessionStatus").textContent = "Loading session…"; $("sessionStatus").classList.remove("error");
-    $("sessionQuickMeta").textContent = "";
+    comparison.loading();
     try {
       const profile = profiles.get(entry.playerID) || window.NickStatsPlayerStats.expandDenseProfile(
         await json(`/nickstats/api/players/${entry.playerID}?compact=true&wire=2`, controller.signal));
@@ -96,8 +95,7 @@
       if (sameRoute(entry.key)) { renderTabs(); display(entry); }
     } catch (error) {
       if (error.name !== "AbortError" && sameRoute(entry.key)) {
-        $("sessionStatus").textContent = `Could not load session: ${error.message}`;
-        $("sessionStatus").classList.add("error"); $("sessionRetry").hidden = false;
+        comparison.error(`Could not load session: ${error.message}`);
       }
     } finally {
       if (pending?.controller === controller) pending = null;
@@ -115,9 +113,6 @@
     else if (pending?.key !== current.key) load(entry);
   }
 
-  $("sessionRetry").addEventListener("click", () => {
-    const entry = tabs.get(active); if (entry) { profiles.delete(entry.playerID); load(entry); }
-  });
   window.addEventListener("hashchange", sync);
   window.addEventListener("nickstats:page", event => { if (event.detail?.page === "match") sync(); });
   window.addEventListener("nickstats:match-browser-view", event => {

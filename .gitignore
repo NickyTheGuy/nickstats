@@ -2,3 +2,5 @@ backend/.env
 backend/.build/
 backend/.swiftpm/
 .DS_Store
+
+node_modules/

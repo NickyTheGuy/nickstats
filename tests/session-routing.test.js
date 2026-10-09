@@ -18,6 +18,15 @@ function setup(hash = "#session/1/100", fail = false) {
   const window = {
     addEventListener(type, handler) { if (!events.has(type)) events.set(type, []); events.get(type).push(handler); },
     emit(type, detail) { events.get(type)?.forEach(handler => handler({ detail })); },
+    NickStatsSessionUI: { create({ onRetry }) {
+      const node = id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); };
+      node("sessionRetry").listeners.click = onRetry;
+      return {
+        loading() { node("sessionContent").hidden = true; node("sessionRetry").hidden = true; node("sessionStatus").textContent = "Loading session…"; },
+        error(message) { node("sessionStatus").textContent = message; node("sessionRetry").hidden = false; },
+        render(input) { renders.push(input); node("sessionContent").hidden = false; node("sessionRetry").hidden = true; }
+      };
+    } },
     NickStatsQuickComparison: { create({ prefix }) { assert.equal(prefix, "session"); return { render: input => renders.push(input) }; } },
     NickStatsPlayerStats: { expandDenseProfile: payload => payload, sessionSummary: () => ({}) },
     NickStatsMatchBrowser: { showView(view) { window.emit("nickstats:match-browser-view", { view }); } }

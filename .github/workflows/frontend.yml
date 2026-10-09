@@ -1,0 +1,19 @@
+name: Frontend
+on:
+  push:
+    paths: ['frontend/**', 'assets/ui/**', 'js/**', 'tests/**', 'package*.json', 'vite.config.mjs', '.github/workflows/frontend.yml']
+  pull_request:
+    paths: ['frontend/**', 'assets/ui/**', 'js/**', 'tests/**', 'package*.json', 'vite.config.mjs', '.github/workflows/frontend.yml']
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: git diff --exit-code -- assets/ui
+      - run: npm test

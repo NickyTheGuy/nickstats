@@ -39,7 +39,7 @@
     sectionSubscribers.forEach(subscriber => subscriber(sharedSections));
   }
 
-  function create({ prefix }) {
+  function create({ prefix, onUpdate }) {
     const state = {
       map: "ALL",
       expandedGroups: Object.fromEntries(columnGroups.map(([key]) => [key, false])),
@@ -50,6 +50,7 @@
       sort: null,
       input: null
     };
+    let viewMeta = {};
     const byId = suffix => document.getElementById(`${prefix}Quick${suffix}`);
     const { integer, decimal, percent, titleCase } = window.NickStatsProfile;
     const scoreboardState = () => ({
@@ -76,6 +77,11 @@
     function cycleSubgroup(group, anchor) {
       const subgroups = sectionSubgroups[group];
       if (!subgroups) return;
+      if (onUpdate) {
+        Scoreboard.cycle(scoreboardState(), group);
+        if (state.sort?.group === group) state.sort = null;
+        render(state.input); return;
+      }
       const wrap = byId("Table")?.parentElement;
       const scrollLeft = wrap?.scrollLeft || 0;
       const viewportX = anchor ? anchor.getBoundingClientRect().left + anchor.offsetWidth / 2 : null;
@@ -98,7 +104,7 @@
       Object.keys(state.expandedGroups).forEach(key => { state.expandedGroups[key] = false; });
       state.expandedGroups[group] = next;
       render(state.input);
-      scrollGroupIntoView(group);
+      if (!onUpdate) scrollGroupIntoView(group);
     }
 
     function scrollGroupIntoView(group) {
@@ -516,6 +522,50 @@
         });
       }
 
+      if (onUpdate) {
+        const columnView = original => {
+          const column = columns.find(column => column.key === original.key) || original;
+          return {
+            ...column, label: displayedLabel(column), description: Scoreboard.columnDescriptions?.[column.label],
+            ariaSort: sort?.key === column.key ? (sort.direction === "asc" ? "ascending" : "descending") : "none",
+            direction: sort?.key === column.key ? sort.direction : null
+          };
+        };
+        const headings = segments.map(segment => {
+          if (!segment.group) return { columns: segment.columns.map(columnView) };
+          const subgroup = state.expandedGroups[segment.group] && Scoreboard.activeSubgroup(scoreboardState(), segment.group);
+          const options = sectionSubgroups[segment.group];
+          const index = subgroup ? options.indexOf(subgroup) : -1;
+          const position = subgroup && segment.group === "opening" ? ` · ${index + 1}/${options.length}` : "";
+          const next = subgroup ? options[(index + 1) % options.length] : null;
+          return { group: segment.group, label: segment.label, columns: segment.columns.map(columnView),
+            expanded: state.expandedGroups[segment.group],
+            title: `${subgroup?.[3] || segment.label}${position}`,
+            shortcut: next ? `${segment.label} detail: ${subgroup[1]}. Press R or tap to switch to ${next[1]}` : null };
+        });
+        onUpdate({ ...viewMeta, headings, columns: columns.map(columnView),
+          rows: ordered.map(({ item }) => ({ id: item.player.id, cells: columns.map(column => ({
+            key: column.key, text: displayedValue(column, item),
+            className: [typeof column.className === "function" ? column.className(item) : column.className,
+              column.group ? `demo-group-cell ${column.group}-cell` : "",
+              column.groupStart ? "demo-group-start" : "", column.groupEnd ? "demo-group-end" : ""].filter(Boolean).join(" ")
+          })) })),
+          tableClass: `player-profile-table quick-comparison-table${columnGroups.map(([group]) => groupVisible(group) && state.expandedGroups[group] ? ` ${group}-expanded` : "").join("")}`,
+          sections: sectionOptions.map(([key, label, , style]) => ({ key, label, style, active: state.visibleSections.has(key) })),
+          valueMode: state.valueMode, perGrenadeUtility: state.perGrenadeUtility,
+          modeNote: state.valueMode === "totals" ? "Raw counts" : `Counts divided by qualifying ${state.valueMode === "match" ? "matches" : "rounds"}${state.perGrenadeUtility ? "; utility yield columns use the relevant grenade" : ""}`,
+          actions: {
+            sections: values => setSharedSections(new Set(values)),
+            valueMode: value => { state.valueMode = value; state.sort = null; render(state.input); },
+            utilityBasis: () => { state.perGrenadeUtility = !state.perGrenadeUtility; state.sort = null; render(state.input); },
+            map: value => { state.map = value; render(state.input); },
+            toggle: toggleGroup, cycle: cycleSubgroup,
+            sort: column => { state.sort = { key: column.key, direction: sort?.key === column.key ? (sort.direction === "asc" ? "desc" : "asc") : column.key === "player" ? "asc" : "desc", group: column.group || null }; render(state.input); }
+          }
+        });
+        return;
+      }
+
       const sortHeader = (cell, column) => {
         const active = sort?.key === column.key;
         const button = element("button", displayedLabel(column), `player-table-sort-button${active ? " active" : ""}`);
@@ -587,6 +637,7 @@
     }
 
     function renderSections() {
+      if (onUpdate) return;
       const target = byId("Sections");
       if (!target) return;
       const modeNote = state.valueMode === "totals"
@@ -610,15 +661,17 @@
       const players = input?.players || [];
       const maps = mapsFor(players);
       if (state.map !== "ALL" && !maps.includes(state.map)) state.map = "ALL";
-      const tabs = byId("Maps");
-      tabs.replaceChildren();
-      [["ALL", "All maps"], ...maps.map(map => [map, titleCase(map.replace(/^de_/, ""))])].forEach(([value, label]) => {
-        const active = state.map === value;
-        const button = element("button", label, `match-browser-tab${active ? " active" : ""}`);
-        button.type = "button"; button.setAttribute("role", "tab"); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
-        button.addEventListener("click", () => { state.map = value; render(state.input); });
-        tabs.appendChild(button);
-      });
+      if (!onUpdate) {
+        const tabs = byId("Maps");
+        tabs.replaceChildren();
+        [["ALL", "All maps"], ...maps.map(map => [map, titleCase(map.replace(/^de_/, ""))])].forEach(([value, label]) => {
+          const active = state.map === value;
+          const button = element("button", label, `match-browser-tab${active ? " active" : ""}`);
+          button.type = "button"; button.setAttribute("role", "tab"); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
+          button.addEventListener("click", () => { state.map = value; render(state.input); });
+          tabs.appendChild(button);
+        });
+      }
       const comparison = players.map(player => {
         const rows = (player.rows || []).filter(row => state.map === "ALL" || row.map === state.map);
         return { player, rows, stats: player.summarize ? player.summarize(rows, state.map) : input.summarize(rows) };
@@ -629,9 +682,11 @@
         ? `${integer(maximum)} qualifying match${maximum === 1 ? "" : "es"}`
         : `${integer(minimum)}–${integer(maximum)} qualifying matches per player`;
       const mapLabel = state.map === "ALL" ? "All maps" : titleCase(state.map.replace(/^de_/, ""));
-      byId("Meta").textContent = [mapLabel, matchLabel, input.metaSuffix].filter(Boolean).join(" · ");
+      const meta = [mapLabel, matchLabel, input.metaSuffix].filter(Boolean).join(" · ");
+      viewMeta = { meta, empty: maximum === 0, map: state.map, maps: [["ALL", "All maps"], ...maps.map(map => [map, titleCase(map.replace(/^de_/, ""))])] };
+      if (!onUpdate) byId("Meta").textContent = meta;
       renderTable(comparison);
-      byId("Empty").hidden = maximum > 0;
+      if (!onUpdate) byId("Empty").hidden = maximum > 0;
     }
 
     function reset() {
@@ -651,10 +706,10 @@
       if (state.input) render(state.input); else renderSections();
     };
     sectionSubscribers.add(syncSections);
-    document.addEventListener("keydown", handleDetailShortcut);
+    if (!onUpdate) document.addEventListener("keydown", handleDetailShortcut);
     renderSections();
 
-    return { render, reset };
+    return { render, reset, destroy() { sectionSubscribers.delete(syncSections); document.removeEventListener("keydown", handleDetailShortcut); } };
   }
 
   window.NickStatsQuickComparison = { create };
