@@ -5,7 +5,7 @@
   const routePage = route => String(route || "").split("/")[0];
 
   function showPage(page, updateHash = true) {
-    const requestedPage = routePage(page) === "session" ? "match" : routePage(page);
+    const requestedPage = routePage(page) === "session" ? "players" : routePage(page);
     const next = pages.has(requestedPage) ? requestedPage : "match";
     document.querySelectorAll("[data-app-page]").forEach(button => {
       const active = button.dataset.appPage === next;
@@ -17,7 +17,7 @@
     });
     const currentRoute = location.hash.slice(1);
     const validMatchDetail = next === "match" && /^match\/\d+$/.test(currentRoute);
-    const validSessionDetail = next === "match" && /^session\/\d+\/\d+$/.test(currentRoute);
+    const validSessionDetail = next === "players" && /^session\/\d+\/\d+$/.test(currentRoute);
     if (updateHash && location.hash !== `#${next}` && !validMatchDetail && !validSessionDetail) history.replaceState(null, "", `#${next}`);
     window.dispatchEvent(new CustomEvent("nickstats:page", { detail: { page: next } }));
   }

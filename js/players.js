@@ -90,8 +90,12 @@
     syncStatsToolbar();
     if (view === "matches" && state.display === "profile" && activeProfile()) renderPlayerMatches();
   }
+  let sessionReturnDisplay = "profile";
   function setPlayerDisplay(display) {
-    state.display = ["quick", "graphs"].includes(display) ? display : "profile";
+    if (display === "session" && state.display !== "session") sessionReturnDisplay = state.display;
+    if (display !== "session" && location.hash.startsWith("#session/")) location.hash = "#players";
+    $("playerProfile").hidden = !state.profiles.size && !window.NickStatsSessions?.hasTabs();
+    state.display = ["quick", "graphs", "session"].includes(display) ? display : "profile";
     document.querySelectorAll("[data-player-display-panel]").forEach(panel => {
       panel.hidden = panel.dataset.playerDisplayPanel !== state.display;
     });
@@ -101,13 +105,13 @@
   }
 
   function syncStatsToolbar() {
-    $("playerStatsToolbar").hidden = state.display === "profile" && state.view === "matches";
+    $("playerStatsToolbar").hidden = state.display === "session" || (state.display === "profile" && state.view === "matches");
   }
 
   function renderCurrentDisplay() {
     if (state.display === "quick") renderQuickComparison();
     else if (state.display === "graphs") { renderGraphPlayers(); renderGraphs(); }
-    else renderProfile();
+    else if (state.display === "profile") renderProfile();
   }
 
   function rememberPlayer(player) {
@@ -516,17 +520,17 @@
   }
 
   function renderOpenTabs() {
-    const tabs = $("playerOpenProfiles"); tabs.replaceChildren(); tabs.hidden = !state.profiles.size;
+    const tabs = $("playerOpenProfiles"); tabs.replaceChildren(); tabs.hidden = !state.profiles.size && !window.NickStatsSessions?.hasTabs();
     const quickActive = state.display === "quick";
     const quickItem = document.createElement("div"); quickItem.className = `player-open-tab single${quickActive ? " active" : ""}`;
     const quick = document.createElement("button"); quick.type = "button"; quick.className = "player-open-tab-label"; quick.setAttribute("role", "tab");
-    quick.setAttribute("aria-selected", String(quickActive)); quick.tabIndex = quickActive ? 0 : -1; quick.textContent = "Quick comparison";
+    quick.setAttribute("aria-selected", String(quickActive)); quick.tabIndex = quickActive ? 0 : -1; quick.textContent = "Quick comparison"; quick.disabled = !state.profiles.size;
     quick.addEventListener("click", () => setPlayerDisplay("quick"));
     quickItem.appendChild(quick); tabs.appendChild(quickItem);
     const graphsActive = state.display === "graphs";
     const graphsItem = document.createElement("div"); graphsItem.className = `player-open-tab single${graphsActive ? " active" : ""}`;
     const graphs = document.createElement("button"); graphs.type = "button"; graphs.className = "player-open-tab-label"; graphs.setAttribute("role", "tab");
-    graphs.setAttribute("aria-selected", String(graphsActive)); graphs.tabIndex = graphsActive ? 0 : -1; graphs.textContent = "Graphs";
+    graphs.setAttribute("aria-selected", String(graphsActive)); graphs.tabIndex = graphsActive ? 0 : -1; graphs.textContent = "Graphs"; graphs.disabled = !state.profiles.size;
     graphs.addEventListener("click", () => setPlayerDisplay("graphs"));
     graphsItem.appendChild(graphs); tabs.appendChild(graphsItem);
     state.profiles.forEach((profile, id) => {
@@ -539,6 +543,7 @@
       close.setAttribute("aria-label", `Close ${profile.payload.player?.name || "player"} profile`); close.addEventListener("click", () => closeProfile(id));
       item.append(open, close); tabs.appendChild(item);
     });
+    window.dispatchEvent(new Event("nickstats:player-tabs"));
   }
 
   function renderProfile() {
@@ -570,7 +575,7 @@
     if (state.activeId === id) {
       const next = ids[index + 1] || ids[index - 1]; state.activeId = null;
       if (next && state.profiles.has(next)) activateProfile(next);
-      else { $("playerProfile").hidden = true; renderOpenTabs(); }
+      else { $("playerProfile").hidden = !window.NickStatsSessions?.hasTabs(); renderOpenTabs(); }
     } else activateProfile(state.activeId);
   }
   function loadProfile(playerID, { scroll = true } = {}) {
@@ -748,6 +753,10 @@
   $("playerResetFilters").addEventListener("click", resetPlayerFilters);
   $("playerHistoryResetFilters").addEventListener("click", resetPlayerFilters);
   renderRecent(); renderOpenTabs();
+  window.NickStatsPlayerBrowser = Object.freeze({
+    showSession() { setPlayerDisplay("session"); },
+    leaveSession() { if (state.display === "session") setPlayerDisplay(sessionReturnDisplay); }
+  });
   window.NickStatsPlayerStats = Object.freeze({
     expandDenseProfile,
     sessionSummary: matches => quickSummary(matches, aggregate(matches, "ALL", "ALL", "ALL", "ALL", "ALL", false))

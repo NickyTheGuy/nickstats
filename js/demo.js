@@ -1454,7 +1454,6 @@
     });
     $("matchListView").hidden = view !== "list";
     $("matchDetailView").hidden = view !== "detail";
-    $("sessionView").hidden = view !== "session";
     window.dispatchEvent(new CustomEvent("nickstats:match-browser-view", { detail: { view } }));
   }
 

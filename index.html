@@ -12,7 +12,7 @@
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.10.09.2</span>
+          <span class="demo-build">Build 2026.10.10.1</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -96,9 +96,6 @@
           </div>
         </div>
 
-        <section class="match-browser-view" id="sessionView" role="tabpanel" aria-label="Session" hidden>
-          <div id="sessionApp"></div>
-        </section>
 
         <div class="match-browser-view" id="matchDetailView" role="tabpanel" aria-labelledby="matchDetailTab" hidden>
           <div class="match-detail-loading" id="matchDetailStatus" role="status" aria-live="polite"></div>
@@ -303,7 +300,7 @@
         </section>
 
         <section class="player-profile-results" id="playerProfile" hidden>
-          <nav class="player-open-profiles unified-profile-tabs" id="playerOpenProfiles" role="tablist" aria-label="Player profiles, quick comparison and graphs" hidden></nav>
+          <nav class="player-open-profiles unified-profile-tabs" id="playerOpenProfiles" role="tablist" aria-label="Player profiles, quick comparison, graphs and sessions" hidden></nav>
           <div class="player-profile-status" id="playerDataStatus" role="status" aria-live="polite" hidden></div>
 
           <div class="stats-toolbar" id="playerStatsToolbar">
@@ -535,6 +532,10 @@
             <div class="graph-legend" id="playerGraphLegend"></div>
           </section>
 
+          <section class="panel quick-comparison-panel player-display-panel" id="sessionView" data-player-display-panel="session" role="tabpanel" aria-label="Session" hidden>
+            <div id="sessionApp"></div>
+          </section>
+
           <section class="panel quick-comparison-panel player-quick-comparison player-display-panel" data-player-display-panel="quick" hidden>
             <header class="section-head quick-comparison-heading">
               <div><div class="eyebrow">Quick comparison</div><h2 id="playerQuickTitle">Player scoreboard</h2><p id="playerQuickMeta">Compare all open profiles at a glance.</p></div>
@@ -608,7 +609,7 @@
     </div>
   </dialog>
 
-  <script defer src="./js/navigation.js?v=20261006-3"></script>
+  <script defer src="./js/navigation.js?v=20261010-1"></script>
   <script defer src="./js/data-freshness.js?v=20260927-4"></script>
   <script defer src="./js/filters.js?v=20261001-5"></script>
   <script defer src="./js/manual-filters.js?v=20261001-6"></script>
@@ -617,13 +618,13 @@
   <script defer src="./js/scoreboard.js?v=20261009-1"></script>
   <script defer src="./js/round-timeline.js?v=20260925-06"></script>
   <script defer src="./js/graphs.js?v=20261007-1"></script>
-  <script defer src="./js/demo.js?v=20261006-3"></script>
+  <script defer src="./js/demo.js?v=20261010-1"></script>
   <script defer src="./js/profile.js?v=20261006-2"></script>
   <script defer src="./js/quick-comparison.js?v=20261009-1"></script>
   <script defer src="./js/match-sessions.js?v=20261005-3"></script>
-  <script defer src="./js/players.js?v=20261007-1"></script>
+  <script defer src="./js/players.js?v=20261010-1"></script>
   <script defer src="./js/groups.js?v=20261007-1"></script>
   <script defer src="./assets/ui/nickstats-ui.js?v=20261009-2"></script>
-  <script defer src="./js/sessions.js?v=20261009-1"></script>
+  <script defer src="./js/sessions.js?v=20261010-1"></script>
 </body>
 </html>

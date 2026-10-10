@@ -84,3 +84,24 @@ test("match details use a stable, filter-independent map banner", () => {
   assert.match(demo, /renderMatchBanner\(result\);/);
   assert.doesNotMatch(demo, /function summaryCard/);
 });
+
+
+test("session routes select Player and retain the nested route on reload", () => {
+  const buttons = ["match", "players", "groups"].map(page => ({ dataset: { appPage: page }, setAttribute(key, value) { this[key] = value; }, addEventListener(type, handler) { this.click = handler; } }));
+  const views = ["match", "players", "groups"].map(page => ({ dataset: { appView: page } }));
+  const location = { hash: "#session/1/100" }, events = [];
+  vm.runInNewContext(navigation, {
+    document: { querySelectorAll: selector => selector === "[data-app-page]" ? buttons : views },
+    location, history: { replaceState(_, __, route) { location.hash = route; } },
+    window: { dispatchEvent(event) { events.push(event); }, addEventListener() {} },
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } }
+  });
+  assert.deepEqual(views.map(view => view.hidden), [true, false, true]);
+  assert.equal(buttons[1]["aria-selected"], "true");
+  assert.equal(location.hash, "#session/1/100");
+  buttons[1].click();
+  assert.equal(location.hash, "#session/1/100");
+  buttons[0].click();
+  assert.equal(location.hash, "#match");
+  assert.equal(events.at(-1).detail.page, "match");
+});

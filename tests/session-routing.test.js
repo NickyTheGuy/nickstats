@@ -29,13 +29,13 @@ function setup(hash = "#session/1/100", fail = false) {
     } },
     NickStatsQuickComparison: { create({ prefix }) { assert.equal(prefix, "session"); return { render: input => renders.push(input) }; } },
     NickStatsPlayerStats: { expandDenseProfile: payload => payload, sessionSummary: () => ({}) },
-    NickStatsMatchBrowser: { showView(view) { window.emit("nickstats:match-browser-view", { view }); } }
+    NickStatsPlayerBrowser: { showSession() { window.sessionVisible = true; }, leaveSession() { window.sessionVisible = false; } }
   };
   let current = hash;
   const location = { get hash() { return current; }, set hash(value) { current = value; queueMicrotask(() => window.emit("hashchange")); } };
   const context = { window, location, URLSearchParams, AbortController,
     document: { createElement: () => new Node(), getElementById(id) { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); },
-      querySelectorAll() { return nodes.get("matchBrowserTabs")?.children || []; } },
+      querySelectorAll() { return nodes.get("playerOpenProfiles")?.children || []; } },
     fetch: async (url, options) => {
       requests.push({ url, signal: options.signal });
       if (fail) return { ok: false, status: 503, json: async () => ({ reason: "Offline" }) };
@@ -52,7 +52,7 @@ test("cold session routes reconstruct the session and restrict every participant
   assert.equal(app.renders.length, 1); assert.equal(app.renders[0].players.length, 3);
   for (const player of app.renders[0].players) assert.deepEqual(Array.from(player.rows, row => row.id).sort(), [100,101]);
   assert.match(app.renders[0].metaSuffix, /^Session · Nick/);
-  assert.equal(app.nodes.get("matchBrowserTabs").children[0].children[0].textContent, "Session");
+  assert.equal(app.nodes.get("playerOpenProfiles").children[0].children[0].textContent, "Session");
   app.window.emit("hashchange"); await flush(); assert.equal(app.requests.length, 2, "revisiting a loaded route uses its tab cache");
 });
 
@@ -60,13 +60,13 @@ test("session links reuse the loaded profile, retain separate tabs, and restore 
   const app = setup("#players"); app.window.NickStatsSessions.open(1,100,app.profile); await flush();
   assert.equal(app.requests.length, 1); assert.ok(app.requests[0].url.includes("/groups?"));
   app.location.hash = "#session/1/200"; await flush();
-  assert.equal(app.nodes.get("matchBrowserTabs").children.length, 2);
+  assert.equal(app.nodes.get("playerOpenProfiles").children.length, 2);
   assert.deepEqual(Array.from(app.renders.at(-1).players[0].rows, row => row.id), [200]);
   app.location.hash = "#session/1/100"; await flush();
   assert.deepEqual(Array.from(app.renders.at(-1).players[0].rows, row => row.id), [101,100]);
-  const tabs = app.nodes.get("matchBrowserTabs").children;
+  const tabs = app.nodes.get("playerOpenProfiles").children;
   tabs[0].children[1].listeners.click(); await flush(); assert.equal(app.location.hash, "#session/1/200");
-  app.nodes.get("matchBrowserTabs").children[0].children[1].listeners.click(); await flush(); assert.equal(app.location.hash, "#match");
+  app.nodes.get("playerOpenProfiles").children[0].children[1].listeners.click(); await flush(); assert.equal(app.location.hash, "#players");
 });
 
 test("failed session loads expose Retry and can recover without losing the routed tab", async () => {
@@ -113,4 +113,21 @@ test("large sessions bound match requests and merge without duplicate participan
     assert.equal(player.rows.length, 101);
     assert.equal(new Set(Array.from(player.rows, row => row.id)).size, 101);
   }
+});
+
+
+test("session tabs remain player peers after profile tabs redraw and restore selection", async () => {
+  const app = setup(); await flush();
+  assert.equal(app.window.sessionVisible, true);
+  const tabs = app.nodes.get("playerOpenProfiles");
+  tabs.children = [];
+  app.window.emit("nickstats:player-tabs");
+  assert.equal(tabs.children.length, 1);
+  app.location.hash = "#players"; await flush();
+  assert.equal(app.window.sessionVisible, false);
+  assert.equal(tabs.children[0].children[0].attributes["aria-selected"], "false");
+  tabs.children[0].children[0].listeners.click(); await flush();
+  assert.equal(app.location.hash, "#session/1/100");
+  assert.equal(app.window.sessionVisible, true);
+  assert.equal(app.requests.length, 2, "restoring a tab reuses its session data");
 });

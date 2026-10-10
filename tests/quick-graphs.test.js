@@ -34,7 +34,7 @@ test("quick comparison map tabs contain only scoreboards and still filter their 
 test("Graphs is a fixed peer tab and hides profile and quick comparison panels", () => {
   const tabs = new Node(), panels = ["profile", "quick", "graphs"].map(display => ({ dataset: { playerDisplayPanel: display } }));
   const state = { display: "profile", view: "matches", profiles: new Map([["1", { payload: { player: { name: "Nick" } } }], ["2", { payload: { player: { name: "Friend" } } }]]), activeId: "1" };
-  const renders = [], sandbox = { state, $: () => tabs, activeProfile: () => state.profiles.get(state.activeId),
+  const renders = [], sandbox = { state, window: { dispatchEvent() {} }, Event: class {}, location: { hash: "#players" }, $: () => tabs, activeProfile: () => state.profiles.get(state.activeId),
     document: { createElement: () => new Node(), querySelectorAll: () => panels },
     syncStatsToolbar() {}, renderCurrentDisplay: () => renders.push(state.display),
     activateProfile(id) { state.activeId = id; }, closeProfile() {}

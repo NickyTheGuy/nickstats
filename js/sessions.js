@@ -26,7 +26,7 @@
       item.className = `player-open-tab${active === key ? " active" : ""}`;
       const button = document.createElement("button"); button.type = "button";
       button.className = "player-open-tab-label"; button.textContent = "Session";
-      button.dataset.matchBrowserView = "session"; button.setAttribute("role", "tab");
+      button.setAttribute("role", "tab");
       button.setAttribute("aria-controls", "sessionView"); button.setAttribute("aria-selected", String(active === key));
       button.tabIndex = active === key ? 0 : -1;
       button.title = entry.label || `Session for player #${entry.playerID}, match #${entry.anchorID}`;
@@ -37,11 +37,12 @@
       close.setAttribute("aria-label", `Close ${button.title}`);
       close.addEventListener("click", () => {
         tabs.delete(key);
-        if (active === key) location.hash = tabs.size ? `#session/${[...tabs.keys()].at(-1)}` : "#match";
+        if (active === key) location.hash = tabs.size ? `#session/${[...tabs.keys()].at(-1)}` : "#players";
         renderTabs();
       });
-      item.append(button, close); $("matchBrowserTabs").appendChild(item);
+      item.append(button, close); $("playerOpenProfiles").appendChild(item);
     });
+    if (tabs.size) $("playerOpenProfiles").hidden = false;
   }
 
   function display(entry) {
@@ -104,25 +105,26 @@
 
   function sync() {
     const current = route();
-    if (!current) { active = null; pending?.controller.abort(); pending = null; renderTabs(); return; }
+    if (!current) {
+      window.NickStatsPlayerBrowser.leaveSession();
+      active = null; pending?.controller.abort(); pending = null; renderTabs(); return;
+    }
     active = current.key;
     if (!tabs.has(current.key)) tabs.set(current.key, current);
-    window.NickStatsMatchBrowser.showView("session"); renderTabs();
+    window.NickStatsPlayerBrowser.showSession(); renderTabs();
     const entry = tabs.get(current.key);
     if (entry.players) { pending?.controller.abort(); pending = null; display(entry); }
     else if (pending?.key !== current.key) load(entry);
   }
 
   window.addEventListener("hashchange", sync);
-  window.addEventListener("nickstats:page", event => { if (event.detail?.page === "match") sync(); });
-  window.addEventListener("nickstats:match-browser-view", event => {
-    if (event.detail?.view !== "session") { active = null; pending?.controller.abort(); pending = null; renderTabs(); }
-  });
+  window.addEventListener("nickstats:page", event => { if (event.detail?.page === "players") sync(); });
+  window.addEventListener("nickstats:player-tabs", renderTabs);
   window.addEventListener("nickstats:matches-changed", () => {
     profiles.clear(); tabs.forEach(entry => { delete entry.players; });
     pending?.controller.abort(); pending = null; sync();
   });
-  window.NickStatsSessions = Object.freeze({ open(playerID, anchorID, profile) {
+  window.NickStatsSessions = Object.freeze({ hasTabs: () => tabs.size > 0, open(playerID, anchorID, profile) {
     if (!/^[1-9]\d*$/.test(String(playerID)) || !/^[1-9]\d*$/.test(String(anchorID))) return;
     if (profile) profiles.set(String(playerID), profile);
     location.hash = `#session/${playerID}/${anchorID}`;

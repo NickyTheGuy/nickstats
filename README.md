@@ -10,6 +10,8 @@ Demo files are processed in the browser and are never uploaded. All three views 
 
 The demo picker accepts multiple files. Batch parsing processes them sequentially to keep browser memory bounded, reports each file's result independently, continues after individual parse or upload failures, and refreshes the match list once at the end. Because batches are intended for reparsing, a demo already in the database is replaced automatically with the newly parsed statistics; single-file parsing keeps the explicit replacement confirmation.
 
+Sessions open as closable tabs in the Player section alongside Quick comparison, Graphs, and individual profiles. Shareable `#session/<player>/<match>` links and Back/Forward restore the session there. Session comparisons use their own map controls; career filters remain attached to profile and graph views.
+
 Stored matches use shareable `#match/<id>` routes. Opening a match creates a browser-history entry, Back returns to the list at its prior scroll position, and Forward or a copied URL reopens the same match. The detail view reserves the list's height while loading so the page does not collapse and jump before the scoreboard renders.
 
 The visible date-based build number in the NickStats header is bumped with parser and interface deployments, making it easy to tell when a published host has received the newest version.
