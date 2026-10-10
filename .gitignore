@@ -4,3 +4,4 @@ backend/.swiftpm/
 .DS_Store
 
 node_modules/
+NickStats-local-mock/
