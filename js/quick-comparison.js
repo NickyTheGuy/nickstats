@@ -39,7 +39,7 @@
     sectionSubscribers.forEach(subscriber => subscriber(sharedSections));
   }
 
-  function create({ prefix, onUpdate }) {
+  function create({ prefix, onUpdate, viewState }) {
     const state = {
       map: "ALL",
       expandedGroups: Object.fromEntries(columnGroups.map(([key]) => [key, false])),
@@ -50,6 +50,12 @@
       sort: null,
       input: null
     };
+    // Controlled React callers supply UI state; copy it so stat rendering cannot mutate it.
+    if (viewState) Object.assign(state, viewState, {
+      expandedGroups: { ...viewState.expandedGroups },
+      sectionSubgroups: { ...viewState.sectionSubgroups },
+      visibleSections: new Set(viewState.visibleSections)
+    });
     let viewMeta = {};
     const byId = suffix => document.getElementById(`${prefix}Quick${suffix}`);
     const { integer, decimal, percent, titleCase } = window.NickStatsProfile;
@@ -705,12 +711,21 @@
       if (state.sort?.group && !groupVisible(state.sort.group)) state.sort = null;
       if (state.input) render(state.input); else renderSections();
     };
-    sectionSubscribers.add(syncSections);
+    if (!viewState) sectionSubscribers.add(syncSections);
     if (!onUpdate) document.addEventListener("keydown", handleDetailShortcut);
     renderSections();
 
     return { render, reset, destroy() { sectionSubscribers.delete(syncSections); document.removeEventListener("keydown", handleDetailShortcut); } };
   }
 
-  window.NickStatsQuickComparison = { create };
+  function model(input, viewState) {
+    if (!input) return null;
+    let result;
+    const controller = create({ viewState, onUpdate: value => { result = value; } });
+    controller.render(input);
+    // UI events belong to React; this adapter only computes the formatted stat model.
+    const { actions, ...view } = result;
+    return view;
+  }
+  window.NickStatsQuickComparison = { create, model };
 })();

@@ -12,11 +12,11 @@ test('React comparison snapshots remain stable between updates and preserve prev
   assert.notEqual(store.getSnapshot(), initial);
   assert.equal(initial.status.loading, false);
   const loading = store.getSnapshot();
-  const model = { rows: [{ id: '1' }] };
-  store.update({ model });
+  const input = { players: [{ id: '1' }] };
+  store.update({ input });
   assert.equal(store.getSnapshot().status, loading.status);
-  assert.equal(store.getSnapshot().model, model);
-  assert.equal(loading.model, null);
+  assert.equal(store.getSnapshot().input, input);
+  assert.equal(loading.input, null);
 });
 
 test('React comparison subscribers see current snapshots and can unsubscribe', async () => {
@@ -29,6 +29,6 @@ test('React comparison subscribers see current snapshots and can unsubscribe', a
   assert.equal(snapshots[0].status.error, 'Offline');
   assert.equal(snapshots[1].status.ready, true);
   unsubscribe();
-  store.update({ model: {} });
+  store.update({ input: {} });
   assert.equal(snapshots.length, 2);
 });

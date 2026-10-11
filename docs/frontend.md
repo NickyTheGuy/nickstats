@@ -9,6 +9,10 @@ The frontend is moving to React a screen at a time. Session and the Player/Group
 | Session title, loading/error messages, page layout | `frontend/pages/SessionPage.jsx` |
 | Player/Group comparison headings | `frontend/pages/ComparisonPage.jsx` |
 | Shared map tabs and empty states | `frontend/components/ComparisonBody.jsx` |
+| Shared buttons, toggles, option groups | `frontend/components/Button.jsx`, `ToggleButton.jsx`, `ToggleGroup.jsx` |
+| Tab selection and keyboard navigation | `frontend/components/TabList.jsx` |
+| Comparison UI state and actions | `frontend/hooks/useComparison.js`, `frontend/state/comparison.mjs` |
+| Persisted section preferences | `frontend/state/sections.mjs` |
 | Sections and value-mode buttons | `frontend/components/ComparisonControls.jsx` |
 | Scoreboard table markup, group headings, cell layout | `frontend/components/Scoreboard.jsx` |
 | Sort buttons | `frontend/components/SortHeading.jsx` |
@@ -39,8 +43,10 @@ Frontend CI rebuilds the bundle and checks that the committed output matches the
 
 ## How the comparison migration works
 
-`frontend/main.jsx` mounts SessionPage inside `#sessionApp` and exposes a small adapter for the existing session controller. React owns that subtree, including loading/error states. `frontend/comparison-store.mjs` bridges the controller to React with immutable snapshots and `useSyncExternalStore`. The controller supplies data and calls `loading`, `error`, or `render`; it never edits React's elements directly.
+`frontend/main.jsx` mounts SessionPage inside `#sessionApp` and exposes a small adapter for the existing session controller. React owns that subtree, including loading/error states. `frontend/comparison-store.mjs` publishes controller input and loading status to React with immutable snapshots and `useSyncExternalStore`. The controller supplies data and calls `loading`, `error`, or `render`; it never edits React's elements directly.
 
-The shared comparison controller has an `onUpdate` mode that produces a table model and actions instead of constructing DOM. This retains existing sorting, rate denominators, schema coverage, formatting, and section preferences. Scoreboard renders that model as React components. `NickStatsComparisonUI.create` mounts ComparisonPage in `#playerQuickApp` or `#comboQuickApp`; the Player/Group controllers supply their existing filtered data and summarizers. SessionPage shares ComparisonBody with both pages and adds its loading/retry UI. React owns each subtree, including map tabs, controls, table headings, and cells. The bundle loads after the shared comparison model and before the Player/Group controllers. Existing routes and internal tabs remain intact.
+`useComparison` owns map selection, value mode, utility basis, sorting, group expansion, and subgroup cycling through a React reducer. Shared section preferences use a small external store with `useSyncExternalStore`, preserving the existing localStorage key. Each comparison retains its own map and display state. `NickStatsQuickComparison.model(input, viewState)` computes formatted stats from a copy of that state; it does not subscribe to UI events or create DOM nodes. The earlier imperative renderer remains available for compatibility tests while stat calculations are extracted into modules.
+
+`NickStatsComparisonUI.create` mounts ComparisonPage in `#playerQuickApp` or `#comboQuickApp`. The Player/Group controllers only publish filtered input and summarizers. SessionPage shares ComparisonBody and adds loading/retry UI. Button, ToggleButton, ToggleGroup and TabList handle the reusable interactions. Map tabs support Left/Right arrows, Home and End. The bundle loads after the stat model and before the Player/Group controllers. Existing routes and internal tabs remain intact.
 
 Next steps: extract the comparison/stat model into normal importable modules, then migrate profiles and graphs. Keep components small and keep parsing and stat formulas outside their templates.

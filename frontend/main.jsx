@@ -1,11 +1,13 @@
 import { useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import SessionPage from './pages/SessionPage.jsx';
+import useComparison from './hooks/useComparison.js';
 import ComparisonPage from './pages/ComparisonPage.jsx';
 import { createComparisonStore } from './comparison-store.mjs';
 
 function SessionRoot({ store, onRetry }) {
-  const { status, model } = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const { status, input, resetKey } = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const model = useComparison(input, resetKey);
   return <SessionPage status={status} model={model} onRetry={onRetry} />;
 }
 
@@ -13,24 +15,21 @@ function SessionRoot({ store, onRetry }) {
 window.NickStatsSessionUI = {
   create({ onRetry }) {
     const store = createComparisonStore();
-    const comparison = window.NickStatsQuickComparison.create({
-      prefix: 'session', onUpdate: model => store.update({ model })
-    });
     const root = createRoot(document.getElementById('sessionApp'));
     root.render(<SessionRoot store={store} onRetry={onRetry} />);
     return {
-      loading() { store.update({ status: { loading: true, error: '', ready: false }, model: null }); },
+      loading() { store.update({ status: { loading: true, error: '', ready: false }, input: null }); },
       error(message) { store.update({ status: { loading: false, error: message, ready: false } }); },
       render(input) {
-        comparison.render(input);
-        store.update({ status: { loading: false, error: '', ready: true } });
+        store.update({ input, status: { loading: false, error: '', ready: true } });
       }
     };
   }
 };
 
 function ComparisonRoot({ store, ...page }) {
-  const { model } = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const { input, resetKey } = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  const model = useComparison(input, resetKey);
   return <ComparisonPage {...page} model={model} />;
 }
 
@@ -38,15 +37,12 @@ function ComparisonRoot({ store, ...page }) {
 window.NickStatsComparisonUI = {
   create({ prefix, title, description, mapsLabel }) {
     const store = createComparisonStore();
-    const comparison = window.NickStatsQuickComparison.create({
-      prefix, onUpdate: model => store.update({ model })
-    });
     const root = createRoot(document.getElementById(`${prefix}QuickApp`));
     root.render(<ComparisonRoot store={store} prefix={prefix} title={title} description={description} mapsLabel={mapsLabel} />);
     return {
-      render: comparison.render,
-      reset() { comparison.reset(); store.update({ model: null }); },
-      destroy() { comparison.destroy(); root.unmount(); }
+      render(input) { store.update({ input }); },
+      reset() { store.update({ input: null, resetKey: store.getSnapshot().resetKey + 1 }); },
+      destroy() { root.unmount(); }
     };
   }
 };

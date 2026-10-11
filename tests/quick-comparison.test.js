@@ -146,7 +146,7 @@ test("quick comparison preserves sorts when unrelated sections change", () => {
 });
 
 test("quick comparison serves the group scoreboard and standalone player profiles", () => {
-  assert.match(componentSource, /window\.NickStatsQuickComparison = \{ create \}/);
+  assert.match(componentSource, /window\.NickStatsQuickComparison = \{ create, model \}/);
   assert.match(playersSource, /NickStatsComparisonUI\.create\(\{ prefix: "player"(?:,| \})/);
   assert.match(compareSource, /NickStatsComparisonUI\.create\(\{ prefix: "combo"(?:,| \})/);
   assert.doesNotMatch(html, />Profiles<\/button>/);

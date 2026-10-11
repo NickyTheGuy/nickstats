@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import Button from './Button.jsx';
 import SortHeading from './SortHeading.jsx';
 
 export default function Scoreboard({ model, tableId }) {
@@ -73,10 +74,10 @@ export default function Scoreboard({ model, tableId }) {
             ? <th key={heading.group} className={`demo-toggle-heading demo-group-start demo-group-end ${heading.group}-heading`}
               colSpan={heading.columns.length} data-scoreboard-header={heading.group}>
               <div className="demo-column-heading-actions">
-                <button type="button" className="demo-column-toggle" aria-expanded={heading.expanded}
-                  onClick={() => toggleGroup(heading.group)}>{heading.title} {heading.expanded ? '▾' : '▸'}</button>
-                {heading.shortcut && <button type="button" className="demo-subgroup-shortcut" data-scoreboard-group={heading.group}
-                  title={heading.shortcut} aria-label={heading.shortcut} onClick={event => cycleGroup(heading.group, event.currentTarget)}><span>R</span></button>}
+                <Button className="demo-column-toggle" aria-expanded={heading.expanded}
+                  onClick={() => toggleGroup(heading.group)}>{heading.title} {heading.expanded ? '▾' : '▸'}</Button>
+                {heading.shortcut && <Button className="demo-subgroup-shortcut" data-scoreboard-group={heading.group}
+                  title={heading.shortcut} aria-label={heading.shortcut} onClick={event => cycleGroup(heading.group, event.currentTarget)}><span>R</span></Button>}
               </div>
             </th>
             : <Fragment key={`fixed-${index}`}>

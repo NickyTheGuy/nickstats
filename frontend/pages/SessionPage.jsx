@@ -1,3 +1,4 @@
+import Button from '../components/Button.jsx';
 import ComparisonBody from '../components/ComparisonBody.jsx';
 
 export default function SessionPage({ status, model, onRetry }) {
@@ -8,7 +9,7 @@ export default function SessionPage({ status, model, onRetry }) {
     <p id="sessionStatus" role="status" aria-live="polite" className={status.error ? 'error' : undefined}>
       {status.error || (status.loading ? 'Loading session…' : '')}
     </p>
-    <button id="sessionRetry" type="button" className="button button-secondary" hidden={!status.error} onClick={onRetry}>Retry</button>
+    <Button id="sessionRetry" className="button button-secondary" hidden={!status.error} onClick={onRetry}>Retry</Button>
     <div id="sessionContent" hidden={!status.ready}>
       <ComparisonBody model={model} prefix="session" mapsLabel="Session maps"
         emptyMessage="No qualifying matches for this map." />

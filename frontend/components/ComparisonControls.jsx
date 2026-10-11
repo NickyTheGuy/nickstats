@@ -1,5 +1,7 @@
-const valueModes = [['totals', 'Totals'], ['round', 'Per round'], ['match', 'Per match']];
-const defaults = ['overview', 'opening', 'rounds'];
+import Button from './Button.jsx';
+import ToggleButton from './ToggleButton.jsx';
+import ToggleGroup from './ToggleGroup.jsx';
+import { valueModes, defaultSections } from '../state/comparison.mjs';
 
 export default function ComparisonControls({ model, sectionsId }) {
   function toggleSection(key) {
@@ -12,24 +14,20 @@ export default function ComparisonControls({ model, sectionsId }) {
       <div className="scoreboard-section-bar scoreboard-control-row">
         <strong>Sections</strong>
         <div className="scoreboard-button-group scoreboard-section-buttons">
-          <button type="button" className="scoreboard-preset-button" onClick={() => model.actions.sections(defaults)}>Default</button>
-          <button type="button" className="scoreboard-preset-button" onClick={() => model.actions.sections(model.sections.map(section => section.key))}>All</button>
-          {model.sections.map(section => <button key={section.key} type="button"
-            className={`scoreboard-section-button ${section.style}-heading${section.active ? ' active' : ''}`}
-            aria-pressed={section.active} onClick={() => toggleSection(section.key)}>{section.label}</button>)}
+          <Button className="scoreboard-preset-button" onClick={() => model.actions.sections(defaultSections)}>Default</Button>
+          <Button className="scoreboard-preset-button" onClick={() => model.actions.sections(model.sections.map(section => section.key))}>All</Button>
+          {model.sections.map(section => <ToggleButton key={section.key} selected={section.active}
+            className={`scoreboard-section-button ${section.style}-heading`}
+            onClick={() => toggleSection(section.key)}>{section.label}</ToggleButton>)}
         </div>
       </div>
       <div className="scoreboard-value-toggle scoreboard-control-row">
         <strong>Values</strong>
-        <div className="scoreboard-button-group">
-          {valueModes.map(([value, label]) => <button key={value} type="button" className={model.valueMode === value ? 'active' : undefined}
-            aria-pressed={model.valueMode === value} onClick={() => model.actions.valueMode(value)}>{label}</button>)}
-        </div>
+        <ToggleGroup label="Scoreboard values" options={valueModes} value={model.valueMode} onChange={model.actions.valueMode} />
         <div className="scoreboard-utility-basis">
           <span>Utility yields</span>
-          <button type="button" disabled={model.valueMode === 'totals'} className={model.perGrenadeUtility ? 'active' : undefined}
-            aria-pressed={model.perGrenadeUtility} title="Use each relevant grenade type for damage, flash effects, and flash-assist yields"
-            onClick={() => model.actions.utilityBasis()}>Per grenade</button>
+          <ToggleButton disabled={model.valueMode === 'totals'} selected={model.perGrenadeUtility} title="Use each relevant grenade type for damage, flash effects, and flash-assist yields"
+            onClick={() => model.actions.utilityBasis()}>Per grenade</ToggleButton>
         </div>
         <small className="scoreboard-control-note">{model.modeNote}</small>
       </div>
