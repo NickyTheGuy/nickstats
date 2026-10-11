@@ -40,8 +40,8 @@ test("quick comparison sections are selectable and remain expandable", () => {
   assert.match(scoreboardSource, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
   assert.match(scoreboardSource, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
   assert.match(scoreboardSource, /\["context", "Context", \["killContext"\], "killContext"\]/);
-  assert.match(html, /id="comboQuickSections"/);
-  assert.match(html, /id="playerQuickSections"/);
+  assert.match(html, /id="comboQuickApp"/);
+  assert.match(html, /id="playerQuickApp"/);
   assert.match(componentSource, /group: "combat", label: "Overview"/);
   assert.match(componentSource, /key: "combat", label: "K-D-A"/);
   assert.match(componentSource, /group: "opening", label: "Opening"/);
@@ -147,17 +147,17 @@ test("quick comparison preserves sorts when unrelated sections change", () => {
 
 test("quick comparison serves the group scoreboard and standalone player profiles", () => {
   assert.match(componentSource, /window\.NickStatsQuickComparison = \{ create \}/);
-  assert.match(playersSource, /NickStatsQuickComparison\.create\(\{ prefix: "player"(?:,| \})/);
-  assert.match(compareSource, /NickStatsQuickComparison\.create\(\{ prefix: "combo"(?:,| \})/);
+  assert.match(playersSource, /NickStatsComparisonUI\.create\(\{ prefix: "player"(?:,| \})/);
+  assert.match(compareSource, /NickStatsComparisonUI\.create\(\{ prefix: "combo"(?:,| \})/);
   assert.doesNotMatch(html, />Profiles<\/button>/);
   assert.match(playersSource, /quick\.textContent = "Quick comparison"/);
   assert.match(html, /data-player-display-panel="profile"/);
   assert.match(html, /data-player-display-panel="quick" hidden/);
   assert.doesNotMatch(html, /id="playerQuickPlayers"/);
   assert.doesNotMatch(html, /id="playerQuickPlayerStatus"/);
-  assert.match(html, /id="playerQuickTable"/);
+  assert.match(html, /id="playerQuickApp"/);
   assert.match(compareSource, /el\("button", "Quick comparison", "player-open-tab-label"\)/);
-  assert.match(html, /id="comboQuickTable"/);
+  assert.match(html, /id="comboQuickApp"/);
 });
 
 test("player and group quick comparisons use the same panel card", () => {

@@ -1,11 +1,11 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const storeModule = import('../frontend/session-store.mjs');
+const storeModule = import('../frontend/comparison-store.mjs');
 
-test('React session snapshots remain stable between updates and preserve previous state', async () => {
-  const { createSessionStore } = await storeModule;
-  const store = createSessionStore();
+test('React comparison snapshots remain stable between updates and preserve previous state', async () => {
+  const { createComparisonStore } = await storeModule;
+  const store = createComparisonStore();
   const initial = store.getSnapshot();
   assert.equal(store.getSnapshot(), initial);
   store.update({ status: { loading: true, error: '', ready: false } });
@@ -19,9 +19,9 @@ test('React session snapshots remain stable between updates and preserve previou
   assert.equal(loading.model, null);
 });
 
-test('React session subscribers see current snapshots and can unsubscribe', async () => {
-  const { createSessionStore } = await storeModule;
-  const store = createSessionStore();
+test('React comparison subscribers see current snapshots and can unsubscribe', async () => {
+  const { createComparisonStore } = await storeModule;
+  const store = createComparisonStore();
   const snapshots = [];
   const unsubscribe = store.subscribe(() => snapshots.push(store.getSnapshot()));
   store.update({ status: { loading: false, error: 'Offline', ready: false } });

@@ -1,5 +1,5 @@
 // The existing data controller publishes immutable snapshots; React subscribes.
-export function createSessionStore() {
+export function createComparisonStore() {
   let snapshot = { status: { loading: false, error: '', ready: false }, model: null };
   const listeners = new Set();
   return {

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
-function setup() {
+function setup(prefix = 'session') {
   const context = vm.createContext({ window: {}, localStorage: { getItem() { return null; }, setItem() {} },
     document: { getElementById() { return null; }, addEventListener() {}, removeEventListener() {},
       createElement() { throw new Error('A component view must not create DOM nodes'); } } });
@@ -12,7 +12,7 @@ function setup() {
     vm.runInContext(fs.readFileSync(path.join(__dirname, `../js/${file}.js`), 'utf8'), context);
   }
   let model;
-  const controller = context.window.NickStatsQuickComparison.create({ prefix: 'session', onUpdate: value => { model = value; } });
+  const controller = context.window.NickStatsQuickComparison.create({ prefix, onUpdate: value => { model = value; } });
   const input = { players: [
     { id: '1', label: 'Nick', rows: [{ map: 'de_dust2', kills: 10 }, { map: 'de_mirage', kills: 20 }] },
     { id: '2', label: 'Friend', rows: [{ map: 'de_dust2', kills: 5 }] }
@@ -22,8 +22,9 @@ function setup() {
   return { controller, input, get model() { return model; } };
 }
 
-test('component view preserves rows, rating colors, map filters and stable sorting', () => {
-  const app = setup();
+for (const prefix of ['player', 'combo', 'session']) {
+test(`${prefix} component view preserves rows, rating colors, map filters and stable sorting`, () => {
+  const app = setup(prefix);
   assert.deepEqual(Array.from(app.model.rows, row => row.id), ['1', '2']);
   assert.match(app.model.rows[0].cells.find(cell => cell.key === 'rating').className, /rating-good/);
   app.model.actions.sort(app.model.columns.find(column => column.key === 'player'));
@@ -33,8 +34,8 @@ test('component view preserves rows, rating colors, map filters and stable sorti
   assert.equal(app.model.rows.find(row => row.id === '1').cells.find(cell => cell.key === 'combat').text, '20-5-2');
 });
 
-test('component controls retain per-round counts and group/subgroup column alignment', () => {
-  const app = setup();
+test(`${prefix} component controls retain per-round counts and group/subgroup column alignment`, () => {
+  const app = setup(prefix);
   app.model.actions.valueMode('round');
   assert.equal(app.model.rows[0].cells.find(cell => cell.key === 'combat').text, '1.50-0.50-0.20');
   app.model.actions.toggle('combat');
@@ -48,4 +49,29 @@ test('component controls retain per-round counts and group/subgroup column align
   app.model.actions.sections(['utility']);
   assert.deepEqual(Array.from(app.model.headings.filter(heading => heading.group), heading => heading.group), ['utility']);
   app.controller.destroy();
+});
+
+}
+
+test('Player comparison retains per-profile summarizers when maps change', () => {
+  const app = setup('player'), calls = [];
+  app.input.players[0].summarize = (rows, map) => {
+    calls.push({ count: rows.length, map });
+    return { ...app.input.summarize(rows), rating: map === 'de_mirage' ? 1.8 : 1.1 };
+  };
+  app.controller.render(app.input);
+  app.model.actions.map('de_mirage');
+  assert.deepEqual(calls, [{ count: 2, map: 'ALL' }, { count: 1, map: 'de_mirage' }]);
+  assert.equal(app.model.rows.find(row => row.id === '1').cells.find(cell => cell.key === 'rating').text, '1.80');
+});
+
+test('Group reset clears map and value controls before rebuilding a selection', () => {
+  const app = setup('combo');
+  app.model.actions.map('de_mirage');
+  app.model.actions.valueMode('round');
+  app.controller.reset();
+  app.controller.render(app.input);
+  assert.equal(app.model.map, 'ALL');
+  assert.equal(app.model.valueMode, 'totals');
+  assert.equal(app.model.rows.find(row => row.id === '1').cells.find(cell => cell.key === 'combat').text, '30-10-4');
 });

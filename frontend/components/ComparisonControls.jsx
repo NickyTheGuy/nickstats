@@ -1,14 +1,14 @@
 const valueModes = [['totals', 'Totals'], ['round', 'Per round'], ['match', 'Per match']];
 const defaults = ['overview', 'opening', 'rounds'];
 
-export default function ComparisonControls({ model }) {
+export default function ComparisonControls({ model, sectionsId }) {
   function toggleSection(key) {
     const selected = new Set(model.sections.filter(section => section.active).map(section => section.key));
     selected.has(key) ? selected.delete(key) : selected.add(key);
     model.actions.sections(selected);
   }
   return <div className="quick-comparison-controls">
-    <div className="quick-comparison-sections">
+    <div className="quick-comparison-sections" id={sectionsId}>
       <div className="scoreboard-section-bar scoreboard-control-row">
         <strong>Sections</strong>
         <div className="scoreboard-button-group scoreboard-section-buttons">

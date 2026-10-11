@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import SessionPage from './pages/SessionPage.jsx';
-import { createSessionStore } from './session-store.mjs';
+import ComparisonPage from './pages/ComparisonPage.jsx';
+import { createComparisonStore } from './comparison-store.mjs';
 
 function SessionRoot({ store, onRetry }) {
   const { status, model } = useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -11,7 +12,7 @@ function SessionRoot({ store, onRetry }) {
 // React owns #sessionApp. The existing routing/data controller only supplies data.
 window.NickStatsSessionUI = {
   create({ onRetry }) {
-    const store = createSessionStore();
+    const store = createComparisonStore();
     const comparison = window.NickStatsQuickComparison.create({
       prefix: 'session', onUpdate: model => store.update({ model })
     });
@@ -24,6 +25,28 @@ window.NickStatsSessionUI = {
         comparison.render(input);
         store.update({ status: { loading: false, error: '', ready: true } });
       }
+    };
+  }
+};
+
+function ComparisonRoot({ store, ...page }) {
+  const { model } = useSyncExternalStore(store.subscribe, store.getSnapshot);
+  return <ComparisonPage {...page} model={model} />;
+}
+
+// Controllers retain their filters/calculations; React owns each comparison subtree.
+window.NickStatsComparisonUI = {
+  create({ prefix, title, description, mapsLabel }) {
+    const store = createComparisonStore();
+    const comparison = window.NickStatsQuickComparison.create({
+      prefix, onUpdate: model => store.update({ model })
+    });
+    const root = createRoot(document.getElementById(`${prefix}QuickApp`));
+    root.render(<ComparisonRoot store={store} prefix={prefix} title={title} description={description} mapsLabel={mapsLabel} />);
+    return {
+      render: comparison.render,
+      reset() { comparison.reset(); store.update({ model: null }); },
+      destroy() { comparison.destroy(); root.unmount(); }
     };
   }
 };
