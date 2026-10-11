@@ -444,7 +444,7 @@
 
   const { integer, decimal, percent, ratio, titleCase } = window.NickStatsProfile;
   const { bindSegmentedToggle, matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
-  const mapFilter = new window.NickStatsFilters.MultiMapFilter("groupMapFilter", { onChange: () => runCombination(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
+  const mapFilter = window.NickStatsMapFilterUI.create("groupMapFilter", { onChange: () => runCombination(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
   const dateFilter = new window.NickStatsFilters.DateRangeFilter("groupDateFilter", { onChange: () => runCombination() });
   const quickComparison = window.NickStatsComparisonUI.create({ prefix: "combo", title: "Group scoreboard",
     description: "Compare the included players at a glance.", mapsLabel: "Group quick comparison maps" });

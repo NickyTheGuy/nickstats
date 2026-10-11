@@ -63,7 +63,7 @@
     expandedWeaponPlayers: new Set(),
     weaponSorts: new Map()
   };
-  const matchMapFilter = new window.NickStatsFilters.MultiMapFilter("matchMapFilter", {
+  const matchMapFilter = window.NickStatsMapFilterUI.create("matchMapFilter", {
     onChange: () => loadMatches(0),
     formatLabel: value => String(value || "Unknown").replace(/^de_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase())
   });

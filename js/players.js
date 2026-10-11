@@ -25,7 +25,7 @@
     side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL", maps: []
   };
   const activeProfile = () => state.profiles.get(state.activeId) || null;
-  const mapFilter = new window.NickStatsFilters.MultiMapFilter("playerMapFilter", {
+  const mapFilter = window.NickStatsMapFilterUI.create("playerMapFilter", {
     formatLabel: value => titleCase(value.replace(/^de_/, "")),
     onChange: values => { state.maps = values; if (activeProfile()) renderCurrentDisplay(); }
   });

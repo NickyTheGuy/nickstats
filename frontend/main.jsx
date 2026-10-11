@@ -1,3 +1,4 @@
+import './map-filter.jsx';
 import { useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
 import SessionPage from './pages/SessionPage.jsx';

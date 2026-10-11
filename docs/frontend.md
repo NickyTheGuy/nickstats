@@ -1,6 +1,6 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session and the Player/Group quick comparison scoreboards now use React. Profiles, graphs, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session and the Player/Group quick comparison scoreboards now use React. Map filter dropdowns also use shared React components. Profiles, graphs, date/tag filters, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
@@ -12,6 +12,9 @@ The frontend is moving to React a screen at a time. Session and the Player/Group
 | Shared buttons, toggles, option groups | `frontend/components/Button.jsx`, `ToggleButton.jsx`, `ToggleGroup.jsx` |
 | Tab selection and keyboard navigation | `frontend/components/TabList.jsx` |
 | Comparison UI state and actions | `frontend/hooks/useComparison.js`, `frontend/state/comparison.mjs` |
+| Map filter UI | `frontend/filters/MapFilter.jsx` |
+| Dropdown dismissal and checkbox options | `frontend/components/Dropdown.jsx`, `CheckboxGroup.jsx` |
+| Map selection and matching | `frontend/state/map-filter.mjs` |
 | Persisted section preferences | `frontend/state/sections.mjs` |
 | Sections and value-mode buttons | `frontend/components/ComparisonControls.jsx` |
 | Scoreboard table markup, group headings, cell layout | `frontend/components/Scoreboard.jsx` |
@@ -47,6 +50,13 @@ Frontend CI rebuilds the bundle and checks that the committed output matches the
 
 `useComparison` owns map selection, value mode, utility basis, sorting, group expansion, and subgroup cycling through a React reducer. Shared section preferences use a small external store with `useSyncExternalStore`, preserving the existing localStorage key. Each comparison retains its own map and display state. `NickStatsQuickComparison.model(input, viewState)` computes formatted stats from a copy of that state; it does not subscribe to UI events or create DOM nodes. The earlier imperative renderer remains available for compatibility tests while stat calculations are extracted into modules.
 
-`NickStatsComparisonUI.create` mounts ComparisonPage in `#playerQuickApp` or `#comboQuickApp`. The Player/Group controllers only publish filtered input and summarizers. SessionPage shares ComparisonBody and adds loading/retry UI. Button, ToggleButton, ToggleGroup and TabList handle the reusable interactions. Map tabs support Left/Right arrows, Home and End. The bundle loads after the stat model and before the Player/Group controllers. Existing routes and internal tabs remain intact.
+`NickStatsComparisonUI.create` mounts ComparisonPage in `#playerQuickApp` or `#comboQuickApp`. The Player/Group controllers only publish filtered input and summarizers. SessionPage shares ComparisonBody and adds loading/retry UI. Button, ToggleButton, ToggleGroup and TabList handle the reusable interactions. Map tabs support Left/Right arrows, Home and End. The bundle loads before the page controllers; the comparison stat model loads before Player/Group initialize. Existing routes and internal tabs remain intact.
 
 Next steps: extract the comparison/stat model into normal importable modules, then migrate profiles and graphs. Keep components small and keep parsing and stat formulas outside their templates.
+
+
+## Shared map filters
+
+Match, Player, and Group mount MapFilter through `NickStatsMapFilterUI.create(targets, options)`. MapFilter subscribes to a store with synchronous `values`, `matches`, `summary`, `setOptions`, `setSelected`, and `reset` methods so existing filtering calculations see the current selection immediately. React owns the dropdown and checkboxes. An empty selection means all maps; refreshing map options prunes unavailable selections. Multiple targets can share one selection store.
+
+Dropdown uses native details/summary markup and React state for dismissal. Escape closes it and returns focus to the trigger. An outside pointer event closes it before child events can replace filtered data; choosing an option preserves the menu and checkbox focus. Programmatic reset closes the menu. CheckboxGroup handles reusable option markup and checked states. Date and tag filters can adopt these components in subsequent migration steps.
