@@ -67,7 +67,7 @@
     onChange: () => loadMatches(0),
     formatLabel: value => String(value || "Unknown").replace(/^de_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase())
   });
-  const matchDateFilter = new window.NickStatsFilters.DateRangeFilter("matchDateFilter", { onChange: () => loadMatches(0) });
+  const matchDateFilter = window.NickStatsDateFilterUI.create("matchDateFilter", { onChange: () => loadMatches(0) });
   $("matchResetFilters").addEventListener("click", () => { matchMapFilter.reset(); matchDateFilter.reset(); matchDateFilter.closeMenus(); loadMatches(0); });
   let demoSideControl, demoBuyControl, demoEnemyBuyControl, demoRoundResultControl, demoRoundPhaseControl;
   let authSessionReady = Promise.resolve();
@@ -1700,7 +1700,7 @@
       if (controller.signal.aborted) return;
       matchListStale = false;
       const matches = Array.isArray(payload.matches) ? payload.matches : [];
-      if (Object.hasOwn(payload, "earliest_played_at")) window.NickStatsFilters.DateRangeFilter.setEarliest(payload.earliest_played_at);
+      if (Object.hasOwn(payload, "earliest_played_at")) window.NickStatsDateFilterUI.setEarliest(payload.earliest_played_at);
       matchMapFilter.setOptions(Array.isArray(payload.maps) ? payload.maps : matches.map(match => match.map));
       state.matchListOffset = Math.max(0, offset);
       state.matchListCount = matches.length;

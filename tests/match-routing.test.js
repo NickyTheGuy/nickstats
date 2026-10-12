@@ -27,7 +27,7 @@ test("match previews use the selected player and match side totals", () => {
 test("match list exposes the database-wide earliest played date for every range picker", () => {
   assert.match(queries, /SELECT MIN\(played_at\) AS earliest_played_at FROM matches/);
   assert.match(models, /struct MatchListResponse:[\s\S]*?case earliestPlayedAt = "earliest_played_at"/);
-  assert.match(demo, /DateRangeFilter\.setEarliest\(payload\.earliest_played_at\)/);
+  assert.match(demo, /NickStatsDateFilterUI\.setEarliest\(payload\.earliest_played_at\)/);
 });
 
 test("selected viewer's team appears first only in matches they played", () => {

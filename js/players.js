@@ -29,7 +29,7 @@
     formatLabel: value => titleCase(value.replace(/^de_/, "")),
     onChange: values => { state.maps = values; if (activeProfile()) renderCurrentDisplay(); }
   });
-  const dateFilter = new window.NickStatsFilters.DateRangeFilter(["playerDateFilter", "playerHistoryDateFilter"], {
+  const dateFilter = window.NickStatsDateFilterUI.create(["playerDateFilter", "playerHistoryDateFilter"], {
     onChange: () => {
       state.profiles.forEach(profile => {
         profile.manualHistoryOffset = 0; profile.sessionHistoryOffset = 0;

@@ -1,18 +1,13 @@
 "use strict";
 
 const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
 const test = require("node:test");
-const vm = require("node:vm");
 
-const source = fs.readFileSync(path.join(__dirname, "..", "js", "filters.js"), "utf8");
-const context = { window: {}, document: { getElementById: () => null }, URLSearchParams };
-vm.runInNewContext(source, context);
-const { DateRangeFilter } = context.window.NickStatsFilters;
+let DateRangeFilter;
+test.before(async () => { ({ DateRangeStore: DateRangeFilter } = await import('../frontend/state/date-range.mjs')); });
 
 test("date range covers whole local days and excludes undated matches only while active", () => {
-  const filter = new DateRangeFilter([]);
+  const filter = new DateRangeFilter();
   assert.equal(filter.matches(null), true);
   filter.from = "2026-09-24";
   filter.through = "2026-09-24";
@@ -32,7 +27,7 @@ test("date range covers whole local days and excludes undated matches only while
 });
 
 test("single-ended date ranges do not discard matches on the open side", () => {
-  const filter = new DateRangeFilter([]);
+  const filter = new DateRangeFilter();
   filter.through = "2026-09-24";
   assert.equal(filter.matches(new Date(2020, 0, 1).getTime() / 1000), true);
   assert.equal(filter.matches(new Date(2026, 8, 25).getTime() / 1000), false);
@@ -46,7 +41,7 @@ test("database minimum follows the earliest match in the viewer's local calendar
   const earliest = new Date(2020, 5, 17, 23, 30).getTime() / 1000;
   DateRangeFilter.setEarliest(earliest);
   assert.equal(DateRangeFilter.earliest, "2020-06-17");
-  const filter = new DateRangeFilter([]);
+  const filter = new DateRangeFilter();
   filter.calendarMonth = new Date(2020, 5, 1);
   filter.moveMonth(-1);
   assert.equal(filter.calendarMonth.getMonth(), 5);
@@ -58,7 +53,7 @@ test("database minimum follows the earliest match in the viewer's local calendar
 });
 
 test("calendar clicks choose one inclusive range before applying it", () => {
-  const filter = new DateRangeFilter([]);
+  const filter = new DateRangeFilter();
   filter.selectDay("2026-09-10");
   assert.equal(filter.draftFrom, "2026-09-10");
   assert.equal(filter.draftThrough, "");
@@ -70,52 +65,45 @@ test("calendar clicks choose one inclusive range before applying it", () => {
   assert.equal(filter.draftThrough, "");
 });
 
-test("calendar day clicks do not bubble after the calendar replaces the clicked button", () => {
-  const createElement = tag => ({ tag, children: [], dataset: {}, classList: { toggle() {} },
-    appendChild(child) { this.children.push(child); },
-    append(...children) { this.children.push(...children); },
-    setAttribute() {}, addEventListener(type, handler) { this[type] = handler; }
-  });
-  context.document.createElement = createElement;
-  const filter = new DateRangeFilter([]);
-  filter.renderPanel = () => {};
-  const calendar = filter.calendarFor(new Date());
-  const day = calendar.children[1].children.find(node => node.tag === "button" && !node.disabled);
-  let stopped = false;
-  day.click({ stopPropagation() { stopped = true; } });
-  assert.equal(stopped, true);
-  assert.equal(filter.draftFrom, day.dataset.date);
-  day.click({ stopPropagation() {} });
-  assert.equal(filter.draftThrough, day.dataset.date);
+test("draft date selection leaves committed bounds unchanged until Apply", () => {
+  let notified = 0;
+  const filter = new DateRangeFilter({ onChange: () => notified++ });
+  filter.open(0); filter.selectDay("2026-09-10"); filter.selectDay("2026-09-10");
+  assert.equal(filter.active, false); assert.equal(notified, 0);
+  filter.apply(); assert.equal(filter.from, "2026-09-10"); assert.equal(filter.through, "2026-09-10");
+  assert.equal(filter.openTarget, null); assert.equal(notified, 1);
+  filter.open(1); filter.selectDay("2026-09-11"); filter.closeMenus(); filter.open(0);
+  assert.equal(filter.draftFrom, filter.from); assert.equal(filter.draftThrough, filter.through);
+  filter.destroy();
 });
 
 test("each calendar navigates independently and a range can cross months", () => {
   const earliest = new Date(new Date().getFullYear(), new Date().getMonth() - 2, 1);
   DateRangeFilter.setEarliest(earliest.getTime() / 1000);
-  const filter = new DateRangeFilter([]);
-  filter.renderPanel();
-  assert.equal(filter.hasSecondMonth, true);
-  const first = filter.calendarFor(filter.calendarMonth, 0);
-  const second = filter.calendarFor(filter.secondMonth, 1);
-  assert.equal(first.children[0].children[1].tag, "select");
-  assert.equal(second.children[0].children[1].tag, "select");
-  const firstDay = first.children[1].children.find(node => node.tag === "button" && !node.disabled);
-  const secondDay = second.children[1].children.find(node => node.tag === "button" && !node.disabled);
-  firstDay.click({ stopPropagation() {} });
-  secondDay.click({ stopPropagation() {} });
-  assert.equal(filter.draftFrom, firstDay.dataset.date);
-  assert.equal(filter.draftThrough, secondDay.dataset.date);
+  const filter = new DateRangeFilter();
+  const first = filter.getSnapshot().calendars[0], second = filter.getSnapshot().calendars[1];
+  assert.ok(first.months.length); assert.ok(second.months.length);
+  filter.selectDay(first.days.find(day => !day.disabled).value);
+  filter.selectDay(second.days.find(day => !day.disabled).value);
+  assert.equal(filter.draftFrom.slice(0,7), first.value); assert.equal(filter.draftThrough.slice(0,7), second.value);
   const rightMonth = filter.secondMonth;
-  let stopped = false;
-  first.children[0].children[0].click({ stopPropagation() { stopped = true; } });
-  assert.equal(stopped, true);
-  assert.equal(filter.secondMonth, rightMonth);
+  filter.moveCalendar(0,-1); assert.equal(filter.secondMonth, rightMonth);
   assert.equal(filter.calendarMonth.getMonth(), earliest.getMonth());
-  DateRangeFilter.setEarliest(null);
+  DateRangeFilter.setEarliest(null); filter.destroy();
+});
+
+test("earliest date refresh updates calendar snapshots and supports one month", () => {
+  const filter = new DateRangeFilter(); let calls = 0;
+  const off = filter.subscribe(() => calls++), previous = filter.getSnapshot();
+  const today = new Date(); DateRangeFilter.setEarliest(new Date(today.getFullYear(), today.getMonth(), 1).getTime()/1000);
+  assert.equal(filter.getSnapshot().calendars.length,1);
+  assert.notEqual(filter.getSnapshot(),previous); assert.equal(calls,1);
+  off(); filter.reset(); assert.equal(calls,1);
+  DateRangeFilter.setEarliest(null); filter.destroy();
 });
 
 test("date summaries use the viewer's local date format", () => {
-  const filter = new DateRangeFilter([]);
+  const filter = new DateRangeFilter();
   filter.from = "2026-09-10"; filter.through = "2026-09-24";
   const expected = new Date(2026, 8, 10).toLocaleDateString(undefined, { month: "2-digit", day: "2-digit", year: "numeric" });
   assert.ok(filter.summary().startsWith(`${expected} to `));
