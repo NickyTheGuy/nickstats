@@ -5,7 +5,6 @@
   const isNumeric = tag => tag.kind === "number";
   const numeric = value => typeof value === "number" && Number.isFinite(value);
   const displayName = tag => tag.owner && tag.owner !== store.account ? `${tag.name} · ${tag.owner}` : tag.name;
-  const operators = { gt: ">", gte: "≥", lt: "<", lte: "≤", eq: "=", between: "Between" };
   function conditionMatches(value, condition) {
     if (typeof condition === "string") return value === condition;
     if (!numeric(value) || !numeric(condition?.value)) return false;
@@ -138,123 +137,6 @@
     return form;
   }
 
-  function shareMenu(tag) {
-    const menu = el("details", null, "tag-share-menu");
-    menu.appendChild(el("summary", "Share"));
-    const panel = el("div", null, "tag-share-panel");
-    panel.appendChild(el("p", "Recipients can filter and graph these values. Only you can edit them.", "manual-filter-help"));
-    for (const username of tag.shared_with || []) {
-      const row = el("div", null, "tag-share-recipient"), revoke = el("button", "Remove", "button button-secondary"); revoke.type = "button";
-      revoke.disabled = store.pending.has(tag.id); revoke.setAttribute("aria-label", `Stop sharing ${tag.name} with ${username}`);
-      revoke.addEventListener("click", event => { event.stopPropagation(); store.share(tag.id, username, true); });
-      row.append(el("span", username), revoke); panel.appendChild(row);
-    }
-    const form = el("form", null, "manual-filter-create"), input = el("input"), submit = el("button", "Share", "button button-secondary");
-    input.required = true; input.maxLength = 64; input.placeholder = "Account username"; input.setAttribute("aria-label", `Share ${tag.name} with account`);
-    submit.type = "submit"; submit.disabled = store.pending.has(tag.id); form.append(input, submit);
-    form.addEventListener("submit", event => { event.preventDefault(); event.stopPropagation(); if (input.value.trim()) store.share(tag.id, input.value.trim()); });
-    panel.appendChild(form); menu.appendChild(panel); return menu;
-  }
-
-  class ManualFilterControl {
-    constructor(targets, { onChange = () => {} } = {}) {
-      this.targets = (Array.isArray(targets) ? targets : [targets]).map(target => typeof target === "string" ? document.getElementById(target) : target).filter(Boolean);
-      this.selected = new Map(); this.onChange = onChange; this.account = store.account;
-      store.subscribe(() => {
-        let resetPagination = this.account !== store.account;
-        if (resetPagination) { this.selected.clear(); this.account = store.account; }
-        if (store.ready) for (const id of this.selected.keys()) if (!store.filters.some(filter => filter.id === id)) { this.selected.delete(id); resetPagination = true; }
-        this.render(); this.onChange({ resetPagination });
-      });
-      document.addEventListener("click", event => {
-        this.targets.forEach(target => { const menu = target.querySelector("details"); if (menu && !target.contains(event.target)) menu.open = false; });
-      });
-      this.render();
-    }
-    reset({ notify = false } = {}) {
-      this.selected.clear(); this.render();
-      if (notify) this.onChange({ resetPagination: true });
-    }
-    get active() { return Boolean(store.account && this.selected.size); }
-    matches(match) {
-      if (!this.active) return true;
-      if (!store.ready) return false;
-      return [...this.selected].every(([id, state]) => {
-        const filter = store.filters.find(filter => filter.id === id);
-        return filter && conditionMatches(store.stateFor(filter, match.id), state);
-      });
-    }
-    summary() {
-      if (!this.active) return "All matches";
-      return [...this.selected].map(([id, state]) => `${displayName(store.filters.find(filter => filter.id === id) || { name: "Tag" })}: ${typeof state === "string" ? label(state) : `${operators[state.op]} ${state.value ?? "…"}${state.op === "between" ? `–${state.max ?? "…"}` : ""}`}`).join(" · ");
-    }
-    render() {
-      this.targets.forEach(target => {
-        target.hidden = !store.account;
-        if (!store.account) { target.replaceChildren(); return; }
-        const old = target.querySelector("details"), open = old?.open || false;
-        const draft = target.querySelector(".manual-tag-create input")?.value || "";
-        const draftKind = target.querySelector(".manual-tag-create select")?.value || "boolean";
-        const details = el("details", null, "map-filter-menu manual-filter-menu"); details.open = open;
-        details.appendChild(el("summary", this.active ? `${this.selected.size} tag${this.selected.size === 1 ? "" : "s"}` : "All matches"));
-        const panel = el("div", null, "map-filter-options manual-filter-options");
-        panel.appendChild(el("p", "Unknown values are excluded; all selected conditions must match.", "manual-filter-help"));
-        if (store.loading) panel.appendChild(el("p", "Loading tags…", "manual-filter-help"));
-        if (store.error) {
-          const error = el("p", store.error, "manual-filter-error"); error.setAttribute("role", "alert"); panel.appendChild(error);
-          const retry = el("button", "Reload tags", "button button-secondary"); retry.type = "button";
-          retry.addEventListener("click", event => { event.stopPropagation(); store.load(); }); panel.appendChild(retry);
-        }
-        if (store.ready) {
-          const all = el("label"), input = el("input"); input.type = "checkbox"; input.checked = !this.active;
-          input.addEventListener("change", event => { event.stopPropagation(); this.selected.clear(); this.render(); this.onChange({ resetPagination: true }); });
-          all.append(input, el("span", "All matches")); panel.appendChild(all);
-          store.filters.forEach(filter => {
-            const row = el("div", null, `manual-filter-option${isNumeric(filter) ? " manual-filter-numeric" : ""}`), checkLabel = el("label"), check = el("input");
-            check.type = "checkbox"; check.checked = this.selected.has(filter.id);
-            checkLabel.append(check, el("span", displayName(filter))); row.appendChild(checkLabel);
-            check.addEventListener("change", event => {
-              event.stopPropagation(); if (check.checked) this.selected.set(filter.id, isNumeric(filter) ? { op: "gte", value: null } : "true"); else this.selected.delete(filter.id);
-              this.render(); this.onChange({ resetPagination: true });
-            });
-            const select = el("select"); select.setAttribute("aria-label", `${filter.name} condition`);
-            const choices = isNumeric(filter) ? Object.entries(operators) : [["true", "True"], ["false", "False"]];
-            choices.forEach(([value, text]) => { const option = el("option", text); option.value = value; select.appendChild(option); });
-            const selected = this.selected.get(filter.id);
-            select.value = isNumeric(filter) ? selected?.op || "gte" : selected || "true"; select.disabled = !check.checked;
-            const update = () => { this.render(); this.onChange({ resetPagination: true }); };
-            select.addEventListener("change", () => {
-              this.selected.set(filter.id, isNumeric(filter) ? { ...selected, op: select.value } : select.value); update();
-            });
-            const conditions = el("div", null, "manual-filter-conditions");
-            conditions.appendChild(select); row.appendChild(conditions);
-            if (isNumeric(filter)) {
-              for (const key of ["value", ...(selected?.op === "between" ? ["max"] : [])]) {
-                const input = el("input"); input.type = "number"; input.step = "any"; input.value = selected?.[key] ?? "";
-                input.placeholder = key === "max" ? "Maximum" : selected?.op === "between" ? "Minimum" : "Value";
-                input.disabled = !check.checked; input.setAttribute("aria-label", `${filter.name} ${key === "max" ? "maximum" : "value"}`);
-                input.addEventListener("change", () => {
-                  this.selected.set(filter.id, { ...this.selected.get(filter.id), [key]: input.value.trim() === "" ? null : Number(input.value) }); update();
-                }); conditions.appendChild(input);
-              }
-            }
-            if (!store.canEdit(filter)) { panel.appendChild(row); return; }
-            const actions = el("div", null, "manual-filter-actions");
-            if (store.supportsSharing) actions.appendChild(shareMenu(filter));
-            const remove = el("button", "×", "manual-filter-delete"); remove.type = "button"; remove.disabled = store.pending.has(filter.id);
-            remove.setAttribute("aria-label", `Delete ${filter.name} tag`);
-            remove.addEventListener("click", event => {
-              event.stopPropagation(); if (window.confirm(`Delete “${filter.name}” and its match assignments from your account?`)) store.remove(filter.id);
-            });
-            actions.appendChild(remove); row.appendChild(actions); panel.appendChild(row);
-          });
-        }
-        const form = createForm(); form.querySelector("input").value = draft; form.querySelector("select").value = draftKind; panel.appendChild(form);
-        details.appendChild(panel); target.replaceChildren(el("span", "Tags", "manual-filter-heading"), details);
-      });
-    }
-  }
-
   function matchEditor(match) {
     if (!store.account || !store.ready) return null;
     const details = el("details", null, "manual-match-menu");
@@ -305,5 +187,5 @@
   });
   window.addEventListener("nickstats:account-session", () => store.setAccount(window.NickStatsAccountSession?.username));
   window.addEventListener("focus", () => store.load());
-  window.NickStatsManualFilters = Object.freeze({ store, ManualFilterStore, ManualFilterControl, matchState, conditionMatches, displayName, matchEditor });
+  window.NickStatsManualFilters = Object.freeze({ store, ManualFilterStore, matchState, conditionMatches, displayName, matchEditor });
 })();

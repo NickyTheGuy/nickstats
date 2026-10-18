@@ -448,7 +448,7 @@
   const dateFilter = window.NickStatsDateFilterUI.create("groupDateFilter", { onChange: () => runCombination() });
   const quickComparison = window.NickStatsComparisonUI.create({ prefix: "combo", title: "Group scoreboard",
     description: "Compare the included players at a glance.", mapsLabel: "Group quick comparison maps" });
-  const manualFilter = new window.NickStatsManualFilters.ManualFilterControl("groupManualFilter", { onChange: () => { if (state.players.length) runCombination(); } });
+  const manualFilter = window.NickStatsTagFilterUI.create("groupManualFilter", { onChange: () => { if (state.players.length) runCombination(); } });
 
   function setComboProfileView(view) {
     state.comboView = view;

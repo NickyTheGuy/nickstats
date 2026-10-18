@@ -1,3 +1,4 @@
+import './tag-filter.jsx';
 import './date-filter.jsx';
 import './map-filter.jsx';
 import { useSyncExternalStore } from 'react';

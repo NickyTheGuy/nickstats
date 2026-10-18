@@ -40,7 +40,7 @@
   });
   const quickComparison = window.NickStatsComparisonUI.create({ prefix: "player", title: "Player scoreboard",
     description: "Compare all open profiles at a glance.", mapsLabel: "Player quick comparison maps" });
-  const manualFilter = new window.NickStatsManualFilters.ManualFilterControl(["playerManualFilter", "playerHistoryManualFilter"], {
+  const manualFilter = window.NickStatsTagFilterUI.create(["playerManualFilter", "playerHistoryManualFilter"], {
     onChange: ({ resetPagination = false } = {}) => {
       state.profiles.forEach(profile => { profile.summaryCache?.clear(); profile.graphCache?.clear(); if (resetPagination) { profile.manualHistoryOffset = 0; profile.sessionHistoryOffset = 0; } });
       if (activeProfile()) {

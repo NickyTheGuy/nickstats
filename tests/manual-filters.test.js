@@ -5,10 +5,13 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 const source = fs.readFileSync(path.join(__dirname, "../js/manual-filters.js"), "utf8");
+let createTagFilterStore;
+test.before(async () => { ({ createTagFilterStore } = await import('../frontend/state/tag-filter.mjs')); });
 function api() {
   const context = vm.createContext({ window: { addEventListener() {} }, document: { addEventListener() {} }, fetch() { throw new Error("Unexpected fetch"); } });
   vm.runInContext(source, context);
-  return context.window.NickStatsManualFilters;
+  const result = context.window.NickStatsManualFilters;
+  return { ...result, ManualFilterControl: function(_targets, options) { return createTagFilterStore(result, options); } };
 }
 const response = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
 const flush = () => new Promise(resolve => setImmediate(resolve));
@@ -214,4 +217,25 @@ test("owner sharing and revocation persist, and recipient refresh discards revok
   const control = new ManualFilterControl([]); control.selected.set("a", "true");
   await store.load();
   assert.equal(store.filters.length, 0); assert.equal(control.active, false);
+});
+
+
+test("React tag controls publish stable snapshots, preserve selections during saves and unsubscribe", () => {
+  const { store, ManualFilterControl } = api();
+  store.account = "nick"; store.ready = true;
+  store.filters = [{ id: "a", name: "Solo", cutoff_match_id: 100 }];
+  let resets = 0;
+  const control = new ManualFilterControl([], { onChange: options => { if (options.resetPagination) resets++; } });
+  const initial = control.getSnapshot(); assert.equal(control.getSnapshot(), initial);
+  let renders = 0; const off = control.subscribe(() => renders++);
+  control.select("a", "true");
+  assert.equal(control.getSnapshot().selected.get("a"), "true");
+  assert.equal(initial.selected.size, 0);
+  store.pending.add("a"); store.emit();
+  assert.equal(control.getSnapshot().selected.get("a"), "true");
+  assert.equal(control.getSnapshot().pending.has("a"), true);
+  assert.equal(resets, 1, "pending saves do not reset pagination");
+  off(); control.reset({ notify: true }); assert.equal(renders, 2);
+  const before = control.getSnapshot(); control.destroy(); store.emit();
+  assert.equal(control.getSnapshot(), before);
 });

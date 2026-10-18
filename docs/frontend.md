@@ -1,6 +1,6 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session and the Player/Group quick comparison scoreboards now use React. Map and date filter dropdowns also use shared React components. Profiles, graphs, tag filters, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session and the Player/Group quick comparison scoreboards now use React. Map, date, and tag filter dropdowns also use shared React components. Profiles, graphs, match tag editors, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
@@ -12,6 +12,8 @@ The frontend is moving to React a screen at a time. Session and the Player/Group
 | Shared buttons, toggles, option groups | `frontend/components/Button.jsx`, `ToggleButton.jsx`, `ToggleGroup.jsx` |
 | Tab selection and keyboard navigation | `frontend/components/TabList.jsx` |
 | Comparison UI state and actions | `frontend/hooks/useComparison.js`, `frontend/state/comparison.mjs` |
+| Tag filter UI, conditions, creation and sharing | `frontend/filters/TagFilter.jsx`, `frontend/components/TagCondition.jsx`, `TagCreateForm.jsx`, `TagShareMenu.jsx` |
+| Tag selection and account synchronization | `frontend/state/tag-filter.mjs` |
 | Date filter UI and reusable calendars | `frontend/filters/DateRangeFilter.jsx`, `frontend/components/Calendar.jsx` |
 | Month selector and option dropdowns | `frontend/components/OptionDropdown.jsx` |
 | Date bounds, draft range and month navigation | `frontend/state/date-range.mjs` |
@@ -70,3 +72,10 @@ Dropdown uses native details/summary markup and React state for dismissal. Escap
 `NickStatsDateFilterUI.create` mounts DateRangeFilter in Match, Player, Player history, and Group. The two Player targets share a DateRangeStore, including their committed range and draft. Opening one closes the other and starts from the committed range. Calendar and OptionDropdown own reusable rendering and keyboard interactions; the store provides local-day matching, exclusive API upper bounds, the database minimum, and independent month navigation. Draft clicks do not change filtering until Apply. Clear and profile resets clear both endpoints. Closing a draft and reopening restores the applied range.
 
 The date calendar retains the existing CSS classes and custom month menu styling. React keeps day buttons stable during selection, so clicks retain focus and do not detach targets under outside-click listeners. Escape dismisses an open month menu first, then the date menu. DateRangeStore has no DOM dependencies and is covered by local-day and calendar-boundary tests.
+
+
+## Tag filter dropdowns
+
+`NickStatsTagFilterUI.create` mounts the Player, Player history and Group controls. The Player controls share one selection store. TagFilter, TagCondition, TagCreateForm and TagShareMenu use the shared Dropdown and Button components. React keeps form drafts and focused fields stable during filtering and pending saves. Selected conditions update the existing calculations synchronously, clear when accounts change, and discard deleted or revoked tags.
+
+`js/manual-filters.js` still owns account-scoped loading, mutations, Boolean upload defaults, numeric matching, and per-match tag editors. The new UI calls those existing store methods. Recipients can select shared tags for filtering but see no sharing or delete controls. Capability flags, disabled/pending actions, server errors and retry behavior are preserved. Network and account-race tests cover the same store used by both renderers; the per-match editor is a subsequent migration step.

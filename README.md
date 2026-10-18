@@ -32,7 +32,7 @@ Parsed results include a FACEIT match ID extracted from an original FACEIT filen
 
 Open the published site, or clone/download the repository and serve the folder with any static web server. The demo parser is intended for an HTTPS-hosted version because its parser libraries are loaded from pinned CDN URLs.
 
-The Session screen, Player/Group quick comparison scoreboards, and map/date filter dropdowns share React components. See [Editing the interface](docs/frontend.md) for component locations, build commands, and the staged migration plan. The committed frontend bundle keeps static-folder hosting working.
+The Session screen, Player/Group quick comparison scoreboards, and map/date/tag filter dropdowns share React components. See [Editing the interface](docs/frontend.md) for component locations, build commands, and the staged migration plan. The committed frontend bundle keeps static-folder hosting working.
 
 ## Match parsing
 
