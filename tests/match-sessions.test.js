@@ -34,24 +34,15 @@ test("filters retain session boundaries even when middle games are hidden", () =
 
 test("session history paginates whole sessions and keeps match opening and tags", () => {
   const source = fs.readFileSync(path.join(__dirname, "../js/players.js"), "utf8");
-  class Node {
-    constructor() { this.children = []; this.listeners = {}; this.classList = { remove() {} }; }
-    append(...children) { this.children.push(...children); }
-    appendChild(child) { this.children.push(child); }
-    replaceChildren() { this.children = []; }
-    setAttribute() {}
-    addEventListener(type, listener) { this.listeners[type] = listener; }
-    querySelector() { return null; }
-    contains() { return false; }
-  }
+  class Node { constructor() { this.classList = { remove() {} }; } }
   const nodes = new Map(), calls = [], openedSessions = [];
-  const sandbox = { window: { NickStatsSessions: { open: (...args) => openedSessions.push(args) }, NickStatsMatchSessions: context.window.NickStatsMatchSessions, NickStatsMatchTagUI: { create: () => ({ tagEditor: true }) } },
-    document: { createElement: () => new Node() }, MATCH_HISTORY_LIMIT: 25,
+  const sandbox = { window: { NickStatsSessions: { open: (...args) => openedSessions.push(args) }, NickStatsMatchSessions: context.window.NickStatsMatchSessions },
+    MATCH_HISTORY_LIMIT: 25,
     $: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); },
     manualFilter: { active: false, matches: () => true }, dateFilter: { matches: () => true },
     profileMatchSummaries: (_, rows) => rows, openHistoryMatch: () => {},
     aggregate: rows => ({ rating: 1.2, adr: 80, stats: { kills: rows.length * 20, deaths: rows.length * 10, assists: rows.length * 5 } }),
-    matchList: { render: (list, matches, onOpen, options) => calls.push({ list, matches, onOpen, options }) }
+    matchList: { renderSessions: (list, sessions, onOpen, options) => calls.push({ list, sessions, onOpen, options }) }
   };
   const start = source.indexOf("  function renderPlayerSessions("), end = source.indexOf("  async function loadPlayerMatches", start);
   const render = vm.runInNewContext(`${source.slice(start, end)}\nrenderPlayerSessions`, sandbox);
@@ -60,25 +51,21 @@ test("session history paginates whole sessions and keeps match opening and tags"
     ...Array.from({ length: 25 }, (_, index) => match(`single-${index}`, 40 + index * 3))
   ] } };
   render(profile);
-  assert.equal(calls.length, 25);
+  assert.equal(calls.length, 1); assert.equal(calls[0].sessions.length, 25);
   assert.equal(nodes.get("playerMatchesNext").disabled, false);
   profile.sessionHistoryOffset = 25; calls.length = 0; render(profile);
-  assert.equal(calls.length, 1); assert.equal(calls[0].matches.length, 30);
-  const preview = nodes.get("playerMatchesList").children[0].children[0].children[2];
-  assert.deepEqual(preview.children.map(item => item.children[1].textContent), ["1.20", "600-300-150", "80.0"]);
-  assert.equal(preview.children[0].children[1].className, "demo-rating rating-good");
-  let prevented = false;
-  nodes.get("playerMatchesList").children[0].children[0].listeners.click({ preventDefault() { prevented = true; } });
-  assert.equal(prevented, true);
-  assert.equal(openedSessions[0][0], "1");
-  assert.equal(openedSessions[0][1], "long-0");
-  assert.equal(openedSessions[0][2], profile.payload);
+  assert.equal(calls.length, 1); assert.equal(calls[0].sessions.length, 1);
+  const session = calls[0].sessions[0];
+  assert.equal(session.matches.length, 30);
+  assert.deepEqual(JSON.parse(JSON.stringify(session.preview)), { rating: 1.2, adr: 80, kills: 600, deaths: 300, assists: 150 });
+  calls[0].options.onSession(session.id);
+  assert.equal(openedSessions[0][0], "1"); assert.equal(openedSessions[0][1], "long-0"); assert.equal(openedSessions[0][2], profile.payload);
   assert.equal(calls[0].onOpen, sandbox.openHistoryMatch);
-  assert.equal(calls[0].options.actionsFor(calls[0].matches[0]).tagEditor, true);
+  assert.equal(calls[0].options.scope, 'player-sessions/1');
   assert.equal(nodes.get("playerMatchesNext").disabled, true);
   assert.equal(nodes.get("playerMatchesPageLabel").textContent, "Sessions 26–26 of 26");
   assert.equal(nodes.get("playerMatchesStatus").textContent, "26 sessions · 55 matches");
   sandbox.dateFilter.matches = () => false; calls.length = 0; render(profile);
-  assert.equal(calls.length, 0); assert.equal(profile.sessionHistoryOffset, 0);
+  assert.equal(calls[0].sessions.length, 0); assert.equal(profile.sessionHistoryOffset, 0);
   assert.equal(nodes.get("playerMatchesStatus").textContent, "0 sessions · 0 matches");
 });

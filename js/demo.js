@@ -857,13 +857,7 @@
     return { data, name: entry.name.split(/[\\/]/).pop(), matchTime: entry.matchTime?.timestamp ? entry.matchTime : null };
   }
 
-  function formatMatchTime(timestamp) {
-    if (!Number.isFinite(timestamp) || timestamp <= 0) return "Unknown";
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short"
-    }).format(new Date(timestamp * 1000));
-  }
+  function formatMatchTime(timestamp) { return window.NickStatsMatchList.formatMatchTime(timestamp); }
 
   function numberValue(value) {
     const number = Number(value);
@@ -1521,36 +1515,8 @@
     if (location.hash === "#match") showMatchList({ updateHistory: false, restoreScroll: true });
   }
 
-  function matchSummaryTimestamp(match) {
-    return Number(match.playedAt ?? match.played_at);
-  }
-
-  const mapArtworkLocations = {
-    mirage: { file: "mirage.webp", position: "center 54%" },
-    inferno: { file: "inferno.webp", position: "center 54%" },
-    nuke: { file: "nuke.webp", position: "center 38%" },
-    dust2: { file: "dust2.webp", position: "center 52%" },
-    ancient: { file: "ancient.webp", position: "center 48%" },
-    anubis: { file: "anubis.webp", position: "center 50%" },
-    overpass: { file: "overpass.webp", position: "center 45%" },
-    train: { file: "train.webp", position: "center 52%" },
-    vertigo: { file: "vertigo.webp", position: "center 45%" },
-    cache: { file: "cache.webp", position: "center 45%" }
-  };
-
-  function mapArtworkKey(name) {
-    const normalized = String(name || "")
-      .toLowerCase()
-      .split(/[\\/]/)
-      .pop()
-      .replace(/\.(?:bsp|vpk)$/, "")
-      .replace(/^de_/, "")
-      .replace(/[^a-z0-9]/g, "");
-    return normalized === "dustii" ? "dust2" : normalized;
-  }
-
   function applyMapArtwork(element, mapName) {
-    const location = mapArtworkLocations[mapArtworkKey(mapName)];
+    const location = window.NickStatsMatchList.artworkFor(mapName);
     element.style.removeProperty("background-image");
     element.style.removeProperty("background-position");
     element.classList.toggle("unknown", !location);
@@ -1559,118 +1525,11 @@
     element.style.backgroundPosition = location.position;
   }
 
-  function matchScore(team) {
-    if (team?.score == null || team.score === "") return null;
-    const score = Number(team.score);
-    return Number.isFinite(score) ? score : null;
-  }
+  function matchScore(team) { return window.NickStatsMatchList.matchScore(team); }
+  function matchTeamResult(team, otherTeam) { return window.NickStatsMatchList.teamResult(team, otherTeam); }
 
-  function matchTeamResult(team, otherTeam) {
-    const score = matchScore(team);
-    const otherScore = matchScore(otherTeam);
-    if (score == null || otherScore == null || score === otherScore) return "";
-    return score > otherScore ? "winner" : "loser";
-  }
-
-  function renderMatchTeam(team, otherTeam) {
-    const item = document.createElement("span");
-    const result = matchTeamResult(team, otherTeam);
-    item.className = `match-list-team${result ? ` ${result}` : ""}`;
-
-    const name = document.createElement("span");
-    name.className = "match-list-team-name";
-    name.textContent = team?.name || "Unknown team";
-    const score = document.createElement("strong");
-    score.className = "match-list-score";
-    score.textContent = matchScore(team) ?? "—";
-    item.append(name, score);
-    return item;
-  }
-
-  function accountTeamsFirst(match) {
-    const teams = Array.isArray(match.teams) ? match.teams : [];
-    if (match.viewer_team_slot == null || teams.length < 2) return teams;
-    return match.viewer_team_slot === 1 ? [teams[1], teams[0]] : teams;
-  }
-
-  function renderMatchListInto(list, matches, onOpen, { actionsFor = null } = {}) {
-    const focused = list.contains(document.activeElement) ? document.activeElement : null;
-    list.replaceChildren();
-    for (const match of matches) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "match-list-item";
-
-      const mapName = match.map || "Unknown map";
-      const artwork = document.createElement("span");
-      artwork.className = "match-list-map-art";
-      applyMapArtwork(artwork, mapName);
-      const artworkLabel = document.createElement("span");
-      artworkLabel.textContent = mapName.replace(/^de_/i, "");
-      artwork.append(artworkLabel);
-
-      const identity = document.createElement("span");
-      identity.className = "match-list-identity";
-      const number = document.createElement("strong");
-      number.textContent = `#${match.id}`;
-      const meta = document.createElement("span");
-      meta.className = "match-list-meta";
-      meta.textContent = formatMatchTime(matchSummaryTimestamp(match));
-      identity.append(number, meta);
-
-      const result = document.createElement("span");
-      result.className = "match-list-result";
-      const teamRows = accountTeamsFirst(match);
-      if (teamRows.length >= 2) {
-        const separator = document.createElement("span");
-        separator.className = "match-list-score-separator";
-        separator.textContent = "–";
-        result.append(renderMatchTeam(teamRows[0], teamRows[1]), separator, renderMatchTeam(teamRows[1], teamRows[0]));
-      } else {
-        result.textContent = "Score unavailable";
-      }
-
-      button.append(artwork, identity, result);
-      if (match.viewer_stats) {
-        button.classList.add("has-preview");
-        const stats = match.viewer_stats;
-        const preview = document.createElement("span");
-        preview.className = "match-list-preview";
-        for (const [label, value] of [
-          ["Rating", Number(stats.rating).toFixed(2)],
-          ["K-D-A", `${stats.kills}-${stats.deaths}-${stats.assists}`],
-          ["ADR", Number(stats.adr).toFixed(1)]
-        ]) {
-          const item = document.createElement("span");
-          item.className = "match-list-preview-stat";
-          const name = document.createElement("span");
-          name.textContent = label;
-          const amount = document.createElement("strong");
-          amount.textContent = value;
-          if (label === "Rating") {
-            const rating = Number(stats.rating);
-            amount.className = `demo-rating ${rating >= 1.10 ? "rating-good" : rating <= 0.90 ? "rating-bad" : "rating-average"}`;
-          }
-          item.append(name, amount);
-          preview.append(item);
-        }
-        button.append(preview);
-      }
-      const scoreDescription = teamRows.length >= 2
-        ? `${teamRows[0].name || "Unknown team"} ${matchScore(teamRows[0]) ?? "unknown"} to ${matchScore(teamRows[1]) ?? "unknown"} ${teamRows[1].name || "Unknown team"}`
-        : "score unavailable";
-      const statsDescription = match.viewer_stats
-        ? `; rating ${Number(match.viewer_stats.rating).toFixed(2)}, kills ${match.viewer_stats.kills}, deaths ${match.viewer_stats.deaths}, assists ${match.viewer_stats.assists}, ADR ${Number(match.viewer_stats.adr).toFixed(1)}`
-        : "";
-      button.setAttribute("aria-label", `Open match ${match.id} on ${mapName}: ${scoreDescription}${statsDescription}`);
-      button.addEventListener("click", () => onOpen(match));
-      const actions = actionsFor?.(match);
-      if (actions) {
-        const card = document.createElement("div"); card.className = "manual-match-card"; card.dataset.matchId = String(match.id);
-        card.append(button, actions); list.appendChild(card);
-      } else list.appendChild(button);
-    }
-    if (focused?.isConnected) focused.focus({ preventScroll: true });
+  function renderMatchListInto(list, matches, onOpen) {
+    window.NickStatsMatchList.render(list, matches, onOpen);
   }
 
   function renderMatchList(matches) {
@@ -1714,7 +1573,7 @@
       $("matchListPageLabel").textContent = `Matches ${state.matchListOffset + 1}–${state.matchListOffset + matches.length}`;
     } catch (error) {
       if (error.name === "AbortError") return;
-      $("matchList").replaceChildren();
+      window.NickStatsMatchList.clear($("matchList"));
       $("matchListStatus").textContent = `Could not load matches: ${error.message}`;
       $("matchListStatus").classList.add("error");
       $("matchListPagination").hidden = true;
@@ -3503,7 +3362,6 @@
   }));
   drop.addEventListener("drop", event => chooseFiles(event.dataTransfer.files));
   window.addEventListener("hashchange", syncMatchRoute);
-  window.NickStatsMatchList = Object.freeze({ render: renderMatchListInto });
   window.NickStatsMatchBrowser = Object.freeze({ showView: setMatchBrowserView });
   updateAuthenticationDisplay();
   authSessionReady = loadAuthSession();

@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import useManualTags from '../hooks/useManualTags.js';
 import Dropdown from '../components/Dropdown.jsx';
 import ToggleGroup from '../components/ToggleGroup.jsx';
@@ -13,6 +13,9 @@ export default function MatchTagEditor({ api, matchID, editorKey, panels }) {
   const { store, displayName } = api;
   const view = useManualTags(store);
   const active = useSyncExternalStore(panels.subscribe, panels.getSnapshot);
+  useEffect(() => () => {
+    if (panels.getSnapshot() === editorKey) panels.set(null);
+  }, [editorKey, panels]);
   if (!view.account || !view.ready) return null;
   return <Dropdown key={view.account} summary="⋯" summaryLabel={`Tags for match ${matchID}`} className="manual-match-menu"
     open={active === editorKey} onOpenChange={open => panels.set(open ? editorKey : null)}>

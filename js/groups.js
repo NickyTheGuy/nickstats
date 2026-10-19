@@ -434,7 +434,7 @@
     });
     window.NickStatsMatchList.render($("comboMatchesList"), page, match => {
       location.hash = `#match/${encodeURIComponent(match.id)}`;
-    }, { actionsFor: window.NickStatsMatchTagUI.forList("group-matches") });
+    }, { editableTags: true });
     $("comboMatchesStatus").textContent = `${matches.length} qualifying match${matches.length === 1 ? "" : "es"} for ${player.label}.`;
     $("comboMatchesPagination").hidden = matches.length <= MATCH_LIST_LIMIT;
     $("comboMatchesPrevious").disabled = offset === 0;

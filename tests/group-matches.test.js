@@ -8,24 +8,23 @@ const source = fs.readFileSync(require("node:path").join(__dirname, "../js/group
 function fixture() {
   const nodes = new Map(), calls = [], location = {};
   const state = { comboCondition: "without", result: "ALL", roundPhase: "ALL", heroOnly: false, matchListOffset: 0, matchListKey: "" };
-  const matchEditor = match => ({ id: match.id });
   const context = { state, location, MATCH_LIST_LIMIT: 50,
     $: id => { if (!nodes.has(id)) nodes.set(id, {}); return nodes.get(id); },
     num: value => Number(value) || 0,
     matchResultMatches: (result, filter) => filter === "ALL" || result === filter,
     selectedView: row => ({ stats: { rounds: row.rounds } }),
     summarize: rows => ({ rating: 1.2, adr: 80, kills: rows[0].kills, deaths: 10, assists: 5 }),
-    window: { NickStatsMatchTagUI: { forList: () => matchEditor }, NickStatsMatchList: {
+    window: { NickStatsMatchList: {
       render: (target, matches, onOpen, options) => calls.push({ target, matches, onOpen, options })
     } }
   };
   const start = source.indexOf("  function comboMatchesForCondition("), end = source.indexOf("  const { integer, decimal", start);
   const api = vm.runInNewContext(`${source.slice(start, end)}\n({comboProfileRows,renderComboMatches})`, context);
-  return { state, nodes, calls, location, matchEditor, api };
+  return { state, nodes, calls, location, api };
 }
 
 test("Groups match list shows the selected player's current condition and result with tag actions", () => {
-  const { state, nodes, calls, location, matchEditor, api } = fixture();
+  const { state, nodes, calls, location, api } = fixture();
   const player = { profileId: "1", label: "Nick" }, other = { profileId: "2", label: "Friend" };
   const row = (id, result, date) => ({ id, result, date, map: "de_mirage", score: [13, 8], rounds: 21, kills: 20 });
   const match = value => ({ rows: [{ player, row: value }, { player: other, row: { ...value, kills: 8 } }] });
@@ -36,7 +35,7 @@ test("Groups match list shows the selected player's current condition and result
   assert.equal(rendered.matches[0].played_at, 200);
   assert.equal(rendered.matches[0].teams[0].score, 13);
   assert.equal(rendered.matches[0].viewer_stats.kills, 20);
-  assert.equal(rendered.options.actionsFor, matchEditor);
+  assert.equal(rendered.options.editableTags, true);
   assert.equal(nodes.get("comboMatchesPagination").hidden, true);
   rendered.onOpen(rendered.matches[0]); assert.equal(location.hash, "#match/11");
   state.result = "w";

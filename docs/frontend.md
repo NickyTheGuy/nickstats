@@ -1,6 +1,6 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session and the Player/Group quick comparison scoreboards now use React. Map, date, and tag filter dropdowns also use shared React components. Profiles, graphs, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, and tag filter dropdowns also use shared React components. Profiles, graphs, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
@@ -13,7 +13,10 @@ The frontend is moving to React a screen at a time. Session and the Player/Group
 | Tab selection and keyboard navigation | `frontend/components/TabList.jsx` |
 | Comparison UI state and actions | `frontend/hooks/useComparison.js`, `frontend/state/comparison.mjs` |
 | Match tag editing and numeric-value drafts | `frontend/tags/MatchTagEditor.jsx`, `frontend/components/TagValueForm.jsx` |
-| Match editor mounting/lifecycle | `frontend/match-tag-editor.jsx` |
+| Match lists and grouped Session history | `frontend/matches/MatchList.jsx`, `MatchCard.jsx`, `SessionHistory.jsx` |
+| Shared map artwork and rating/K-D-A/ADR preview | `frontend/components/MapArtwork.jsx`, `StatPreview.jsx` |
+| Card data formatting and scores | `frontend/state/match-card.mjs` |
+| List mounting/data bridge | `frontend/match-list.jsx` |
 | Shared account tag subscription | `frontend/hooks/useManualTags.js` |
 | Tag filter UI, conditions, creation and sharing | `frontend/filters/TagFilter.jsx`, `frontend/components/TagCondition.jsx`, `TagCreateForm.jsx`, `TagShareMenu.jsx` |
 | Tag selection and account synchronization | `frontend/state/tag-filter.mjs` |
@@ -86,6 +89,12 @@ The date calendar retains the existing CSS classes and custom month menu styling
 
 ## Per-match tag editors
 
-Player matches, expanded Player sessions and Group match lists use `NickStatsMatchTagUI` to mount MatchTagEditor beside each match card. It reuses Dropdown, ToggleGroup and TagCreateForm. TagValueForm keeps a numeric draft separate from the saved value; empty input saves Unknown. It preserves text typed during a pending save and retains drafts on failures. Shared tags render read-only values, and pending controls are disabled. `useManualTags` subscribes to the existing account store's version so assignments, capabilities and errors remain consistent across controls.
+Player matches, expanded Player sessions and Group match lists include MatchTagEditor directly inside each React MatchCard. It reuses Dropdown, ToggleGroup and TagCreateForm. TagValueForm keeps a numeric draft separate from the saved value; empty input saves Unknown. It preserves text typed during a pending save and retains drafts on failures. Shared tags render read-only values, and pending controls are disabled. `useManualTags` subscribes to the existing account store's version so assignments, capabilities and errors remain consistent across controls.
 
-The legacy lists still rebuild their cards when filter/store changes arrive. A small adapter reuses editor hosts by list scope and match ID so React state survives those rebuilds. Removed cards release their React roots and store subscriptions through a MutationObserver. The lists restore focus after reattaching an editor. Only one match tag editor opens at a time. Converting the lists themselves to React will let us replace this adapter with ordinary keyed components.
+MatchTagEditor is a normal child of MatchCard. Lists use stable match IDs as React keys so form drafts and focus survive data updates. React unmounts editors and subscriptions when cards leave the list. The previous per-card mounting adapter and DOM observer have been removed. Only one match tag editor opens at a time, managed by the small shared store in `frontend/state/match-editor.mjs`.
+
+## Match lists and Session history
+
+`NickStatsMatchList.render` publishes matches and an open callback into a React root for each persistent list container. `renderSessions` publishes grouped history into the same Player list root; `clear` empties it through React rather than replacing managed DOM. MatchCard, MapArtwork and StatPreview are reused for the Match page, Player matches, expanded Sessions and Group matches. Scores, viewer-team order, artwork normalization and accessible labels come from pure helpers in `frontend/state/match-card.mjs`. The legacy match banner shares the same artwork and score helpers.
+
+SessionHistory owns expand/collapse state and renders nested MatchList components. Its header opens the existing routed Session tab; Show/Hide matches expands the group independently. The Player controller still computes session boundaries, filtered summaries, records and pagination, while React owns cards and their interactions. Existing routing, API queries, filter scopes and loading/error messages are preserved.

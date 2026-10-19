@@ -1,4 +1,4 @@
-import './match-tag-editor.jsx';
+import './match-list.jsx';
 import './tag-filter.jsx';
 import './date-filter.jsx';
 import './map-filter.jsx';

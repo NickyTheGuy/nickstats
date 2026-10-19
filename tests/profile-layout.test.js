@@ -25,7 +25,7 @@ test("player match history loads only when its profile tab is opened", () => {
   assert.match(players, /steam_id: steamID,[\s\S]*?fetch\(`\$\{MATCH_ENDPOINT\}\?\$\{parameters\}`/);
   assert.match(players, /profile\.matchHistory = \{ loaded: false/);
   assert.match(players, /location\.hash = `#match\/\$\{encodeURIComponent\(match\.id\)\}`/);
-  assert.match(demo, /window\.NickStatsMatchList = Object\.freeze\(\{ render: renderMatchListInto \}\)/);
+  assert.match(demo, /window\.NickStatsMatchList\.render\(list, matches, onOpen\)/);
 });
 
 test("round state has its own shared player and group profile tab", () => {

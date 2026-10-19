@@ -188,12 +188,12 @@
       return;
     }
     if (history.loading && !history.loaded) {
-      $("playerMatchesList").replaceChildren();
+      matchList.clear($("playerMatchesList"));
       $("playerMatchesPagination").hidden = true;
       status.textContent = "Loading match history…";
       return;
     }
-    matchList.render($("playerMatchesList"), history.matches, openHistoryMatch, { actionsFor: window.NickStatsMatchTagUI.forList("player-matches") });
+    matchList.render($("playerMatchesList"), history.matches, openHistoryMatch, { editableTags: true });
     status.classList.remove("error");
     status.textContent = history.matches.length
       ? `${history.matches.length} match${history.matches.length === 1 ? "" : "es"} shown for ${profile.payload.player?.name || "this player"}.`
@@ -212,7 +212,7 @@
     const offset = Math.max(0, Math.min(profile.manualHistoryOffset || 0, Math.max(0, Math.ceil(rows.length / MATCH_HISTORY_LIMIT) - 1) * MATCH_HISTORY_LIMIT));
     profile.manualHistoryOffset = offset;
     const matches = profileMatchSummaries(profile, rows.slice(offset, offset + MATCH_HISTORY_LIMIT));
-    matchList.render($("playerMatchesList"), matches, openHistoryMatch, { actionsFor: window.NickStatsMatchTagUI.forList("player-matches") });
+    matchList.render($("playerMatchesList"), matches, openHistoryMatch, { editableTags: true });
     const status = $("playerMatchesStatus"); status.classList.remove("error");
     status.textContent = `${rows.length} matching match${rows.length === 1 ? "" : "es"} · ${manualFilter.summary()} · Unknown excluded`;
     $("playerMatchesPagination").hidden = rows.length <= MATCH_HISTORY_LIMIT;
@@ -244,62 +244,20 @@
       Math.max(0, Math.ceil(sessions.length / MATCH_HISTORY_LIMIT) - 1) * MATCH_HISTORY_LIMIT));
     profile.sessionHistoryOffset = offset;
     const page = sessions.slice(offset, offset + MATCH_HISTORY_LIMIT), target = $("playerMatchesList");
-    const focused = target.contains(document.activeElement) ? document.activeElement : null;
-    const openTagID = target.querySelector(".manual-match-menu[open]")?.closest(".manual-match-card")?.dataset.matchId;
     profile.openSessions ||= new Set(page.length ? [page[0].id] : []);
-    target.replaceChildren();
-    const date = timestamp => new Date(timestamp * 1000).toLocaleString(undefined,
-      { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-    for (const session of page) {
-      const details = document.createElement("details"); details.className = "player-match-session";
-      details.open = profile.openSessions.has(session.id);
-      const heading = document.createElement("summary"), title = document.createElement("strong"), record = document.createElement("span");
-      title.textContent = session.start == null ? "Date unknown" : session.start === session.lastStart
-        ? date(session.start) : `${date(session.start)} – ${date(session.lastStart)}`;
-      const wins = session.matches.filter(match => match.result === "w").length;
-      const losses = session.matches.filter(match => match.result === "l").length;
-      const draws = session.matches.filter(match => match.result === "n").length;
-      record.className = "session-record";
-      const count = document.createElement("span"); count.textContent = `${session.matches.length} match${session.matches.length === 1 ? "" : "es"} · `;
-      record.appendChild(count);
-      for (const [value, label, className] of [[wins, "W", "session-win"], [losses, "L", "session-loss"], [draws, "D", "session-draw"]]) {
-        const part = document.createElement("span"); part.className = className; part.textContent = `${value}${label} `; record.appendChild(part);
-      }
+    const rows = page.map(session => {
       const summary = aggregate(session.matches, "ALL", "ALL", "ALL", "ALL", "ALL", false);
-      const preview = document.createElement("span"); preview.className = "match-list-preview session-preview";
-      for (const [label, value] of [["Rating", summary.rating.toFixed(2)],
-        ["K-D-A", `${summary.stats.kills || 0}-${summary.stats.deaths || 0}-${summary.stats.assists || 0}`], ["ADR", summary.adr.toFixed(1)]]) {
-        const item = document.createElement("span"), name = document.createElement("span"), amount = document.createElement("strong");
-        item.className = "match-list-preview-stat"; name.textContent = label; amount.textContent = value;
-        if (label === "Rating") amount.className = `demo-rating ${summary.rating >= 1.10 ? "rating-good" : summary.rating <= .90 ? "rating-bad" : "rating-average"}`;
-        item.append(name, amount); preview.appendChild(item);
-      }
-      heading.append(title, record, preview);
-      heading.addEventListener("click", event => {
-        event.preventDefault();
-        window.NickStatsSessions.open(profile.payload.player.id, session.id, profile.payload);
-      });
-      const expand = document.createElement("button"); expand.type = "button"; expand.className = "session-expand";
-      expand.textContent = "Show matches";
-      expand.setAttribute("aria-expanded", String(details.open));
-      expand.addEventListener("click", event => {
-        event.preventDefault(); event.stopPropagation(); details.open = !details.open;
-      });
-      details.addEventListener("toggle", () => {
-        details.open ? profile.openSessions.add(session.id) : profile.openSessions.delete(session.id);
-        expand.textContent = details.open ? "Hide matches" : "Show matches";
-        expand.setAttribute("aria-expanded", String(details.open));
-      });
-      heading.appendChild(expand);
-      const list = document.createElement("div"); list.className = "match-list";
-      matchList.render(list, profileMatchSummaries(profile, session.matches), openHistoryMatch, { actionsFor: match => {
-        const actions = window.NickStatsMatchTagUI.create(match, `player-session/${session.id}`);
-        if (actions && String(match.id) === openTagID) details.open = true;
-        return actions;
-      } });
-      details.append(heading, list); target.appendChild(details);
-    }
-    if (focused?.isConnected) focused.focus({ preventScroll: true });
+      return { ...session, matches: profileMatchSummaries(profile, session.matches),
+        record: { wins: session.matches.filter(match => match.result === "w").length,
+          losses: session.matches.filter(match => match.result === "l").length,
+          draws: session.matches.filter(match => match.result === "n").length },
+        preview: { rating: summary.rating, adr: summary.adr, kills: summary.stats.kills || 0,
+          deaths: summary.stats.deaths || 0, assists: summary.stats.assists || 0 } };
+    });
+    matchList.renderSessions(target, rows, openHistoryMatch, {
+      scope: `player-sessions/${profile.payload.player.id}`, openSessions: profile.openSessions,
+      onSession: id => window.NickStatsSessions.open(profile.payload.player.id, id, profile.payload)
+    });
     const count = sessions.reduce((sum, session) => sum + session.matches.length, 0);
     const undated = sessions.filter(session => session.start == null).length, dated = sessions.length - undated;
     $("playerMatchesStatus").classList.remove("error");
@@ -318,7 +276,7 @@
     history.loading = true;
     const isCurrent = () => activeProfile() === profile && state.display === "profile" && state.view === "matches";
     if (isCurrent()) {
-      $("playerMatchesList").replaceChildren();
+      matchList.clear($("playerMatchesList"));
       $("playerMatchesPagination").hidden = true;
       $("playerMatchesStatus").textContent = "Loading match history…";
       $("playerMatchesStatus").classList.remove("error");
@@ -350,7 +308,7 @@
       history.offset = Math.max(0, offset);
       history.loaded = false;
       if (isCurrent()) {
-        $("playerMatchesList").replaceChildren();
+        matchList.clear($("playerMatchesList"));
         $("playerMatchesStatus").textContent = `Could not load match history: ${error.message}`;
         $("playerMatchesStatus").classList.add("error");
         $("playerMatchesPagination").hidden = true;

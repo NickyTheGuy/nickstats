@@ -14,14 +14,13 @@ const queries = fs.readFileSync(path.join(root, "backend", "Sources", "NickStats
 const models = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Models.swift"), "utf8");
 const players = fs.readFileSync(path.join(root, "js", "players.js"), "utf8");
 
-test("match previews use the selected player and match side totals", () => {
+test("match previews use the selected player and match side totals", async () => {
   assert.match(queries, /SUM\(s\.rounds_played\)[\s\S]*?SUM\(s\.kast_rounds\)[\s\S]*?WHERE mp\.player_id = /);
   assert.match(queries, /rating: stats\.rating[\s\S]*?adr: stats\.averageDamagePerRound/);
   assert.match(models, /case viewerStats = "viewer_stats"/);
   assert.match(players, /parameters\.set\("viewer_player_id", profilePlayerID\)/);
-  assert.match(demo, /\["Rating", Number\(stats\.rating\)\.toFixed\(2\)\]/);
-  assert.match(demo, /\["K-D-A", `\$\{stats\.kills\}-\$\{stats\.deaths\}-\$\{stats\.assists\}`\]/);
-  assert.match(demo, /\["ADR", Number\(stats\.adr\)\.toFixed\(1\)\]/);
+  const { previewStats } = await import('../frontend/state/match-card.mjs');
+  assert.deepEqual(previewStats({ rating: 1.2, kills: 20, deaths: 10, assists: 5, adr: 81.25 }), [['Rating', '1.20'], ['K-D-A', '20-10-5'], ['ADR', '81.3']]);
 });
 
 test("match list exposes the database-wide earliest played date for every range picker", () => {
@@ -30,18 +29,12 @@ test("match list exposes the database-wide earliest played date for every range 
   assert.match(demo, /NickStatsDateFilterUI\.setEarliest\(payload\.earliest_played_at\)/);
 });
 
-test("selected viewer's team appears first only in matches they played", () => {
-  const start = demo.indexOf("  function accountTeamsFirst(match) {");
-  const end = demo.indexOf("  function renderMatchListInto(", start);
-  assert.ok(start >= 0 && end > start);
-  const context = { state: { accountPlayerSteamID: "123" } };
-  vm.createContext(context);
-  vm.runInContext(`${demo.slice(start, end)}; this.order = accountTeamsFirst;`, context);
-  const match = { teams: [{ name: "First" }, { name: "Mine" }], viewer_team_slot: 1 };
-  assert.equal(context.order(match).map(team => team.name).join(","), "Mine,First");
-  assert.equal(context.order({ ...match, viewer_team_slot: null }).map(team => team.name).join(","), "First,Mine");
-  context.state.accountPlayerSteamID = null;
-  assert.equal(context.order(match).map(team => team.name).join(","), "Mine,First");
+test("selected viewer's team appears first only in matches they played", async () => {
+  const { teamsFor } = await import('../frontend/state/match-card.mjs');
+  const match = { teams: [{ name: 'First' }, { name: 'Mine' }], viewer_team_slot: 1 };
+  assert.deepEqual(teamsFor(match).map(team => team.name), ['Mine', 'First']);
+  assert.deepEqual(teamsFor({ ...match, viewer_team_slot: null }).map(team => team.name), ['First', 'Mine']);
+  assert.deepEqual(match.teams.map(team => team.name), ['First', 'Mine']);
   assert.match(queries, /viewerPlayerID <= 0 \? "NULL AS viewer_team_slot"/);
   assert.match(queries, /vm\.match_id = m\.id AND vm\.player_id =/);
 });
