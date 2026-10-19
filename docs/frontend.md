@@ -1,6 +1,6 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session and the Player/Group quick comparison scoreboards now use React. Map, date, and tag filter dropdowns also use shared React components. Profiles, graphs, match tag editors, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session and the Player/Group quick comparison scoreboards now use React. Map, date, and tag filter dropdowns also use shared React components. Profiles, graphs, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
@@ -12,6 +12,9 @@ The frontend is moving to React a screen at a time. Session and the Player/Group
 | Shared buttons, toggles, option groups | `frontend/components/Button.jsx`, `ToggleButton.jsx`, `ToggleGroup.jsx` |
 | Tab selection and keyboard navigation | `frontend/components/TabList.jsx` |
 | Comparison UI state and actions | `frontend/hooks/useComparison.js`, `frontend/state/comparison.mjs` |
+| Match tag editing and numeric-value drafts | `frontend/tags/MatchTagEditor.jsx`, `frontend/components/TagValueForm.jsx` |
+| Match editor mounting/lifecycle | `frontend/match-tag-editor.jsx` |
+| Shared account tag subscription | `frontend/hooks/useManualTags.js` |
 | Tag filter UI, conditions, creation and sharing | `frontend/filters/TagFilter.jsx`, `frontend/components/TagCondition.jsx`, `TagCreateForm.jsx`, `TagShareMenu.jsx` |
 | Tag selection and account synchronization | `frontend/state/tag-filter.mjs` |
 | Date filter UI and reusable calendars | `frontend/filters/DateRangeFilter.jsx`, `frontend/components/Calendar.jsx` |
@@ -78,4 +81,11 @@ The date calendar retains the existing CSS classes and custom month menu styling
 
 `NickStatsTagFilterUI.create` mounts the Player, Player history and Group controls. The Player controls share one selection store. TagFilter, TagCondition, TagCreateForm and TagShareMenu use the shared Dropdown and Button components. React keeps form drafts and focused fields stable during filtering and pending saves. Selected conditions update the existing calculations synchronously, clear when accounts change, and discard deleted or revoked tags.
 
-`js/manual-filters.js` still owns account-scoped loading, mutations, Boolean upload defaults, numeric matching, and per-match tag editors. The new UI calls those existing store methods. Recipients can select shared tags for filtering but see no sharing or delete controls. Capability flags, disabled/pending actions, server errors and retry behavior are preserved. Network and account-race tests cover the same store used by both renderers; the per-match editor is a subsequent migration step.
+`js/manual-filters.js` still owns account-scoped loading, mutations, Boolean upload defaults, numeric matching, for filters and per-match editors. The new UI calls those existing store methods. Recipients can select shared tags for filtering but see no sharing or delete controls. Capability flags, disabled/pending actions, server errors and retry behavior are preserved. Network and account-race tests cover the same store used by both renderers; both filter dropdowns and per-match editors now use React.
+
+
+## Per-match tag editors
+
+Player matches, expanded Player sessions and Group match lists use `NickStatsMatchTagUI` to mount MatchTagEditor beside each match card. It reuses Dropdown, ToggleGroup and TagCreateForm. TagValueForm keeps a numeric draft separate from the saved value; empty input saves Unknown. It preserves text typed during a pending save and retains drafts on failures. Shared tags render read-only values, and pending controls are disabled. `useManualTags` subscribes to the existing account store's version so assignments, capabilities and errors remain consistent across controls.
+
+The legacy lists still rebuild their cards when filter/store changes arrive. A small adapter reuses editor hosts by list scope and match ID so React state survives those rebuilds. Removed cards release their React roots and store subscriptions through a MutationObserver. The lists restore focus after reattaching an editor. Only one match tag editor opens at a time. Converting the lists themselves to React will let us replace this adapter with ordinary keyed components.

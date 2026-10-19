@@ -3776,3 +3776,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .date-range-month-picker { min-width: 0; max-width: 190px; flex: 1; }
 .date-range-month-picker > .stats-dropdown { width: 100%; max-width: none; }
+
+.manual-match-editor { flex: 0 0 38px; min-width: 0; }
+.manual-match-editor > .manual-match-menu { height: 100%; }

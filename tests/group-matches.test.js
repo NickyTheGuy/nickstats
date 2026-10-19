@@ -15,7 +15,7 @@ function fixture() {
     matchResultMatches: (result, filter) => filter === "ALL" || result === filter,
     selectedView: row => ({ stats: { rounds: row.rounds } }),
     summarize: rows => ({ rating: 1.2, adr: 80, kills: rows[0].kills, deaths: 10, assists: 5 }),
-    window: { NickStatsManualFilters: { matchEditor }, NickStatsMatchList: {
+    window: { NickStatsMatchTagUI: { forList: () => matchEditor }, NickStatsMatchList: {
       render: (target, matches, onOpen, options) => calls.push({ target, matches, onOpen, options })
     } }
   };

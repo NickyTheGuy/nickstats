@@ -18,13 +18,6 @@
       default: return false;
     }
   }
-  const label = value => value[0].toUpperCase() + value.slice(1);
-  const el = (tag, text = null, className = "") => {
-    const node = document.createElement(tag);
-    if (text != null) node.textContent = text;
-    if (className) node.className = className;
-    return node;
-  };
   // IDs, rather than played dates or first observation, define upload order.
   function matchState(filter, matchID, assignments) {
     const explicit = assignments.get(`${filter.id}:${matchID}`);
@@ -117,75 +110,7 @@
 
   const store = new ManualFilterStore();
 
-  function createForm() {
-    const form = el("form", null, "manual-filter-create manual-tag-create");
-    const input = el("input"); input.type = "text"; input.maxLength = 64; input.required = true;
-    input.placeholder = "New tag name"; input.setAttribute("aria-label", "New tag name");
-    const kind = el("select"); kind.setAttribute("aria-label", "Tag type");
-    for (const [value, text] of [["boolean", "True/False"], ["number", "Number"]]) {
-      const option = el("option", text); option.value = value; option.disabled = value === "number" && !store.supportsNumeric; kind.appendChild(option);
-    }
-    const add = el("button", "+ Add", "button button-secondary"); add.type = "submit";
-    add.disabled = !store.ready || store.loading || store.pending.has("create");
-    form.append(input, kind, add);
-    form.addEventListener("submit", async event => {
-      event.preventDefault(); const name = input.value.trim(); if (!name) return;
-      add.disabled = true;
-      if (await store.create(name, kind.value)) input.value = "";
-      else { add.disabled = false; input.focus(); }
-    });
-    return form;
-  }
-
-  function matchEditor(match) {
-    if (!store.account || !store.ready) return null;
-    const details = el("details", null, "manual-match-menu");
-    const summary = el("summary", "⋯"); summary.setAttribute("aria-label", `Tags for match ${match.id}`);
-    details.appendChild(summary);
-    const panel = el("div", null, "map-filter-options manual-match-options");
-    panel.appendChild(el("strong", `Match #${match.id} · Tags`));
-    panel.appendChild(el("p", "Edit your tags here. Shared tags are read-only.", "manual-filter-help"));
-    store.filters.forEach(filter => {
-      const row = el("div", null, "manual-match-state"), name = el("span", displayName(filter));
-      const choices = el("div", null, "side-toggle"); choices.setAttribute("role", "group"); choices.setAttribute("aria-label", filter.name);
-      const current = store.stateFor(filter, match.id);
-      if (!store.canEdit(filter)) {
-        row.append(name, el("span", numeric(current) ? String(current) : label(current), "manual-filter-help"));
-        panel.appendChild(row); return;
-      }
-      if (isNumeric(filter)) {
-        const form = el("form", null, "manual-tag-value"), input = el("input");
-        input.type = "number"; input.step = "any"; input.value = numeric(current) ? current : "";
-        input.placeholder = "Unknown"; input.setAttribute("aria-label", `${filter.name} value`);
-        const save = el("button", "Save", "button button-secondary"); save.type = "submit";
-        save.disabled = store.pending.has(filter.id);
-        form.append(input, save);
-        form.addEventListener("submit", event => {
-          event.preventDefault(); event.stopPropagation();
-          if (!input.checkValidity()) return;
-          store.assign(filter.id, match.id, input.value.trim() === "" ? "unknown" : Number(input.value));
-        });
-        row.append(name, form); panel.appendChild(row); return;
-      }
-      states.forEach(value => {
-        const button = el("button", label(value), current === value ? "active" : ""); button.type = "button";
-        button.setAttribute("aria-pressed", String(current === value)); button.disabled = store.pending.has(filter.id);
-        button.addEventListener("click", event => { event.stopPropagation(); store.assign(filter.id, match.id, value); }); choices.appendChild(button);
-      });
-      row.append(name, choices); panel.appendChild(row);
-    });
-    if (!store.filters.length) panel.appendChild(el("p", "Create a tag to start labeling matches.", "manual-filter-help"));
-    if (store.error) { const error = el("p", store.error, "manual-filter-error"); error.setAttribute("role", "alert"); panel.appendChild(error); }
-    panel.appendChild(createForm()); details.appendChild(panel);
-    details.addEventListener("toggle", () => {
-      if (details.open && details.isConnected) document.querySelectorAll(".manual-match-menu[open]").forEach(other => { if (other !== details) other.open = false; });
-    });
-    return details;
-  }
-  document.addEventListener("click", event => {
-    document.querySelectorAll(".manual-match-menu[open]").forEach(menu => { if (!menu.contains(event.target)) menu.open = false; });
-  });
   window.addEventListener("nickstats:account-session", () => store.setAccount(window.NickStatsAccountSession?.username));
   window.addEventListener("focus", () => store.load());
-  window.NickStatsManualFilters = Object.freeze({ store, ManualFilterStore, matchState, conditionMatches, displayName, matchEditor });
+  window.NickStatsManualFilters = Object.freeze({ store, ManualFilterStore, matchState, conditionMatches, displayName });
 })();

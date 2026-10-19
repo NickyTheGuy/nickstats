@@ -193,7 +193,7 @@
       status.textContent = "Loading match history…";
       return;
     }
-    matchList.render($("playerMatchesList"), history.matches, openHistoryMatch, { actionsFor: window.NickStatsManualFilters.matchEditor });
+    matchList.render($("playerMatchesList"), history.matches, openHistoryMatch, { actionsFor: window.NickStatsMatchTagUI.forList("player-matches") });
     status.classList.remove("error");
     status.textContent = history.matches.length
       ? `${history.matches.length} match${history.matches.length === 1 ? "" : "es"} shown for ${profile.payload.player?.name || "this player"}.`
@@ -212,7 +212,7 @@
     const offset = Math.max(0, Math.min(profile.manualHistoryOffset || 0, Math.max(0, Math.ceil(rows.length / MATCH_HISTORY_LIMIT) - 1) * MATCH_HISTORY_LIMIT));
     profile.manualHistoryOffset = offset;
     const matches = profileMatchSummaries(profile, rows.slice(offset, offset + MATCH_HISTORY_LIMIT));
-    matchList.render($("playerMatchesList"), matches, openHistoryMatch, { actionsFor: window.NickStatsManualFilters.matchEditor });
+    matchList.render($("playerMatchesList"), matches, openHistoryMatch, { actionsFor: window.NickStatsMatchTagUI.forList("player-matches") });
     const status = $("playerMatchesStatus"); status.classList.remove("error");
     status.textContent = `${rows.length} matching match${rows.length === 1 ? "" : "es"} · ${manualFilter.summary()} · Unknown excluded`;
     $("playerMatchesPagination").hidden = rows.length <= MATCH_HISTORY_LIMIT;
@@ -244,6 +244,7 @@
       Math.max(0, Math.ceil(sessions.length / MATCH_HISTORY_LIMIT) - 1) * MATCH_HISTORY_LIMIT));
     profile.sessionHistoryOffset = offset;
     const page = sessions.slice(offset, offset + MATCH_HISTORY_LIMIT), target = $("playerMatchesList");
+    const focused = target.contains(document.activeElement) ? document.activeElement : null;
     const openTagID = target.querySelector(".manual-match-menu[open]")?.closest(".manual-match-card")?.dataset.matchId;
     profile.openSessions ||= new Set(page.length ? [page[0].id] : []);
     target.replaceChildren();
@@ -292,12 +293,13 @@
       heading.appendChild(expand);
       const list = document.createElement("div"); list.className = "match-list";
       matchList.render(list, profileMatchSummaries(profile, session.matches), openHistoryMatch, { actionsFor: match => {
-        const actions = window.NickStatsManualFilters.matchEditor(match);
-        if (actions && String(match.id) === openTagID) { actions.open = true; details.open = true; }
+        const actions = window.NickStatsMatchTagUI.create(match, `player-session/${session.id}`);
+        if (actions && String(match.id) === openTagID) details.open = true;
         return actions;
       } });
       details.append(heading, list); target.appendChild(details);
     }
+    if (focused?.isConnected) focused.focus({ preventScroll: true });
     const count = sessions.reduce((sum, session) => sum + session.matches.length, 0);
     const undated = sessions.filter(session => session.start == null).length, dated = sessions.length - undated;
     $("playerMatchesStatus").classList.remove("error");

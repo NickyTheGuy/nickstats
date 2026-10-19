@@ -1594,7 +1594,7 @@
   }
 
   function renderMatchListInto(list, matches, onOpen, { actionsFor = null } = {}) {
-    const openMenuID = list.querySelector(".manual-match-menu[open]")?.closest(".manual-match-card")?.dataset.matchId;
+    const focused = list.contains(document.activeElement) ? document.activeElement : null;
     list.replaceChildren();
     for (const match of matches) {
       const button = document.createElement("button");
@@ -1667,10 +1667,10 @@
       const actions = actionsFor?.(match);
       if (actions) {
         const card = document.createElement("div"); card.className = "manual-match-card"; card.dataset.matchId = String(match.id);
-        if (String(match.id) === openMenuID) actions.open = true;
         card.append(button, actions); list.appendChild(card);
       } else list.appendChild(button);
     }
+    if (focused?.isConnected) focused.focus({ preventScroll: true });
   }
 
   function renderMatchList(matches) {

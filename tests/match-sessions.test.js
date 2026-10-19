@@ -42,9 +42,10 @@ test("session history paginates whole sessions and keeps match opening and tags"
     setAttribute() {}
     addEventListener(type, listener) { this.listeners[type] = listener; }
     querySelector() { return null; }
+    contains() { return false; }
   }
   const nodes = new Map(), calls = [], openedSessions = [];
-  const sandbox = { window: { NickStatsSessions: { open: (...args) => openedSessions.push(args) }, NickStatsMatchSessions: context.window.NickStatsMatchSessions, NickStatsManualFilters: { matchEditor: () => ({ open: false }) } },
+  const sandbox = { window: { NickStatsSessions: { open: (...args) => openedSessions.push(args) }, NickStatsMatchSessions: context.window.NickStatsMatchSessions, NickStatsMatchTagUI: { create: () => ({ tagEditor: true }) } },
     document: { createElement: () => new Node() }, MATCH_HISTORY_LIMIT: 25,
     $: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); },
     manualFilter: { active: false, matches: () => true }, dateFilter: { matches: () => true },
@@ -73,7 +74,7 @@ test("session history paginates whole sessions and keeps match opening and tags"
   assert.equal(openedSessions[0][1], "long-0");
   assert.equal(openedSessions[0][2], profile.payload);
   assert.equal(calls[0].onOpen, sandbox.openHistoryMatch);
-  assert.equal(calls[0].options.actionsFor(calls[0].matches[0]).open, false);
+  assert.equal(calls[0].options.actionsFor(calls[0].matches[0]).tagEditor, true);
   assert.equal(nodes.get("playerMatchesNext").disabled, true);
   assert.equal(nodes.get("playerMatchesPageLabel").textContent, "Sessions 26–26 of 26");
   assert.equal(nodes.get("playerMatchesStatus").textContent, "26 sessions · 55 matches");
