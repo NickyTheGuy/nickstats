@@ -1,7 +1,6 @@
 (() => {
   "use strict";
 
-  const PLAYER_ENDPOINT = "/nickstats/api/players";
   const GROUP_DATA_ENDPOINT = "/nickstats/api/groups";
   const MAX_GROUP = 10;
   const MATCH_LIST_LIMIT = 50;
@@ -30,7 +29,7 @@
   const state = {
     selected: new Map(savedRoster.map(({ player }) => [String(player.id), player])), players: [],
     choices: new Map(savedRoster.map(({ player, choice }) => [String(player.id), choice])),
-    searchController: null, groupController: null, groupStale: false, searchTimer: null,
+    groupController: null, groupStale: false,
     side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL",
     comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile", graphPlayers: null, matchListKey: "", matchListOffset: 0
   };
@@ -58,10 +57,7 @@
     $("groupStatus").classList.toggle("error", error);
   }
 
-  function setSearchStatus(message, error = false) {
-    $("groupSearchStatus").textContent = message;
-    $("groupSearchStatus").classList.toggle("error", error);
-  }
+  function setSearchStatus(message, error = false) { playerSearch.status(message, error); }
 
   function persistRoster() {
     const rows = [...state.selected.values()].map(player => ({
@@ -193,40 +189,6 @@
   }
 
 
-  function renderSearchResults(players) {
-    const results = $("groupSearchResults");
-    results.replaceChildren();
-    for (const player of players.filter(candidate => !state.selected.has(String(candidate.id)))) {
-      const button = el("button", null, "group-search-result");
-      button.type = "button";
-      const identity = el("span", null, "group-result-identity");
-      identity.append(el("strong", player.name), el("small", `${player.match_count} matches · ${player.steam_id}`));
-      button.append(identity, el("span", "+ Add", "group-result-add"));
-      button.addEventListener("click", () => addPlayer(player));
-      results.appendChild(button);
-    }
-  }
-
-  async function searchPlayers() {
-    const query = $("groupSearchInput").value.trim();
-    if (!query) return;
-    state.searchController?.abort();
-    state.searchController = new AbortController();
-    setSearchStatus("Searching players…");
-    try {
-      const parameters = new URLSearchParams({ q: query, limit: "20", offset: "0" });
-      const payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}?${parameters}`, {
-        headers: { Accept: "application/json" }, signal: state.searchController.signal
-      }));
-      const players = Array.isArray(payload.players) ? payload.players : [];
-      renderSearchResults(players);
-      setSearchStatus(players.length ? `${players.length} player${players.length === 1 ? "" : "s"} found.` : "No players matched that search.");
-    } catch (error) {
-      if (error.name === "AbortError") return;
-      setSearchStatus(`Could not search players: ${error.message}`, true);
-    }
-  }
-
   function addPlayer(player) {
     if (state.selected.size >= MAX_GROUP) {
       setSearchStatus(`A group is limited to ${MAX_GROUP} players.`, true);
@@ -237,9 +199,7 @@
       const included = [...state.choices.values()].filter(choice => choice === "include").length;
       state.choices.set(String(player.id), included < MAX_INCLUDED ? "include" : "exclude");
     }
-    $("groupSearchInput").value = "";
-    $("groupSearchResults").replaceChildren();
-    setSearchStatus("Search for another player, or build the current selection.");
+    playerSearch.reset("Search for another player, or build the current selection.");
     persistRoster();
     invalidateGroupResults();
     renderSelectedRoster();
@@ -566,7 +526,6 @@
 
   function clear() {
     dateFilter.reset();
-    state.searchController?.abort();
     state.groupController?.abort();
     state.selected.clear();
     state.choices.clear();
@@ -585,19 +544,12 @@
     quickComparison.reset();
     comboResultFilter.set("ALL", { notify: false });
     invalidateGroupResults();
-    $("groupSearchInput").value = "";
-    $("groupSearchResults").replaceChildren();
-    setSearchStatus("Search and add at least two players.");
+    playerSearch.reset();
     renderSelectedRoster();
   }
 
-  $("groupSearchForm").addEventListener("submit", event => { event.preventDefault(); clearTimeout(state.searchTimer); searchPlayers(); });
-  $("groupSearchInput").addEventListener("input", event => {
-    clearTimeout(state.searchTimer);
-    const query = event.target.value.trim();
-    if (!query) { $("groupSearchResults").replaceChildren(); return; }
-    if (query.length >= 2) state.searchTimer = setTimeout(searchPlayers, 250);
-  });
+  const playerSearch = window.NickStatsPlayerSearchUI.create({ prefix: "group", limit: 20, onSelect: addPlayer,
+    excluded: id => state.selected.has(id), initialMessage: "Search and add at least two players." });
   $("comboMatchesPrevious").addEventListener("click", () => { state.matchListOffset -= MATCH_LIST_LIMIT; runCombination(); });
   $("comboMatchesNext").addEventListener("click", () => { state.matchListOffset += MATCH_LIST_LIMIT; runCombination(); });
   $("groupBuildButton").addEventListener("click", () => buildGroup());

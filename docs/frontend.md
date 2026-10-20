@@ -1,12 +1,15 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters also use shared React components. Profiles, graphs, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches also use shared React components. Profiles, graphs, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
 | What you want to change | File |
 | --- | --- |
 | Session title, loading/error messages, page layout | `frontend/pages/SessionPage.jsx` |
+| Player/Group search layout and result buttons | `frontend/search/PlayerSearch.jsx`, `PlayerSearchResult.jsx` |
+| Shared search form and player identity | `frontend/components/SearchForm.jsx`, `PlayerIdentity.jsx` |
+| Search requests, debounce and cancellation | `frontend/state/player-search.mjs` |
 | Player/Group comparison headings | `frontend/pages/ComparisonPage.jsx` |
 | Shared map tabs and empty states | `frontend/components/ComparisonBody.jsx` |
 | Segmented filters and shared choices | `frontend/filters/SegmentedFilter.jsx`, `frontend/state/segmented-config.mjs` |
@@ -109,3 +112,9 @@ SessionHistory owns expand/collapse state and renders nested MatchList component
 The store exposes a synchronous `value`, `set(value, { notify })`, and `setDisabled(values)`. User actions go through `choose`, which ignores disabled choices; programmatic synchronization can use silent `set` to avoid feedback callbacks. Reset handlers preserve the existing stat/filter state and publish their defaults to React. The Group With condition is disabled when the roster cannot support a comparison and falls back to Without. Group Clear also synchronizes its reset enemy-buy and round-result controls.
 
 The legacy bindSegmentedToggle/bindSideToggle DOM handlers have been removed. Page controllers still own the statistical filtering calculations, while React owns rendering, selected styling, disabled buttons, and interactions. The lightweight placeholder uses display: contents so existing flex/grid toolbar layouts remain unchanged.
+
+## Player searches
+
+`NickStatsPlayerSearchUI.create({ prefix, onSelect, excluded, initialMessage, limit })` mounts PlayerSearch for the Player or Group page. Both use SearchForm, PlayerSearchResult, PlayerIdentity and the shared Button. The controller still opens profiles or updates the Group roster; it can reset the search or report a roster limit through the returned adapter. Group results omit players already selected.
+
+React subscribes to an independent search store for each page. Typing debounces queries by 250 ms after two characters; submitting also supports a single-character query. Every edit, reset or new request aborts the old request and invalidates its generation, so a late response cannot restore stale results. Empty searches reset the list, loading clears old choices, and failures can be retried with the same query. Search input, status messages and result buttons are owned by React; controllers must not modify those DOM nodes.

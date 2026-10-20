@@ -21,7 +21,7 @@
 
   const state = {
     profiles: new Map(), activeId: null, graphPlayers: new Set(), recent: readRecent(),
-    display: "profile", view: "overview", historyView: "matches", searchController: null, profileQueue: [], pendingProfiles: new Set(), profileLoading: false, requestedProfileId: null, refreshController: null, profilesStale: false, searchTimer: null,
+    display: "profile", view: "overview", historyView: "matches", profileQueue: [], pendingProfiles: new Set(), profileLoading: false, requestedProfileId: null, refreshController: null, profilesStale: false,
     side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL", maps: []
   };
   const activeProfile = () => state.profiles.get(state.activeId) || null;
@@ -77,10 +77,6 @@
     delete payload.stat_keys;
     return payload;
   }
-  function setSearchStatus(message, error = false) {
-    $("playerSearchStatus").textContent = message;
-    $("playerSearchStatus").classList.toggle("error", error);
-  }
   function setPlayerView(view) {
     state.view = view;
     document.querySelectorAll("[data-player-view]").forEach(button => {
@@ -135,33 +131,6 @@
       const steam = document.createElement("span"); steam.textContent = player.steam_id || "Open profile";
       button.append(name, steam); button.addEventListener("click", () => loadProfile(player.id, { scroll: false })); list.appendChild(button);
     });
-  }
-
-  function renderSearchResults(players) {
-    const results = $("playerSearchResults"); results.replaceChildren();
-    for (const player of players) {
-      const button = document.createElement("button"); button.type = "button"; button.className = "player-search-result";
-      const identity = document.createElement("span"); identity.className = "player-result-identity";
-      const name = document.createElement("strong"); name.textContent = player.name || "Unknown player";
-      const steam = document.createElement("span"); steam.textContent = player.steam_id || "No Steam ID"; identity.append(name, steam);
-      const count = document.createElement("span"); count.className = "player-result-count";
-      count.textContent = `${integer(player.match_count)} match${number(player.match_count) === 1 ? "" : "es"}`;
-      const open = document.createElement("span"); open.className = "player-result-open"; open.textContent = "Open profile →";
-      button.append(identity, count, open); button.addEventListener("click", () => loadProfile(player.id)); results.appendChild(button);
-    }
-  }
-  async function searchPlayers() {
-    const query = $("playerSearchInput").value.trim(); state.searchController?.abort();
-    state.searchController = new AbortController(); setSearchStatus("Searching players…");
-    try {
-      const parameters = new URLSearchParams({ q: query, limit: "25", offset: "0" });
-      const payload = await apiJson(await fetch(`${PLAYER_ENDPOINT}?${parameters}`, { headers: { Accept: "application/json" }, signal: state.searchController.signal }));
-      const players = Array.isArray(payload.players) ? payload.players : []; renderSearchResults(players);
-      setSearchStatus(players.length ? `${players.length} player${players.length === 1 ? "" : "s"} found.` : "No players matched that search.");
-    } catch (error) {
-      if (error.name === "AbortError") return;
-      $("playerSearchResults").replaceChildren(); setSearchStatus(`Could not search players: ${error.message}`, true);
-    }
   }
 
   function matchHistory(profile) {
@@ -659,12 +628,8 @@
     if (event.detail?.page === "players") refreshOpenProfiles();
   });
 
-  $("playerSearchForm").addEventListener("submit", event => { event.preventDefault(); clearTimeout(state.searchTimer); searchPlayers(); });
-  $("playerSearchInput").addEventListener("input", event => {
-    clearTimeout(state.searchTimer); const query = event.target.value.trim();
-    if (!query) { state.searchController?.abort(); $("playerSearchResults").replaceChildren(); setSearchStatus("Search for a player to open their profile."); return; }
-    if (query.length >= 2) state.searchTimer = setTimeout(searchPlayers, 250);
-  });
+  window.NickStatsPlayerSearchUI.create({ prefix: "player", onSelect: player => loadProfile(player.id),
+    initialMessage: "Search for a player to open their profile." });
   $("playerRecentClear").addEventListener("click", () => { state.recent = []; try { localStorage.removeItem(RECENT_KEY); } catch (_) {} renderRecent(); });
   document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
   window.NickStatsSegmentedUI.create("playerHistoryViewFilter", { onChange: view => {

@@ -3781,3 +3781,5 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .manual-match-editor > .manual-match-menu { height: 100%; }
 
 .react-segmented-filter { display: contents; }
+
+.react-player-search { display: contents; }
