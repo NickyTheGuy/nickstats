@@ -667,8 +667,7 @@
   });
   $("playerRecentClear").addEventListener("click", () => { state.recent = []; try { localStorage.removeItem(RECENT_KEY); } catch (_) {} renderRecent(); });
   document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
-  window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-history-view]", initial: "matches",
-    valueFor: button => button.dataset.playerHistoryView, onChange: view => {
+  window.NickStatsSegmentedUI.create("playerHistoryViewFilter", { onChange: view => {
       state.historyView = view; $("playerSessionsHelp").hidden = view !== "sessions"; renderPlayerMatches();
     } });
   $("playerMatchesPrevious").addEventListener("click", () => {
@@ -695,12 +694,12 @@
     if (state.view === "matches" && state.display === "profile" && activeProfile()) renderPlayerMatches();
   });
   const playerFilterToggles = [
-    window.NickStatsFilters.bindSideToggle({ selector: "[data-player-side]", valueFor: button => button.dataset.playerSide, onChange: side => { state.side = side; if (activeProfile()) renderCurrentDisplay(); } }),
-    window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-buy]", valueFor: button => button.dataset.playerBuy, onChange: buy => { state.buy = buy; state.heroOnly = buy === "hero"; if (activeProfile()) renderCurrentDisplay(); } }),
-    window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-enemy-buy]", valueFor: button => button.dataset.playerEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; if (activeProfile()) renderCurrentDisplay(); } }),
-    window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-round-result]", valueFor: button => button.dataset.playerRoundResult, onChange: roundResult => { state.roundResult = roundResult; if (activeProfile()) renderCurrentDisplay(); } }),
-    window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-round-phase]", valueFor: button => button.dataset.playerRoundPhase, onChange: phase => { state.roundPhase = phase; if (activeProfile()) renderCurrentDisplay(); } }),
-    window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-player-result]", valueFor: button => button.dataset.playerResult, onChange: result => { state.result = result; if (activeProfile()) renderCurrentDisplay(); } }),
+    window.NickStatsSegmentedUI.create("playerSideFilter", { onChange: side => { state.side = side; if (activeProfile()) renderCurrentDisplay(); } }),
+    window.NickStatsSegmentedUI.create("playerBuyFilter", { onChange: buy => { state.buy = buy; state.heroOnly = buy === "hero"; if (activeProfile()) renderCurrentDisplay(); } }),
+    window.NickStatsSegmentedUI.create("playerEnemyBuyFilter", { onChange: opponentBuy => { state.opponentBuy = opponentBuy; if (activeProfile()) renderCurrentDisplay(); } }),
+    window.NickStatsSegmentedUI.create("playerRoundResultFilter", { onChange: roundResult => { state.roundResult = roundResult; if (activeProfile()) renderCurrentDisplay(); } }),
+    window.NickStatsSegmentedUI.create("playerRoundPhaseFilter", { onChange: phase => { state.roundPhase = phase; if (activeProfile()) renderCurrentDisplay(); } }),
+    window.NickStatsSegmentedUI.create("playerResultFilter", { onChange: result => { state.result = result; if (activeProfile()) renderCurrentDisplay(); } }),
   ];
   function resetPlayerFilters() {
     window.NickStatsFilters.resetProfileFilters({ state, mapFilter, dateFilter, tagFilter: manualFilter, toggles: playerFilterToggles, onReset: () => {

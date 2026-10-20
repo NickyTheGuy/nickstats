@@ -3313,11 +3313,11 @@
   });
   $("demoLogoutButton").addEventListener("click", logOut);
   $("demoAccountCloseButton").addEventListener("click", () => $("demoAccountDialog").close());
-  demoSideControl = window.NickStatsFilters.bindSideToggle({ selector: "[data-demo-side]", valueFor: button => button.dataset.demoSide, onChange: side => setSideFilter(side) });
-  demoBuyControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-buy]", valueFor: button => button.dataset.demoBuy, onChange: buy => setBuyFilter(buy) });
-  demoEnemyBuyControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-enemy-buy]", valueFor: button => button.dataset.demoEnemyBuy, onChange: buy => setEnemyBuyFilter(buy) });
-  demoRoundResultControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-result]", valueFor: button => button.dataset.demoRoundResult, onChange: result => setRoundResultFilter(result) });
-  demoRoundPhaseControl = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-demo-round-phase]", valueFor: button => button.dataset.demoRoundPhase, onChange: phase => setRoundPhaseFilter(phase) });
+  demoSideControl = window.NickStatsSegmentedUI.create("demoSideFilter", { onChange: side => setSideFilter(side) });
+  demoBuyControl = window.NickStatsSegmentedUI.create("demoBuyFilter", { onChange: buy => setBuyFilter(buy) });
+  demoEnemyBuyControl = window.NickStatsSegmentedUI.create("demoEnemyBuyFilter", { onChange: buy => setEnemyBuyFilter(buy) });
+  demoRoundResultControl = window.NickStatsSegmentedUI.create("demoRoundResultFilter", { onChange: result => setRoundResultFilter(result) });
+  demoRoundPhaseControl = window.NickStatsSegmentedUI.create("demoRoundPhaseFilter", { onChange: phase => setRoundPhaseFilter(phase) });
   $("demoResetFilters").addEventListener("click", () => {
     for (const set of [setSideFilter, setBuyFilter, setEnemyBuyFilter, setRoundResultFilter, setRoundPhaseFilter]) set("ALL", false);
     if (state.result) render(state.result);

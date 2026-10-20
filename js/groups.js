@@ -443,7 +443,7 @@
   }
 
   const { integer, decimal, percent, ratio, titleCase } = window.NickStatsProfile;
-  const { bindSegmentedToggle, matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
+  const { matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
   const mapFilter = window.NickStatsMapFilterUI.create("groupMapFilter", { onChange: () => runCombination(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
   const dateFilter = window.NickStatsDateFilterUI.create("groupDateFilter", { onChange: () => runCombination() });
   const quickComparison = window.NickStatsComparisonUI.create({ prefix: "combo", title: "Group scoreboard",
@@ -479,11 +479,8 @@
     if (!current.included.some(player => player.profileId === state.comboPlayerId)) state.comboPlayerId = current.included[0].profileId;
     const canCompare = current.excluded.length > 0 && current.comparisonPossible;
     if (state.comboCondition === "with" && !canCompare) state.comboCondition = "without";
-    document.querySelectorAll("[data-combo-condition]").forEach(button => {
-      const active = button.dataset.comboCondition === state.comboCondition;
-      button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
-      button.disabled = button.dataset.comboCondition === "with" && !canCompare;
-    });
+    comboConditionFilter.set(state.comboCondition, { notify: false });
+    comboConditionFilter.setDisabled(canCompare ? [] : ["with"]);
 
     const profileTabs = $("comboProfilePlayers"); profileTabs.replaceChildren();
     const quickActive = state.comboDisplay === "quick";
@@ -579,7 +576,9 @@
     state.heroOnly = false;
     groupBuyFilter.set("ALL", { notify: false });
     state.opponentBuy = "ALL";
+    groupEnemyBuyFilter.set("ALL", { notify: false });
     state.roundResult = "ALL";
+    groupRoundResultFilter.set("ALL", { notify: false });
     state.roundPhase = "ALL";
     groupRoundPhaseFilter.set("ALL", { notify: false });
     state.comboDisplay = "profile"; state.graphPlayers = null;
@@ -604,16 +603,15 @@
   $("groupBuildButton").addEventListener("click", () => buildGroup());
   $("groupClearButton").addEventListener("click", clear);
   document.querySelectorAll("[data-combo-profile-view]").forEach(button => button.addEventListener("click", () => setComboProfileView(button.dataset.comboProfileView)));
-  const comboResultFilter = bindSegmentedToggle({ selector: "[data-combo-result]", valueFor: button => button.dataset.comboResult, onChange: result => { state.result = result; runCombination(); } });
-  document.querySelectorAll("[data-combo-condition]").forEach(button => button.addEventListener("click", () => {
-    if (button.disabled) return;
-    state.comboCondition = button.dataset.comboCondition; runCombination();
-  }));
-  const groupSideFilter = window.NickStatsFilters.bindSideToggle({ selector: "[data-group-side]", valueFor: button => button.dataset.groupSide, onChange: side => { state.side = side; runCombination(); } });
-  const groupBuyFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-buy]", valueFor: button => button.dataset.groupBuy, onChange: buy => { state.buy = buy; state.heroOnly = buy === "hero"; runCombination(); } });
-  const groupEnemyBuyFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-enemy-buy]", valueFor: button => button.dataset.groupEnemyBuy, onChange: opponentBuy => { state.opponentBuy = opponentBuy; runCombination(); } });
-  const groupRoundResultFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-round-result]", valueFor: button => button.dataset.groupRoundResult, onChange: roundResult => { state.roundResult = roundResult; runCombination(); } });
-  const groupRoundPhaseFilter = window.NickStatsFilters.bindSegmentedToggle({ selector: "[data-group-round-phase]", valueFor: button => button.dataset.groupRoundPhase, onChange: phase => { state.roundPhase = phase; runCombination(); } });
+  const comboResultFilter = window.NickStatsSegmentedUI.create("comboResultFilter", { onChange: result => { state.result = result; runCombination(); } });
+  const comboConditionFilter = window.NickStatsSegmentedUI.create("comboConditionFilter", {
+    onChange: value => { state.comboCondition = value; runCombination(); }
+  });
+  const groupSideFilter = window.NickStatsSegmentedUI.create("groupSideFilter", { onChange: side => { state.side = side; runCombination(); } });
+  const groupBuyFilter = window.NickStatsSegmentedUI.create("groupBuyFilter", { onChange: buy => { state.buy = buy; state.heroOnly = buy === "hero"; runCombination(); } });
+  const groupEnemyBuyFilter = window.NickStatsSegmentedUI.create("groupEnemyBuyFilter", { onChange: opponentBuy => { state.opponentBuy = opponentBuy; runCombination(); } });
+  const groupRoundResultFilter = window.NickStatsSegmentedUI.create("groupRoundResultFilter", { onChange: roundResult => { state.roundResult = roundResult; runCombination(); } });
+  const groupRoundPhaseFilter = window.NickStatsSegmentedUI.create("groupRoundPhaseFilter", { onChange: phase => { state.roundPhase = phase; runCombination(); } });
   $("groupResetFilters").addEventListener("click", () => {
     window.NickStatsFilters.resetProfileFilters({ state, mapFilter, dateFilter, tagFilter: manualFilter,
       toggles: [groupSideFilter, groupBuyFilter, groupEnemyBuyFilter, groupRoundResultFilter, groupRoundPhaseFilter, comboResultFilter],

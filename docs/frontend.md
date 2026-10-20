@@ -1,6 +1,6 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, and tag filter dropdowns also use shared React components. Profiles, graphs, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters also use shared React components. Profiles, graphs, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
@@ -9,6 +9,8 @@ The frontend is moving to React a screen at a time. Session, match lists/cards, 
 | Session title, loading/error messages, page layout | `frontend/pages/SessionPage.jsx` |
 | Player/Group comparison headings | `frontend/pages/ComparisonPage.jsx` |
 | Shared map tabs and empty states | `frontend/components/ComparisonBody.jsx` |
+| Segmented filters and shared choices | `frontend/filters/SegmentedFilter.jsx`, `frontend/state/segmented-config.mjs` |
+| Segmented selection and disabled state | `frontend/state/segmented-filter.mjs` |
 | Shared buttons, toggles, option groups | `frontend/components/Button.jsx`, `ToggleButton.jsx`, `ToggleGroup.jsx` |
 | Tab selection and keyboard navigation | `frontend/components/TabList.jsx` |
 | Comparison UI state and actions | `frontend/hooks/useComparison.js`, `frontend/state/comparison.mjs` |
@@ -98,3 +100,12 @@ MatchTagEditor is a normal child of MatchCard. Lists use stable match IDs as Rea
 `NickStatsMatchList.render` publishes matches and an open callback into a React root for each persistent list container. `renderSessions` publishes grouped history into the same Player list root; `clear` empties it through React rather than replacing managed DOM. MatchCard, MapArtwork and StatPreview are reused for the Match page, Player matches, expanded Sessions and Group matches. Scores, viewer-team order, artwork normalization and accessible labels come from pure helpers in `frontend/state/match-card.mjs`. The legacy match banner shares the same artwork and score helpers.
 
 SessionHistory owns expand/collapse state and renders nested MatchList components. Its header opens the existing routed Session tab; Show/Hide matches expands the group independently. The Player controller still computes session boundaries, filtered summaries, records and pagination, while React owns cards and their interactions. Existing routing, API queries, filter scopes and loading/error messages are preserved.
+
+
+## Segmented filters
+
+`NickStatsSegmentedUI.create(target, { onChange })` mounts the shared SegmentedFilter/ToggleGroup at a named placeholder. `segmented-config.mjs` defines the labels, reusable choice lists, data attributes, and styles for 19 controls: side, own/enemy buy, round result, round phase, match result, lineup condition, and Player history mode. Hero descriptions and the Match page's uppercase labels remain in that configuration rather than duplicated button markup.
+
+The store exposes a synchronous `value`, `set(value, { notify })`, and `setDisabled(values)`. User actions go through `choose`, which ignores disabled choices; programmatic synchronization can use silent `set` to avoid feedback callbacks. Reset handlers preserve the existing stat/filter state and publish their defaults to React. The Group With condition is disabled when the roster cannot support a comparison and falls back to Without. Group Clear also synchronizes its reset enemy-buy and round-result controls.
+
+The legacy bindSegmentedToggle/bindSideToggle DOM handlers have been removed. Page controllers still own the statistical filtering calculations, while React owns rendering, selected styling, disabled buttons, and interactions. The lightweight placeholder uses display: contents so existing flex/grid toolbar layouts remain unchanged.

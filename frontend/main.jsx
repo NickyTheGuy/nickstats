@@ -1,3 +1,4 @@
+import './segmented-filter.jsx';
 import './match-list.jsx';
 import './tag-filter.jsx';
 import './date-filter.jsx';

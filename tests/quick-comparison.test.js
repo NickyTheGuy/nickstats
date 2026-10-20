@@ -178,7 +178,7 @@ test("player and group quick-comparison switches sit above shared filters", () =
 
 test("player, group, and match views share a two-row economy matchup control", () => {
   for (const attribute of ["data-player-buy", "data-player-enemy-buy", "data-group-buy", "data-group-enemy-buy", "data-demo-buy", "data-demo-enemy-buy"]) {
-    assert.match(html, new RegExp(attribute));
+    assert.match(fs.readFileSync(path.join(__dirname, "../frontend/state/segmented-config.mjs"), "utf8"), new RegExp(attribute));
   }
   assert.match(html, /economy-matchup-title">Economy matchup/);
   assert.match(html, />Your buy</);

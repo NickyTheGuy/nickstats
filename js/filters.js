@@ -1,22 +1,6 @@
 (() => {
   "use strict";
 
-  function bindSegmentedToggle({ selector, valueFor, initial = "ALL", onChange = () => {} }) {
-    const buttons = [...document.querySelectorAll(selector)];
-    let value = initial;
-    const set = (next, { notify = true } = {}) => {
-      value = next;
-      buttons.forEach(button => {
-        const active = valueFor(button) === value;
-        button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
-      });
-      if (notify) onChange(value);
-    };
-    buttons.forEach(button => button.addEventListener("click", () => set(valueFor(button))));
-    set(initial, { notify: false });
-    return { get value() { return value; }, set };
-  }
-
   function resetProfileFilters({ state, mapFilter, dateFilter, tagFilter, toggles, onReset = () => {} }) {
     Object.assign(state, { side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL", maps: [] });
     if (Object.hasOwn(state, "comboCondition")) state.comboCondition = "without";
@@ -58,8 +42,6 @@
 
   window.NickStatsFilters = Object.freeze({
     resetProfileFilters,
-    bindSegmentedToggle,
-    bindSideToggle: bindSegmentedToggle,
     matchResultMatches,
     resultFilterLabel,
     scoreBreakdown
