@@ -11,22 +11,23 @@ const section = (start, end) => source.slice(source.indexOf(start), source.index
 
 test("recent chips keep their positions while visits update the saved recency", () => {
   const state = { recent: ["1", "2", "3"].map(id => ({ id, name: id })) };
-  let stored = state.recent.slice(), renders = 0;
+  let stored = state.recent.slice();
   const context = {
     state, MAX_RECENT: 10, RECENT_KEY: "recent",
     readRecent: () => stored,
-    renderRecent: () => { renders += 1; },
+    renderRecent() {},
     localStorage: { setItem: (_key, value) => { stored = JSON.parse(value); } }
   };
   vm.runInNewContext(`${section("  function rememberPlayer(", "  function renderRecent(")} globalThis.rememberPlayer = rememberPlayer;`, context);
   context.rememberPlayer({ id: "3", name: "Third" });
   context.rememberPlayer({ id: "2", name: "Second" });
   assert.deepEqual(state.recent.map(item => item.id), ["1", "2", "3"]);
-  assert.equal(renders, 0);
+  assert.equal(state.recent[1].name, "Second");
+  assert.equal(state.recent[2].name, "Third");
   assert.deepEqual(stored.map(item => item.id), ["2", "3", "1"]);
   context.rememberPlayer({ id: "4", name: "Fourth" });
   assert.deepEqual(Array.from(state.recent, item => item.id), ["1", "2", "3", "4"]);
-  assert.equal(renders, 1);
+  assert.equal(state.recent[3].name, "Fourth");
 });
 
 test("rapid selections load every distinct profile in click order and activate the last choice", async () => {

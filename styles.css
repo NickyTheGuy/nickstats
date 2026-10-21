@@ -3783,3 +3783,5 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .react-segmented-filter { display: contents; }
 
 .react-player-search { display: contents; }
+
+.react-player-choices { display: contents; }

@@ -235,31 +235,10 @@
   }
 
   function renderSelectedRoster() {
-    const roster = $("groupSelectedRoster");
-    roster.replaceChildren();
-    for (const player of state.selected.values()) {
-      const choice = state.choices.get(String(player.id)) || "include";
-      const chip = el("div", null, `group-selected-player is-${choice}`);
-      const identity = el("span", null);
-      identity.append(el("strong", player.name), el("small", `${player.match_count} matches`));
-      const remove = el("button", "×", "group-player-remove");
-      remove.type = "button";
-      remove.setAttribute("aria-label", `Remove ${player.name}`);
-      remove.title = `Remove ${player.name}`;
-      remove.addEventListener("click", () => removePlayer(player.id));
-      chip.append(remove, identity);
-      const roles = el("div", null, "group-roster-role");
-      roles.setAttribute("role", "group"); roles.setAttribute("aria-label", `Include or exclude ${player.name}`);
-      [["include", "Include"], ["exclude", "Exclude"]].forEach(([value, label]) => {
-        const button = el("button", label); button.type = "button";
-        button.dataset.choice = value;
-        const active = choice === value;
-        button.classList.toggle("active", active); button.setAttribute("aria-pressed", String(active));
-        button.addEventListener("click", () => setRosterChoice(player.id, value)); roles.appendChild(button);
-      });
-      chip.appendChild(roles);
-      roster.appendChild(chip);
-    }
+    window.NickStatsPlayerSelectionUI.roster($("groupSelectedRoster"), {
+      players: [...state.selected.values()].map(player => ({ player, choice: state.choices.get(String(player.id)) || "include" })),
+      onChoice: setRosterChoice, onRemove: removePlayer
+    });
     const count = state.selected.size;
     const included = [...state.choices.entries()].filter(([id, choice]) => state.selected.has(id) && choice === "include").length;
     $("groupBuildButton").disabled = count < 2 || included === 0;
@@ -486,17 +465,16 @@
     if (!current) return;
     const idFor = player => String(player.profileId);
     if (state.graphPlayers == null) state.graphPlayers = new Set(current.included.slice(0, 5).map(idFor));
-    const choices = $("comboGraphPlayers"); choices.replaceChildren();
     const selectedCount = current.included.filter(player => state.graphPlayers.has(idFor(player))).length;
-    current.included.forEach(player => {
-      const label = el("label", null, "graph-player-choice"), check = el("input");
-      check.type = "checkbox"; check.checked = state.graphPlayers.has(idFor(player));
-      check.disabled = !check.checked && selectedCount >= 5;
-      check.addEventListener("change", () => {
-        check.checked ? state.graphPlayers.add(idFor(player)) : state.graphPlayers.delete(idFor(player));
+    window.NickStatsPlayerSelectionUI.graphs($("comboGraphPlayers"), {
+      players: current.included.map(player => ({ id: idFor(player), name: player.label })),
+      selected: current.included.filter(player => state.graphPlayers.has(idFor(player))).map(idFor),
+      descriptionId: "comboGraphPlayerStatus",
+      onChange: (id, checked) => {
+        if (checked && selectedCount >= 5) return;
+        checked ? state.graphPlayers.add(id) : state.graphPlayers.delete(id);
         renderComboGraphs(current);
-      });
-      label.append(check, el("span", player.label)); choices.appendChild(label);
+      }
     });
     $("comboGraphPlayerStatus").textContent = `${selectedCount} of ${current.included.length} players selected`;
     const series = current.included.map((candidate, colorIndex) => {

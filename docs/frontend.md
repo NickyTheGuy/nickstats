@@ -1,12 +1,14 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches also use shared React components. Profiles, graphs, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Profiles, graphs, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
 | What you want to change | File |
 | --- | --- |
 | Session title, loading/error messages, page layout | `frontend/pages/SessionPage.jsx` |
+| Group roster, recent players and graph selection | `frontend/players/PlayerRoster.jsx`, `RecentPlayers.jsx`, `GraphPlayerChoices.jsx` |
+| Player selection mounting/data bridge | `frontend/player-selection.jsx` |
 | Player/Group search layout and result buttons | `frontend/search/PlayerSearch.jsx`, `PlayerSearchResult.jsx` |
 | Shared search form and player identity | `frontend/components/SearchForm.jsx`, `PlayerIdentity.jsx` |
 | Search requests, debounce and cancellation | `frontend/state/player-search.mjs` |
@@ -118,3 +120,11 @@ The legacy bindSegmentedToggle/bindSideToggle DOM handlers have been removed. Pa
 `NickStatsPlayerSearchUI.create({ prefix, onSelect, excluded, initialMessage, limit })` mounts PlayerSearch for the Player or Group page. Both use SearchForm, PlayerSearchResult, PlayerIdentity and the shared Button. The controller still opens profiles or updates the Group roster; it can reset the search or report a roster limit through the returned adapter. Group results omit players already selected.
 
 React subscribes to an independent search store for each page. Typing debounces queries by 250 ms after two characters; submitting also supports a single-character query. Every edit, reset or new request aborts the old request and invalidates its generation, so a late response cannot restore stale results. Empty searches reset the list, loading clears old choices, and failures can be retried with the same query. Search input, status messages and result buttons are owned by React; controllers must not modify those DOM nodes.
+
+## Player selection controls
+
+Group roster entries, Recently Viewed buttons, and both graph player selectors render through `NickStatsPlayerSelectionUI`. Each persistent container has one React root and each player has a stable key. Selection changes update existing controls, preserving keyboard focus. Roster entries share PlayerIdentity, Button and ToggleGroup; RecentPlayers shares PlayerIdentity and Button; GraphPlayerChoices shares CheckboxGroup with Map filters.
+
+The existing controllers retain roster Include/Exclude rules, the five-Included-player limit, saved roster and recent-player storage, profile loading, and graph series calculations. They publish plain player/selection data and callbacks to React instead of building controls. Graph selectors disable unselected players once five are checked; unchecking one makes the remaining choices available again. Filter redraws preserve the selected graph series. Recent buttons retain their visible order while saved visit recency and refreshed player details are updated.
+
+CheckboxGroup accepts optional label classes, per-option input properties and a description ID, so graph choices can share checkbox behavior without changing Map filter appearance. PlayerIdentity supports an unwrapped layout for compact recent buttons, preserving their existing grid styling.

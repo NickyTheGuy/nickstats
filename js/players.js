@@ -116,21 +116,21 @@
     const index = state.recent.findIndex(item => String(item.id) === row.id);
     if (index < 0) {
       state.recent = [...state.recent.slice(0, MAX_RECENT - 1), row];
-      renderRecent();
     } else {
       state.recent[index] = row;
     }
+    renderRecent();
     try { localStorage.setItem(RECENT_KEY, JSON.stringify([row, ...readRecent().filter(item => String(item.id) !== row.id)].slice(0, MAX_RECENT))); } catch (_) {}
   }
+  function clearRecent() {
+    state.recent = [];
+    try { localStorage.removeItem(RECENT_KEY); } catch (_) {}
+    renderRecent();
+  }
   function renderRecent() {
-    const section = $("playerRecent"), list = $("playerRecentList");
-    section.hidden = !state.recent.length; list.replaceChildren();
-    state.recent.forEach(player => {
-      const button = document.createElement("button"); button.type = "button"; button.className = "player-recent-chip";
-      const name = document.createElement("strong"); name.textContent = player.name;
-      const steam = document.createElement("span"); steam.textContent = player.steam_id || "Open profile";
-      button.append(name, steam); button.addEventListener("click", () => loadProfile(player.id, { scroll: false })); list.appendChild(button);
-    });
+    const section = $("playerRecent"); section.hidden = !state.recent.length;
+    window.NickStatsPlayerSelectionUI.recent(section, { players: state.recent,
+      onSelect: id => loadProfile(id, { scroll: false }), onClear: clearRecent });
   }
 
   function matchHistory(profile) {
@@ -377,21 +377,14 @@
     return profile.summaryCache.get(key);
   }
   function renderGraphPlayers() {
-    const target = $("playerGraphPlayers"); target.replaceChildren();
-    state.profiles.forEach((profile, id) => {
-      const label = document.createElement("label"); label.className = "graph-player-choice";
-      const input = document.createElement("input"); input.type = "checkbox"; input.checked = state.graphPlayers.has(id);
-      const name = document.createElement("span"); name.textContent = profile.payload.player?.name || "Unknown player";
-      input.addEventListener("change", () => {
-        if (input.checked && state.graphPlayers.size >= MAX_GRAPH_PLAYERS) {
-          input.checked = false;
-          $("playerGraphPlayerStatus").textContent = `Choose up to ${MAX_GRAPH_PLAYERS} players.`;
-          return;
-        }
-        input.checked ? state.graphPlayers.add(id) : state.graphPlayers.delete(id);
+    window.NickStatsPlayerSelectionUI.graphs($("playerGraphPlayers"), {
+      players: [...state.profiles].map(([id, profile]) => ({ id, name: profile.payload.player?.name || "Unknown player" })),
+      selected: [...state.graphPlayers], max: MAX_GRAPH_PLAYERS, descriptionId: "playerGraphPlayerStatus",
+      onChange: (id, checked) => {
+        if (checked && state.graphPlayers.size >= MAX_GRAPH_PLAYERS) return;
+        checked ? state.graphPlayers.add(id) : state.graphPlayers.delete(id);
         renderGraphPlayers(); renderGraphs();
-      });
-      label.append(input, name); target.appendChild(label);
+      }
     });
     $("playerGraphPlayerStatus").textContent = `${state.graphPlayers.size} of ${MAX_GRAPH_PLAYERS} players selected`;
   }
@@ -630,7 +623,6 @@
 
   window.NickStatsPlayerSearchUI.create({ prefix: "player", onSelect: player => loadProfile(player.id),
     initialMessage: "Search for a player to open their profile." });
-  $("playerRecentClear").addEventListener("click", () => { state.recent = []; try { localStorage.removeItem(RECENT_KEY); } catch (_) {} renderRecent(); });
   document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
   window.NickStatsSegmentedUI.create("playerHistoryViewFilter", { onChange: view => {
       state.historyView = view; $("playerSessionsHelp").hidden = view !== "sessions"; renderPlayerMatches();

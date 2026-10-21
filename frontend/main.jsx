@@ -1,3 +1,4 @@
+import './player-selection.jsx';
 import './player-search.jsx';
 import './segmented-filter.jsx';
 import './match-list.jsx';
