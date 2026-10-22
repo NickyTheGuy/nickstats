@@ -1,3 +1,4 @@
+import './profile.jsx';
 import './player-selection.jsx';
 import './player-search.jsx';
 import './segmented-filter.jsx';

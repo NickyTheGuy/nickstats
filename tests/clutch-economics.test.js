@@ -227,18 +227,12 @@ test("pooled impact distinguishes negative, zero, incomplete, and unavailable me
 });
 
 test("Player and Groups render aggregate and size estimates per attempt without sample-count notes", () => {
-  class Element {
-    constructor() { this.children = []; this.dataset = {}; this.classList = { add() {} }; }
-    append(...nodes) { this.children.push(...nodes); }
-    appendChild(node) { this.children.push(node); }
-    replaceChildren(...nodes) { this.children = nodes; }
-    setAttribute() {} addEventListener() {}
-  }
   const elements = new Map();
-  const ctx = vm.createContext({ window: {}, document: {
-    createElement: () => new Element(), getElementById: id => {
+  const ctx = vm.createContext({ window: { NickStatsProfileUI: {
+    cards: (target, cards) => { target.cards = cards; }, list() {}, strip() {}, table() {}
+  } }, document: { getElementById: id => {
       if (["playerProfileBody", "comboProfileBody", "playerGraphs", "comboGraphs"].includes(id)) return null;
-      if (!elements.has(id)) elements.set(id, new Element());
+      if (!elements.has(id)) elements.set(id, {});
       return elements.get(id);
     }
   } });
@@ -251,14 +245,14 @@ test("Player and Groups render aggregate and size estimates per attempt without 
   for (const prefix of ["player", "combo"]) {
     ctx.window.NickStatsProfile.render({ prefix, headlineId: `${prefix}Headline`, side: "ALL", summary: { stats }, maps: [] });
     const target = elements.get(`${prefix}ClutchEconomicsStats`);
-    assert.equal(target.children.length, 6);
-    assert.equal(target.children[0].children[0].textContent, "All / attempt");
-    assert.equal(target.children[0].children[1].textContent, "+$2,800");
-    assert.equal(target.children[0].children.length, 2);
-    assert.equal(target.children[5].children[0].textContent, "1v1 / attempt");
-    assert.equal(target.children[5].children[1].textContent, "+$2,800");
-    assert.equal(target.children[1].children[1].textContent, "—");
-    assert.equal(target.children[5].children.length, 2);
+    assert.equal(target.cards.length, 6);
+    assert.equal(target.cards[0][0], "All / attempt");
+    assert.equal(target.cards[0][1], "+$2,800");
+    assert.equal(target.cards[0][2], "");
+    assert.equal(target.cards[5][0], "1v1 / attempt");
+    assert.equal(target.cards[5][1], "+$2,800");
+    assert.equal(target.cards[1][1], "—");
+    assert.equal(target.cards[5][2], "");
   }
   const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
   assert.ok(html.includes('id="playerClutchEconomicsStats"'));

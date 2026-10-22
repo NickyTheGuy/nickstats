@@ -71,5 +71,4 @@ test("map summaries compact match and round records and color semantic results",
   assert.match(profile, /styledCell\(`\$\{integer\(map\.matches\)\} · \$\{integer\(map\.wins\)\}–\$\{integer\(map\.losses\)\}`/);
   assert.match(profile, /styledCell\(`\$\{integer\(map\.rounds\)\} · \$\{integer\(roundWins\)\}–\$\{integer\(roundLosses\)\}`/);
   assert.match(profile, /styledCell\(decimal\(map\.rating, 2\), semanticClass\(map\.rating, 1\.1, \.9, true\)\)/);
-  assert.match(profile, /if \(display\.className\) cell\.className = display\.className/);
 });

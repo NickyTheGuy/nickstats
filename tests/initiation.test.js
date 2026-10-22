@@ -138,18 +138,12 @@ test("compact initiation composes across side, phase, buy, enemy buy, result and
 });
 
 test("Player and Groups focus on contacts and unique-round frequency using compatible rounds", () => {
-  class Element {
-    constructor() { this.children = []; this.dataset = {}; this.classList = { add() {} }; }
-    append(...nodes) { this.children.push(...nodes); }
-    appendChild(node) { this.children.push(node); }
-    replaceChildren(...nodes) { this.children = nodes; }
-    setAttribute() {} addEventListener() {}
-  }
   const elements = new Map();
-  const ctx = vm.createContext({ window: {}, document: {
-    createElement: () => new Element(), getElementById: id => {
+  const ctx = vm.createContext({ window: { NickStatsProfileUI: {
+    cards: (target, cards) => { target.cards = cards; }, list() {}, strip() {}, table() {}
+  } }, document: { getElementById: id => {
       if (["playerProfileBody", "comboProfileBody", "playerGraphs", "comboGraphs"].includes(id)) return null;
-      if (!elements.has(id)) elements.set(id, new Element());
+      if (!elements.has(id)) elements.set(id, {});
       return elements.get(id);
     }
   } });
@@ -162,10 +156,10 @@ test("Player and Groups focus on contacts and unique-round frequency using compa
   for (const prefix of ["player", "combo"]) {
     ctx.window.NickStatsProfile.render({ prefix, headlineId: `${prefix}Headline`, side: "ALL", summary: { stats }, maps: [] });
     const target = elements.get(`${prefix}InitiationContactStats`);
-    assert.equal(target.children.length, 2);
-    assert.equal(target.children[0].children[1].textContent, "6");
-    assert.match(target.children[0].children[2].textContent, /^0\.30 per round/);
-    assert.equal(target.children[1].children[1].textContent, "20.0%");
-    assert.equal(target.children[1].children[2].textContent, "4 of 20 compatible rounds");
+    assert.equal(target.cards.length, 2);
+    assert.equal(target.cards[0][1], "6");
+    assert.match(target.cards[0][2], /^0\.30 per round/);
+    assert.equal(target.cards[1][1], "20.0%");
+    assert.equal(target.cards[1][2], "4 of 20 compatible rounds");
   }
 });

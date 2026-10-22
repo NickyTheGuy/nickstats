@@ -27,76 +27,11 @@
     return `demo-rating ${inclusive ? (numeric >= good ? "rating-good" : numeric <= bad ? "rating-bad" : "rating-average") : (numeric > good ? "rating-good" : numeric < bad ? "rating-bad" : "rating-average")}`;
   };
   const styledCell = (text, className) => ({ text, className });
-  const tableSorts = new Map();
-
-  function card(label, value, note = "", className = "") {
-    const element = document.createElement("div"); element.className = `player-stat-card ${className}`.trim();
-    const name = document.createElement("span"); name.textContent = label;
-    const strong = document.createElement("strong"); strong.textContent = value; element.append(name, strong);
-    if (note) { const detail = document.createElement("small"); detail.textContent = note; element.appendChild(detail); }
-    return element;
-  }
-
-  function fillCards(target, cards) { $(target).replaceChildren(...cards.map(values => card(...values))); }
-  function fillList(target, metrics) {
-    $(target).replaceChildren(...metrics.map(([label, value, note = ""]) => {
-      const row = document.createElement("div"); row.className = "player-metric-row";
-      const copy = document.createElement("div"), name = document.createElement("span"); name.textContent = label; copy.appendChild(name);
-      if (note) { const detail = document.createElement("small"); detail.textContent = note; copy.appendChild(detail); }
-      const strong = document.createElement("strong"); strong.textContent = value; row.append(copy, strong); return row;
-    }));
-  }
-  function fillStrip(target, metrics) {
-    $(target).replaceChildren(...metrics.map(([label, value, note = ""]) => {
-      const item = document.createElement("div"); item.className = "player-count-item";
-      const strong = document.createElement("strong"); strong.textContent = value;
-      const name = document.createElement("span"); name.textContent = label; item.append(strong, name);
-      if (note) { const detail = document.createElement("small"); detail.textContent = note; item.appendChild(detail); }
-      return item;
-    }));
-  }
+  function fillCards(target, cards) { window.NickStatsProfileUI.cards($(target), cards); }
+  function fillList(target, metrics) { window.NickStatsProfileUI.list($(target), metrics); }
+  function fillStrip(target, metrics) { window.NickStatsProfileUI.strip($(target), metrics); }
   function renderTable(target, headers, rows, sortRows = rows) {
-    const table = typeof target === "string" ? $(target) : target;
-    const tableKey = table.id || String(target);
-    const sort = tableSorts.get(tableKey);
-    const indexed = rows.map((values, index) => ({ values, sortValues: sortRows[index] || values, index }));
-    if (sort) indexed.sort((left, right) => {
-      const a = left.sortValues[sort.column], b = right.sortValues[sort.column];
-      const comparison = typeof a === "number" && typeof b === "number"
-        ? a - b
-        : String(a ?? "").localeCompare(String(b ?? ""), undefined, { numeric: true, sensitivity: "base" });
-      return (sort.direction === "asc" ? comparison : -comparison) || left.index - right.index;
-    });
-    const head = document.createElement("thead"), headerRow = document.createElement("tr");
-    headers.forEach((label, column) => {
-      const cell = document.createElement("th"); cell.scope = "col";
-      const button = document.createElement("button"); button.type = "button"; button.className = "player-table-sort-button";
-      const active = sort?.column === column;
-      if (active) { button.classList.add("active"); button.dataset.direction = sort.direction; }
-      button.textContent = label;
-      button.title = active ? `Sorted ${sort.direction === "asc" ? "ascending" : "descending"}; click to reverse` : `Sort by ${label}`;
-      cell.setAttribute("aria-sort", active ? (sort.direction === "asc" ? "ascending" : "descending") : "none");
-      button.addEventListener("click", () => {
-        const direction = active ? (sort.direction === "asc" ? "desc" : "asc") : (column === 0 ? "asc" : "desc");
-        tableSorts.set(tableKey, { column, direction });
-        renderTable(table, headers, rows, sortRows);
-      });
-      cell.appendChild(button); headerRow.appendChild(cell);
-    }); head.appendChild(headerRow);
-    const body = document.createElement("tbody");
-    indexed.forEach(({ values }) => {
-      const row = document.createElement("tr");
-      values.forEach((value, index) => {
-        const cell = document.createElement(index ? "td" : "th");
-        const display = value && typeof value === "object" && Object.hasOwn(value, "text") ? value : { text: value };
-        if (!index) cell.scope = "row";
-        if (display.className) cell.className = display.className;
-        cell.textContent = display.text;
-        row.appendChild(cell);
-      });
-      body.appendChild(row);
-    });
-    table.replaceChildren(head, body);
+    window.NickStatsProfileUI.table(typeof target === "string" ? $(target) : target, headers, rows, sortRows);
   }
 
   function render({ prefix, headlineId, summary, side, result = "ALL", roundResult = "ALL", maps }) {
@@ -264,10 +199,10 @@
     const economics = clutchEconomySummary(rawStats);
     const money = window.NickStatsScoreboard.money;
     const impact = $(`${prefix}ClutchEconomicsStats`);
-    if (impact) impact.replaceChildren(...[["All / attempt", economics], ...[5, 4, 3, 2, 1].map(size => [`1v${size} / attempt`, economics.bySize[size]])]
-      .map(([label, value]) => card(label, money(value.average), value.average != null
+    if (impact) window.NickStatsProfileUI.cards(impact, [["All / attempt", economics], ...[5, 4, 3, 2, 1].map(size => [`1v${size} / attempt`, economics.bySize[size]])]
+      .map(([label, value]) => [label, money(value.average), value.average != null
         ? "" : economics.available ? "Not enough history" : "Reparse demos for estimates",
-      value.average == null ? "" : semanticClass(value.average, 0, 0))));
+      value.average == null ? "" : semanticClass(value.average, 0, 0)]));
     const multikillRounds = [2, 3, 4, 5].reduce((total, kills) => total + number(s[`kill_rounds_${kills}k`]), 0);
     fillStrip(`${prefix}MultikillStats`, [
       ["Multi-kill %", percent(100 * ratio(multikillRounds, rounds)), `${integer(multikillRounds)} of ${integer(rounds)} rounds`],

@@ -1,12 +1,15 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Profiles, graphs, and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Profile aggregation, graphs, navigation and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
 | What you want to change | File |
 | --- | --- |
 | Session title, loading/error messages, page layout | `frontend/pages/SessionPage.jsx` |
+| Profile cards, metric lists and count strips | `frontend/components/StatCard.jsx`, `MetricList.jsx`, `CountStrip.jsx`, `frontend/profile/StatCards.jsx` |
+| Shared sortable table and sort state | `frontend/components/DataTable.jsx`, `frontend/hooks/useSortedRows.js`, `frontend/state/table-sort.mjs` |
+| Profile rendering bridge | `frontend/profile.jsx` |
 | Group roster, recent players and graph selection | `frontend/players/PlayerRoster.jsx`, `RecentPlayers.jsx`, `GraphPlayerChoices.jsx` |
 | Player selection mounting/data bridge | `frontend/player-selection.jsx` |
 | Player/Group search layout and result buttons | `frontend/search/PlayerSearch.jsx`, `PlayerSearchResult.jsx` |
@@ -128,3 +131,11 @@ Group roster entries, Recently Viewed buttons, and both graph player selectors r
 The existing controllers retain roster Include/Exclude rules, the five-Included-player limit, saved roster and recent-player storage, profile loading, and graph series calculations. They publish plain player/selection data and callbacks to React instead of building controls. Graph selectors disable unselected players once five are checked; unchecking one makes the remaining choices available again. Filter redraws preserve the selected graph series. Recent buttons retain their visible order while saved visit recency and refreshed player details are updated.
 
 CheckboxGroup accepts optional label classes, per-option input properties and a description ID, so graph choices can share checkbox behavior without changing Map filter appearance. PlayerIdentity supports an unwrapped layout for compact recent buttons, preserving their existing grid styling.
+
+## Detailed profile statistics
+
+`js/profile.js` still calculates and formats profile statistics, including compatible-round notes, clutch estimates, semantic colors and map/weapon sort values. Its rendering helpers publish those values to `NickStatsProfileUI` instead of creating DOM nodes. StatCard, MetricList and CountStrip own the repeated presentation. Both Player and Group profiles use the same components.
+
+DataTable uses the shared SortHeading button and `useSortedRows` hook. Each mounted table owns its sort choice, so changing a filter, switching profiles, or temporarily showing no rows retains that choice. Name columns start ascending; statistic columns start descending; clicking again reverses the order. Sorting uses separate raw values to avoid comparing rounded percentages or colored display objects, and ties retain their input order. React updates keyed headings so keyboard focus survives sorting and data refreshes. Row/column scopes and aria-sort describe the current table state.
+
+Profile layout cloning still runs before the controller renders any statistics; it creates empty Group mount points. Do not clone or replace populated React containers. A later migration can move the surrounding profile layout and aggregation into React while retaining these components.
