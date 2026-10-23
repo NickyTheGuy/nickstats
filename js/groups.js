@@ -400,18 +400,20 @@
 
   function setComboDisplay(display) {
     state.comboDisplay = ["quick", "graphs"].includes(display) ? display : "profile";
-    document.querySelectorAll("[data-combo-player-id], [data-combo-display]").forEach(button => {
-      const active = button.dataset.comboDisplay
-        ? state.comboDisplay === button.dataset.comboDisplay
-        : state.comboDisplay === "profile" && button.dataset.comboPlayerId === state.comboPlayerId;
-      button.closest(".player-open-tab")?.classList.toggle("active", active);
-      button.setAttribute("aria-selected", String(active));
-      button.tabIndex = active ? 0 : -1;
-    });
+    renderComboTabs(findCombination());
     document.querySelectorAll("[data-combo-display-panel]").forEach(panel => {
       panel.hidden = panel.dataset.comboDisplayPanel !== state.comboDisplay;
     });
     if (state.comboDisplay === "graphs") renderComboGraphs(findCombination());
+  }
+
+  function renderComboTabs(current) {
+    if (!current) return;
+    window.NickStatsNavigationUI.group({
+      profiles: current.included.map(player => ({ id: player.profileId, name: player.label })),
+      display: state.comboDisplay, activeId: state.comboPlayerId, onDisplay: setComboDisplay,
+      onSelect: id => { state.comboPlayerId = id; state.comboDisplay = "profile"; renderComboProfile(current); setComboDisplay("profile"); }
+    });
   }
 
   function renderComboProfile(current) {
@@ -421,30 +423,7 @@
     comboConditionFilter.set(state.comboCondition, { notify: false });
     comboConditionFilter.setDisabled(canCompare ? [] : ["with"]);
 
-    const profileTabs = $("comboProfilePlayers"); profileTabs.replaceChildren();
-    const quickActive = state.comboDisplay === "quick";
-    const quickItem = el("div", "", `player-open-tab single${quickActive ? " active" : ""}`);
-    const quickButton = el("button", "Quick comparison", "player-open-tab-label");
-    quickButton.type = "button"; quickButton.setAttribute("role", "tab"); quickButton.dataset.comboDisplay = "quick";
-    quickButton.setAttribute("aria-selected", String(quickActive)); quickButton.tabIndex = quickActive ? 0 : -1;
-    quickButton.addEventListener("click", () => setComboDisplay("quick"));
-    quickItem.appendChild(quickButton); profileTabs.appendChild(quickItem);
-    const graphsActive = state.comboDisplay === "graphs";
-    const graphsItem = el("div", "", `player-open-tab single${graphsActive ? " active" : ""}`);
-    const graphsButton = el("button", "Graphs", "player-open-tab-label");
-    graphsButton.type = "button"; graphsButton.setAttribute("role", "tab"); graphsButton.dataset.comboDisplay = "graphs";
-    graphsButton.setAttribute("aria-selected", String(graphsActive)); graphsButton.tabIndex = graphsActive ? 0 : -1;
-    graphsButton.addEventListener("click", () => setComboDisplay("graphs"));
-    graphsItem.appendChild(graphsButton); profileTabs.appendChild(graphsItem);
-    current.included.forEach(player => {
-      const active = state.comboDisplay === "profile" && player.profileId === state.comboPlayerId;
-      const item = el("div", "", `player-open-tab single${active ? " active" : ""}`);
-      const button = el("button", player.label, "player-open-tab-label");
-      button.type = "button"; button.setAttribute("role", "tab"); button.dataset.comboPlayerId = player.profileId;
-      button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
-      button.addEventListener("click", () => { state.comboPlayerId = player.profileId; renderComboProfile(current); setComboDisplay("profile"); });
-      item.appendChild(button); profileTabs.appendChild(item);
-    });
+    renderComboTabs(current);
     const player = current.included.find(item => item.profileId === state.comboPlayerId);
     const rows = comboProfileRows(current, player), stats = summarize(rows);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;

@@ -1,6 +1,6 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Profile aggregation, graphs, navigation and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs and routed Session tabs share React navigation controls. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
@@ -20,7 +20,8 @@ The frontend is moving to React a screen at a time. Session, match lists/cards, 
 | Segmented filters and shared choices | `frontend/filters/SegmentedFilter.jsx`, `frontend/state/segmented-config.mjs` |
 | Segmented selection and disabled state | `frontend/state/segmented-filter.mjs` |
 | Shared buttons, toggles, option groups | `frontend/components/Button.jsx`, `ToggleButton.jsx`, `ToggleGroup.jsx` |
-| Tab selection and keyboard navigation | `frontend/components/TabList.jsx` |
+| Tab selection, closing and keyboard navigation | `frontend/components/TabList.jsx`, `CloseButton.jsx` |
+| Player/Group workspace tabs and Session peers | `frontend/navigation/WorkspaceTabs.jsx`, `frontend/navigation.jsx` |
 | Comparison UI state and actions | `frontend/hooks/useComparison.js`, `frontend/state/comparison.mjs` |
 | Match tag editing and numeric-value drafts | `frontend/tags/MatchTagEditor.jsx`, `frontend/components/TagValueForm.jsx` |
 | Match lists and grouped Session history | `frontend/matches/MatchList.jsx`, `MatchCard.jsx`, `SessionHistory.jsx` |
@@ -139,3 +140,11 @@ CheckboxGroup accepts optional label classes, per-option input properties and a 
 DataTable uses the shared SortHeading button and `useSortedRows` hook. Each mounted table owns its sort choice, so changing a filter, switching profiles, or temporarily showing no rows retains that choice. Name columns start ascending; statistic columns start descending; clicking again reverses the order. Sorting uses separate raw values to avoid comparing rounded percentages or colored display objects, and ties retain their input order. React updates keyed headings so keyboard focus survives sorting and data refreshes. Row/column scopes and aria-sort describe the current table state.
 
 Profile layout cloning still runs before the controller renders any statistics; it creates empty Group mount points. Do not clone or replace populated React containers. A later migration can move the surrounding profile layout and aggregation into React while retaining these components.
+
+## Workspace navigation
+
+Player profiles, fixed Quick comparison/Graphs tabs, and routed Sessions render together through PlayerWorkspaceTabs. The Player controller publishes profile state and callbacks with `NickStatsNavigationUI.player`; the Session controller publishes independent entries and route callbacks with `.sessions`. The bridge combines the latest snapshots in one persistent React root. Session updates therefore preserve profile tab nodes, and profile updates preserve Session nodes, without the former redraw event or direct DOM insertion. GroupWorkspaceTabs uses the same TabList and Button controls.
+
+TabList supports disabled options, accessible per-tab metadata, optional closable wrappers and the shared CloseButton. Left/Right wrap through enabled tabs; Home/End select the first/last enabled tab. Delete closes a focused closable tab. Closing restores focus to the selected remaining tab, including after an asynchronous hash change. Fixed tabs stay first and cannot be closed; a Session-only workspace disables them until a player profile is opened. Map tabs in comparison scoreboards continue to use the same TabList without closable wrappers.
+
+The routing and data controllers retain profile-close fallback, Session-close fallback, `#session/<player>/<match>` links, history navigation, request cancellation and caches. React owns the workspace nav elements; controllers publish data instead of replacing, appending or removing tab nodes. The inner detailed-stat navigation is still part of the existing profile layout.

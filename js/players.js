@@ -443,30 +443,12 @@
   }
 
   function renderOpenTabs() {
-    const tabs = $("playerOpenProfiles"); tabs.replaceChildren(); tabs.hidden = !state.profiles.size && !window.NickStatsSessions?.hasTabs();
-    const quickActive = state.display === "quick";
-    const quickItem = document.createElement("div"); quickItem.className = `player-open-tab single${quickActive ? " active" : ""}`;
-    const quick = document.createElement("button"); quick.type = "button"; quick.className = "player-open-tab-label"; quick.setAttribute("role", "tab");
-    quick.setAttribute("aria-selected", String(quickActive)); quick.tabIndex = quickActive ? 0 : -1; quick.textContent = "Quick comparison"; quick.disabled = !state.profiles.size;
-    quick.addEventListener("click", () => setPlayerDisplay("quick"));
-    quickItem.appendChild(quick); tabs.appendChild(quickItem);
-    const graphsActive = state.display === "graphs";
-    const graphsItem = document.createElement("div"); graphsItem.className = `player-open-tab single${graphsActive ? " active" : ""}`;
-    const graphs = document.createElement("button"); graphs.type = "button"; graphs.className = "player-open-tab-label"; graphs.setAttribute("role", "tab");
-    graphs.setAttribute("aria-selected", String(graphsActive)); graphs.tabIndex = graphsActive ? 0 : -1; graphs.textContent = "Graphs"; graphs.disabled = !state.profiles.size;
-    graphs.addEventListener("click", () => setPlayerDisplay("graphs"));
-    graphsItem.appendChild(graphs); tabs.appendChild(graphsItem);
-    state.profiles.forEach((profile, id) => {
-      const active = state.display === "profile" && id === state.activeId;
-      const item = document.createElement("div"); item.className = `player-open-tab${active ? " active" : ""}`;
-      const open = document.createElement("button"); open.type = "button"; open.className = "player-open-tab-label"; open.setAttribute("role", "tab");
-      open.setAttribute("aria-selected", String(active)); open.tabIndex = active ? 0 : -1; open.textContent = profile.payload.player?.name || "Unknown player";
-      open.addEventListener("click", () => { state.display = "profile"; activateProfile(id); });
-      const close = document.createElement("button"); close.type = "button"; close.className = "player-open-tab-close"; close.textContent = "×";
-      close.setAttribute("aria-label", `Close ${profile.payload.player?.name || "player"} profile`); close.addEventListener("click", () => closeProfile(id));
-      item.append(open, close); tabs.appendChild(item);
+    window.NickStatsNavigationUI.player({
+      profiles: [...state.profiles].map(([id, profile]) => ({ id, name: profile.payload.player?.name || "Unknown player" })),
+      display: state.display, activeId: state.activeId,
+      onSelect: id => { state.display = "profile"; activateProfile(id); },
+      onDisplay: setPlayerDisplay, onClose: closeProfile
     });
-    window.dispatchEvent(new Event("nickstats:player-tabs"));
   }
 
   function renderProfile() {

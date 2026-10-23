@@ -31,23 +31,21 @@ test("quick comparison map tabs contain only scoreboards and still filter their 
   }
 });
 
-test("Graphs is a fixed peer tab and hides profile and quick comparison panels", () => {
-  const tabs = new Node(), panels = ["profile", "quick", "graphs"].map(display => ({ dataset: { playerDisplayPanel: display } }));
+test("Graphs selection preserves the active profile and hides profile and quick comparison panels", () => {
+  let tabs;
+  const node = new Node(), panels = ["profile", "quick", "graphs"].map(display => ({ dataset: { playerDisplayPanel: display } }));
   const state = { display: "profile", view: "matches", profiles: new Map([["1", { payload: { player: { name: "Nick" } } }], ["2", { payload: { player: { name: "Friend" } } }]]), activeId: "1" };
-  const renders = [], sandbox = { state, window: { dispatchEvent() {} }, Event: class {}, location: { hash: "#players" }, $: () => tabs, activeProfile: () => state.profiles.get(state.activeId),
-    document: { createElement: () => new Node(), querySelectorAll: () => panels },
-    syncStatsToolbar() {}, renderCurrentDisplay: () => renders.push(state.display),
-    activateProfile(id) { state.activeId = id; }, closeProfile() {}
+  const renders = [], sandbox = { state, window: { NickStatsNavigationUI: { player(props) { tabs = props; } } }, location: { hash: "#players" }, $: () => node, activeProfile: () => state.profiles.get(state.activeId),
+    document: { querySelectorAll: () => panels },
+    syncStatsToolbar() {}, renderCurrentDisplay: () => renders.push(state.display), activateProfile() {}, closeProfile() {}
   };
   const api = vm.runInNewContext(`${functionSource(playersSource, "setPlayerDisplay", "syncStatsToolbar")}\n${functionSource(playersSource, "renderOpenTabs", "renderProfile")}\n({setPlayerDisplay, renderOpenTabs})`, sandbox);
   api.renderOpenTabs();
-  assert.deepEqual(tabs.children.map(item => item.children[0].textContent), ["Quick comparison", "Graphs", "Nick", "Friend"]);
-  assert.equal(tabs.children[1].children.length, 1, "Graphs has no profile close button");
-  tabs.children[1].children[0].click();
+  assert.deepEqual(Array.from(tabs.profiles, player => player.name), ["Nick", "Friend"]);
+  tabs.onDisplay("graphs");
   assert.equal(state.display, "graphs"); assert.equal(state.activeId, "1"); assert.equal(state.view, "matches");
   assert.deepEqual(panels.map(panel => panel.hidden), [true, true, false]);
-  assert.equal(tabs.children[1].children[0].attributes["aria-selected"], "true");
-  tabs.children[0].children[0].click();
+  assert.equal(tabs.display, "graphs"); tabs.onDisplay("quick");
   assert.deepEqual(renders, ["graphs", "quick"]);
 });
 

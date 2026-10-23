@@ -10,6 +10,7 @@ const scoreboardSource = fs.readFileSync(path.join(__dirname, "..", "js", "score
 const compareSource = fs.readFileSync(path.join(__dirname, "..", "js", "groups.js"), "utf8");
 const playersSource = fs.readFileSync(path.join(__dirname, "..", "js", "players.js"), "utf8");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const workspace = fs.readFileSync(path.join(__dirname, "../frontend/navigation/WorkspaceTabs.jsx"), "utf8");
 const styles = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
 
 test("match and quick comparison use the shared scoreboard component", () => {
@@ -150,13 +151,12 @@ test("quick comparison serves the group scoreboard and standalone player profile
   assert.match(playersSource, /NickStatsComparisonUI\.create\(\{ prefix: "player"(?:,| \})/);
   assert.match(compareSource, /NickStatsComparisonUI\.create\(\{ prefix: "combo"(?:,| \})/);
   assert.doesNotMatch(html, />Profiles<\/button>/);
-  assert.match(playersSource, /quick\.textContent = "Quick comparison"/);
+  assert.match(workspace, /\['quick', 'Quick comparison'/);
   assert.match(html, /data-player-display-panel="profile"/);
   assert.match(html, /data-player-display-panel="quick" hidden/);
   assert.doesNotMatch(html, /id="playerQuickPlayers"/);
   assert.doesNotMatch(html, /id="playerQuickPlayerStatus"/);
   assert.match(html, /id="playerQuickApp"/);
-  assert.match(compareSource, /el\("button", "Quick comparison", "player-open-tab-label"\)/);
   assert.match(html, /id="comboQuickApp"/);
 });
 
@@ -167,13 +167,12 @@ test("player and group quick comparisons use the same panel card", () => {
 });
 
 test("player and group quick-comparison switches sit above shared filters", () => {
-  assert.match(html, /class="player-open-profiles unified-profile-tabs" id="comboProfilePlayers"[\s\S]*?class="stats-toolbar combo-profile-toolbar"/);
-  assert.match(html, /class="player-open-profiles unified-profile-tabs" id="playerOpenProfiles"[\s\S]*?class="stats-toolbar"/);
-  assert.equal((html.match(/id="comboProfilePlayers"/g) || []).length, 1);
+  assert.match(html, /id="comboProfilePlayersApp"[\s\S]*?class="stats-toolbar combo-profile-toolbar"/);
+  assert.match(html, /id="playerOpenProfilesApp"[\s\S]*?class="stats-toolbar"/);
+  assert.equal((html.match(/id="comboProfilePlayersApp"/g) || []).length, 1);
   assert.match(playersSource, /function setPlayerDisplay\(display\)[\s\S]*?data-player-display-panel/);
-  assert.match(playersSource, /quick\.addEventListener\("click", \(\) => setPlayerDisplay\("quick"\)\)/);
-  assert.match(compareSource, /button\.dataset\.comboPlayerId = player\.profileId/);
-  assert.match(compareSource, /quickButton\.addEventListener\("click", \(\) => setComboDisplay\("quick"\)\)/);
+  assert.match(playersSource, /onDisplay: setPlayerDisplay/);
+  assert.match(compareSource, /onDisplay: setComboDisplay/);
 });
 
 test("player, group, and match views share a two-row economy matchup control", () => {
@@ -188,9 +187,10 @@ test("player, group, and match views share a two-row economy matchup control", (
   assert.match(compareSource, /opponent_buy_type/);
 });
 
-test("quick comparison is the first tab in player and group views", () => {
-  assert.match(playersSource, /tabs\.replaceChildren\(\)[\s\S]*?quickItem\.appendChild\(quick\); tabs\.appendChild\(quickItem\);[\s\S]*?state\.profiles\.forEach/);
-  assert.match(compareSource, /profileTabs\.replaceChildren\(\)[\s\S]*?quickItem\.appendChild\(quickButton\); profileTabs\.appendChild\(quickItem\);[\s\S]*?current\.included\.forEach/);
+test("quick comparison and graphs precede individual players in both workspace tab lists", () => {
+  assert.equal((workspace.match(/\['quick', 'Quick comparison'/g) || []).length, 2);
+  assert.equal((workspace.match(/\['graphs', 'Graphs'/g) || []).length, 2);
+  assert.match(workspace, /'Quick comparison'[\s\S]*?'Graphs'[\s\S]*?profiles\.map/);
 });
 
 test("quick comparison uses every open profile while graphs auto-select new profiles", () => {

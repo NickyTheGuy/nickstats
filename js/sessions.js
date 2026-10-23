@@ -1,6 +1,5 @@
 (() => {
   "use strict";
-  const $ = id => document.getElementById(id);
   const tabs = new Map(), profiles = new Map();
   const comparison = window.NickStatsSessionUI.create({ onRetry: () => {
     const entry = tabs.get(active); if (entry) { profiles.delete(entry.playerID); load(entry); }
@@ -19,30 +18,16 @@
     return body;
   }
 
+  function closeTab(key) {
+    tabs.delete(key);
+    if (active === key) location.hash = tabs.size ? `#session/${[...tabs.keys()].at(-1)}` : "#players";
+    renderTabs();
+  }
   function renderTabs() {
-    document.querySelectorAll("[data-session-tab]").forEach(node => node.remove());
-    tabs.forEach((entry, key) => {
-      const item = document.createElement("div"); item.dataset.sessionTab = key;
-      item.className = `player-open-tab${active === key ? " active" : ""}`;
-      const button = document.createElement("button"); button.type = "button";
-      button.className = "player-open-tab-label"; button.textContent = "Session";
-      button.setAttribute("role", "tab");
-      button.setAttribute("aria-controls", "sessionView"); button.setAttribute("aria-selected", String(active === key));
-      button.tabIndex = active === key ? 0 : -1;
-      button.title = entry.label || `Session for player #${entry.playerID}, match #${entry.anchorID}`;
-      button.setAttribute("aria-label", button.title);
-      button.addEventListener("click", () => { location.hash = `#session/${key}`; });
-      const close = document.createElement("button"); close.type = "button";
-      close.className = "player-open-tab-close"; close.textContent = "×";
-      close.setAttribute("aria-label", `Close ${button.title}`);
-      close.addEventListener("click", () => {
-        tabs.delete(key);
-        if (active === key) location.hash = tabs.size ? `#session/${[...tabs.keys()].at(-1)}` : "#players";
-        renderTabs();
-      });
-      item.append(button, close); $("playerOpenProfiles").appendChild(item);
+    window.NickStatsNavigationUI.sessions({
+      entries: [...tabs].map(([key, entry]) => ({ key, label: entry.label || `Session for player #${entry.playerID}, match #${entry.anchorID}` })),
+      active, onSelect: key => { location.hash = `#session/${key}`; }, onClose: closeTab
     });
-    if (tabs.size) $("playerOpenProfiles").hidden = false;
   }
 
   function display(entry) {
@@ -119,7 +104,6 @@
 
   window.addEventListener("hashchange", sync);
   window.addEventListener("nickstats:page", event => { if (event.detail?.page === "players") sync(); });
-  window.addEventListener("nickstats:player-tabs", renderTabs);
   window.addEventListener("nickstats:matches-changed", () => {
     profiles.clear(); tabs.forEach(entry => { delete entry.players; });
     pending?.controller.abort(); pending = null; sync();
