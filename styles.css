@@ -3557,6 +3557,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   .graph-display-controls > div > .graph-option-field { flex: 1 1 140px; }
   .graph-stat-controls > label,
   .graph-stat-controls > .graph-option-field,
+  .react-metric-picker > .graph-option-field,
   .graph-statistic-field { min-width: 0; flex: 1; }
   .player-graph-controls select,
   .player-graph-controls input[type="search"] { width: 100%; min-width: 0; }
@@ -3785,3 +3786,5 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .react-player-search { display: contents; }
 
 .react-player-choices { display: contents; }
+
+.react-metric-picker { display: contents; }

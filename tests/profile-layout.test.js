@@ -11,7 +11,7 @@ const players = fs.readFileSync(path.join(__dirname, "..", "js", "players.js"), 
 const demo = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), "utf8");
 
 test("graph statistic search stays beside its category and the view follows it", () => {
-  assert.match(html, /class="graph-stat-controls"[\s\S]*?id="playerGraphCategory"[\s\S]*?id="playerGraphMetric"[^>]*role="combobox"[\s\S]*?id="playerGraphSuggestions"[\s\S]*?<\/div>\s*<fieldset class="graph-display-controls">/);
+  assert.match(html, /class="graph-stat-controls"[\s\S]*?id="playerGraphXPicker"[\s\S]*?id="playerGraphPicker"[\s\S]*?<fieldset class="graph-display-controls">/);
   assert.match(html, /<legend>Graph settings<\/legend>[\s\S]*?id="playerGraphScope"[\s\S]*?id="playerGraphType"[\s\S]*?id="playerGraphDistributionStyle"[\s\S]*?id="playerGraphBucketControl"[\s\S]*?<\/fieldset>/);
   assert.match(html, /<option value="match">Match by match<\/option><option value="session">Session by session<\/option><option value="round">Round by round<\/option>/);
   assert.doesNotMatch(html, /id="playerGraphSearch"/);

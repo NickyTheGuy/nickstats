@@ -1,3 +1,4 @@
+import './metric-picker.jsx';
 import './navigation.jsx';
 import './profile.jsx';
 import './player-selection.jsx';

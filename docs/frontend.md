@@ -1,6 +1,6 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs and routed Session tabs share React navigation controls. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs and routed Session tabs share React navigation controls. Both graph axes use React category dropdowns and statistic autocomplete. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
@@ -12,6 +12,8 @@ The frontend is moving to React a screen at a time. Session, match lists/cards, 
 | Profile rendering bridge | `frontend/profile.jsx` |
 | Group roster, recent players and graph selection | `frontend/players/PlayerRoster.jsx`, `RecentPlayers.jsx`, `GraphPlayerChoices.jsx` |
 | Player selection mounting/data bridge | `frontend/player-selection.jsx` |
+| Graph statistic/category selectors and autocomplete | `frontend/graphs/MetricPicker.jsx`, `frontend/components/Autocomplete.jsx` |
+| Metric search, drafts and keyboard selection | `frontend/state/metric-picker.mjs`, `frontend/metric-picker.jsx` |
 | Player/Group search layout and result buttons | `frontend/search/PlayerSearch.jsx`, `PlayerSearchResult.jsx` |
 | Shared search form and player identity | `frontend/components/SearchForm.jsx`, `PlayerIdentity.jsx` |
 | Search requests, debounce and cancellation | `frontend/state/player-search.mjs` |
@@ -148,3 +150,11 @@ Player profiles, fixed Quick comparison/Graphs tabs, and routed Sessions render 
 TabList supports disabled options, accessible per-tab metadata, optional closable wrappers and the shared CloseButton. Left/Right wrap through enabled tabs; Home/End select the first/last enabled tab. Delete closes a focused closable tab. Closing restores focus to the selected remaining tab, including after an asynchronous hash change. Fixed tabs stay first and cannot be closed; a Session-only workspace disables them until a player profile is opened. Map tabs in comparison scoreboards continue to use the same TabList without closable wrappers.
 
 The routing and data controllers retain profile-close fallback, Session-close fallback, `#session/<player>/<match>` links, history navigation, request cancellation and caches. React owns the workspace nav elements; controllers publish data instead of replacing, appending or removing tab nodes. The inner detailed-stat navigation is still part of the existing profile layout.
+
+## Graph statistic pickers
+
+Both axes in Player and Group graphs share MetricPicker, Autocomplete and OptionDropdown. The graph controller publishes metric metadata, categories, selected IDs and search drafts through `NickStatsMetricPickerUI.sync`. Picker callbacks update the graph model and redraw it. The remaining graph settings, SVG rendering, summaries and legends still use the existing controller.
+
+Each picker has an independent store. Empty queries show the current category; typed words search across categories, including account tag statistics. Every word must match the category/name, and results are capped at 30. Selecting a result updates its category unless All categories is selected. Category changes clear the search and return focus to the input. Arrow keys wrap through suggestions, Enter selects, Escape restores the selected name, and outside clicks or focus changes dismiss the list. Input drafts, including a deliberately blank field, survive filter redraws; changing accounts or losing a tag resets unavailable selections through the graph model. The X-axis excludes round differential.
+
+Autocomplete owns expanded/active-descendant state and selectable suggestion buttons. OptionDropdown is shared with calendar selectors. React owns the category controls, input labels and suggestion lists; the graph controller no longer creates options, attaches picker listeners, or edits input DOM. Existing mount points and responsive flex styling preserve the two-axis layout.

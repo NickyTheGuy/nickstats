@@ -36,7 +36,16 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   const type = nodes.get("playerGraphType"), scope = nodes.get("playerGraphScope");
   const display = nodes.get("playerGraphDistributionStyle"), svg = nodes.get("playerGraphSvg");
   type.value = "trend"; scope.value = "match"; scope.roundOption = { disabled: true }; scope.matchOption = { disabled: false }; display.value = "bars";
-  const context = { window: { NickStatsAvailability: { scope: stats => stats }, NickStatsDropdown: { enhance() {}, sync() {} } }, document };
+  const pickers = new Map();
+  const choose = (label, axis = "y") => {
+    const { config, callbacks } = pickers.get(axis), metric = config.choices.find(choice => choice.label === label);
+    assert.ok(metric, `metric ${label}`);
+    callbacks.onSelect({ metricId: metric.id, category: metric.group });
+  };
+  const context = { window: { NickStatsMetricPickerUI: {
+    sync(_prefix, axis, config, callbacks) { pickers.set(axis, { config, callbacks }); },
+    label(_prefix, label) { nodes.get("playerGraphMetricLabel").textContent = label; }
+  }, NickStatsAvailability: { scope: stats => stats }, NickStatsDropdown: { enhance() {}, sync() {} } }, document };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../js/round-timeline.js"), "utf8"), context);
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, "../js/graphs.js"), "utf8"), context);
   const series = [{ label: "Player", samples: [{ id: "1", date: 1234, stats: { rounds: 2, deaths: 1 } }], roundMatches: [
@@ -94,9 +103,7 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   type.value = "trend";
   display.value = "line"; display.dispatch("change");
   assert.ok(svg.children.some(child => child.tag === "circle" && child.attributes.class === "graph-point"));
-  nodes.get("playerGraphMetric").focus();
-  const deaths = nodes.get("playerGraphSuggestions").children.find(child => child.children[0].textContent === "Deaths");
-  deaths.dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
+  choose("Deaths");
   scope.value = "round"; scope.dispatch("change");
   assert.equal(scope.roundOption.disabled, false);
   assert.equal(nodes.get("playerGraphDistributionStyleControl").hidden, false);
@@ -104,9 +111,7 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   display.value = "bars"; display.dispatch("change");
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 2);
   assert.match(nodes.get("playerGraphNote").textContent, /average deaths/);
-  nodes.get("playerGraphMetric").focus();
-  const differential = nodes.get("playerGraphSuggestions").children.find(child => child.children[0].textContent === "Round differential");
-  differential.dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
+  choose("Round differential");
   assert.equal(scope.value, "round");
   assert.equal(scope.matchOption.disabled, true);
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 2);
@@ -115,13 +120,8 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   context.window.NickStatsManualFilters = { store: { account: "nick", ready: true,
     filters: [{ id: "sleep", name: "Sleep", kind: "number" }], stateFor: (_, id) => id === "1" ? 8.5 : "unknown" } };
   context.window.NickStatsGraphs.render({ prefix: "player", series });
-  nodes.get("playerGraphMetric").focus();
-  nodes.get("playerGraphSuggestions").children.find(child => child.children[0].textContent === "Rating")
-    .dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
-  const xAxis = nodes.get("playerGraphXMetric");
-  xAxis.value = "Sleep"; xAxis.dispatch("input");
-  nodes.get("playerGraphXSuggestions").children.find(child => child.children[0].textContent === "Sleep")
-    .dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
+  choose("Rating");
+  choose("Sleep", "x");
   type.value = "relationship";
   nodes.get("playerGraphBucketMode").value = "auto"; type.dispatch("change");
   assert.equal(nodes.get("playerGraphXAxisControl").hidden, false);
@@ -132,13 +132,8 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 1);
   assert.ok(svg.children.every(child => !Object.values(child.attributes).some(value => /NaN/.test(String(value)))));
   // The same tag also works as Y; missing assignments exclude match samples.
-  nodes.get("playerGraphMetric").value = "Sleep";
-  nodes.get("playerGraphMetric").dispatch("input");
-  nodes.get("playerGraphSuggestions").children.find(child => child.children[0].textContent === "Sleep")
-    .dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
-  xAxis.value = "Rating"; xAxis.dispatch("input");
-  nodes.get("playerGraphXSuggestions").children.find(child => child.children[0].textContent === "Rating")
-    .dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
+  choose("Sleep");
+  choose("Rating", "x");
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Average Sleep"));
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 1);
   type.value = "distribution"; type.dispatch("change");
@@ -148,12 +143,8 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   // Empty buckets split line segments, but must never create lines in bar mode.
   const sleep = { "1": .5, "2": 1.5, "3": 4.5, "4": 5.5 };
   context.window.NickStatsManualFilters.store.stateFor = (_, id) => sleep[id] ?? "unknown";
-  nodes.get("playerGraphMetric").value = "Kills"; nodes.get("playerGraphMetric").dispatch("input");
-  nodes.get("playerGraphSuggestions").children.find(child => child.children[0].textContent === "Kills")
-    .dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
-  xAxis.value = "Sleep"; xAxis.dispatch("input");
-  nodes.get("playerGraphXSuggestions").children.find(child => child.children[0].textContent === "Sleep")
-    .dispatch("pointerdown", { preventDefault() {}, stopPropagation() {} });
+  choose("Kills");
+  choose("Sleep", "x");
   type.value = "relationship"; display.value = "bars";
   context.window.NickStatsGraphs.render({ prefix: "player", series: [{ label: "Player", samples: [
     ...[1, 3, 5, 7].map((kills, index) => ({ id: String(index + 1), stats: { kills, rounds: 20 } })),
