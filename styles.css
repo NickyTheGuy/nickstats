@@ -3790,3 +3790,5 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .react-metric-picker { display: contents; }
 
 .react-graph-settings { display: contents; }
+
+.graph-note-mount { display: contents; }

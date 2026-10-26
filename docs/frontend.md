@@ -1,6 +1,6 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs and routed Session tabs share React navigation controls. Both graph axes use React category dropdowns and statistic autocomplete; graph settings and bucket inputs also use React. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs and routed Session tabs share React navigation controls. Both graph axes use React category dropdowns and statistic autocomplete; graph settings and bucket inputs also use React. Graph summaries, legends, notes and empty states now render in React. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
@@ -12,6 +12,9 @@ The frontend is moving to React a screen at a time. Session, match lists/cards, 
 | Profile rendering bridge | `frontend/profile.jsx` |
 | Group roster, recent players and graph selection | `frontend/players/PlayerRoster.jsx`, `RecentPlayers.jsx`, `GraphPlayerChoices.jsx` |
 | Player selection mounting/data bridge | `frontend/player-selection.jsx` |
+| Graph summaries, legends, notes and empty states | `frontend/graphs/GraphSummary.jsx`, `GraphLegend.jsx`, `frontend/graph-output.jsx` |
+| Shared summary card, legend key and empty state | `frontend/components/SummaryCard.jsx`, `ColorKey.jsx`, `EmptyState.jsx` |
+| Graph summary model and statistics | `frontend/state/graph-output.mjs` |
 | Graph view, type, display and bucket UI | `frontend/graphs/GraphSettings.jsx`, `BucketControls.jsx`, `frontend/components/OptionField.jsx`, `NumberStepper.jsx` |
 | Graph settings, metric-specific drafts and constraints | `frontend/state/graph-settings.mjs`, `frontend/graph-settings.jsx` |
 | Graph statistic/category selectors and autocomplete | `frontend/graphs/MetricPicker.jsx`, `frontend/components/Autocomplete.jsx` |
@@ -155,7 +158,7 @@ The routing and data controllers retain profile-close fallback, Session-close fa
 
 ## Graph statistic pickers
 
-Both axes in Player and Group graphs share MetricPicker, Autocomplete and OptionDropdown. The graph controller publishes metric metadata, categories, selected IDs and search drafts through `NickStatsMetricPickerUI.sync`. Picker callbacks update the graph model and redraw it. Graph settings also publish their state to that controller; SVG rendering, summaries and legends still use it.
+Both axes in Player and Group graphs share MetricPicker, Autocomplete and OptionDropdown. The graph controller publishes metric metadata, categories, selected IDs and search drafts through `NickStatsMetricPickerUI.sync`. Picker callbacks update the graph model and redraw it. Graph settings also publish their state to that controller; SVG rendering still uses it; summaries, legends and notes are published to React.
 
 Each picker has an independent store. Empty queries show the current category; typed words search across categories, including account tag statistics. Every word must match the category/name, and results are capped at 30. Selecting a result updates its category unless All categories is selected. Category changes clear the search and return focus to the input. Arrow keys wrap through suggestions, Enter selects, Escape restores the selected name, and outside clicks or focus changes dismiss the list. Input drafts, including a deliberately blank field, survive filter redraws; changing accounts or losing a tag resets unavailable selections through the graph model. The X-axis excludes round differential.
 
@@ -168,3 +171,11 @@ Autocomplete owns expanded/active-descendant state and selectable suggestion but
 The store remembers graph type, display, mode and count across data/filter redraws. Range and manual cutoff drafts are keyed by their bucket statistic: Y for distributions and X for relationships. Switching statistics restores their own drafts. The count is bounded to 4–24. The existing parser validates ranges/cutoffs and reports errors back to React for aria-invalid and the explanatory note; invalid input keeps automatic graph buckets until corrected.
 
 Round differential requires Round by round and disables the other views. Unsupported per-round statistics return to Match by match. Graph type and bucket controls hide in round view; buckets also hide for trends, while Bars/Line stays available. Configuration and validation updates notify React without recursively redrawing the graph. User actions update the store synchronously and request a redraw. OptionDropdown accepts disabled choices and skips them during keyboard navigation.
+
+## Graph output
+
+The graph controller prepares chart samples and sends the displayed series, metric formats, colors, mode and explanatory note to `NickStatsGraphOutputUI.render`. `graphOutputModel` calculates the summary text from those same samples: mean, median, population standard deviation, range and sample count; paired X/Y summaries and match/Session counts; or distinct numbered rounds and actual round appearances. It retains the existing formatting and never sorts the chart's input arrays in place.
+
+GraphSummary renders shared SummaryCard and EmptyState components. GraphLegend renders ColorKey components using the same stable series colors. Player IDs key both lists, so filtering a series preserves other players' cards and colors even when names are duplicated. Empty results clear both cards and legend and use the existing match/Session/round-specific messages.
+
+Each Player/Group prefix has one persistent React root in its summary container. Portals render the corresponding legend and explanatory/validation note, keeping all three outputs in the same render. The note mount uses display: contents to preserve spacing when the note is hidden. The chart controller still draws SVG marks, axes, tooltips and the missing-dates message, but no longer builds summary or legend DOM or changes the note element.

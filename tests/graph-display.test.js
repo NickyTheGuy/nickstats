@@ -8,7 +8,8 @@ const vm = require("node:vm");
 
 test("bars and lines render for match trends and exact-round deaths", async () => {
   const { createGraphSettings } = await import("../frontend/state/graph-settings.mjs");
-  let settings;
+  const { graphOutputModel } = await import("../frontend/state/graph-output.mjs");
+  let settings, output;
   const nodes = new Map();
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.listeners = {}; this.attributes = {}; this.style = { setProperty() {} }; this.hidden = false; this.value = ""; }
@@ -43,7 +44,7 @@ test("bars and lines render for match trends and exact-round deaths", async () =
     assert.ok(metric, `metric ${label}`);
     callbacks.onSelect({ metricId: metric.id, category: metric.group });
   };
-  const context = { window: { NickStatsGraphSettingsUI: { create(_prefix, onChange) {
+  const context = { window: { NickStatsGraphOutputUI: { render(_prefix, input) { output = graphOutputModel(input); } }, NickStatsGraphSettingsUI: { create(_prefix, onChange) {
     settings = createGraphSettings(onChange); settings.set("type", "trend"); return settings;
   } }, NickStatsMetricPickerUI: {
     sync(_prefix, axis, config, callbacks) { pickers.set(axis, { config, callbacks }); },
@@ -88,7 +89,7 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   settings.range(2, "1");
 
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 3);
-  assert.equal(nodes.get("playerGraphNote").hidden, true);
+  assert.equal(output.note, "");
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "0–<1"));
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "2–<3"));
   settings.range(0, ".1");
@@ -101,8 +102,8 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 4);
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "<1"));
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "≥3"));
-  assert.match(nodes.get("playerGraphNote").textContent, /comma-separated cutoffs/);
-  assert.equal(nodes.get("playerGraphNote").hidden, false);
+  assert.match(output.note, /comma-separated cutoffs/);
+  assert.notEqual(output.note, "");
   settings.set("type", "trend");
   settings.set("style", "line");
   assert.ok(svg.children.some(child => child.tag === "circle" && child.attributes.class === "graph-point"));
@@ -112,7 +113,7 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   assert.ok(svg.children.some(child => child.tag === "polyline" && child.attributes.class === "graph-series-line"));
   settings.set("style", "bars");
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 2);
-  assert.match(nodes.get("playerGraphNote").textContent, /average deaths/);
+  assert.match(output.note, /average deaths/);
   choose("Round differential");
   assert.equal(settings.getSnapshot().scope, "round");
   assert.equal(settings.getSnapshot().roundOnly, true);
@@ -157,11 +158,11 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   assert.equal(marks("graph-series-bar").length, 4);
   assert.equal(marks("graph-series-line").length, 0);
   assert.equal(marks("graph-point").length, 0);
-  const card = nodes.get("playerGraphSummary").children[0];
-  assert.equal(card.children[0].textContent, "Player");
-  assert.match(card.children[1].textContent, /^X · Sleep: Mean 3(?:\.0+)? · Median 3/);
-  assert.match(card.children[2].textContent, /^Y · Kills: Mean 4 · Median 4 · SD 2 · Range 1–7$/);
-  assert.equal(card.children[3].textContent, "4 paired matches");
+  const card = output.cards[0];
+  assert.equal(card.label, "Player");
+  assert.match(card.lines[0], /^X · Sleep: Mean 3(?:\.0+)? · Median 3/);
+  assert.match(card.lines[1], /^Y · Kills: Mean 4 · Median 4 · SD 2 · Range 1–7$/);
+  assert.equal(card.lines[2], "4 paired matches");
   settings.set("style", "line");
   assert.equal(marks("graph-series-bar").length, 0);
   assert.equal(marks("graph-point").length, 4);
@@ -169,7 +170,7 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   settings.set("style", "bars");
   assert.equal(marks("graph-series-line").length, 0);
   settings.set("type", "distribution");
-  assert.equal(nodes.get("playerGraphSummary").children[0].children.length, 2);
-  assert.match(nodes.get("playerGraphSummary").children[0].children[1].textContent, /^Mean .* · n=5$/);
+  assert.equal(output.cards[0].lines.length, 1);
+  assert.match(output.cards[0].lines[0], /^Mean .* · n=5$/);
 
 });

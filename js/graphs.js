@@ -250,17 +250,6 @@
   }
   const format = (value, metric) => `${number(value).toFixed(metric.digits)}${metric.suffix}`;
   const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
-  const median = values => {
-    if (!values.length) return 0;
-    const sorted = [...values].sort((a, b) => a - b), middle = Math.floor(sorted.length / 2);
-    return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
-  };
-  const deviation = values => {
-    if (values.length < 2) return 0;
-    const average = mean(values);
-    return Math.sqrt(values.reduce((sum, value) => sum + (value - average) ** 2, 0) / values.length);
-  };
-
   function valuesFor(series, metric) {
     return series.samples.map(sample => ({ ...sample, value: metric.value(sample.stats, sample) })).filter(sample => Number.isFinite(sample.value));
   }
@@ -619,9 +608,8 @@
 
   function draw(prefix) {
     const state = graphState.get(prefix); if (!state) return;
-    const svg = document.getElementById(`${prefix}GraphSvg`), summary = document.getElementById(`${prefix}GraphSummary`);
-    const legend = document.getElementById(`${prefix}GraphLegend`), note = document.getElementById(`${prefix}GraphNote`);
-    if (!svg || !summary || !legend || !note) return;
+    const svg = document.getElementById(`${prefix}GraphSvg`);
+    if (!svg) return;
     state.settings.configure({ metricId: state.metricId, xMetricId: state.xAxis.metricId,
       roundOnly: state.metricId === "round_diff", supportsRounds: Object.hasOwn(roundMetrics, state.metricId) });
     const settings = state.settings.getSnapshot();
@@ -643,9 +631,9 @@
     const domainPrepared = state.domainSeries.map(scopedSeries).map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
     const roundPrepared = roundsMode ? state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || [], {}, roundMetric) })).filter(series => series.roundValues.length) : [];
     svg.setAttribute("viewBox", !roundsMode && ["distribution", "relationship"].includes(settings.type) ? "0 0 900 460" : "0 0 900 420");
-    svg.replaceChildren(); summary.replaceChildren(); legend.replaceChildren();
+    svg.replaceChildren();
     const multiTrendNeedsDates = !roundsMode && settings.type === "trend" && state.independent && independentTrendNeedsDates(prepared);
-    note.textContent = roundsMode
+    const note = roundsMode
       ? `Each ${settings.style === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
       : relationship
       ? range?.error ? `${range.error} Showing automatic buckets until valid.` : `X sets the buckets; Y is the average ${unit} value. ${sessionsMode ? "Sessions" : "Matches"} missing either value are excluded.`
@@ -656,41 +644,10 @@
       : multiTrendNeedsDates
         ? `Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for ${unit} order, or use Distribution for comparisons now.`
         : `Each ${unit} gets one horizontal slot in date order. Lines pause across long gaps in a player's games. Hover for the exact date and value.`;
-    note.hidden = !note.textContent;
-    if (!(roundsMode ? roundPrepared : prepared).length) {
-      const empty = document.createElement("p"); empty.className = "graph-empty"; empty.textContent = roundsMode ? "No per-round data for these matches. Reparse older demos to add round data." : `No qualifying ${unit} samples for this statistic.`; summary.appendChild(empty); return;
-    }
-    if (roundsMode) {
-      roundPrepared.forEach((series, index) => {
-        const item = document.createElement("div"); item.className = "graph-summary-card";
-        item.style.setProperty("--series-color", colors[(series.colorIndex ?? index) % colors.length]);
-        const label = document.createElement("strong"); label.textContent = series.label;
-        const details = document.createElement("span");
-        details.textContent = `${series.roundValues.length} numbered rounds · ${series.roundValues.reduce((sum, point) => sum + point.appearances, 0)} played rounds`;
-        item.append(label, details); summary.appendChild(item);
-        const key = document.createElement("span"); key.className = "graph-legend-item";
-        key.style.setProperty("--series-color", colors[(series.colorIndex ?? index) % colors.length]); key.textContent = series.label; legend.appendChild(key);
-      });
-      drawRounds(svg, roundPrepared, metric, settings.style); return;
-    }
-    prepared.forEach((series, index) => {
-      const colorIndex = series.colorIndex ?? index;
-      const item = document.createElement("div"); item.className = "graph-summary-card";
-      item.style.setProperty("--series-color", colors[colorIndex % colors.length]);
-      const label = document.createElement("strong"); label.textContent = series.label;
-      item.appendChild(label);
-      const axes = relationship ? [["X", xMetric, "value"], ["Y", metric, "y"]] : [["", metric, "value"]];
-      axes.forEach(([axis, axisMetric, key]) => {
-        const values = series.values.map(point => point[key]), details = document.createElement("span");
-        details.textContent = `${axis ? `${axis} · ${axisMetric.label}: ` : ""}Mean ${format(mean(values), axisMetric)} · Median ${format(median(values), axisMetric)} · SD ${format(deviation(values), axisMetric)} · Range ${format(Math.min(...values), axisMetric)}–${format(Math.max(...values), axisMetric)}${relationship ? "" : ` · n=${values.length}`}`;
-        item.appendChild(details);
-      });
-      if (relationship) {
-        const count = document.createElement("span"); count.textContent = `${series.values.length} paired ${unit === "session" ? "sessions" : "matches"}`; item.appendChild(count);
-      }
-      summary.appendChild(item);
-      const key = document.createElement("span"); key.className = "graph-legend-item"; key.style.setProperty("--series-color", colors[colorIndex % colors.length]); key.textContent = series.label; legend.appendChild(key);
-    });
+    const shown = roundsMode ? roundPrepared : prepared;
+    window.NickStatsGraphOutputUI.render(prefix, { series: shown, roundsMode, relationship, metric, xMetric, unit, colors, format, note });
+    if (!shown.length) return;
+    if (roundsMode) { drawRounds(svg, roundPrepared, metric, settings.style); return; }
     if (multiTrendNeedsDates) {
       svg.appendChild(svgElement("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
     } else if (relationship) drawRelationship(svg, prepared, domainPrepared, xMetric, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
