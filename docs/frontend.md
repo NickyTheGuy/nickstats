@@ -1,6 +1,6 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs and routed Session tabs share React navigation controls. Both graph axes use React category dropdowns and statistic autocomplete. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs and routed Session tabs share React navigation controls. Both graph axes use React category dropdowns and statistic autocomplete; graph settings and bucket inputs also use React. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
@@ -12,6 +12,8 @@ The frontend is moving to React a screen at a time. Session, match lists/cards, 
 | Profile rendering bridge | `frontend/profile.jsx` |
 | Group roster, recent players and graph selection | `frontend/players/PlayerRoster.jsx`, `RecentPlayers.jsx`, `GraphPlayerChoices.jsx` |
 | Player selection mounting/data bridge | `frontend/player-selection.jsx` |
+| Graph view, type, display and bucket UI | `frontend/graphs/GraphSettings.jsx`, `BucketControls.jsx`, `frontend/components/OptionField.jsx`, `NumberStepper.jsx` |
+| Graph settings, metric-specific drafts and constraints | `frontend/state/graph-settings.mjs`, `frontend/graph-settings.jsx` |
 | Graph statistic/category selectors and autocomplete | `frontend/graphs/MetricPicker.jsx`, `frontend/components/Autocomplete.jsx` |
 | Metric search, drafts and keyboard selection | `frontend/state/metric-picker.mjs`, `frontend/metric-picker.jsx` |
 | Player/Group search layout and result buttons | `frontend/search/PlayerSearch.jsx`, `PlayerSearchResult.jsx` |
@@ -153,8 +155,16 @@ The routing and data controllers retain profile-close fallback, Session-close fa
 
 ## Graph statistic pickers
 
-Both axes in Player and Group graphs share MetricPicker, Autocomplete and OptionDropdown. The graph controller publishes metric metadata, categories, selected IDs and search drafts through `NickStatsMetricPickerUI.sync`. Picker callbacks update the graph model and redraw it. The remaining graph settings, SVG rendering, summaries and legends still use the existing controller.
+Both axes in Player and Group graphs share MetricPicker, Autocomplete and OptionDropdown. The graph controller publishes metric metadata, categories, selected IDs and search drafts through `NickStatsMetricPickerUI.sync`. Picker callbacks update the graph model and redraw it. Graph settings also publish their state to that controller; SVG rendering, summaries and legends still use it.
 
 Each picker has an independent store. Empty queries show the current category; typed words search across categories, including account tag statistics. Every word must match the category/name, and results are capped at 30. Selecting a result updates its category unless All categories is selected. Category changes clear the search and return focus to the input. Arrow keys wrap through suggestions, Enter selects, Escape restores the selected name, and outside clicks or focus changes dismiss the list. Input drafts, including a deliberately blank field, survive filter redraws; changing accounts or losing a tag resets unavailable selections through the graph model. The X-axis excludes round differential.
 
 Autocomplete owns expanded/active-descendant state and selectable suggestion buttons. OptionDropdown is shared with calendar selectors. React owns the category controls, input labels and suggestion lists; the graph controller no longer creates options, attaches picker listeners, or edits input DOM. Existing mount points and responsive flex styling preserve the two-axis layout.
+
+## Graph settings and buckets
+
+`NickStatsGraphSettingsUI.create(prefix, onChange)` mounts the shared GraphSettings component and returns an independent store for each Player/Group graph. View, graph type, display and bucket mode use OptionField/OptionDropdown; the automatic bucket count uses NumberStepper; BucketControls owns the range and cutoff inputs. The graph controller reads the store and redraws, without querying controls, adding listeners or assigning input values.
+
+The store remembers graph type, display, mode and count across data/filter redraws. Range and manual cutoff drafts are keyed by their bucket statistic: Y for distributions and X for relationships. Switching statistics restores their own drafts. The count is bounded to 4–24. The existing parser validates ranges/cutoffs and reports errors back to React for aria-invalid and the explanatory note; invalid input keeps automatic graph buckets until corrected.
+
+Round differential requires Round by round and disables the other views. Unsupported per-round statistics return to Match by match. Graph type and bucket controls hide in round view; buckets also hide for trends, while Bars/Line stays available. Configuration and validation updates notify React without recursively redrawing the graph. User actions update the store synchronously and request a redraw. OptionDropdown accepts disabled choices and skips them during keyboard navigation.

@@ -6,7 +6,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
 
-test("bars and lines render for match trends and exact-round deaths", () => {
+test("bars and lines render for match trends and exact-round deaths", async () => {
+  const { createGraphSettings } = await import("../frontend/state/graph-settings.mjs");
+  let settings;
   const nodes = new Map();
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.listeners = {}; this.attributes = {}; this.style = { setProperty() {} }; this.hidden = false; this.value = ""; }
@@ -33,16 +35,17 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   for (const name of ["XMetric", "XCategory", "XSuggestions", "MetricLabel", "XAxisControl", "Type", "TypeControl", "Metric", "Category", "Scope", "DistributionStyle", "DistributionStyleControl", "BucketControl", "BucketMode", "BucketStepper", "BucketRange", "BucketManual", "BucketCutoffs", "BucketFrom", "BucketTo", "BucketIncrement", "Suggestions", "Svg", "Summary", "Legend", "Note"]) {
     nodes.set(`playerGraph${name}`, new Element(name === "Category" ? "select" : "div"));
   }
-  const type = nodes.get("playerGraphType"), scope = nodes.get("playerGraphScope");
-  const display = nodes.get("playerGraphDistributionStyle"), svg = nodes.get("playerGraphSvg");
-  type.value = "trend"; scope.value = "match"; scope.roundOption = { disabled: true }; scope.matchOption = { disabled: false }; display.value = "bars";
+  nodes.set("playerGraphSettingsApp", new Element("div"));
+  const svg = nodes.get("playerGraphSvg");
   const pickers = new Map();
   const choose = (label, axis = "y") => {
     const { config, callbacks } = pickers.get(axis), metric = config.choices.find(choice => choice.label === label);
     assert.ok(metric, `metric ${label}`);
     callbacks.onSelect({ metricId: metric.id, category: metric.group });
   };
-  const context = { window: { NickStatsMetricPickerUI: {
+  const context = { window: { NickStatsGraphSettingsUI: { create(_prefix, onChange) {
+    settings = createGraphSettings(onChange); settings.set("type", "trend"); return settings;
+  } }, NickStatsMetricPickerUI: {
     sync(_prefix, axis, config, callbacks) { pickers.set(axis, { config, callbacks }); },
     label(_prefix, label) { nodes.get("playerGraphMetricLabel").textContent = label; }
   }, NickStatsAvailability: { scope: stats => stats }, NickStatsDropdown: { enhance() {}, sync() {} } }, document };
@@ -74,46 +77,45 @@ test("bars and lines render for match trends and exact-round deaths", () => {
     .sort((a, b) => a.attributes.x - b.attributes.x);
   assert.equal(groupedBars.length, 13);
   assert.ok(groupedBars.every((bar, index) => index === groupedBars.length - 1 || bar.attributes.x + bar.attributes.width <= groupedBars[index + 1].attributes.x));
-  display.value = "line"; display.dispatch("change");
+  settings.set("style", "line");
   assert.equal(svg.children.filter(child => child.tag === "polyline" && child.attributes.class === "graph-series-line").length, 1);
-  display.value = "bars";
+  settings.set("style", "bars");
   context.window.NickStatsGraphs.render({ prefix: "player", series });
-  type.value = "distribution";
-  nodes.get("playerGraphBucketMode").value = "range";
-  nodes.get("playerGraphBucketFrom").value = "0";
-  nodes.get("playerGraphBucketTo").value = "3";
-  nodes.get("playerGraphBucketIncrement").value = "1";
-  nodes.get("playerGraphBucketMode").dispatch("change");
+  settings.set("type", "distribution");
+  settings.set("mode", "range");
+  settings.range(0, "0");
+  settings.range(1, "3");
+  settings.range(2, "1");
+
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 3);
   assert.equal(nodes.get("playerGraphNote").hidden, true);
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "0–<1"));
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "2–<3"));
-  nodes.get("playerGraphBucketFrom").value = ".1";
-  nodes.get("playerGraphBucketFrom").dispatch("input");
+  settings.range(0, ".1");
+
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "<0.1"));
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 4);
-  nodes.get("playerGraphBucketMode").value = "manual";
-  nodes.get("playerGraphBucketCutoffs").value = "1, 2, 3";
-  nodes.get("playerGraphBucketMode").dispatch("change");
+  settings.set("mode", "manual");
+  settings.manual("1, 2, 3");
+
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 4);
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "<1"));
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "≥3"));
   assert.match(nodes.get("playerGraphNote").textContent, /comma-separated cutoffs/);
   assert.equal(nodes.get("playerGraphNote").hidden, false);
-  type.value = "trend";
-  display.value = "line"; display.dispatch("change");
+  settings.set("type", "trend");
+  settings.set("style", "line");
   assert.ok(svg.children.some(child => child.tag === "circle" && child.attributes.class === "graph-point"));
   choose("Deaths");
-  scope.value = "round"; scope.dispatch("change");
-  assert.equal(scope.roundOption.disabled, false);
-  assert.equal(nodes.get("playerGraphDistributionStyleControl").hidden, false);
+  settings.set("scope", "round");
+  assert.equal(settings.getSnapshot().supportsRounds, true);
   assert.ok(svg.children.some(child => child.tag === "polyline" && child.attributes.class === "graph-series-line"));
-  display.value = "bars"; display.dispatch("change");
+  settings.set("style", "bars");
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 2);
   assert.match(nodes.get("playerGraphNote").textContent, /average deaths/);
   choose("Round differential");
-  assert.equal(scope.value, "round");
-  assert.equal(scope.matchOption.disabled, true);
+  assert.equal(settings.getSnapshot().scope, "round");
+  assert.equal(settings.getSnapshot().roundOnly, true);
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 2);
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Average round differential"));
   // A tag can drive X buckets, with the statistic remaining on Y.
@@ -122,11 +124,10 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   context.window.NickStatsGraphs.render({ prefix: "player", series });
   choose("Rating");
   choose("Sleep", "x");
-  type.value = "relationship";
-  nodes.get("playerGraphBucketMode").value = "auto"; type.dispatch("change");
+  settings.set("type", "relationship");
+  settings.set("mode", "auto");
   assert.equal(nodes.get("playerGraphXAxisControl").hidden, false);
   assert.equal(nodes.get("playerGraphMetricLabel").textContent, "Y-axis");
-  assert.equal(nodes.get("playerGraphBucketControl").hidden, false);
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Sleep"));
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Average Rating"));
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 1);
@@ -136,7 +137,7 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   choose("Rating", "x");
   assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Average Sleep"));
   assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 1);
-  type.value = "distribution"; type.dispatch("change");
+  settings.set("type", "distribution");
   assert.equal(nodes.get("playerGraphMetricLabel").textContent, "Statistic");
   assert.equal(nodes.get("playerGraphXAxisControl").hidden, true);
 
@@ -145,14 +146,13 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   context.window.NickStatsManualFilters.store.stateFor = (_, id) => sleep[id] ?? "unknown";
   choose("Kills");
   choose("Sleep", "x");
-  type.value = "relationship"; display.value = "bars";
+  settings.set("type", "relationship"); settings.set("style", "bars");
   context.window.NickStatsGraphs.render({ prefix: "player", series: [{ label: "Player", samples: [
     ...[1, 3, 5, 7].map((kills, index) => ({ id: String(index + 1), stats: { kills, rounds: 20 } })),
     { id: "unknown", stats: { kills: 1000, rounds: 20 } }
   ] }] });
-  nodes.get("playerGraphBucketMode").value = "manual";
-  nodes.get("playerGraphBucketCutoffs").value = "0, 1, 2, 3, 4, 5, 6";
-  nodes.get("playerGraphBucketCutoffs").dispatch("input", { target: nodes.get("playerGraphBucketCutoffs") });
+  settings.set("mode", "manual");
+  settings.manual("0, 1, 2, 3, 4, 5, 6");
   const marks = className => svg.children.filter(child => child.attributes.class === className);
   assert.equal(marks("graph-series-bar").length, 4);
   assert.equal(marks("graph-series-line").length, 0);
@@ -162,13 +162,13 @@ test("bars and lines render for match trends and exact-round deaths", () => {
   assert.match(card.children[1].textContent, /^X · Sleep: Mean 3(?:\.0+)? · Median 3/);
   assert.match(card.children[2].textContent, /^Y · Kills: Mean 4 · Median 4 · SD 2 · Range 1–7$/);
   assert.equal(card.children[3].textContent, "4 paired matches");
-  display.value = "line"; display.dispatch("change");
+  settings.set("style", "line");
   assert.equal(marks("graph-series-bar").length, 0);
   assert.equal(marks("graph-point").length, 4);
   assert.equal(marks("graph-series-line").length, 2);
-  display.value = "bars"; display.dispatch("change");
+  settings.set("style", "bars");
   assert.equal(marks("graph-series-line").length, 0);
-  type.value = "distribution"; type.dispatch("change");
+  settings.set("type", "distribution");
   assert.equal(nodes.get("playerGraphSummary").children[0].children.length, 2);
   assert.match(nodes.get("playerGraphSummary").children[0].children[1].textContent, /^Mean .* · n=5$/);
 

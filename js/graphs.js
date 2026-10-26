@@ -3,9 +3,7 @@
 
   const SVG_NS = "http://www.w3.org/2000/svg";
   const colors = ["#455f97", "#d18c00", "#168a77", "#9d51ba", "#bd343e", "#067daa", "#a0522d", "#667b13", "#d05c95", "#555a6c"];
-  const MIN_BUCKETS = 4;
   const MAX_BUCKETS = 24;
-  const DEFAULT_BUCKETS = 10;
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
   const availability = window.NickStatsAvailability;
   const ratio = (a, b) => number(b) > 0 ? number(a) / number(b) : number(a);
@@ -621,76 +619,37 @@
 
   function draw(prefix) {
     const state = graphState.get(prefix); if (!state) return;
-    const type = document.getElementById(`${prefix}GraphType`);
     const svg = document.getElementById(`${prefix}GraphSvg`), summary = document.getElementById(`${prefix}GraphSummary`);
     const legend = document.getElementById(`${prefix}GraphLegend`), note = document.getElementById(`${prefix}GraphNote`);
-    const distributionStyleControl = document.getElementById(`${prefix}GraphDistributionStyleControl`);
-    const distributionStyle = document.getElementById(`${prefix}GraphDistributionStyle`);
-    const bucketControl = document.getElementById(`${prefix}GraphBucketControl`), bucketCount = document.getElementById(`${prefix}GraphBucketCount`);
-    const bucketLess = document.getElementById(`${prefix}GraphBucketsLess`), bucketMore = document.getElementById(`${prefix}GraphBucketsMore`);
-    const bucketMode = document.getElementById(`${prefix}GraphBucketMode`);
-    const bucketStepper = document.getElementById(`${prefix}GraphBucketStepper`);
-    const bucketRange = document.getElementById(`${prefix}GraphBucketRange`);
-    const bucketManual = document.getElementById(`${prefix}GraphBucketManual`);
-    const cutoffInput = document.getElementById(`${prefix}GraphBucketCutoffs`);
-    const bucketInputs = ["From", "To", "Increment"].map(key => document.getElementById(`${prefix}GraphBucket${key}`));
-    if (!type || !svg || !summary || !legend || !note) return;
-    const scope = document.getElementById(`${prefix}GraphScope`);
-    const roundOnly = state.metricId === "round_diff";
-    const supportsRounds = Object.hasOwn(roundMetrics, state.metricId);
-    const matchOption = scope?.querySelector('option[value="match"]');
-    const sessionOption = scope?.querySelector('option[value="session"]');
-    if (sessionOption) sessionOption.disabled = roundOnly;
-    const roundOption = scope?.querySelector('option[value="round"]');
-    if (matchOption) matchOption.disabled = roundOnly;
-    if (roundOption) roundOption.disabled = !supportsRounds;
-    if (roundOnly && scope?.value !== "round") scope.value = "round";
-    if (!supportsRounds && scope?.value === "round") scope.value = "match";
-    window.NickStatsDropdown.sync(scope);
-    const roundsMode = scope?.value === "round";
-    const sessionsMode = scope?.value === "session";
+    if (!svg || !summary || !legend || !note) return;
+    state.settings.configure({ metricId: state.metricId, xMetricId: state.xAxis.metricId,
+      roundOnly: state.metricId === "round_diff", supportsRounds: Object.hasOwn(roundMetrics, state.metricId) });
+    const settings = state.settings.getSnapshot();
+    const roundsMode = settings.scope === "round", sessionsMode = settings.scope === "session";
     const unit = sessionsMode ? "session" : "match";
-    const typeControl = document.getElementById(`${prefix}GraphTypeControl`);
-    if (typeControl) typeControl.hidden = roundsMode;
     const metric = registry.get(state.metricId) || registry.get("rating");
-    const relationship = !roundsMode && type.value === "relationship";
+    const relationship = !roundsMode && settings.type === "relationship";
     const xMetric = registry.get(state.xAxis.metricId) || registry.get("opening_attempt_rate");
     window.NickStatsMetricPickerUI.label(prefix, relationship ? "Y-axis" : "Statistic");
-    const bucketMetric = relationship ? xMetric : metric;
     const xControl = document.getElementById(`${prefix}GraphXAxisControl`);
     if (xControl) xControl.hidden = !relationship;
-    if (bucketRange && state.bucketInputMetric !== bucketMetric.id) {
-      const values = state.customRanges.get(bucketMetric.id) || ["", "", ""];
-      bucketInputs.forEach((input, index) => { input.value = values[index]; });
-      if (cutoffInput) cutoffInput.value = state.manualCutoffs.get(bucketMetric.id) || "";
-      state.bucketInputMetric = bucketMetric.id;
-    }
-    const mode = bucketMode?.value || "auto";
-    const range = mode === "range" ? parseBucketRange(...bucketInputs.map(input => input?.value || ""))
-      : mode === "manual" ? parseCutoffs(cutoffInput?.value || "") : null;
-    if (bucketStepper) bucketStepper.hidden = mode !== "auto";
-    if (bucketRange) bucketRange.hidden = mode !== "range";
-    if (bucketManual) bucketManual.hidden = mode !== "manual";
-    bucketInputs.forEach(input => input?.setAttribute("aria-invalid", String(mode === "range" && !!range.error)));
-    cutoffInput?.setAttribute("aria-invalid", String(mode === "manual" && !!range.error));
+    const mode = settings.mode, key = state.settings.bucketKey();
+    const range = mode === "range" ? parseBucketRange(...(settings.ranges.get(key) || ["", "", ""]))
+      : mode === "manual" ? parseCutoffs(settings.cutoffs.get(key) || "") : null;
+    state.settings.validation(range?.error || "");
     const roundMetric = roundMetrics[metric.id];
     const scopedSeries = series => sessionsMode ? { ...series, samples: sessionSamples(series.samples, series.sessionMatches) } : series;
     const prepared = state.series.map(scopedSeries).map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
     const domainPrepared = state.domainSeries.map(scopedSeries).map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
     const roundPrepared = roundsMode ? state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || [], {}, roundMetric) })).filter(series => series.roundValues.length) : [];
-    if (distributionStyleControl) distributionStyleControl.hidden = false;
-    if (bucketControl) bucketControl.hidden = roundsMode || !["distribution", "relationship"].includes(type.value);
-    if (bucketCount) bucketCount.textContent = String(state.bucketCount);
-    if (bucketLess) bucketLess.disabled = state.bucketCount <= MIN_BUCKETS;
-    if (bucketMore) bucketMore.disabled = state.bucketCount >= MAX_BUCKETS;
-    svg.setAttribute("viewBox", !roundsMode && ["distribution", "relationship"].includes(type.value) ? "0 0 900 460" : "0 0 900 420");
+    svg.setAttribute("viewBox", !roundsMode && ["distribution", "relationship"].includes(settings.type) ? "0 0 900 460" : "0 0 900 420");
     svg.replaceChildren(); summary.replaceChildren(); legend.replaceChildren();
-    const multiTrendNeedsDates = !roundsMode && type.value === "trend" && state.independent && independentTrendNeedsDates(prepared);
+    const multiTrendNeedsDates = !roundsMode && settings.type === "trend" && state.independent && independentTrendNeedsDates(prepared);
     note.textContent = roundsMode
-      ? `Each ${distributionStyle?.value === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
+      ? `Each ${settings.style === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
       : relationship
       ? range?.error ? `${range.error} Showing automatic buckets until valid.` : `X sets the buckets; Y is the average ${unit} value. ${sessionsMode ? "Sessions" : "Matches"} missing either value are excluded.`
-      : type.value === "distribution"
+      : settings.type === "distribution"
       ? range?.error ? `${range.error} Showing automatic buckets until valid.`
         : mode === "manual" ? "Enter comma-separated cutoffs. For example, 5, 10, 15 makes <5, 5–<10, 10–<15, and ≥15."
           : ""
@@ -712,7 +671,7 @@
         const key = document.createElement("span"); key.className = "graph-legend-item";
         key.style.setProperty("--series-color", colors[(series.colorIndex ?? index) % colors.length]); key.textContent = series.label; legend.appendChild(key);
       });
-      drawRounds(svg, roundPrepared, metric, distributionStyle?.value || "bars"); return;
+      drawRounds(svg, roundPrepared, metric, settings.style); return;
     }
     prepared.forEach((series, index) => {
       const colorIndex = series.colorIndex ?? index;
@@ -734,27 +693,23 @@
     });
     if (multiTrendNeedsDates) {
       svg.appendChild(svgElement("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
-    } else if (relationship) drawRelationship(svg, prepared, domainPrepared, xMetric, metric, state.bucketCount, distributionStyle?.value || "bars", range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
-    else type.value === "trend" ? drawTrend(svg, prepared, metric, distributionStyle?.value || "bars", sessionsMode ? "Session" : "Match") : drawDistribution(svg, prepared, domainPrepared, metric, state.bucketCount, distributionStyle?.value || "bars", range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
+    } else if (relationship) drawRelationship(svg, prepared, domainPrepared, xMetric, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
+    else settings.type === "trend" ? drawTrend(svg, prepared, metric, settings.style, sessionsMode ? "Session" : "Match") : drawDistribution(svg, prepared, domainPrepared, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
   }
 
   function render({ prefix, series, domainSeries = series, independent = false }) {
-    const type = document.getElementById(`${prefix}GraphType`);
-    if (!type) return;
+    if (!document.getElementById(`${prefix}GraphSettingsApp`)) return;
     syncTagMetrics();
-    [type, document.getElementById(`${prefix}GraphScope`), document.getElementById(`${prefix}GraphDistributionStyle`), document.getElementById(`${prefix}GraphBucketMode`)]
-      .forEach(select => window.NickStatsDropdown.enhance(select));
     const previous = graphState.get(prefix);
     const account = window.NickStatsManualFilters?.store.account || null;
     const sameAccount = previous?.account === account;
     graphState.set(prefix, { account, series: series || [], domainSeries: domainSeries || series || [], independent,
-      bucketCount: previous?.bucketCount || DEFAULT_BUCKETS, metricId: registry.has(previous?.metricId) ? previous.metricId : "rating",
+      settings: previous?.settings || window.NickStatsGraphSettingsUI.create(prefix, () => draw(prefix)), metricId: registry.has(previous?.metricId) ? previous.metricId : "rating",
       xAxis: { metricId: registry.has(previous?.xAxis?.metricId) ? previous.xAxis.metricId : "opening_attempt_rate",
         category: registry.has(previous?.xAxis?.metricId) && (account || previous.xAxis.category !== "Tags") ? previous.xAxis.category : "Opening",
         query: sameAccount && registry.has(previous?.xAxis?.metricId) ? previous.xAxis.query : null },
       category: registry.has(previous?.metricId) && (account || previous.category !== "Tags") ? previous.category : "Core",
-      query: sameAccount && registry.has(previous?.metricId) ? previous.query : null,
-      customRanges: previous?.customRanges || new Map(), manualCutoffs: previous?.manualCutoffs || new Map(), bucketInputMetric: previous?.bucketInputMetric || null });
+      query: sameAccount && registry.has(previous?.metricId) ? previous.query : null });
     for (const axis of ["y", "x"]) {
       const state = pickerState(prefix, axis);
       window.NickStatsMetricPickerUI.sync(prefix, axis, {
@@ -765,28 +720,6 @@
       }, {
         onDraft: next => { const current = pickerState(prefix, axis); current.category = next.category; current.query = next.query; },
         onSelect: next => { const current = pickerState(prefix, axis); current.metricId = next.metricId; current.category = next.category; current.query = null; draw(prefix); }
-      });
-    }
-    if (!previous) {
-      type.addEventListener("change", () => draw(prefix));
-      document.getElementById(`${prefix}GraphScope`)?.addEventListener("change", () => draw(prefix));
-      document.getElementById(`${prefix}GraphDistributionStyle`)?.addEventListener("change", () => draw(prefix));
-      document.getElementById(`${prefix}GraphBucketMode`)?.addEventListener("change", () => draw(prefix));
-      ["From", "To", "Increment"].forEach(key => document.getElementById(`${prefix}GraphBucket${key}`)?.addEventListener("input", () => {
-        const current = graphState.get(prefix);
-        current.customRanges.set(current.bucketInputMetric, ["From", "To", "Increment"].map(name => document.getElementById(`${prefix}GraphBucket${name}`).value));
-        draw(prefix);
-      }));
-      document.getElementById(`${prefix}GraphBucketCutoffs`)?.addEventListener("input", event => {
-        const current = graphState.get(prefix);
-        current.manualCutoffs.set(current.bucketInputMetric, event.target.value);
-        draw(prefix);
-      });
-      document.getElementById(`${prefix}GraphBucketsLess`)?.addEventListener("click", () => {
-        const current = graphState.get(prefix); current.bucketCount = Math.max(MIN_BUCKETS, current.bucketCount - 1); draw(prefix);
-      });
-      document.getElementById(`${prefix}GraphBucketsMore`)?.addEventListener("click", () => {
-        const current = graphState.get(prefix); current.bucketCount = Math.min(MAX_BUCKETS, current.bucketCount + 1); draw(prefix);
       });
     }
     draw(prefix);

@@ -3377,8 +3377,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .graph-bucket-control { min-width: 0; max-width: 100%; }
 .graph-bucket-settings { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
 .graph-bucket-mode { display: grid; grid-template-rows: 14px 38px; gap: 2px; }
-.graph-bucket-mode > label { height: 14px; line-height: 14px; }
-.graph-bucket-mode > .stats-dropdown { width: 140px; }
+.graph-bucket-mode > span { height: 14px; line-height: 14px; }
+.graph-bucket-mode > div { width: 140px; }
 .graph-bucket-range { display: flex; align-items: end; gap: 6px; flex-wrap: wrap; }
 .graph-bucket-range[hidden] { display: none; }
 .graph-bucket-range label { display: grid; grid-template-rows: 14px 38px; gap: 2px; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .06em; line-height: 14px; }
@@ -3788,3 +3788,5 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .react-player-choices { display: contents; }
 
 .react-metric-picker { display: contents; }
+
+.react-graph-settings { display: contents; }

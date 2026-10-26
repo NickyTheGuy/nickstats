@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20261023-1">
+  <link rel="stylesheet" href="./styles.css?v=20261026-1">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.10.23.1</span>
+          <span class="demo-build">Build 2026.10.26.1</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -399,26 +399,7 @@
                 <div class="graph-stat-controls"><div id="playerGraphPicker" class="react-metric-picker"></div>
                 </div>
                 </div>
-                <fieldset class="graph-display-controls">
-                  <legend>Graph settings</legend>
-                  <div>
-                    <div class="graph-option-field"><span>View</span><select id="playerGraphScope" aria-label="View"><option value="match">Match by match</option><option value="session">Session by session</option><option value="round">Round by round</option></select></div>
-                    <div class="graph-option-field" id="playerGraphTypeControl"><span>Graph type</span><select id="playerGraphType" aria-label="Graph type"><option value="distribution">Distribution</option><option value="trend">Trend</option><option value="relationship">X vs. Y</option></select></div>
-                    <div class="graph-option-field" id="playerGraphDistributionStyleControl"><span>Display</span><select id="playerGraphDistributionStyle" aria-label="Display"><option value="bars">Bars</option><option value="line">Line</option></select></div>
-                    <div class="graph-bucket-control" id="playerGraphBucketControl">
-                      <div class="graph-bucket-settings">
-                        <div class="graph-bucket-mode"><label for="playerGraphBucketMode">Buckets</label><select id="playerGraphBucketMode"><option value="auto">Automatic</option><option value="range">Range</option><option value="manual">Manual</option></select></div>
-                        <div class="graph-bucket-stepper" id="playerGraphBucketStepper"><button id="playerGraphBucketsLess" type="button" aria-label="Use fewer buckets">−</button><output id="playerGraphBucketCount">10</output><button id="playerGraphBucketsMore" type="button" aria-label="Use more buckets">+</button></div>
-                        <div class="graph-bucket-range" id="playerGraphBucketRange" hidden>
-                          <label>From<input id="playerGraphBucketFrom" type="number" step="any" aria-describedby="playerGraphNote" placeholder="0"></label>
-                          <label>To<input id="playerGraphBucketTo" type="number" step="any" aria-describedby="playerGraphNote" placeholder="30"></label>
-                          <label>Increment<input id="playerGraphBucketIncrement" type="number" step="any" min="0" aria-describedby="playerGraphNote" placeholder="5"></label>
-                        </div>
-                        <label class="graph-bucket-manual" id="playerGraphBucketManual" hidden>Cutoffs<input id="playerGraphBucketCutoffs" type="text" inputmode="decimal" aria-describedby="playerGraphNote" placeholder="5, 10, 15"></label>
-                      </div>
-                    </div>
-                  </div>
-                </fieldset>
+                <div id="playerGraphSettingsApp" class="react-graph-settings"></div>
               </div>
               <p id="playerGraphNote"></p>
             </section>
@@ -500,20 +481,20 @@
 
   <script defer src="./js/navigation.js?v=20261010-1"></script>
   <script defer src="./js/data-freshness.js?v=20260927-4"></script>
-  <script defer src="./js/filters.js?v=20261023-1"></script>
+  <script defer src="./js/filters.js?v=20261026-1"></script>
   <script defer src="./js/manual-filters.js?v=20261019-1"></script>
   <script defer src="./js/dropdown.js?v=20261006-1"></script>
   <script defer src="./js/stat-availability.js?v=20260930-9"></script>
   <script defer src="./js/scoreboard.js?v=20261009-1"></script>
   <script defer src="./js/round-timeline.js?v=20260925-06"></script>
-  <script defer src="./js/graphs.js?v=20261023-1"></script>
-  <script defer src="./assets/ui/nickstats-ui.js?v=20261023-1"></script>
-  <script defer src="./js/demo.js?v=20261023-1"></script>
-  <script defer src="./js/profile.js?v=20261023-1"></script>
+  <script defer src="./js/graphs.js?v=20261026-1"></script>
+  <script defer src="./assets/ui/nickstats-ui.js?v=20261026-1"></script>
+  <script defer src="./js/demo.js?v=20261026-1"></script>
+  <script defer src="./js/profile.js?v=20261026-1"></script>
   <script defer src="./js/quick-comparison.js?v=20261011-2"></script>
-  <script defer src="./js/match-sessions.js?v=20261023-1"></script>
-  <script defer src="./js/players.js?v=20261023-1"></script>
-  <script defer src="./js/groups.js?v=20261023-1"></script>
-  <script defer src="./js/sessions.js?v=20261023-1"></script>
+  <script defer src="./js/match-sessions.js?v=20261026-1"></script>
+  <script defer src="./js/players.js?v=20261026-1"></script>
+  <script defer src="./js/groups.js?v=20261026-1"></script>
+  <script defer src="./js/sessions.js?v=20261026-1"></script>
 </body>
 </html>

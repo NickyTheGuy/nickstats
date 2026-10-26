@@ -1,3 +1,4 @@
+import './graph-settings.jsx';
 import './metric-picker.jsx';
 import './navigation.jsx';
 import './profile.jsx';

@@ -12,6 +12,7 @@ export default function OptionDropdown({ label, options, value, onChange, classN
   }, [open]);
   const text = options.find(([key]) => key === value)?.[1] || 'Choose an option';
   function choose(key) {
+    if (options.find(([value]) => value === key)?.[2]?.disabled) return;
     setOpen(false); onChange(key);
     container.current.querySelector('summary').focus();
   }
@@ -27,7 +28,7 @@ export default function OptionDropdown({ label, options, value, onChange, classN
   return <div ref={container} className={className}>
     <Dropdown className="stats-dropdown" summary={text} summaryLabel={`${label}: ${text}`} open={open} onOpenChange={setOpen} onKeyDown={navigate}>
       <div className="stats-dropdown-menu" role="group" aria-label={label}>
-        {options.map(([key, title]) => <Button key={key} aria-current={value === key} onClick={() => choose(key)}>{title}</Button>)}
+        {options.map(([key, title, props = {}]) => <Button {...props} key={key} aria-current={value === key} onClick={() => choose(key)}>{title}</Button>)}
       </div>
     </Dropdown>
   </div>;
