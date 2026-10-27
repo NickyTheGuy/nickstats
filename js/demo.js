@@ -62,8 +62,7 @@
     timelineDisplay: "line",
     timelineMatchKey: null,
     timelineSelectedPlayers: new Set(),
-    expandedWeaponPlayers: new Set(),
-    weaponSorts: new Map()
+    weaponResetKey: 0
   };
   const matchMapFilter = window.NickStatsMapFilterUI.create("matchMapFilter", {
     onChange: () => loadMatches(0),
@@ -1605,8 +1604,7 @@
       state.result = expandStoredMatch(payload, matchID);
       state.result.database_id = matchID;
       state.scoreboardSort = null;
-      state.expandedWeaponPlayers.clear();
-      state.weaponSorts.clear();
+      state.weaponResetKey += 1;
       setSideFilter("ALL", false);
       setResultView("scoreboard");
       render(state.result);
@@ -2366,152 +2364,6 @@
     return section;
   }
 
-  function weaponName(id) {
-    const names = {
-      ak47: "AK-47", aug: "AUG", awp: "AWP", bizon: "PP-Bizon", cz75a: "CZ75-Auto",
-      deagle: "Desert Eagle", elite: "Dual Berettas", famas: "FAMAS", fiveseven: "Five-SeveN",
-      g3sg1: "G3SG1", galilar: "Galil AR", glock: "Glock-18", hkp2000: "P2000",
-      m249: "M249", m4a1: "M4A4", m4a1_silencer: "M4A1-S", mac10: "MAC-10",
-      mag7: "MAG-7", mp5sd: "MP5-SD", mp7: "MP7", mp9: "MP9", negev: "Negev",
-      nova: "Nova", p250: "P250", p90: "P90", revolver: "R8 Revolver", sawedoff: "Sawed-Off",
-      scar20: "SCAR-20", sg556: "SG 553", ssg08: "SSG 08", taser: "Zeus x27",
-      tec9: "Tec-9", ump45: "UMP-45", usp_silencer: "USP-S", xm1014: "XM1014",
-      hegrenade: "HE Grenade", flashbang: "Flashbang", smokegrenade: "Smoke Grenade",
-      decoy: "Decoy", fire: "Molotov / Incendiary", knife: "Knife"
-    };
-    return names[id] || String(id || "Unknown").replaceAll("_", " ").replace(/\b\w/g, letter => letter.toUpperCase());
-  }
-
-  function renderWeaponPlayer(player) {
-    const details = document.createElement("details");
-    details.className = "demo-weapon-player";
-    const identity = duelIdentity(player.steam_id, player.name);
-    details.open = state.expandedWeaponPlayers.has(identity);
-    details.addEventListener("toggle", () => {
-      if (details.open) state.expandedWeaponPlayers.add(identity);
-      else state.expandedWeaponPlayers.delete(identity);
-    });
-    const summary = document.createElement("summary");
-    const summaryMain = document.createElement("span");
-    summaryMain.className = "demo-weapon-summary-main";
-    const name = document.createElement("strong");
-    name.textContent = player.name || "Unknown player";
-    const action = document.createElement("span");
-    action.className = "demo-weapon-action";
-    action.setAttribute("aria-hidden", "true");
-    const totals = document.createElement("span");
-    totals.className = "demo-weapon-totals";
-    const rounds = player.rounds_played ?? 0;
-    const weapons = (Array.isArray(player.weapon_stats) ? player.weapon_stats : []).map(stat => ({
-      ...stat,
-      kills_per_round: (stat.kills || 0) / Math.max(1, stat.rounds_used || 0),
-      damage_per_round: (stat.damage || 0) / Math.max(1, stat.rounds_used || 0),
-      hit_rate: 100 * (stat.hits || 0) / Math.max(1, stat.shots || 0),
-      usage: 100 * (stat.rounds_used || 0) / Math.max(1, rounds)
-    }));
-    totals.textContent = `${weapons.reduce((sum, stat) => sum + (stat.kills || 0), 0)} kills · ${weapons.reduce((sum, stat) => sum + (stat.shots || 0), 0)} shots`;
-    summaryMain.append(name, action);
-    summary.append(summaryMain, totals);
-    details.appendChild(summary);
-
-    const wrap = document.createElement("div");
-    wrap.className = "table-wrap";
-    const table = document.createElement("table");
-    table.className = "demo-weapon-table";
-    const head = document.createElement("thead");
-    const headRow = document.createElement("tr");
-    const columns = [
-      ["Weapon", "weapon"],
-      ["Kills", "kills"],
-      ["K/RU", "kills_per_round"],
-      ["Damage", "damage"],
-      ["Dmg/RU", "damage_per_round"],
-      ["Shots", "shots"],
-      ["Hits", "hits"],
-      ["Hit rate", "hit_rate"],
-      ["Rounds used", "rounds_used"],
-      ["Usage", "usage"]
-    ];
-    columns.forEach(([label, field]) => {
-      const th = document.createElement("th");
-      weaponSortableHeader(th, label, field, identity);
-      headRow.appendChild(th);
-    });
-    head.appendChild(headRow);
-    const body = document.createElement("tbody");
-    sortedWeapons(weapons, identity).forEach(stat => {
-      const row = document.createElement("tr");
-      cell(row, weaponName(stat.weapon));
-      cell(row, stat.kills || 0);
-      cell(row, stat.kills_per_round.toFixed(3));
-      cell(row, stat.damage || 0);
-      cell(row, stat.damage_per_round.toFixed(1));
-      cell(row, stat.shots || 0);
-      cell(row, stat.hits || 0);
-      cell(row, `${stat.hit_rate.toFixed(1)}%`);
-      cell(row, stat.rounds_used || 0);
-      cell(row, `${stat.usage.toFixed(1)}%`);
-      body.appendChild(row);
-    });
-    if (!weapons.length) {
-      const row = document.createElement("tr");
-      const empty = document.createElement("td");
-      empty.colSpan = 10;
-      empty.className = "empty";
-      empty.textContent = "No weapon events were recorded.";
-      row.appendChild(empty);
-      body.appendChild(row);
-    }
-    table.append(head, body);
-    wrap.appendChild(table);
-    details.appendChild(wrap);
-    return details;
-  }
-
-  function weaponSortableHeader(th, label, field, identity) {
-    const active = state.weaponSorts.get(identity) === field;
-    const button = document.createElement("button");
-    th.classList.add("demo-sort-heading");
-    th.setAttribute("aria-sort", active ? (field === "weapon" ? "ascending" : "descending") : "none");
-    button.type = "button";
-    button.className = "demo-sort-button";
-    button.classList.toggle("active", active);
-    button.textContent = active ? `${label} •` : label;
-    button.title = active ? "Return to the original weapon order" : `Sort by ${label}`;
-    button.addEventListener("click", () => {
-      if (active) state.weaponSorts.delete(identity);
-      else state.weaponSorts.set(identity, field);
-      rerenderWeapons();
-    });
-    th.appendChild(button);
-  }
-
-  function sortedWeapons(weapons, identity) {
-    const field = state.weaponSorts.get(identity);
-    if (!field) return weapons;
-    return weapons.map((weapon, index) => ({ weapon, index })).sort((left, right) => {
-      const comparison = field === "weapon"
-        ? weaponName(left.weapon.weapon).localeCompare(weaponName(right.weapon.weapon))
-        : (right.weapon[field] || 0) - (left.weapon[field] || 0);
-      return comparison || left.index - right.index;
-    }).map(entry => entry.weapon);
-  }
-
-  function rerenderWeapons() {
-    if (!state.result) return;
-    $("demoWeapons").replaceChildren(...teamsForSide(state.result).map(renderWeaponTeam));
-  }
-
-  function renderWeaponTeam(team) {
-    const section = document.createElement("section");
-    section.className = "demo-weapon-team";
-    const heading = document.createElement("h4");
-    heading.textContent = team.name || "Team";
-    section.appendChild(heading);
-    (team.players || []).forEach(player => section.appendChild(renderWeaponPlayer(player)));
-    return section;
-  }
-
   function duelIdentity(steamId, name) {
     return steamId ? `steam:${steamId}` : `name:${String(name || "").toLocaleLowerCase()}`;
   }
@@ -2619,7 +2471,7 @@
   }
 
   function renderActiveDetail(result, teams) {
-    if (state.resultView === "weapons") $("demoWeapons").replaceChildren(...teams.map(renderWeaponTeam));
+    if (state.resultView === "weapons") window.NickStatsWeaponUI.render($("demoWeapons"), teams, state.weaponResetKey);
     if (state.resultView === "trades") window.NickStatsMatchMatrixUI.render($("demoTrades"), teams, "trades");
     if (state.resultView === "duels") window.NickStatsMatchMatrixUI.render($("demoDuels"), teams, "duels");
     if (state.resultView === "timeline") renderTimeline(result);

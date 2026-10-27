@@ -1,3 +1,4 @@
+import './weapon-breakdown.jsx';
 import './match-matrix.jsx';
 import './timeline-controls.jsx';
 import './section-tabs.jsx';

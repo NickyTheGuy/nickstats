@@ -1,4 +1,5 @@
-export function nextTableSort(sort, column) {
+export function nextTableSort(sort, column, toggleOff = false) {
+  if (toggleOff && sort?.column === column) return null;
   return { column, direction: sort?.column === column ? (sort.direction === 'asc' ? 'desc' : 'asc') : column === 0 ? 'asc' : 'desc' };
 }
 
