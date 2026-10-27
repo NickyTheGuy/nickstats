@@ -24,10 +24,11 @@ test("quick comparison map tabs contain only scoreboards and still filter their 
     };
     const render = vm.runInNewContext(`${functionSource(source, "render", "reset")}\nrender`, sandbox);
     render({ players: [{ id: "1", rows: [{ map: "de_dust2" }, { map: "de_mirage" }] }], summarize: () => ({}) });
-    assert.deepEqual(nodes.get("Maps").children.map(node => node.textContent), ["All maps", "dust2", "mirage"]);
-    nodes.get("Maps").children[1].click();
-    assert.equal(state.map, "de_dust2"); assert.equal(tables.at(-1)[0].rows.length, 1);
-    assert.equal(nodes.has("Graphs"), false);
+    assert.deepEqual(Array.from(sandbox.viewMeta.maps, row => row[1]), ["All maps", "dust2", "mirage"]);
+    state.map = "de_dust2";
+    render({ players: [{ id: "1", rows: [{ map: "de_dust2" }, { map: "de_mirage" }] }], summarize: () => ({}) });
+    assert.equal(tables.at(-1)[0].rows.length, 1);
+    assert.equal(nodes.size, 0, "the data model does not render DOM");
   }
 });
 
@@ -53,7 +54,7 @@ test("standalone group graphs preserve player selection across redraws and cap i
   let choices;
   const nodes = new Map(), calls = [], current = { included: Array.from({ length: 6 }, (_, i) => ({ profileId: String(i), label: `Player ${i}` })) };
   const state = { graphPlayers: null, side: "CT", buy: "full", roundResult: "win", opponentBuy: "eco", roundPhase: "REGULATION", heroOnly: false };
-  const sandbox = { state, $: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); }, el: (_, text) => new Node(text),
+  const sandbox = { state, ui: { comboGraphPlayerStatus: { update() {} } }, $: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); }, el: (_, text) => new Node(text),
     comboProfileRows: (_, player) => [{ id: player.profileId, round_kills: [] }],
     window: { NickStatsPlayerSelectionUI: { graphs: (_target, props) => { choices = props; } },
       NickStatsGraphs: { samplesForMatches: (...args) => args, render: options => calls.push(options) },

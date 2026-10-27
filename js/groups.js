@@ -7,6 +7,8 @@
   const MAX_INCLUDED = 5;
   const GROUP_SELECTION_KEY = "nickstats.groupSelection.v1";
   const $ = id => document.getElementById(id);
+  const ui = Object.fromEntries(["groupStatus", "comboMatchesStatus", "comboGraphPlayerStatus", "comboProfileTitle", "comboProfileMeta"].map(id => [id, window.NickStatsShellUI.text(id)]));
+  ui.warnings = window.NickStatsShellUI.warnings("comboWarnings");
   const availability = window.NickStatsAvailability;
   function readSavedRoster() {
     try {
@@ -45,16 +47,9 @@
     return body;
   }
 
-  function el(tag, text, className) {
-    const element = document.createElement(tag);
-    if (text != null) element.textContent = text;
-    if (className) element.className = className;
-    return element;
-  }
-
   function setStatus(message, error = false) {
-    $("groupStatus").textContent = message;
-    $("groupStatus").classList.toggle("error", error);
+    ui.groupStatus.update({ text: message });
+    ui.groupStatus.update({ error: error });
   }
 
   function setSearchStatus(message, error = false) { playerSearch.status(message, error); }
@@ -241,8 +236,8 @@
     });
     const count = state.selected.size;
     const included = [...state.choices.entries()].filter(([id, choice]) => state.selected.has(id) && choice === "include").length;
-    $("groupBuildButton").disabled = count < 2 || included === 0;
-    $("groupClearButton").disabled = count === 0;
+    ui.groupBuildButton.update({ disabled: count < 2 || included === 0 });
+    ui.groupClearButton.update({ disabled: count === 0 });
     setStatus(count < 2 ? "Choose at least two players." : !included ? "Choose at least one Included player." : `${included} included · ${count - included} excluded. Ready to build.`);
   }
 
@@ -251,7 +246,7 @@
     state.groupController?.abort();
     const controller = new AbortController();
     state.groupController = controller;
-    $("groupBuildButton").disabled = true;
+    ui.groupBuildButton.update({ disabled: true });
     setStatus(refresh ? "Refreshing group profiles…" : "Loading stored matches and building group profiles…");
     try {
       const parameters = new URLSearchParams({ players: [...state.selected.keys()].join(",") });
@@ -279,7 +274,7 @@
       if (state.groupController === controller) {
         state.groupController = null;
         const included = [...state.choices.entries()].filter(([id, choice]) => state.selected.has(id) && choice === "include").length;
-        $("groupBuildButton").disabled = state.selected.size < 2 || included === 0;
+        ui.groupBuildButton.update({ disabled: state.selected.size < 2 || included === 0 });
       }
     }
   }
@@ -335,12 +330,12 @@
   }
 
   function renderComboWarnings(current) {
-    const warnings = $("comboWarnings");
-    warnings.replaceChildren();
-    const add = message => warnings.appendChild(el("div", message, "warning"));
+    const messages = [];
+    const add = message => messages.push(message);
     if (current.fullTeam && current.excluded.length) add("Five Included players already fill the team, so Excluded players cannot be added.");
     else if (current.excluded.length && !current.comparisonPossible) add(`The ${current.included.length + current.excluded.length}-player “With” roster cannot fit on one team.`);
     if (current.partialMatches.length) add(`${current.partialMatches.length} match${current.partialMatches.length === 1 ? " contains" : "es contain"} only some Excluded players and ${current.partialMatches.length === 1 ? "is" : "are"} omitted from both groups.`);
+    ui.warnings.update({ messages });
   }
 
   function comboMatchesForCondition(current) {
@@ -374,11 +369,11 @@
     window.NickStatsMatchList.render($("comboMatchesList"), page, match => {
       location.hash = `#match/${encodeURIComponent(match.id)}`;
     }, { editableTags: true });
-    $("comboMatchesStatus").textContent = `${matches.length} qualifying match${matches.length === 1 ? "" : "es"} for ${player.label}.`;
-    $("comboMatchesPagination").hidden = matches.length <= MATCH_LIST_LIMIT;
-    $("comboMatchesPrevious").disabled = offset === 0;
-    $("comboMatchesNext").disabled = offset + MATCH_LIST_LIMIT >= matches.length;
-    $("comboMatchesPageLabel").textContent = page.length ? `Matches ${offset + 1}–${offset + page.length} of ${matches.length}` : "";
+    ui.comboMatchesStatus.update({ text: `${matches.length} qualifying match${matches.length === 1 ? "" : "es"} for ${player.label}.` });
+    ui.comboMatchesPagination.update({ hidden: matches.length <= MATCH_LIST_LIMIT });
+    ui.comboMatchesPagination.update({ previousDisabled: offset === 0 });
+    ui.comboMatchesPagination.update({ nextDisabled: offset + MATCH_LIST_LIMIT >= matches.length });
+    ui.comboMatchesPagination.update({ text: page.length ? `Matches ${offset + 1}–${offset + page.length} of ${matches.length}` : "" });
   }
 
   const { integer, decimal, percent, ratio, titleCase } = window.NickStatsProfile;
@@ -424,11 +419,11 @@
     const player = current.included.find(item => item.profileId === state.comboPlayerId);
     const rows = comboProfileRows(current, player), stats = summarize(rows);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
-    $("comboProfileTitle").textContent = player.label;
+    ui.comboProfileTitle.update({ text: player.label });
     const buyLabel = state.buy === "ALL" ? "All buys" : state.buy === "hero" ? "Hero rounds" : `${titleCase(state.buy)} buys`;
     const opponentBuyLabel = state.opponentBuy === "ALL" ? "All enemy buys" : `vs ${titleCase(state.opponentBuy)}`;
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
-    $("comboProfileMeta").textContent = `Steam ${player.steamId || "unknown"} · ${integer(stats.n)} qualifying match${stats.n === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}`;
+    ui.comboProfileMeta.update({ text: `Steam ${player.steamId || "unknown"} · ${integer(stats.n)} qualifying match${stats.n === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}` });
     const maps = new Map(); rows.forEach(row => { const collection = maps.get(row.map) || []; collection.push(row); maps.set(row.map, collection); });
     const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate, winRateKind: source.winRateKind, scores: source.scores });
     const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches)) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
@@ -452,7 +447,7 @@
         renderComboGraphs(current);
       }
     });
-    $("comboGraphPlayerStatus").textContent = `${selectedCount} of ${current.included.length} players selected`;
+    ui.comboGraphPlayerStatus.update({ text: `${selectedCount} of ${current.included.length} players selected` });
     const series = current.included.map((candidate, colorIndex) => {
       const matches = comboProfileRows(current, candidate);
       return { id: idFor(candidate), colorIndex, label: candidate.label, sessionMatches: candidate.rows,
@@ -504,10 +499,10 @@
 
   const playerSearch = window.NickStatsPlayerSearchUI.create({ prefix: "group", limit: 20, onSelect: addPlayer,
     excluded: id => state.selected.has(id), initialMessage: "Search and add at least two players." });
-  $("comboMatchesPrevious").addEventListener("click", () => { state.matchListOffset -= MATCH_LIST_LIMIT; runCombination(); });
-  $("comboMatchesNext").addEventListener("click", () => { state.matchListOffset += MATCH_LIST_LIMIT; runCombination(); });
-  $("groupBuildButton").addEventListener("click", () => buildGroup());
-  $("groupClearButton").addEventListener("click", clear);
+  ui.comboMatchesPagination = window.NickStatsShellUI.pagination("comboMatchesPagination", () => { state.matchListOffset -= MATCH_LIST_LIMIT; runCombination(); }, () => { state.matchListOffset += MATCH_LIST_LIMIT; runCombination(); });
+
+  ui.groupBuildButton = window.NickStatsShellUI.button("groupBuildButton", () => buildGroup());
+  ui.groupClearButton = window.NickStatsShellUI.button("groupClearButton", clear);
   const profileSectionTabs = window.NickStatsSectionTabsUI.create("comboDetailTabsApp", { kind: "combo", onChange: setComboProfileView });
   const comboResultFilter = window.NickStatsSegmentedUI.create("comboResultFilter", { onChange: result => { state.result = result; runCombination(); } });
   const comboConditionFilter = window.NickStatsSegmentedUI.create("comboConditionFilter", {
@@ -518,7 +513,7 @@
   const groupEnemyBuyFilter = window.NickStatsSegmentedUI.create("groupEnemyBuyFilter", { onChange: opponentBuy => { state.opponentBuy = opponentBuy; runCombination(); } });
   const groupRoundResultFilter = window.NickStatsSegmentedUI.create("groupRoundResultFilter", { onChange: roundResult => { state.roundResult = roundResult; runCombination(); } });
   const groupRoundPhaseFilter = window.NickStatsSegmentedUI.create("groupRoundPhaseFilter", { onChange: phase => { state.roundPhase = phase; runCombination(); } });
-  $("groupResetFilters").addEventListener("click", () => {
+  ui.groupResetFilters = window.NickStatsShellUI.button("groupResetFilters", () => {
     window.NickStatsFilters.resetProfileFilters({ state, mapFilter, dateFilter, tagFilter: manualFilter,
       toggles: [groupSideFilter, groupBuyFilter, groupEnemyBuyFilter, groupRoundResultFilter, groupRoundPhaseFilter, comboResultFilter],
       onReset: () => { if (state.players.length) runCombination(); } });

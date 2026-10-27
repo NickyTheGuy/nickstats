@@ -13,7 +13,7 @@ test("reset returns all profile conditions to defaults while preserving players 
  assert.equal(state.players,roster);assert.equal(state.view,"graphs");assert.equal(renders,1);assert.deepEqual(calls,["toggle","map","date","close","tags"]);
 });
 test("Tags follow Dates and reset is available in Player, history, Groups, and stored matches",()=>{
- const html=fs.readFileSync(path.join(root,"index.html"),"utf8");
+ const html=fs.readFileSync(path.join(root,"index.html"),"utf8")+require("./helpers/profile-template")();
  for(const prefix of ["player","group","playerHistory"])assert.ok(html.indexOf(`id="${prefix}DateFilter"`)<html.indexOf(`id="${prefix}ManualFilter"`));
- for(const prefix of ["player","playerHistory","group","match","demo"])assert.ok(html.includes(`id="${prefix}ResetFilters"`));
+ for(const prefix of ["player","playerHistory","group","match","demo"])assert.ok(html.includes(`id="${prefix}ResetFiltersApp"`));
 });

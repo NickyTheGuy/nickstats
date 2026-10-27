@@ -5,31 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20261027-7">
+  <link rel="stylesheet" href="./styles.css?v=20261027-8">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.10.27.7</span>
+          <span class="demo-build">Build 2026.10.27.8</span>
         </div>
         <h1>NickStats</h1>
       </div>
       <div id="accountApp" style="display: contents"></div>
     </header>
 
-    <nav class="data-tabs app-tabs" role="tablist" aria-label="NickStats sections">
-      <button class="data-tab" id="matchPageTab" type="button" role="tab" aria-selected="true" aria-controls="matchPage" data-app-page="match">Match</button>
-      <button class="data-tab" id="playersPageTab" type="button" role="tab" aria-selected="false" aria-controls="playersPage" data-app-page="players">Player</button>
-      <button class="data-tab" id="groupsPageTab" type="button" role="tab" aria-selected="false" aria-controls="groupsPage" data-app-page="groups">Groups</button>
-    </nav>
+    <div id="appNavigationApp" style="display: contents"></div>
 
     <section class="app-view" id="matchPage" role="tabpanel" aria-labelledby="matchPageTab" data-app-view="match">
       <div class="match-page-stack">
       <section class="panel demo-panel demo-upload-panel">
         <div id="demoUploadApp"></div>
-      </section>
       </section>
 
       <section class="panel match-library-panel">
@@ -39,37 +34,30 @@
             <h2>Your matches</h2>
             <p>Open a stored match to inspect its stats.</p>
           </div>
-          <button class="button button-secondary" id="matchListRefreshButton" type="button">Refresh</button>
+          <span id="matchListRefreshButtonApp" style="display: contents"></span>
         </div>
 
-        <nav class="match-browser-tabs" id="matchBrowserTabs" role="tablist" aria-label="Stored match browser">
-          <button class="match-browser-tab active" id="matchListTab" type="button" role="tab" aria-selected="true" aria-controls="matchListView" data-match-browser-view="list">Match list</button>
-          <button class="match-browser-tab" id="matchDetailTab" type="button" role="tab" aria-selected="false" aria-controls="matchDetailView" data-match-browser-view="detail" disabled>Match details</button>
-        </nav>
+        <div id="matchBrowserTabsApp" style="display: contents"></div>
 
         <div class="match-browser-view" id="matchListView" role="tabpanel" aria-labelledby="matchListTab">
           <div class="stats-toolbar match-library-filter">
             <div class="stats-filter"><span>Map</span><div class="map-multiselect" id="matchMapFilter"></div></div>
             <div class="date-range-filter" id="matchDateFilter" role="group" aria-label="Match dates"></div>
-            <button class="button button-secondary filter-reset" id="matchResetFilters" type="button">Reset filters</button>
+            <span id="matchResetFiltersApp" style="display: contents"></span>
           </div>
-          <div class="match-list-status" id="matchListStatus" role="status" aria-live="polite">Loading stored matches…</div>
+          <div id="matchListStatusApp" style="display: contents"></div>
           <div class="match-list" id="matchList"></div>
-          <div class="match-list-pagination" id="matchListPagination" hidden>
-            <button class="button button-secondary" id="matchListPreviousButton" type="button">Previous</button>
-            <span id="matchListPageLabel"></span>
-            <button class="button button-secondary" id="matchListNextButton" type="button">Next</button>
-          </div>
+          <div id="matchListPaginationApp" style="display: contents"></div>
         </div>
 
 
         <div class="match-browser-view" id="matchDetailView" role="tabpanel" aria-labelledby="matchDetailTab" hidden>
-          <div class="match-detail-loading" id="matchDetailStatus" role="status" aria-live="polite"></div>
+          <div id="matchDetailStatusApp" style="display: contents"></div>
 
         <div class="demo-results" id="demoResults" hidden>
-          <section class="match-banner" id="demoMatchBanner" aria-label="Match summary"></section>
+          <div id="demoMatchBannerApp" style="display: contents"></div>
           <div class="demo-side-filter" role="group" aria-label="Match statistics filters">
-            <button class="button button-secondary filter-reset" id="demoResetFilters" type="button">Reset filters</button>
+            <span id="demoResetFiltersApp" style="display: contents"></span>
             <div class="demo-filter-field">
               <span>Player side</span>
               <div id="demoSideFilter" class="react-segmented-filter"></div>
@@ -135,9 +123,9 @@
           <div id="groupSearchApp" class="react-player-search"></div>
           <div class="group-selected-roster" id="groupSelectedRoster"></div>
           <div class="actions group-builder-actions">
-            <button class="button button-primary" id="groupBuildButton" type="button" disabled>Build profiles</button>
-            <button class="button button-secondary" id="groupClearButton" type="button" disabled>Clear</button>
-            <div class="status" id="groupStatus" role="status" aria-live="polite">Choose at least two players.</div>
+            <span id="groupBuildButtonApp" style="display: contents"></span>
+            <span id="groupClearButtonApp" style="display: contents"></span>
+            <div id="groupStatusApp" style="display: contents"></div>
           </div>
         </section>
 
@@ -150,7 +138,7 @@
                 <div class="stats-filter"><span>Map</span><div class="map-multiselect" id="groupMapFilter"></div></div>
                 <div class="date-range-filter" id="groupDateFilter" role="group" aria-label="Group match dates"></div>
                 <div class="stats-filter manual-filter-control" id="groupManualFilter" hidden></div>
-            <button class="button button-secondary filter-reset" id="groupResetFilters" type="button">Reset filters</button>
+            <span id="groupResetFiltersApp" style="display: contents"></span>
                 <div class="stats-filter"><span>Condition</span><div id="comboConditionFilter" class="react-segmented-filter"></div></div>
                 <div class="stats-filter"><span>Result</span><div id="comboResultFilter" class="react-segmented-filter"></div></div>
                 <div class="stats-filter"><span>Side</span><div id="groupSideFilter" class="react-segmented-filter"></div></div>
@@ -162,7 +150,7 @@
               <div class="combo-display-panel" data-combo-display-panel="profile">
                 <section class="panel player-profile combo-player-profile" id="comboProfilePanel">
                   <header class="player-profile-header">
-                    <div><div class="eyebrow">Player profile</div><h2 id="comboProfileTitle">Included player</h2><p id="comboProfileMeta"></p></div>
+                    <div><div class="eyebrow">Player profile</div><div id="comboProfileTitleApp" style="display: contents"></div><div id="comboProfileMetaApp" style="display: contents"></div></div>
                   </header>
                   <div class="player-headline-stats" id="comboProfileHeadline"></div>
                   <div id="comboProfileBody"></div>
@@ -187,13 +175,13 @@
 
         <section class="player-profile-results" id="playerProfile" hidden>
           <div id="playerOpenProfilesApp"></div>
-          <div class="player-profile-status" id="playerDataStatus" role="status" aria-live="polite" hidden></div>
+          <div id="playerDataStatusApp" style="display: contents"></div>
 
           <div class="stats-toolbar" id="playerStatsToolbar">
             <div class="stats-filter"><span>Map</span><div class="map-multiselect" id="playerMapFilter"></div></div>
             <div class="date-range-filter" id="playerDateFilter" role="group" aria-label="Player match dates"></div>
             <div class="stats-filter manual-filter-control" id="playerManualFilter" hidden></div>
-            <button class="button button-secondary filter-reset" id="playerResetFilters" type="button">Reset filters</button>
+            <span id="playerResetFiltersApp" style="display: contents"></span>
             <div class="stats-filter"><span>Result</span><div id="playerResultFilter" class="react-segmented-filter"></div></div>
             <div class="stats-filter"><span>Side</span><div id="playerSideFilter" class="react-segmented-filter"></div></div>
             <div class="stats-filter"><span>Rounds</span><div id="playerRoundResultFilter" class="react-segmented-filter"></div></div>
@@ -208,140 +196,18 @@
           <header class="player-profile-header">
             <div>
               <div class="eyebrow">Career profile</div>
-              <h2 id="playerProfileName">Player</h2>
-              <p id="playerProfileMeta"></p>
+              <div id="playerProfileNameApp" style="display: contents"></div>
+              <div id="playerProfileMetaApp" style="display: contents"></div>
             </div>
           </header>
 
-          <div class="player-profile-status" id="playerProfileStatus" role="status" aria-live="polite"></div>
+          <div id="playerProfileStatusApp" style="display: contents"></div>
           <div class="player-headline-stats" id="playerHeadlineStats"></div>
 
-          <div id="playerProfileBody">
-          <div id="playerDetailTabsApp"></div>
-
-          <div class="player-profile-view" id="playerSectionOverview" role="tabpanel" aria-labelledby="playerDetailOverviewTab" data-player-profile-view="overview">
-            <div class="player-section-grid player-section-grid-thirds">
-              <section class="player-stat-section"><header><span>01</span><div><h3>Record</h3></div></header><div class="player-detail-grid player-detail-grid-compact" id="playerRecordStats"></div></section>
-              <section class="player-stat-section"><header><span>02</span><div><h3>Combat output</h3></div></header><div class="player-detail-grid" id="playerCombatOutputStats"></div></section>
-              <section class="player-stat-section"><header><span>03</span><div><h3>Damage and deaths</h3></div></header><div class="player-detail-grid" id="playerCombatCostStats"></div></section>
-            </div>
-          </div>
-          <div class="player-profile-view player-matches-view" id="playerSectionMatches" role="tabpanel" aria-labelledby="playerDetailMatchesTab" data-player-profile-view="matches" hidden>
-            <div class="stats-toolbar player-history-date" data-standalone-profile-only><div class="date-range-filter" id="playerHistoryDateFilter" role="group" aria-label="Player match history dates"></div><div class="stats-filter manual-filter-control" id="playerHistoryManualFilter" hidden></div><button class="button button-secondary filter-reset" id="playerHistoryResetFilters" type="button">Reset filters</button></div>
-            <div class="player-history-view" data-standalone-profile-only>
-              <div id="playerHistoryViewFilter" class="react-segmented-filter"></div>
-              <small id="playerSessionsHelp" hidden>A new session starts after a 2-hour gap between match starts. Undated games are shown separately.</small>
-            </div>
-            <div class="match-list-status" id="playerMatchesStatus" role="status" aria-live="polite"></div>
-            <div class="match-list" id="playerMatchesList"></div>
-            <div class="match-list-pagination" id="playerMatchesPagination" hidden>
-              <button class="button button-secondary" id="playerMatchesPrevious" type="button">Previous</button>
-              <span id="playerMatchesPageLabel"></span>
-              <button class="button button-secondary" id="playerMatchesNext" type="button">Next</button>
-            </div>
-          </div>
-          <div class="player-profile-view" id="playerSectionUtility" role="tabpanel" aria-labelledby="playerDetailUtilityTab" data-player-profile-view="utility" hidden>
-            <div class="player-section-grid">
-              <section class="player-stat-section"><header><span>01</span><div><h3>Damage</h3></div></header><div class="player-detail-grid" id="playerUtilityDamageStats"></div></section>
-              <section class="player-stat-section"><header><span>02</span><div><h3>Grenades thrown</h3></div></header><div class="player-detail-grid" id="playerUtilityThrownStats"></div></section>
-              <section class="player-stat-section"><header><span>03</span><div><h3>Flashes</h3></div></header><div class="player-detail-grid" id="playerFlashStats"></div></section>
-              <section class="player-stat-section"><header><span>04</span><div><h3>Assisted kills</h3></div></header><div class="player-detail-grid" id="playerAssistStats"></div></section>
-            </div>
-          </div>
-          <div class="player-profile-view" id="playerSectionTrades" role="tabpanel" aria-labelledby="playerDetailTradesTab" data-player-profile-view="trades" hidden>
-            <div class="player-section-grid">
-              <section class="player-stat-section"><header><span>01</span><div><h3>Trading teammates</h3></div></header><div class="player-detail-grid" id="playerTradeAttackStats"></div></section>
-              <section class="player-stat-section"><header><span>02</span><div><h3>Being traded</h3></div></header><div class="player-detail-grid" id="playerTradeDeathStats"></div></section>
-            </div>
-          </div>
-          <div class="player-profile-view" id="playerSectionOpenings" role="tabpanel" aria-labelledby="playerDetailOpeningsTab" data-player-profile-view="openings" hidden>
-            <div class="player-section-grid">
-              <section class="player-stat-section"><header><span>01</span><div><h3>Opening results</h3></div></header><div class="player-detail-grid" id="playerOpeningOutcomeStats"></div></section>
-              <section class="player-stat-section"><header><span>02</span><div><h3>Help on opening kills</h3></div></header><div class="player-detail-grid" id="playerOpeningSupportReceivedStats"></div></section>
-              <section class="player-stat-section"><header><span>03</span><div><h3>Opening assists created</h3></div></header><div class="player-detail-grid" id="playerOpeningSupportGivenStats"></div></section>
-              <section class="player-stat-section"><header><span>04</span><div><h3>Response after an opening death</h3></div></header><div class="player-detail-grid" id="playerOpeningTradeStats"></div></section>
-              <section class="player-stat-section"><header><span>05</span><div><h3>Flash sources on opening kills</h3></div></header><div class="player-detail-grid" id="playerOpeningKillBlindStats"></div></section>
-              <section class="player-stat-section"><header><span>06</span><div><h3>Flash sources on opening deaths</h3></div></header><div class="player-detail-grid" id="playerOpeningDeathBlindStats"></div></section>
-              <section class="player-stat-section"><header><span>07</span><div><h3>Help on enemy opening kills</h3></div></header><div class="player-detail-grid" id="playerOpeningEnemySupportStats"></div></section>
-            </div>
-          </div>
-          <div class="player-profile-view" id="playerSectionInitiation" role="tabpanel" aria-labelledby="playerDetailInitiationTab" data-player-profile-view="initiation" hidden>
-            <section class="player-stat-section"><header><span>01</span><div><h3>Initiations</h3></div></header><div class="player-detail-grid" id="playerInitiationContactStats"></div></section>
-          </div>
-          <div class="player-profile-view" id="playerSectionContext" role="tabpanel" aria-labelledby="playerDetailContextTab" data-player-profile-view="context" hidden>
-            <p class="player-context-note"><strong>Paul Kill/Death:</strong> the victim had a grenade or knife out at death or within the preceding 1.4 seconds.</p>
-            <div class="player-section-grid">
-              <section class="player-stat-section"><header><span>01</span><div><h3>Visibility and cover on kills</h3></div></header><div class="player-metric-list" id="playerKillVisibilityStats"></div></section>
-              <section class="player-stat-section"><header><span>02</span><div><h3>Visibility and cover on deaths</h3></div></header><div class="player-metric-list" id="playerDeathVisibilityStats"></div></section>
-              <section class="player-stat-section"><header><span>03</span><div><h3>Catching enemies unready</h3></div></header><div class="player-metric-list" id="playerKillReadinessStats"></div></section>
-              <section class="player-stat-section"><header><span>04</span><div><h3>Being caught unready</h3></div></header><div class="player-metric-list" id="playerDeathReadinessStats"></div></section>
-            </div>
-          </div>
-          <div class="player-profile-view" id="playerSectionRounds" role="tabpanel" aria-labelledby="playerDetailRoundsTab" data-player-profile-view="rounds" hidden>
-            <div class="player-round-sections">
-              <section class="player-stat-section player-count-section"><header><span>01</span><div><h3>Clutch performance</h3></div></header><div class="player-count-strip player-clutch-strip" id="playerClutchStats"></div></section>
-              <section class="player-stat-section"><header><span>02</span><div><h3>Expected Clutch Value</h3></div></header><div class="player-detail-grid clutch-economics-impact" id="playerClutchEconomicsStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>02</span><div><h3>Multikill rounds</h3></div></header><div class="player-count-strip player-multikill-strip" id="playerMultikillStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>03</span><div><h3>True multi-kill chains</h3></div></header><div class="player-count-strip" id="playerTrueMultikillStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>04</span><div><h3>Objectives</h3></div></header><div class="player-count-strip" id="playerObjectiveStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>05</span><div><h3>Economy results</h3></div></header><div class="player-count-strip player-economy-strip" id="playerEconomyStats"></div></section>
-            </div>
-          </div>
-          <div class="player-profile-view" id="playerSectionRoundState" role="tabpanel" aria-labelledby="playerDetailRoundStateTab" data-player-profile-view="roundState" hidden>
-            <p class="player-round-state-note"><strong>Clawback:</strong> a kill while outnumbered. <strong>Bozo:</strong> a death while the player’s team had the advantage. <strong>Cleanup:</strong> eliminating the final opponent with at least three teammates still alive.</p>
-            <div class="player-section-grid">
-              <section class="player-stat-section"><header><span>01</span><div><h3>Kills by man count</h3></div></header><div class="player-detail-grid" id="playerRoundStateKillStats"></div></section>
-              <section class="player-stat-section"><header><span>02</span><div><h3>Deaths by man count</h3></div></header><div class="player-detail-grid" id="playerRoundStateDeathStats"></div></section>
-            </div>
-            <div class="player-round-sections player-round-state-sections">
-              <section class="player-stat-section player-count-section"><header><span>03</span><div><h3>Kill stage</h3></div></header><div class="player-count-strip" id="playerKillStageStats"></div></section>
-              <section class="player-stat-section player-count-section"><header><span>04</span><div><h3>Event timing</h3></div></header><div class="player-detail-grid" id="playerTimingAverageStats"></div><div class="player-count-strip player-timing-strip" id="playerPhaseStats"></div></section>
-            </div>
-          </div>
-          <div class="player-profile-view" id="playerSectionMovement" role="tabpanel" aria-labelledby="playerDetailMovementTab" data-player-profile-view="movement" hidden>
-            <p class="player-movement-note">Moving means above 1 unit per second. Running means above 34% of the held weapon’s maximum movement speed and is a subset of moving.</p>
-            <div class="player-section-grid">
-              <section class="player-stat-section"><header><span>01</span><div><h3>Player speed on kills</h3></div></header><div class="player-detail-grid" id="playerKillSpeedStats"></div></section>
-              <section class="player-stat-section"><header><span>02</span><div><h3>Enemy speed on deaths</h3></div></header><div class="player-detail-grid" id="playerDeathSpeedStats"></div></section>
-              <section class="player-stat-section"><header><span>03</span><div><h3>Player movement on kills</h3></div></header><div class="player-metric-list" id="playerMovementStateStats"></div></section>
-              <section class="player-stat-section"><header><span>04</span><div><h3>Enemy movement on deaths</h3></div></header><div class="player-metric-list" id="playerDeathMovementStateStats"></div></section>
-            </div>
-          </div>
-          <div class="player-profile-view" id="playerSectionWeapons" role="tabpanel" aria-labelledby="playerDetailWeaponsTab" data-player-profile-view="weapons" hidden>
-            <p class="player-movement-note">K/RU and Dmg/RU use only rounds in which that weapon was used.</p>
-            <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerWeaponsTable"></table></div>
-          </div>
-          <div class="player-profile-view" id="playerSectionMaps" role="tabpanel" aria-labelledby="playerDetailMapsTab" data-player-profile-view="maps" hidden>
-            <div class="player-profile-table-wrap"><table class="player-profile-table" id="playerMapsTable"></table></div>
+          <div id="playerProfileBody"></div>
           </div>
 
-          </div>
-          </div>
-
-          <section class="panel player-profile player-display-panel" id="playerGraphs" data-player-display-panel="graphs" hidden>
-            <section class="graph-player-picker">
-              <div><strong>Players</strong><span id="playerGraphPlayerStatus">Choose players to graph</span></div>
-              <div class="graph-player-choices" id="playerGraphPlayers"></div>
-            </section>
-            <section class="player-graph-builder">
-              <div class="player-graph-controls">
-                <div class="graph-axis-controls">
-                <div class="graph-stat-controls" id="playerGraphXAxisControl" hidden>
-                  <div id="playerGraphXPicker" class="react-metric-picker"></div>
-                </div>
-                <div class="graph-stat-controls"><div id="playerGraphPicker" class="react-metric-picker"></div>
-                </div>
-                </div>
-                <div id="playerGraphSettingsApp" class="react-graph-settings"></div>
-              </div>
-              <div id="playerGraphNoteApp" class="graph-note-mount"></div>
-            </section>
-            <div class="graph-summary" id="playerGraphSummary"></div>
-            <div class="player-graph-frame">
-              <div id="playerGraphChartApp"></div>
-            </div>
-            <div class="graph-legend" id="playerGraphLegend"></div>
-          </section>
+          <section class="panel player-profile player-display-panel" id="playerGraphs" data-player-display-panel="graphs" hidden></section>
 
           <section class="panel quick-comparison-panel player-display-panel" id="sessionView" data-player-display-panel="session" role="tabpanel" aria-label="Session" hidden>
             <div id="sessionApp"></div>
@@ -357,22 +223,21 @@
 
   <div id="accountDialogsApp"></div>
 
-  <script defer src="./js/navigation.js?v=20261010-1"></script>
   <script defer src="./js/data-freshness.js?v=20260927-4"></script>
-  <script defer src="./js/filters.js?v=20261027-7"></script>
+  <script defer src="./js/filters.js?v=20261027-8"></script>
   <script defer src="./js/manual-filters.js?v=20261019-1"></script>
-  <script defer src="./js/dropdown.js?v=20261006-1"></script>
   <script defer src="./js/stat-availability.js?v=20260930-9"></script>
-  <script defer src="./js/scoreboard.js?v=20261009-1"></script>
-  <script defer src="./js/round-timeline.js?v=20261027-7"></script>
-  <script defer src="./js/graphs.js?v=20261027-7"></script>
-  <script defer src="./assets/ui/nickstats-ui.js?v=20261027-7"></script>
-  <script defer src="./js/demo.js?v=20261027-7"></script>
-  <script defer src="./js/profile.js?v=20261027-7"></script>
-  <script defer src="./js/quick-comparison.js?v=20261011-2"></script>
-  <script defer src="./js/match-sessions.js?v=20261027-7"></script>
-  <script defer src="./js/players.js?v=20261027-7"></script>
-  <script defer src="./js/groups.js?v=20261027-7"></script>
-  <script defer src="./js/sessions.js?v=20261027-7"></script>
+  <script defer src="./js/scoreboard.js?v=20261027-8"></script>
+  <script defer src="./js/round-timeline.js?v=20261027-8"></script>
+  <script defer src="./js/graphs.js?v=20261027-8"></script>
+  <script defer src="./assets/ui/nickstats-ui.js?v=20261027-8"></script>
+  <script defer src="./js/navigation.js?v=20261027-8"></script>
+  <script defer src="./js/demo.js?v=20261027-8"></script>
+  <script defer src="./js/profile.js?v=20261027-8"></script>
+  <script defer src="./js/quick-comparison.js?v=20261027-8"></script>
+  <script defer src="./js/match-sessions.js?v=20261027-8"></script>
+  <script defer src="./js/players.js?v=20261027-8"></script>
+  <script defer src="./js/groups.js?v=20261027-8"></script>
+  <script defer src="./js/sessions.js?v=20261027-8"></script>
 </body>
 </html>

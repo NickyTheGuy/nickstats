@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
-const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8") + require("./helpers/profile-template")();
 const profile = fs.readFileSync(path.join(__dirname, "..", "js", "profile.js"), "utf8");
 const players = fs.readFileSync(path.join(__dirname, "..", "js", "players.js"), "utf8");
 const sections = fs.readFileSync(path.join(__dirname, "../frontend/state/section-tabs.mjs"), "utf8");
@@ -14,7 +14,8 @@ const demo = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), "utf8"
 test("graph statistic search stays beside its category and the view follows it", () => {
   assert.match(html, /class="graph-stat-controls"[\s\S]*?id="playerGraphXPicker"[\s\S]*?id="playerGraphPicker"[\s\S]*?id="playerGraphSettingsApp"/);
   assert.doesNotMatch(html, /id="playerGraphSearch"/);
-  assert.match(profile, /component\.querySelectorAll\("\[for\], \[aria-controls\], \[aria-labelledby\]"\)/);
+  assert.match(profile, /NickStatsProfileLayoutUI/);
+  assert.doesNotMatch(profile, /cloneNode/);
 });
 
 test("player match history loads only when its profile tab is opened", () => {
@@ -33,7 +34,7 @@ test("round state has its own shared player and group profile tab", () => {
   assert.match(profile, /fillCards\(`\$\{prefix\}RoundStateKillStats`/);
   assert.match(profile, /fillCards\(`\$\{prefix\}RoundStateDeathStats`/);
   assert.match(sections, /data-combo-profile-view/);
-  assert.match(profile, /element\.dataset\.comboProfilePanel = element\.dataset\.playerProfileView/);
+  assert.match(require("./helpers/profile-template")("combo"), /data-combo-profile-panel/);
 });
 
 test("opening statistics are split by outcome and source of help", () => {

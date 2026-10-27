@@ -1,3 +1,5 @@
+import './shell.jsx';
+import './profile-layout.jsx';
 import './upload.jsx';
 import './account.jsx';
 import './match-scoreboard.jsx';

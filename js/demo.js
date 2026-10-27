@@ -2,6 +2,7 @@
   "use strict";
 
   const $ = id => document.getElementById(id);
+  const ui = Object.fromEntries(["matchListStatus", "matchDetailStatus"].map(id => [id, window.NickStatsShellUI.text(id)]));
   const MATCH_UPLOAD_ENDPOINT = "/nickstats/api/matches";
   const AUTH_ENDPOINT = "/nickstats/api/auth";
   const MATCH_LIST_LIMIT = 25;
@@ -69,7 +70,7 @@
     formatLabel: value => String(value || "Unknown").replace(/^de_/, "").replaceAll("_", " ").replace(/\b\w/g, character => character.toUpperCase())
   });
   const matchDateFilter = window.NickStatsDateFilterUI.create("matchDateFilter", { onChange: () => loadMatches(0) });
-  $("matchResetFilters").addEventListener("click", () => { matchMapFilter.reset(); matchDateFilter.reset(); matchDateFilter.closeMenus(); loadMatches(0); });
+  ui.matchResetFilters = window.NickStatsShellUI.button("matchResetFilters", () => { matchMapFilter.reset(); matchDateFilter.reset(); matchDateFilter.closeMenus(); loadMatches(0); });
   let demoSideControl, demoBuyControl, demoEnemyBuyControl, demoRoundResultControl, demoRoundPhaseControl;
   let authSessionReady = Promise.resolve();
   let accountUI = null;
@@ -1325,11 +1326,7 @@
 
   function setMatchBrowserView(view) {
     if (view === "detail" && !state.selectedMatchID) return;
-    document.querySelectorAll("[data-match-browser-view]").forEach(button => {
-      const active = button.dataset.matchBrowserView === view;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", String(active));
-    });
+    ui.browserTabs.update({ value: view, options: matchBrowserOptions() });
     $("matchListView").hidden = view !== "list";
     $("matchDetailView").hidden = view !== "detail";
     window.dispatchEvent(new CustomEvent("nickstats:match-browser-view", { detail: { view } }));
@@ -1379,8 +1376,6 @@
     }
     reserveMatchDetailHeight();
     state.selectedMatchID = matchID;
-    $("matchDetailTab").disabled = false;
-    $("matchDetailTab").textContent = `Match #${matchID}`;
     setMatchBrowserView("detail");
     if (String(state.selectedMatchID) === String(matchID) && state.result && String(state.result.database_id) === String(matchID)) {
       $("matchDetailView").style.minHeight = "";
@@ -1398,19 +1393,6 @@
     }
     if (location.hash === "#match") showMatchList({ updateHistory: false, restoreScroll: true });
   }
-
-  function applyMapArtwork(element, mapName) {
-    const location = window.NickStatsMatchList.artworkFor(mapName);
-    element.style.removeProperty("background-image");
-    element.style.removeProperty("background-position");
-    element.classList.toggle("unknown", !location);
-    if (!location) return;
-    element.style.backgroundImage = `url("./assets/maps-v2/${location.file}")`;
-    element.style.backgroundPosition = location.position;
-  }
-
-  function matchScore(team) { return window.NickStatsMatchList.matchScore(team); }
-  function matchTeamResult(team, otherTeam) { return window.NickStatsMatchList.teamResult(team, otherTeam); }
 
   function renderMatchListInto(list, matches, onOpen) {
     window.NickStatsMatchList.render(list, matches, onOpen);
@@ -1431,9 +1413,9 @@
     state.matchListController?.abort();
     const controller = new AbortController(); state.matchListController = controller;
     state.matchListLoading = true;
-    $("matchListRefreshButton").disabled = true;
-    $("matchListStatus").textContent = "Loading stored matches…";
-    $("matchListStatus").classList.remove("error");
+    ui.matchListRefreshButton.update({ disabled: true });
+    ui.matchListStatus.update({ text: "Loading stored matches…" });
+    ui.matchListStatus.update({ error: false });
     try {
       const query = new URLSearchParams({ limit: String(MATCH_LIST_LIMIT), offset: String(Math.max(0, offset)) });
       if (state.accountPlayerID && state.accountPlayerSteamID) query.set("viewer_player_id", state.accountPlayerID);
@@ -1448,23 +1430,23 @@
       state.matchListOffset = Math.max(0, offset);
       state.matchListCount = matches.length;
       renderMatchList(matches);
-      $("matchListStatus").textContent = matches.length
+      ui.matchListStatus.update({ text: matches.length
         ? `${matches.length} match${matches.length === 1 ? "" : "es"} shown.`
-        : state.matchListOffset ? "No more matches." : matchDateFilter.active ? "No matches in the selected dates." : matchMapFilter.size ? "No matches use the selected maps." : "No matches have been uploaded yet.";
-      $("matchListPagination").hidden = state.matchListOffset === 0 && matches.length < MATCH_LIST_LIMIT;
-      $("matchListPreviousButton").disabled = state.matchListOffset === 0;
-      $("matchListNextButton").disabled = matches.length < MATCH_LIST_LIMIT;
-      $("matchListPageLabel").textContent = `Matches ${state.matchListOffset + 1}–${state.matchListOffset + matches.length}`;
+        : state.matchListOffset ? "No more matches." : matchDateFilter.active ? "No matches in the selected dates." : matchMapFilter.size ? "No matches use the selected maps." : "No matches have been uploaded yet." });
+      ui.matchListPagination.update({ hidden: state.matchListOffset === 0 && matches.length < MATCH_LIST_LIMIT });
+      ui.matchListPagination.update({ previousDisabled: state.matchListOffset === 0 });
+      ui.matchListPagination.update({ nextDisabled: matches.length < MATCH_LIST_LIMIT });
+      ui.matchListPagination.update({ text: `Matches ${state.matchListOffset + 1}–${state.matchListOffset + matches.length}` });
     } catch (error) {
       if (error.name === "AbortError") return;
       window.NickStatsMatchList.clear($("matchList"));
-      $("matchListStatus").textContent = `Could not load matches: ${error.message}`;
-      $("matchListStatus").classList.add("error");
-      $("matchListPagination").hidden = true;
+      ui.matchListStatus.update({ text: `Could not load matches: ${error.message}` });
+      ui.matchListStatus.update({ error: true });
+      ui.matchListPagination.update({ hidden: true });
     } finally {
       if (state.matchListController === controller) {
         state.matchListLoading = false;
-        $("matchListRefreshButton").disabled = false;
+        ui.matchListRefreshButton.update({ disabled: false });
       }
     }
   }
@@ -1475,8 +1457,8 @@
     state.matchDetailController = controller;
     state.matchDetailLoading = true;
     $("demoResults").hidden = true;
-    $("matchDetailStatus").textContent = `Loading match #${matchID}…`;
-    $("matchDetailStatus").classList.remove("error");
+    ui.matchDetailStatus.update({ text: `Loading match #${matchID}…` });
+    ui.matchDetailStatus.update({ error: false });
     try {
       const payload = await apiJson(await fetch(`${MATCH_UPLOAD_ENDPOINT}/${encodeURIComponent(matchID)}`, {
         headers: { "Accept": "application/json" },
@@ -1491,13 +1473,13 @@
       setSideFilter("ALL", false);
       setResultView("scoreboard");
       render(state.result);
-      $("matchDetailStatus").textContent = "";
+      ui.matchDetailStatus.update({ text: "" });
     } catch (error) {
       if (error.name === "AbortError") return;
       state.result = null;
       state.storedPayload = null;
-      $("matchDetailStatus").textContent = `Could not load match #${matchID}: ${error.message}`;
-      $("matchDetailStatus").classList.add("error");
+      ui.matchDetailStatus.update({ text: `Could not load match #${matchID}: ${error.message}` });
+      ui.matchDetailStatus.update({ error: true });
     } finally {
       if (state.matchDetailController === controller) {
         state.matchDetailLoading = false;
@@ -1521,60 +1503,7 @@
   }
 
   function renderMatchBanner(result) {
-    const banner = $("demoMatchBanner");
-    const teams = Array.isArray(result.teams) ? result.teams : [];
-    const accountTeamIndex = state.accountPlayerSteamID && teams.length >= 2
-      ? teams.findIndex(team => (team.players || []).some(player => String(player.steam_id) === state.accountPlayerSteamID))
-      : -1;
-    const firstTeam = accountTeamIndex === 1 ? teams[1] : teams[0];
-    const secondTeam = accountTeamIndex === 1 ? teams[0] : teams[1];
-    const mapName = result.map || "Unknown map";
-    const playedAt = formatMatchTime(result.played_at);
-    const fullMatchID = result.provider_match_id || (result.demo_sha256 ? `SHA ${result.demo_sha256}` : "Match ID unavailable");
-    const matchID = result.provider_match_id || (result.demo_sha256 ? `SHA ${String(result.demo_sha256).slice(0, 12)}…` : "Match ID unavailable");
-    const firstResult = matchTeamResult(firstTeam, secondTeam);
-    const secondResult = matchTeamResult(secondTeam, firstTeam);
-
-    banner.className = "match-banner";
-    applyMapArtwork(banner, mapName);
-
-    const top = document.createElement("div");
-    top.className = "match-banner-top";
-    const identity = document.createElement("span");
-    identity.className = "match-banner-identity";
-    identity.textContent = matchID;
-    identity.title = fullMatchID;
-    const date = document.createElement("time");
-    date.className = "match-banner-date";
-    date.textContent = playedAt === "Unknown" ? "Date unavailable" : playedAt;
-    if (Number.isFinite(result.played_at) && result.played_at > 0) {
-      date.dateTime = new Date(result.played_at * 1000).toISOString();
-    }
-    top.append(identity, date);
-
-    const bottom = document.createElement("div");
-    bottom.className = "match-banner-bottom";
-    const scoreline = document.createElement("div");
-    scoreline.className = "match-banner-scoreline";
-    const firstName = document.createElement("span");
-    firstName.className = `match-banner-team first${firstResult ? ` ${firstResult}` : ""}`;
-    firstName.textContent = firstTeam?.name || "Unknown team";
-    const firstScore = document.createElement("strong");
-    firstScore.className = `match-banner-score first${firstResult ? ` ${firstResult}` : ""}`;
-    firstScore.textContent = matchScore(firstTeam) ?? "—";
-    const separator = document.createElement("span");
-    separator.className = "match-banner-score-separator";
-    separator.textContent = "–";
-    const secondScore = document.createElement("strong");
-    secondScore.className = `match-banner-score second${secondResult ? ` ${secondResult}` : ""}`;
-    secondScore.textContent = matchScore(secondTeam) ?? "—";
-    const secondName = document.createElement("span");
-    secondName.className = `match-banner-team second${secondResult ? ` ${secondResult}` : ""}`;
-    secondName.textContent = secondTeam?.name || "Unknown team";
-    scoreline.append(firstName, firstScore, separator, secondScore, secondName);
-    bottom.append(scoreline);
-    banner.replaceChildren(top, bottom);
-    banner.setAttribute("aria-label", `${firstName.textContent} ${firstScore.textContent} to ${secondScore.textContent} ${secondName.textContent} on ${mapName.replace(/^de_/i, "")}`);
+    ui.banner.update({ result, accountSteamID: state.accountPlayerSteamID });
   }
 
   function cell(row, value, className) {
@@ -2712,18 +2641,22 @@
   demoEnemyBuyControl = window.NickStatsSegmentedUI.create("demoEnemyBuyFilter", { onChange: buy => setEnemyBuyFilter(buy) });
   demoRoundResultControl = window.NickStatsSegmentedUI.create("demoRoundResultFilter", { onChange: result => setRoundResultFilter(result) });
   demoRoundPhaseControl = window.NickStatsSegmentedUI.create("demoRoundPhaseFilter", { onChange: phase => setRoundPhaseFilter(phase) });
-  $("demoResetFilters").addEventListener("click", () => {
+  ui.demoResetFilters = window.NickStatsShellUI.button("demoResetFilters", () => {
     for (const set of [setSideFilter, setBuyFilter, setEnemyBuyFilter, setRoundResultFilter, setRoundPhaseFilter]) set("ALL", false);
     if (state.result) render(state.result);
   });
   const analysisSectionTabs = window.NickStatsSectionTabsUI.create("demoAnalysisTabsApp", { kind: "match", onChange: setResultView });
-  document.querySelectorAll("[data-match-browser-view]").forEach(button => {
-    button.addEventListener("click", () => {
-      if (button.dataset.matchBrowserView === "list") showMatchList();
-      else if (state.selectedMatchID) openStoredMatch(state.selectedMatchID);
-    });
+  ui.banner = window.NickStatsShellUI.banner();
+  function matchBrowserOptions() {
+    return [["list", "Match list", { tabProps: { id: "matchListTab", "aria-controls": "matchListView", "data-match-browser-view": "list" } }],
+      ["detail", state.selectedMatchID ? `Match #${state.selectedMatchID}` : "Match details", { disabled: !state.selectedMatchID,
+        tabProps: { id: "matchDetailTab", "aria-controls": "matchDetailView", "data-match-browser-view": "detail" } }]];
+  }
+  ui.browserTabs = window.NickStatsShellUI.tabs("matchBrowserTabs", {
+    label: "Stored match browser", className: "match-browser-tabs", tabClassName: "match-browser-tab", value: "list", options: matchBrowserOptions(),
+    onChange: view => view === "list" ? showMatchList() : openStoredMatch(state.selectedMatchID)
   });
-  $("matchListRefreshButton").addEventListener("click", async () => {
+  ui.matchListRefreshButton = window.NickStatsShellUI.button("matchListRefreshButton", async () => {
     await loadMatches();
     window.NickStatsDataFreshness.check();
   });
@@ -2735,8 +2668,8 @@
     if (event.detail?.page === "match") syncMatchRoute();
     if (event.detail?.page === "match" && matchListStale) loadMatches(state.matchListOffset);
   });
-  $("matchListPreviousButton").addEventListener("click", () => loadMatches(Math.max(0, state.matchListOffset - MATCH_LIST_LIMIT)));
-  $("matchListNextButton").addEventListener("click", () => loadMatches(state.matchListOffset + MATCH_LIST_LIMIT));
+  ui.matchListPagination = window.NickStatsShellUI.pagination("matchListPagination", () => loadMatches(Math.max(0, state.matchListOffset - MATCH_LIST_LIMIT)), () => loadMatches(state.matchListOffset + MATCH_LIST_LIMIT));
+
 
   window.addEventListener("hashchange", syncMatchRoute);
   window.NickStatsMatchBrowser = Object.freeze({ showView: setMatchBrowserView });

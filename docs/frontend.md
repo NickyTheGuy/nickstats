@@ -1,11 +1,16 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs, routed Session tabs, detailed-stat sections and Match analysis tabs share React navigation controls. Both graph axes use React category dropdowns and statistic autocomplete; graph settings and bucket inputs also use React. Graph summaries, legends, notes and empty states now render in React, as do the graph SVGs and match timeline charts. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The interface now uses React throughout: navigation, account and upload forms, profile layouts and statistics, graphs, comparisons, Sessions, filters and match lists. Small components such as Button, TextField, TabList, Pagination, StatSection and the shared tables are reused across screens. The static HTML supplies page containers and mount points. Existing JavaScript controllers retain routing, fetching, filtering, statistical calculations, compression and parser workers; they publish data to React rather than building UI nodes.
 
 ## Where to edit
 
 | What you want to change | File |
 | --- | --- |
+| Shared profile and graph layouts | `frontend/profile-layout.jsx`, `frontend/components/StatSection.jsx` |
+| Page controls, status messages, pagination and tabs | `frontend/shell.jsx`, `frontend/state/shell-elements.mjs`, `frontend/components/Pagination.jsx` |
+| Match summary banner | `frontend/matches/MatchBanner.jsx` |
+| Login/account settings and API actions | `frontend/account/`, `frontend/state/account-api.mjs` |
+| Upload selection, queue and actions | `frontend/upload/`, `frontend/state/upload.mjs` |
 | Session title, loading/error messages, page layout | `frontend/pages/SessionPage.jsx` |
 | Profile cards, metric lists and count strips | `frontend/components/StatCard.jsx`, `MetricList.jsx`, `CountStrip.jsx`, `frontend/profile/StatCards.jsx` |
 | Shared sortable table and sort state | `frontend/components/DataTable.jsx`, `frontend/hooks/useSortedRows.js`, `frontend/state/table-sort.mjs` |
@@ -72,7 +77,7 @@ npm test
 
 Commit the component sources and rebuilt `assets/ui/nickstats-ui.js` together. The bundle contains React and the compiled components, so the existing static host can continue serving the repository folder without Node or a CDN React dependency. `vite.config.mjs` builds only this bundle and does not touch parser assets.
 
-For repeated edits, run `npm run dev` to watch/rebuild the bundle. Serve the repository with your usual static server and refresh the browser after a rebuild. API-backed screens require the usual same-origin `/nickstats/api` backend. This transitional workflow uses build-watch rather than Vite's HTML dev server so legacy deferred scripts keep their load order.
+For repeated edits, run `npm run dev` to watch/rebuild the bundle. Serve the repository with your usual static server and refresh the browser after a rebuild. API-backed screens require the usual same-origin `/nickstats/api` backend. Build-watch preserves the deferred data-controller load order while serving the same static folder used in production.
 
 Frontend CI rebuilds the bundle and checks that the committed output matches the sources, then runs the JavaScript tests. When publishing a change, bump the visible build number and relevant script cache version in `index.html`.
 
@@ -80,18 +85,18 @@ Frontend CI rebuilds the bundle and checks that the committed output matches the
 
 `frontend/main.jsx` mounts SessionPage inside `#sessionApp` and exposes a small adapter for the existing session controller. React owns that subtree, including loading/error states. `frontend/comparison-store.mjs` publishes controller input and loading status to React with immutable snapshots and `useSyncExternalStore`. The controller supplies data and calls `loading`, `error`, or `render`; it never edits React's elements directly.
 
-`useComparison` owns map selection, value mode, utility basis, sorting, group expansion, and subgroup cycling through a React reducer. Shared section preferences use a small external store with `useSyncExternalStore`, preserving the existing localStorage key. Each comparison retains its own map and display state. `NickStatsQuickComparison.model(input, viewState)` computes formatted stats from a copy of that state; it does not subscribe to UI events or create DOM nodes. The earlier imperative renderer remains available for compatibility tests while stat calculations are extracted into modules.
+`useComparison` owns map selection, value mode, utility basis, sorting, group expansion, and subgroup cycling through a React reducer. Shared section preferences use a small external store with `useSyncExternalStore`, preserving the existing localStorage key. Each comparison retains its own map and display state. `NickStatsQuickComparison.model(input, viewState)` computes formatted stats from a copy of that state; it does not subscribe to UI events or create DOM nodes. The earlier DOM-rendering path has been removed; the same stat model is used in component tests.
 
 `NickStatsComparisonUI.create` mounts ComparisonPage in `#playerQuickApp` or `#comboQuickApp`. The Player/Group controllers only publish filtered input and summarizers. SessionPage shares ComparisonBody and adds loading/retry UI. Button, ToggleButton, ToggleGroup and TabList handle the reusable interactions. Map tabs support Left/Right arrows, Home and End. The bundle loads before the page controllers; the comparison stat model loads before Player/Group initialize. Existing routes and internal tabs remain intact.
 
-Next steps: extract the comparison/stat model into normal importable modules, then migrate profiles and graphs. Keep components small and keep parsing and stat formulas outside their templates.
+Further refactoring can move controller calculations into importable modules independently of the completed UI migration. Keep parsing and stat formulas outside component templates.
 
 
 ## Shared map filters
 
 Match, Player, and Group mount MapFilter through `NickStatsMapFilterUI.create(targets, options)`. MapFilter subscribes to a store with synchronous `values`, `matches`, `summary`, `setOptions`, `setSelected`, and `reset` methods so existing filtering calculations see the current selection immediately. React owns the dropdown and checkboxes. An empty selection means all maps; refreshing map options prunes unavailable selections. Multiple targets can share one selection store.
 
-Dropdown uses native details/summary markup and React state for dismissal. Escape closes it and returns focus to the trigger. An outside pointer event closes it before child events can replace filtered data; choosing an option preserves the menu and checkbox focus. Programmatic reset closes the menu. CheckboxGroup handles reusable option markup and checked states. The date filter also uses Dropdown; tag filters can adopt these components in subsequent migration steps.
+Dropdown uses native details/summary markup and React state for dismissal. Escape closes it and returns focus to the trigger. An outside pointer event closes it before child events can replace filtered data; choosing an option preserves the menu and checkbox focus. Programmatic reset closes the menu. CheckboxGroup handles reusable option markup and checked states. Date, tag and metric dropdowns use these shared controls too.
 
 
 ## Date range filters
@@ -116,7 +121,7 @@ MatchTagEditor is a normal child of MatchCard. Lists use stable match IDs as Rea
 
 ## Match lists and Session history
 
-`NickStatsMatchList.render` publishes matches and an open callback into a React root for each persistent list container. `renderSessions` publishes grouped history into the same Player list root; `clear` empties it through React rather than replacing managed DOM. MatchCard, MapArtwork and StatPreview are reused for the Match page, Player matches, expanded Sessions and Group matches. Scores, viewer-team order, artwork normalization and accessible labels come from pure helpers in `frontend/state/match-card.mjs`. The legacy match banner shares the same artwork and score helpers.
+`NickStatsMatchList.render` publishes matches and an open callback into a React root for each persistent list container. `renderSessions` publishes grouped history into the same Player list root; `clear` empties it through React rather than replacing managed DOM. MatchCard, MapArtwork and StatPreview are reused for the Match page, Player matches, expanded Sessions and Group matches. Scores, viewer-team order, artwork normalization and accessible labels come from pure helpers in `frontend/state/match-card.mjs`. The React MatchBanner shares the same artwork and score helpers.
 
 SessionHistory owns expand/collapse state and renders nested MatchList components. Its header opens the existing routed Session tab; Show/Hide matches expands the group independently. The Player controller still computes session boundaries, filtered summaries, records and pagination, while React owns cards and their interactions. Existing routing, API queries, filter scopes and loading/error messages are preserved.
 
@@ -149,7 +154,7 @@ CheckboxGroup accepts optional label classes, per-option input properties and a 
 
 DataTable uses the shared SortHeading button and `useSortedRows` hook. Each mounted table owns its sort choice, so changing a filter, switching profiles, or temporarily showing no rows retains that choice. Name columns start ascending; statistic columns start descending; clicking again reverses the order. Sorting uses separate raw values to avoid comparing rounded percentages or colored display objects, and ties retain their input order. React updates keyed headings so keyboard focus survives sorting and data refreshes. Row/column scopes and aria-sort describe the current table state.
 
-Profile layout cloning still runs before the controller renders any statistics; it creates empty Group mount points. Do not clone or replace populated React containers. A later migration can move the surrounding profile layout and aggregation into React while retaining these components.
+`profile-layout.jsx` renders one parameterized ProfileLayout and GraphLayout for Player and Group. StatSection supplies reusable section headings and wrappers. A synchronous initial mount makes their empty data-view containers available before the controllers attach their persistent roots. Layouts are mounted once; controllers never clone or replace populated React containers.
 
 ## Workspace navigation
 
@@ -195,7 +200,7 @@ Match round timelines use the same renderer. `NickStatsGraphs.roundSeriesModel` 
 
 SectionTabs reuses TabList and the existing synchronous selection store used by segmented controls. `section-tabs.mjs` defines the Player/Group section choices and Match analysis choices, labels, existing data attributes, tab IDs and panel references. `NickStatsSectionTabsUI.create(target, { kind, onChange })` mounts one root per tab bar; controllers synchronize selection with `set(value, { notify: false })` while retaining panel visibility and lazy data loading.
 
-All detailed-stat panels now have stable IDs, tabpanel roles and aria-labelledby references. The Group layout clone rewrites those references to Group IDs before React mounts its tabs. Match analysis retains its existing tab/panel IDs. Left/Right, Home/End and wrapping use the same behavior as workspace and comparison map tabs. Only the selected tab is in the Tab sequence, and keyed buttons preserve focus across state changes.
+All detailed-stat panels now have stable IDs, tabpanel roles and aria-labelledby references. The shared React layout derives those references from its Player/Group prefix. Match analysis retains its existing tab/panel IDs. Left/Right, Home/End and wrapping use the same behavior as workspace and comparison map tabs. Only the selected tab is in the Tab sequence, and keyed buttons preserve focus across state changes.
 
 Player profiles continue sharing one detailed-stat choice across open players. Group profiles share a separate choice. The Matches section still loads standalone history on demand; Match analysis still renders the requested detail when opened and resets to Scoreboard for a newly opened match. Controllers no longer attach tab click listeners or change active/tabindex/aria-selected attributes directly.
 
@@ -210,3 +215,9 @@ The Match scoreboard now supplies a plain view model to the same React `Scoreboa
 Account login and settings now render through `account.jsx`, `account/LoginForm`, `AccountSettings` and `PasswordForm`. Shared `Modal`, `TextField`, `FormMessage`, `Button` and `useAsyncAction` own focus, inputs, validation, pending states and errors. Account linking uses the existing cancellable player-search store. `state/account-api.mjs` sends cookie-authenticated API requests; passwords stay in the form and are discarded on close. The match controller still applies sessions, dispatches account events and resumes pending parsing/uploads after login. No registration form is introduced.
 
 The upload/parser interface uses `upload/UploadPanel`, `UploadActions` and `BatchQueue`, backed by the subscribable `state/upload.mjs` display store. Shared `FileDropZone`, `ProgressBar`, `FormMessage`, `Disclosure` and buttons render selection, queue progress and diagnostics. `upload.jsx` also owns the JSON download actions through portals. File reads, compression, parser workers, duplicate handling, sequential uploads and wake locks remain in the controller. Parsing and saving lock file selection and Clear to keep in-flight results tied to the chosen files; login continuation and retry/replacement still use the existing controller paths.
+
+## App shell and UI ownership
+
+`js/navigation.js` retains route selection and page visibility, publishing the active page to the shared TabList. The Match list/detail tabs use the same keyboard navigation. `shell.jsx` mounts persistent Button, text, warning and Pagination views using immutable snapshots; `state/shell-elements.mjs` contains their initial labels and presentation. Match, Player history and Group history reuse Pagination. Controllers publish status, disabled and pagination values through the returned adapters.
+
+`MatchBanner` uses the unfiltered match and account representative to order teams, preserving artwork, score colors, dates and full match-ID tooltips. UI controllers no longer create elements or assign textContent. The remaining temporary anchors in the download helpers invoke browser file downloads. Layout visibility and scroll measurements remain in routing/controllers or React layout effects. The unused native-select dropdown adapter and DOM scoreboard renderers have been removed.

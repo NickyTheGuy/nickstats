@@ -286,41 +286,6 @@
     return { available: economics != null, ...window.NickStatsScoreboard.clutchEconomics(economics, "clutch_econ_") };
   }
 
-  function mountComparisonProfile() {
-    const source = $("playerProfileBody"), target = $("comboProfileBody");
-    if (!source || !target) return;
-    const component = source.cloneNode(true); component.removeAttribute("id");
-    component.querySelectorAll("[data-standalone-profile-only]").forEach(element => element.remove());
-    component.querySelectorAll("[id]").forEach(element => {
-      if (element.id.startsWith("player")) element.id = `combo${element.id.slice("player".length)}`;
-    });
-    component.querySelectorAll("[for], [aria-controls], [aria-labelledby]").forEach(element => {
-      for (const attribute of ["for", "aria-controls", "aria-labelledby"]) {
-        const value = element.getAttribute(attribute);
-        if (value) element.setAttribute(attribute, value.replace(/\bplayer(?=[A-Z])/g, "combo"));
-      }
-    });
-    component.querySelectorAll("[data-player-profile-view]").forEach(element => {
-      element.dataset.comboProfilePanel = element.dataset.playerProfileView; delete element.dataset.playerProfileView;
-    });
-    target.replaceChildren(...component.childNodes);
-  }
-
-  function mountGraphs() {
-    const source = $("playerGraphs"), target = $("comboGraphs");
-    if (!source || !target) return;
-    const component = source.cloneNode(true);
-    component.querySelectorAll("[id]").forEach(node => { node.id = node.id.replace(/^player/, "combo"); });
-    component.querySelectorAll("[for], [aria-controls], [aria-describedby]").forEach(node => {
-      for (const attr of ["for", "aria-controls", "aria-describedby"]) {
-        const value = node.getAttribute(attr);
-        if (value) node.setAttribute(attr, value.replace(/\bplayer(?=[A-Z])/g, "combo"));
-      }
-    });
-    target.replaceChildren(...component.childNodes);
-  }
-
   window.NickStatsProfile = Object.freeze({ render, renderTable, clutchEconomySummary, number, integer, decimal, percent, ratio, titleCase, countPerRound, perGrenade });
-  mountComparisonProfile();
-  mountGraphs();
+  window.NickStatsProfileLayoutUI?.mount();
 })();

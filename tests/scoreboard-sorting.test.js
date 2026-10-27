@@ -150,7 +150,7 @@ test("quick comparison economics columns preserve dollars and sample coverage in
   const start = quickSource.indexOf("    function renderTable(");
   const end = quickSource.indexOf("      const sort = state.sort;", start);
   const helpers = quickSource.slice(quickSource.indexOf("    function columnScalesWithValueMode("),
-    quickSource.indexOf("    function measuredColumnWidths("));
+    quickSource.indexOf("    function minimumWidthsForGroup("));
   const api = vm.runInNewContext(`${helpers}\n${quickSource.slice(start, end)}\nreturn columns; }\n({renderTable, displayedValue, displayedLabel, columnSortValue})`, context);
   const item = { rows: [{}, {}], stats: { rounds: 40, economics: {
     clutch_econ_win_survive_count: 2, clutch_econ_win_survive_ct1_count: 2, clutch_econ_win_survive_ct1_forecast: 2,
@@ -173,7 +173,7 @@ test("comparison K-D-A keeps all three rates when localized totals exceed 999", 
   const context = { state, Scoreboard, number: value => Number(value) || 0,
     decimal: (value, digits) => value.toFixed(digits) };
   const helpers = quickSource.slice(quickSource.indexOf("    function columnScalesWithValueMode("),
-    quickSource.indexOf("    function measuredColumnWidths("));
+    quickSource.indexOf("    function minimumWidthsForGroup("));
   const api = vm.runInNewContext(`${helpers}\n({displayedValue, columnSortValue})`, context);
   for (const locale of ["en-US", "de-DE", "fr-FR"]) {
     const column = { key: "combat", group: "combat", value: item => item.stats.kills,

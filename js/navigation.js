@@ -7,11 +7,7 @@
   function showPage(page, updateHash = true) {
     const requestedPage = routePage(page) === "session" ? "players" : routePage(page);
     const next = pages.has(requestedPage) ? requestedPage : "match";
-    document.querySelectorAll("[data-app-page]").forEach(button => {
-      const active = button.dataset.appPage === next;
-      button.setAttribute("aria-selected", String(active));
-      button.tabIndex = active ? 0 : -1;
-    });
+    tabs.update({ value: next });
     document.querySelectorAll("[data-app-view]").forEach(view => {
       view.hidden = view.dataset.appView !== next;
     });
@@ -22,8 +18,12 @@
     window.dispatchEvent(new CustomEvent("nickstats:page", { detail: { page: next } }));
   }
 
-  document.querySelectorAll("[data-app-page]").forEach(button => {
-    button.addEventListener("click", () => showPage(button.dataset.appPage));
+  const tabs = window.NickStatsShellUI.tabs("appNavigation", {
+    label: "NickStats sections", className: "data-tabs app-tabs", tabClassName: "data-tab", value: "match",
+    options: [["match", "Match", { tabProps: { id: "matchPageTab", "aria-controls": "matchPage", "data-app-page": "match" } }],
+      ["players", "Player", { tabProps: { id: "playersPageTab", "aria-controls": "playersPage", "data-app-page": "players" } }],
+      ["groups", "Groups", { tabProps: { id: "groupsPageTab", "aria-controls": "groupsPage", "data-app-page": "groups" } }]],
+    onChange: page => showPage(page)
   });
   window.addEventListener("hashchange", () => showPage(location.hash.slice(1), false));
   showPage(location.hash.slice(1), true);

@@ -1,13 +1,6 @@
 (() => {
   "use strict";
 
-  const element = (tag, text, className) => {
-    const node = document.createElement(tag);
-    if (text != null) node.textContent = text;
-    if (className) node.className = className;
-    return node;
-  };
-
   const sections = Object.freeze([
     ["overview", "Overview", ["combat"], "overview"], ["opening", "Opening", ["opening"], "opening"],
     ["initiation", "Initiation", ["initiation"], "initiation"], ["trades", "Trades", ["trades"], "trades"], ["rounds", "Rounds", ["clutches", "multikills", "objectives"], "rounds"],
@@ -155,49 +148,6 @@
     return comparison || leftIndex - rightIndex;
   }
 
-  function appendGroupHeader({ topRow, detailRow, state, group, label, labels, collapsedLabel = "Total", rateLabel = (_group, value) => value, sortHeader, decorateDetail, onToggle, onCycle }) {
-    const expanded = state.expanded[group];
-    const focusedLabels = expanded ? focus(state, group, labels) : labels;
-    const subgroup = expanded && activeSubgroup(state, group);
-    const heading = element("th", null, `demo-toggle-heading ${group}-heading demo-group-start demo-group-end`);
-    heading.colSpan = expanded ? focusedLabels.length : 1;
-    heading.dataset.scoreboardHeader = group;
-    const actions = element("div", null, "demo-column-heading-actions");
-    const position = subgroup && group === "opening" ? ` · ${subgroups[group].indexOf(subgroup) + 1}/${subgroups[group].length}` : "";
-    const toggle = element("button", `${subgroup?.[3] || label}${position} ${expanded ? "▾" : "▸"}`, "demo-column-toggle");
-    toggle.type = "button";
-    toggle.setAttribute("aria-expanded", String(expanded));
-    toggle.addEventListener("click", () => onToggle(group));
-    actions.appendChild(toggle);
-    if (subgroup) {
-      const options = subgroups[group];
-      const index = options.findIndex(([key]) => key === subgroup[0]);
-      const next = options[(index + 1) % options.length];
-      const button = element("button", null, "demo-subgroup-shortcut");
-      button.type = "button";
-      button.dataset.scoreboardGroup = group;
-      button.appendChild(element("span", "R"));
-      button.title = `Press R or tap to switch to ${next[1]}`;
-      button.setAttribute("aria-label", `${label} detail: ${subgroup[1]}. Press R or tap to switch to ${next[1]}`);
-      button.addEventListener("click", () => onCycle(group, button));
-      actions.appendChild(button);
-    }
-    heading.appendChild(actions);
-    topRow.appendChild(heading);
-    const details = (expanded ? focusedLabels : [collapsedLabel]).map(value => rateLabel(group, value, expanded));
-    details.forEach((detail, index) => {
-      const cell = element("th", null, `demo-group-detail ${group}-cell`);
-      cell.scope = "col";
-      if (index === 0) cell.classList.add("demo-group-start");
-      if (index === details.length - 1) cell.classList.add("demo-group-end");
-      const source = expanded ? focusedLabels[index] : collapsedLabel;
-      if (flashDescriptions[source]) cell.title = flashDescriptions[source];
-      decorateDetail?.(cell, detail);
-      sortHeader(cell, detail, source, group);
-      detailRow.appendChild(cell);
-    });
-  }
-
   function scrollGroupIntoView(wrap, table, group) {
     const header = table?.querySelector(`[data-scoreboard-header="${group}"]`);
     if (!wrap || !header || wrap.scrollWidth <= wrap.clientWidth) return null;
@@ -214,60 +164,9 @@
     return Math.abs(next - wrap.scrollLeft) >= 0.5 ? next : null;
   }
 
-  function renderControls({ target, state, defaultSections, valueModes, onSections, onValueMode, onUtilityBasis, modeNote }) {
-    const sectionBar = element("div", null, "scoreboard-section-bar scoreboard-control-row");
-    sectionBar.appendChild(element("strong", "Sections"));
-    const sectionButtons = element("div", null, "scoreboard-button-group scoreboard-section-buttons");
-    const preset = (text, values) => {
-      const button = element("button", text, "scoreboard-preset-button");
-      button.type = "button";
-      button.addEventListener("click", () => onSections(new Set(values)));
-      sectionButtons.appendChild(button);
-    };
-    preset("Default", defaultSections);
-    preset("All", sections.map(([key]) => key));
-    sections.forEach(([key, text, , style]) => {
-      const active = state.visibleSections.has(key);
-      const button = element("button", text, `scoreboard-section-button ${style}-heading${active ? " active" : ""}`);
-      button.type = "button";
-      button.setAttribute("aria-pressed", String(active));
-      button.addEventListener("click", () => {
-        const selected = new Set(state.visibleSections);
-        if (selected.has(key)) selected.delete(key); else selected.add(key);
-        onSections(selected);
-      });
-      sectionButtons.appendChild(button);
-    });
-    sectionBar.appendChild(sectionButtons);
-
-    const mode = element("div", null, "scoreboard-value-toggle scoreboard-control-row");
-    mode.appendChild(element("strong", "Values"));
-    const modeButtons = element("div", null, "scoreboard-button-group");
-    valueModes.forEach(([value, text]) => {
-      const button = element("button", text, state.valueMode === value ? "active" : "");
-      button.type = "button";
-      button.setAttribute("aria-pressed", String(state.valueMode === value));
-      button.addEventListener("click", () => onValueMode(value));
-      modeButtons.appendChild(button);
-    });
-    mode.appendChild(modeButtons);
-    const utility = element("div", null, "scoreboard-utility-basis");
-    utility.appendChild(element("span", "Utility yields"));
-    const utilityButton = element("button", "Per grenade", state.perGrenadeUtility ? "active" : "");
-    utilityButton.type = "button";
-    utilityButton.disabled = state.valueMode === "totals";
-    utilityButton.setAttribute("aria-pressed", String(state.perGrenadeUtility));
-    utilityButton.title = "Use each relevant grenade type for damage, flash effects, and flash-assist yields";
-    utilityButton.addEventListener("click", onUtilityBasis);
-    utility.appendChild(utilityButton);
-    mode.appendChild(utility);
-    mode.appendChild(element("small", modeNote, "scoreboard-control-note"));
-    target.replaceChildren(sectionBar, mode);
-  }
-
   window.NickStatsScoreboard = {
     clutchEconomics, money, sections, groups, columns, columnDescriptions: flashDescriptions, subgroups, expandedWidths, collapsedWidths, groupSection,
     activeSubgroup, focus, cycle, minimumWidths, normalizedSortValue, compareSortValues,
-    appendGroupHeader, scrollGroupIntoView, renderControls
+    scrollGroupIntoView
   };
 })();

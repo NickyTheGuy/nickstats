@@ -63,21 +63,15 @@ test("match loading reserves page height and cancels obsolete requests", () => {
   assert.match(html, /Build \d{4}\.\d{2}\.\d{2}\.\d+/);
 });
 
-test("match details use a stable, filter-independent map banner", () => {
-  assert.match(html, /class="match-banner" id="demoMatchBanner"/);
-  assert.doesNotMatch(html, /demoSummary/);
-  assert.match(demo, /function renderMatchBanner\(result\)/);
-  assert.match(demo, /const teams = Array\.isArray\(result\.teams\) \? result\.teams : \[\]/);
-  assert.match(demo, /applyMapArtwork\(banner, mapName\)/);
-  assert.match(demo, /\.\/assets\/maps-v2\/\$\{location\.file\}/);
-  assert.match(demo, /const matchID = result\.provider_match_id \|\|/);
-  assert.match(demo, /identity\.textContent = matchID/);
-  assert.doesNotMatch(demo, /match-banner-map/);
-  assert.match(demo, /date\.textContent = playedAt === "Unknown" \? "Date unavailable" : playedAt/);
-  assert.match(demo, /renderMatchBanner\(result\);/);
-  assert.doesNotMatch(demo, /function summaryCard/);
+test("match details use a stable, filter-independent React banner", () => {
+  const banner = fs.readFileSync(path.join(__dirname, "../frontend/matches/MatchBanner.jsx"), "utf8");
+  assert.match(html, /id="demoMatchBannerApp"/);
+  assert.match(demo, /ui\.banner\.update\(\{ result, accountSteamID: state\.accountPlayerSteamID \}\)/);
+  assert.match(banner, /artworkFor\(map\)/);
+  assert.match(banner, /provider_match_id/);
+  assert.match(banner, /Date unavailable/);
+  assert.match(banner, /teamResult\(first, second\)/);
 });
-
 
 test("session routes select Player and retain the nested route on reload", () => {
   const buttons = ["match", "players", "groups"].map(page => ({ dataset: { appPage: page }, setAttribute(key, value) { this[key] = value; }, addEventListener(type, handler) { this.click = handler; } }));
@@ -86,7 +80,10 @@ test("session routes select Player and retain the nested route on reload", () =>
   vm.runInNewContext(navigation, {
     document: { querySelectorAll: selector => selector === "[data-app-page]" ? buttons : views },
     location, history: { replaceState(_, __, route) { location.hash = route; } },
-    window: { dispatchEvent(event) { events.push(event); }, addEventListener() {} },
+    window: { NickStatsShellUI: { tabs(_id, config) {
+      buttons.forEach((button, index) => { button.click = () => config.onChange(["match", "players", "groups"][index]); });
+      return { update({ value }) { buttons.forEach(button => { button["aria-selected"] = String(button.dataset.appPage === value); }); } };
+    } }, dispatchEvent(event) { events.push(event); }, addEventListener() {} },
     CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } }
   });
   assert.deepEqual(views.map(view => view.hidden), [true, false, true]);

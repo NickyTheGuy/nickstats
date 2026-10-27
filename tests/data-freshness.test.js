@@ -49,7 +49,7 @@ test("existing player tabs and group selections are refreshed without resetting 
   const routes = read("backend/Sources/NickStatsAPI/Routes.swift");
   const queries = read("backend/Sources/NickStatsAPI/Queries.swift");
   assert.ok(html.indexOf("./js/data-freshness.js") < html.indexOf("./js/demo.js"));
-  assert.match(html, /id="playerDataStatus"/);
+  assert.match(html, /id="playerDataStatusApp"/);
   assert.match(routes, /app\.get\("matches", "revision"\)/);
   assert.match(queries, /COUNT\(\*\).*MAX\(id\).*MAX\(updated_at\).*SUM\(UNIX_TIMESTAMP\(updated_at\)\).*FROM matches/);
   assert.match(queries, /revision: "\\\(count\):\\\(latestID\):\\\(updated\):\\\(checksum\)"/);

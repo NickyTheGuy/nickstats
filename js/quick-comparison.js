@@ -6,12 +6,6 @@
     return Number.isFinite(result) ? result : 0;
   };
   const availability = window.NickStatsAvailability;
-  const element = (tag, text, className) => {
-    const node = document.createElement(tag);
-    if (text != null) node.textContent = text;
-    if (className) node.className = className;
-    return node;
-  };
   const signed = value => `${value > 0 ? "+" : value < 0 ? "−" : ""}${Math.abs(number(value)).toFixed(0)}`;
   const seconds = value => Number.isFinite(Number(value)) ? `${number(value).toFixed(1)}s` : "—";
   const SECTION_STORAGE_KEY = "nickstats.quickComparisonSections.v2";
@@ -57,7 +51,6 @@
       visibleSections: new Set(viewState.visibleSections)
     });
     let viewMeta = {};
-    const byId = suffix => document.getElementById(`${prefix}Quick${suffix}`);
     const { integer, decimal, percent, titleCase } = window.NickStatsProfile;
     const scoreboardState = () => ({
       expanded: state.expandedGroups,
@@ -80,26 +73,11 @@
       return Scoreboard.activeSubgroup(scoreboardState(), group);
     }
 
-    function cycleSubgroup(group, anchor) {
-      const subgroups = sectionSubgroups[group];
-      if (!subgroups) return;
-      if (onUpdate) {
-        Scoreboard.cycle(scoreboardState(), group);
-        if (state.sort?.group === group) state.sort = null;
-        render(state.input); return;
-      }
-      const wrap = byId("Table")?.parentElement;
-      const scrollLeft = wrap?.scrollLeft || 0;
-      const viewportX = anchor ? anchor.getBoundingClientRect().left + anchor.offsetWidth / 2 : null;
+    function cycleSubgroup(group) {
+      if (!sectionSubgroups[group]) return;
       Scoreboard.cycle(scoreboardState(), group);
       if (state.sort?.group === group) state.sort = null;
       render(state.input);
-      if (!wrap || viewportX == null) return;
-      wrap.scrollLeft = scrollLeft;
-      const control = byId("Table")?.querySelector(`.demo-subgroup-shortcut[data-scoreboard-group="${group}"]`);
-      if (!control) return;
-      const adjustment = control.getBoundingClientRect().left + control.offsetWidth / 2 - viewportX;
-      if (Math.abs(adjustment) >= 0.5) wrap.scrollLeft += adjustment;
     }
 
     function toggleGroup(group) {
@@ -110,25 +88,6 @@
       Object.keys(state.expandedGroups).forEach(key => { state.expandedGroups[key] = false; });
       state.expandedGroups[group] = next;
       render(state.input);
-      if (!onUpdate) scrollGroupIntoView(group);
-    }
-
-    function scrollGroupIntoView(group) {
-      const table = byId("Table");
-      const wrap = table?.parentElement;
-      const next = Scoreboard.scrollGroupIntoView(wrap, table, group);
-      if (next != null) wrap.scrollLeft = next;
-    }
-
-    function handleDetailShortcut(event) {
-      if (event.key?.toLowerCase() !== "r" || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
-      if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
-      const table = byId("Table");
-      if (!table || !table.getClientRects().length) return;
-      const group = Object.keys(state.expandedGroups).find(key => state.expandedGroups[key] && sectionSubgroups[key]);
-      if (!group) return;
-      event.preventDefault();
-      cycleSubgroup(group, table.querySelector(`.demo-subgroup-shortcut[data-scoreboard-group="${group}"]`));
     }
 
     const groupVisible = group => state.visibleSections.has(groupSection[group]);
@@ -222,53 +181,6 @@
       if (column.label === "Advantage K / Outnumbered D") return `Advantage K/${unit} / Outnumbered D/${unit}`;
       if (column.label.includes("(Succ%)")) return column.label.replace(/^([KD])/, `$1 / ${unit}`);
       return `${column.label} / ${unit}`;
-    }
-
-    function measuredColumnWidths(tableClass, head, body, minimums) {
-      const contentWidth = cell => {
-        if (!cell) return 0;
-        const style = getComputedStyle(cell);
-        const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
-        const childWidths = [...cell.children].map(child => child.scrollWidth + padding);
-        return Math.ceil(Math.max(cell.scrollWidth, ...childWidths) + 2);
-      };
-      const measuringTable = document.createElement("table");
-      measuringTable.className = tableClass;
-      measuringTable.setAttribute("aria-hidden", "true");
-      Object.assign(measuringTable.style, {
-        position: "fixed", left: "-100000px", top: "0", visibility: "hidden", pointerEvents: "none",
-        width: `${minimums.reduce((total, width) => total + width, 0)}px`,
-        minWidth: "0"
-      });
-      const colgroup = document.createElement("colgroup");
-      minimums.forEach(width => {
-        const column = document.createElement("col");
-        column.style.width = `${width}px`;
-        colgroup.appendChild(column);
-      });
-      measuringTable.append(colgroup, head.cloneNode(true), body.cloneNode(true));
-      document.body.appendChild(measuringTable);
-      try {
-        const measuredHead = measuringTable.tHead;
-        const top = measuredHead.rows[0], detail = measuredHead.rows[1];
-        const headers = [...top.cells].filter(cell => cell.rowSpan === 2).concat([...detail.cells]);
-        const widths = minimums.map((minimum, index) => Math.max(minimum, contentWidth(headers[index]),
-          ...[...measuringTable.tBodies[0].rows].map(row => contentWidth(row.cells[index]))));
-        let columnIndex = 0;
-        [...top.cells].forEach(cell => {
-          const span = cell.rowSpan === 2 ? 1 : cell.colSpan;
-          const currentWidth = widths.slice(columnIndex, columnIndex + span).reduce((total, width) => total + width, 0);
-          const extra = Math.max(0, contentWidth(cell) - currentWidth);
-          if (extra) {
-            const addition = Math.ceil(extra / span);
-            for (let index = columnIndex; index < columnIndex + span; index += 1) widths[index] += addition;
-          }
-          columnIndex += span;
-        });
-        return widths;
-      } finally {
-        measuringTable.remove();
-      }
     }
 
     function minimumWidthsForGroup(group) {
@@ -572,112 +484,13 @@
         return;
       }
 
-      const sortHeader = (cell, column) => {
-        const active = sort?.key === column.key;
-        const button = element("button", displayedLabel(column), `player-table-sort-button${active ? " active" : ""}`);
-        button.type = "button";
-        if (active) button.dataset.direction = sort.direction;
-        button.addEventListener("click", () => {
-          state.sort = { key: column.key, direction: active ? (sort.direction === "asc" ? "desc" : "asc") : column.key === "player" ? "asc" : "desc", group: column.group || null };
-          render(state.input);
-        });
-        cell.setAttribute("aria-sort", active ? (sort.direction === "asc" ? "ascending" : "descending") : "none");
-        cell.appendChild(button);
-      };
-      const head = document.createElement("thead"), top = document.createElement("tr"), detail = document.createElement("tr");
-      for (const segment of segments) {
-        if (!segment.group) {
-          for (const column of segment.columns) {
-            const cell = document.createElement("th"); cell.rowSpan = 2; cell.scope = "col"; sortHeader(cell, column); top.appendChild(cell);
-          }
-          continue;
-        }
-        const [allLabels, collapsedLabel] = Scoreboard.columns[segment.group];
-        Scoreboard.appendGroupHeader({
-          topRow: top,
-          detailRow: detail,
-          state: scoreboardState(),
-          group: segment.group,
-          label: segment.label,
-          labels: allLabels,
-          collapsedLabel,
-          rateLabel: (_group, source) => displayedLabel(segment.columns.find(column => column.label === source) || { key: "", label: source, group: segment.group }),
-          onToggle: toggleGroup,
-          onCycle: cycleSubgroup,
-          sortHeader: (cell, _display, source) => {
-            const column = segment.columns.find(candidate => candidate.label === source) || segment.columns[0];
-            sortHeader(cell, column);
-          }
-        });
-      }
-      head.append(top, detail);
-      const body = document.createElement("tbody");
-      for (const { item } of ordered) {
-        const row = document.createElement("tr");
-        columns.forEach((column, index) => {
-          const cell = document.createElement(index === 0 ? "th" : "td");
-          if (index === 0) cell.scope = "row";
-          cell.textContent = displayedValue(column, item);
-          const className = typeof column.className === "function" ? column.className(item) : column.className;
-          if (className) cell.className = className;
-          if (column.group) cell.classList.add("demo-group-cell", `${column.group}-cell`);
-          if (column.groupStart) cell.classList.add("demo-group-start");
-          if (column.groupEnd) cell.classList.add("demo-group-end");
-          row.appendChild(cell);
-        });
-        body.appendChild(row);
-      }
-      const table = byId("Table");
-      table.className = `player-profile-table quick-comparison-table${columnGroups.map(([group]) => groupVisible(group) && state.expandedGroups[group] ? ` ${group}-expanded` : "").join("")}`;
-      const minimumWidths = columns.map(column => column.minimumWidth);
-      const widths = measuredColumnWidths(table.className, head, body, minimumWidths);
-      const colgroup = document.createElement("colgroup");
-      widths.forEach(width => {
-        const col = document.createElement("col");
-        col.style.width = `${width}px`;
-        colgroup.appendChild(col);
-      });
-      table.style.width = "100%";
-      table.style.minWidth = `${widths.reduce((total, width) => total + width, 0)}px`;
-      table.replaceChildren(colgroup, head, body);
-    }
-
-    function renderSections() {
-      if (onUpdate) return;
-      const target = byId("Sections");
-      if (!target) return;
-      const modeNote = state.valueMode === "totals"
-        ? "Raw counts"
-        : `${state.valueMode === "match" ? "Counts divided by qualifying matches" : "Counts divided by qualifying rounds"}${state.perGrenadeUtility ? "; utility yield columns use the relevant grenade" : ""}`;
-      Scoreboard.renderControls({
-        target,
-        state: scoreboardState(),
-        defaultSections,
-        valueModes: [["totals", "Totals"], ["round", "Per round"], ["match", "Per match"]],
-        modeNote,
-        onSections: setSharedSections,
-        onValueMode: value => { state.valueMode = value; state.sort = null; render(state.input); },
-        onUtilityBasis: () => { state.perGrenadeUtility = !state.perGrenadeUtility; state.sort = null; render(state.input); }
-      });
     }
 
     function render(input) {
       state.input = input;
-      renderSections();
       const players = input?.players || [];
       const maps = mapsFor(players);
       if (state.map !== "ALL" && !maps.includes(state.map)) state.map = "ALL";
-      if (!onUpdate) {
-        const tabs = byId("Maps");
-        tabs.replaceChildren();
-        [["ALL", "All maps"], ...maps.map(map => [map, titleCase(map.replace(/^de_/, ""))])].forEach(([value, label]) => {
-          const active = state.map === value;
-          const button = element("button", label, `match-browser-tab${active ? " active" : ""}`);
-          button.type = "button"; button.setAttribute("role", "tab"); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
-          button.addEventListener("click", () => { state.map = value; render(state.input); });
-          tabs.appendChild(button);
-        });
-      }
       const comparison = players.map(player => {
         const rows = (player.rows || []).filter(row => state.map === "ALL" || row.map === state.map);
         return { player, rows, stats: player.summarize ? player.summarize(rows, state.map) : input.summarize(rows) };
@@ -690,9 +503,7 @@
       const mapLabel = state.map === "ALL" ? "All maps" : titleCase(state.map.replace(/^de_/, ""));
       const meta = [mapLabel, matchLabel, input.metaSuffix].filter(Boolean).join(" · ");
       viewMeta = { meta, empty: maximum === 0, map: state.map, maps: [["ALL", "All maps"], ...maps.map(map => [map, titleCase(map.replace(/^de_/, ""))])] };
-      if (!onUpdate) byId("Meta").textContent = meta;
       renderTable(comparison);
-      if (!onUpdate) byId("Empty").hidden = maximum > 0;
     }
 
     function reset() {
@@ -709,13 +520,11 @@
       state.visibleSections = new Set(sections);
       Object.keys(state.expandedGroups).forEach(group => { if (!groupVisible(group)) state.expandedGroups[group] = false; });
       if (state.sort?.group && !groupVisible(state.sort.group)) state.sort = null;
-      if (state.input) render(state.input); else renderSections();
+      if (state.input) render(state.input);
     };
     if (!viewState) sectionSubscribers.add(syncSections);
-    if (!onUpdate) document.addEventListener("keydown", handleDetailShortcut);
-    renderSections();
 
-    return { render, reset, destroy() { sectionSubscribers.delete(syncSections); document.removeEventListener("keydown", handleDetailShortcut); } };
+    return { render, reset, destroy() { sectionSubscribers.delete(syncSections); } };
   }
 
   function model(input, viewState) {

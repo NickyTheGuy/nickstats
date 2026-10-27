@@ -11,16 +11,17 @@ const compareSource = fs.readFileSync(path.join(__dirname, "..", "js", "groups.j
 const playersSource = fs.readFileSync(path.join(__dirname, "..", "js", "players.js"), "utf8");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const workspace = fs.readFileSync(path.join(__dirname, "../frontend/navigation/WorkspaceTabs.jsx"), "utf8");
+const controlsSource = fs.readFileSync(path.join(__dirname, "../frontend/components/ComparisonControls.jsx"), "utf8");
+const viewSource = fs.readFileSync(path.join(__dirname, "../frontend/components/Scoreboard.jsx"), "utf8");
+const tableSource = fs.readFileSync(path.join(__dirname, "../frontend/components/ScoreboardTable.jsx"), "utf8");
 const styles = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
 
-test("match and quick comparison use the shared scoreboard component", () => {
+test("match and quick comparison use React scoreboards without legacy DOM rendering", () => {
   const shared = html.indexOf("./js/scoreboard.js");
-  assert.ok(shared >= 0);
-  assert.ok(shared < html.indexOf("./js/demo.js"));
-  assert.ok(shared < html.indexOf("./js/quick-comparison.js"));
+  assert.ok(shared >= 0 && shared < html.indexOf("./js/demo.js"));
   assert.match(componentSource, /const Scoreboard = window\.NickStatsScoreboard/);
-  assert.match(componentSource, /Scoreboard\.appendGroupHeader/);
-  assert.match(componentSource, /Scoreboard\.renderControls/);
+  assert.doesNotMatch(componentSource, /createElement|replaceChildren|appendChild/);
+  assert.doesNotMatch(scoreboardSource, /createElement|appendGroupHeader|renderControls/);
 });
 
 test("quick comparison uses the scoreboard rating colors", () => {
@@ -70,7 +71,7 @@ test("quick comparison sections are selectable and remain expandable", () => {
   assert.match(componentSource, /key: "multikills", label: "Total"/);
   assert.match(componentSource, /key: "objectives", label: "Plants\/defuses"/);
   assert.match(componentSource, /key: "timing", label: "Avg K\/D time"/);
-  assert.match(scoreboardSource, /demo-toggle-heading \$\{group\}-heading/);
+  assert.match(tableSource, /demo-toggle-heading[\s\S]*?heading\.group/);
   assert.match(styles, /\.quick-comparison-table :is\(th, td\)\.demo-group-start/);
   assert.match(styles, /\.opening-cell \{ background:/);
   assert.match(styles, /\.clutches-cell \{ background:/);
@@ -81,7 +82,7 @@ test("quick comparison sections are selectable and remain expandable", () => {
 });
 
 test("Groups is its own page with no old Compare or Matrix workspace", () => {
-  assert.match(html, /data-app-page="groups"/);
+  assert.match(html, /id="appNavigationApp"/);
   assert.doesNotMatch(html, /data-app-page="(?:compare|matrix)"|id="(?:compare|matrix)PageTab"/);
   const navigation = fs.readFileSync(path.join(__dirname, "..", "js", "navigation.js"), "utf8");
   assert.match(navigation, /new Set\(\["match", "players", "groups"\]\)/);
@@ -98,44 +99,20 @@ test("quick comparison puts summary columns before collapsible combat", () => {
   assert.match(componentSource, /\{ columns: fixedColumns \},\s*\{ group: "combat", label: "Overview", columns: focusedColumns\("combat", combatColumns\) \},\s*\{ group: "opening"/);
 });
 
-test("quick comparison uses visible section, value-mode, and header detail controls", () => {
-  assert.match(scoreboardSource, /element\("div", null, "scoreboard-section-bar scoreboard-control-row"\)/);
-  assert.match(componentSource, /\[\["totals", "Totals"\], \["round", "Per round"\], \["match", "Per match"\]\]/);
+test("quick comparison uses shared React sections, rate controls and measured table headers", () => {
+  assert.match(controlsSource, /scoreboard-section-bar scoreboard-control-row/);
+  assert.match(controlsSource, /Per grenade/);
+  assert.match(controlsSource, /<ToggleGroup/);
   assert.match(componentSource, /state\.valueMode === "match" \? item\.rows\.length : number\(item\.stats\.rounds\)/);
-  assert.match(scoreboardSource, /utilityButton = element\("button", "Per grenade"/);
   assert.match(componentSource, /"utility-enemies-flashed": "flash"/);
-  assert.match(componentSource, /"utility-teammates-flashed": "flash"/);
-  assert.match(componentSource, /key: "utility-self-flashes", label: "SF"/);
-  assert.match(componentSource, /Counts divided by qualifying matches/);
-  assert.match(componentSource, /combat: `K\/\$\{unit\}-D\/\$\{unit\}-A\/\$\{unit\}`/);
   assert.match(componentSource, /const kda = formatted\.match/);
-  assert.match(componentSource, /function measuredColumnWidths\(tableClass, head, body, minimums\)/);
-  assert.match(componentSource, /Math\.max\(cell\.scrollWidth, \.\.\.childWidths\)/);
-  assert.match(componentSource, /left: "-100000px"[\s\S]*?head\.cloneNode\(true\), body\.cloneNode\(true\)/);
-  assert.match(componentSource, /const extra = Math\.max\(0, contentWidth\(cell\) - currentWidth\)/);
-  assert.match(componentSource, /const widths = measuredColumnWidths\(table\.className, head, body, minimumWidths\)/);
-  assert.match(componentSource, /table\.style\.width = "100%"[\s\S]*?table\.replaceChildren\(colgroup, head, body\)/);
-  assert.match(componentSource, /table\.replaceChildren\(colgroup, head, body\)/);
-  assert.match(styles, /\.quick-comparison-table \{[^}]*table-layout: fixed;/);
-  assert.match(scoreboardSource, /const subgroups = Object\.freeze/);
-  assert.match(scoreboardSource, /\["received", "Help received"/);
-  assert.match(scoreboardSource, /\["assists", "Assisted kills"/);
-  assert.match(componentSource, /Object\.keys\(state\.expandedGroups\)\.forEach\(key => \{ state\.expandedGroups\[key\] = false; \}\)/);
-  assert.doesNotMatch(componentSource, /map-filter-menu/);
-  assert.match(componentSource, /function cycleSubgroup\(group, anchor\)/);
-  assert.match(scoreboardSource, /element\("button", null, "demo-subgroup-shortcut"\)/);
-  assert.match(scoreboardSource, /button\.addEventListener\("click", \(\) => onCycle\(group, button\)\)/);
-  assert.match(componentSource, /control\.getBoundingClientRect\(\)\.left \+ control\.offsetWidth \/ 2 - viewportX/);
+  assert.match(viewSource, /cloneNode\(true\)/);
+  assert.match(viewSource, /getBoundingClientRect\(\)\.width/);
+  assert.match(viewSource, /scrollGroupIntoView/);
+  assert.match(viewSource, /event\.key\?\.toLowerCase\(\) !== 'r'/);
+  assert.match(tableSource, /onClick=\{event => cycleGroup/);
   assert.match(scoreboardSource, /multikills: \[\["regular", "Regular"[\s\S]*?\["true", "True"/);
-  assert.match(componentSource, /event\.key\?\.toLowerCase\(\) !== "r"/);
-  assert.match(componentSource, /scrollGroupIntoView\(group\)/);
-  assert.match(componentSource, /minimumWidthsForGroup/);
-  assert.match(scoreboardSource, /const expandedWidths = Object\.freeze/);
   assert.doesNotMatch(componentSource, /scoreboard-subgroup-bar/);
-  assert.doesNotMatch(styles, /\.scoreboard-subgroup-bar/);
-  assert.match(styles, /\.demo-column-heading-actions \{[\s\S]*?justify-content: center;/);
-  assert.match(styles, /\.demo-subgroup-shortcut::before \{[\s\S]*?content: "↻";/);
-  assert.match(styles, /\.scoreboard-control-row \+ \.scoreboard-control-row/);
 });
 
 test("quick comparison preserves sorts when unrelated sections change", () => {

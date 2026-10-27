@@ -37,11 +37,11 @@ test("rapid selections load every distinct profile in click order and activate t
     profileQueue: [], pendingProfiles: new Set(), profileLoading: false, requestedProfileId: null
   };
   const status = {
-    textContent: "", classList: { remove() {}, toggle() {} }
+    text: "", update(patch) { Object.assign(this, patch); }
   };
   const panel = { hidden: true, scrollIntoView() { throw new Error("Recent chips should not scroll on load."); } };
   const context = {
-    state, MAX_GRAPH_PLAYERS: 5, PLAYER_ENDPOINT: "/players", encodeURIComponent,
+    state, ui: { playerProfileStatus: status }, MAX_GRAPH_PLAYERS: 5, PLAYER_ENDPOINT: "/players", encodeURIComponent,
     $: id => id === "playerProfile" ? panel : status,
     fetch: url => new Promise(resolve => requests.push({ url, resolve })),
     apiJson: async response => response,

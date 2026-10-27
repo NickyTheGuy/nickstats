@@ -8,7 +8,8 @@ const source = fs.readFileSync(require("node:path").join(__dirname, "../js/group
 function fixture() {
   const nodes = new Map(), calls = [], location = {};
   const state = { comboCondition: "without", result: "ALL", roundPhase: "ALL", heroOnly: false, matchListOffset: 0, matchListKey: "" };
-  const context = { state, location, MATCH_LIST_LIMIT: 50,
+  const ui = new Proxy({}, { get(_, id) { if (!nodes.has(id)) nodes.set(id, { update(patch) { Object.assign(this, patch); } }); return nodes.get(id); } });
+  const context = { state, location, ui, MATCH_LIST_LIMIT: 50,
     $: id => { if (!nodes.has(id)) nodes.set(id, {}); return nodes.get(id); },
     num: value => Number(value) || 0,
     matchResultMatches: (result, filter) => filter === "ALL" || result === filter,
@@ -48,8 +49,8 @@ test("Groups match list shows the selected player's current condition and result
   current.comparisonMatches = [];
   api.renderComboMatches(api.comboProfileRows(current, other), other);
   assert.equal(calls.at(-1).matches.length, 0);
-  assert.equal(nodes.get("comboMatchesPageLabel").textContent, "");
-  assert.match(nodes.get("comboMatchesStatus").textContent, /^0 qualifying matches/);
+  assert.equal(nodes.get("comboMatchesPagination").text, "");
+  assert.match(nodes.get("comboMatchesStatus").text, /^0 qualifying matches/);
   assert.match(source, /renderComboMatches\(rows, player\);/);
 });
 
@@ -58,11 +59,11 @@ test("Groups match pagination preserves the page for tag updates and resets on c
   const rows = Array.from({ length: 53 }, (_, index) => ({ id: String(index + 1), date: index, rounds: 20 }));
   api.renderComboMatches(rows, player);
   assert.equal(calls.at(-1).matches.length, 50);
-  assert.equal(nodes.get("comboMatchesNext").disabled, false);
+  assert.equal(nodes.get("comboMatchesPagination").nextDisabled, false);
   state.matchListOffset = 50; api.renderComboMatches(rows, player);
   assert.deepEqual(Array.from(calls.at(-1).matches, item => item.id), ["3", "2", "1"]);
-  assert.equal(nodes.get("comboMatchesPrevious").disabled, false);
-  assert.equal(nodes.get("comboMatchesNext").disabled, true);
+  assert.equal(nodes.get("comboMatchesPagination").previousDisabled, false);
+  assert.equal(nodes.get("comboMatchesPagination").nextDisabled, true);
   api.renderComboMatches(rows, player); assert.equal(state.matchListOffset, 50);
   api.renderComboMatches(rows.slice(0, 3), player); assert.equal(state.matchListOffset, 0);
   state.heroOnly = true;

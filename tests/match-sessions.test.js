@@ -34,7 +34,7 @@ test("filters retain session boundaries even when middle games are hidden", () =
 
 test("session history paginates whole sessions and keeps match opening and tags", () => {
   const source = fs.readFileSync(path.join(__dirname, "../js/players.js"), "utf8");
-  class Node { constructor() { this.classList = { remove() {} }; } }
+  class Node { update(patch) { Object.assign(this, patch); } }
   const nodes = new Map(), calls = [], openedSessions = [];
   const sandbox = { window: { NickStatsSessions: { open: (...args) => openedSessions.push(args) }, NickStatsMatchSessions: context.window.NickStatsMatchSessions },
     MATCH_HISTORY_LIMIT: 25,
@@ -44,6 +44,7 @@ test("session history paginates whole sessions and keeps match opening and tags"
     aggregate: rows => ({ rating: 1.2, adr: 80, stats: { kills: rows.length * 20, deaths: rows.length * 10, assists: rows.length * 5 } }),
     matchList: { renderSessions: (list, sessions, onOpen, options) => calls.push({ list, sessions, onOpen, options }) }
   };
+  sandbox.ui = new Proxy({}, { get: (_, id) => sandbox.$(id) });
   const start = source.indexOf("  function renderPlayerSessions("), end = source.indexOf("  async function loadPlayerMatches", start);
   const render = vm.runInNewContext(`${source.slice(start, end)}\nrenderPlayerSessions`, sandbox);
   const profile = { payload: { player: { id: "1" }, matches: [
@@ -52,7 +53,7 @@ test("session history paginates whole sessions and keeps match opening and tags"
   ] } };
   render(profile);
   assert.equal(calls.length, 1); assert.equal(calls[0].sessions.length, 25);
-  assert.equal(nodes.get("playerMatchesNext").disabled, false);
+  assert.equal(nodes.get("playerMatchesPagination").nextDisabled, false);
   profile.sessionHistoryOffset = 25; calls.length = 0; render(profile);
   assert.equal(calls.length, 1); assert.equal(calls[0].sessions.length, 1);
   const session = calls[0].sessions[0];
@@ -62,10 +63,10 @@ test("session history paginates whole sessions and keeps match opening and tags"
   assert.equal(openedSessions[0][0], "1"); assert.equal(openedSessions[0][1], "long-0"); assert.equal(openedSessions[0][2], profile.payload);
   assert.equal(calls[0].onOpen, sandbox.openHistoryMatch);
   assert.equal(calls[0].options.scope, 'player-sessions/1');
-  assert.equal(nodes.get("playerMatchesNext").disabled, true);
-  assert.equal(nodes.get("playerMatchesPageLabel").textContent, "Sessions 26–26 of 26");
-  assert.equal(nodes.get("playerMatchesStatus").textContent, "26 sessions · 55 matches");
+  assert.equal(nodes.get("playerMatchesPagination").nextDisabled, true);
+  assert.equal(nodes.get("playerMatchesPagination").text, "Sessions 26–26 of 26");
+  assert.equal(nodes.get("playerMatchesStatus").text, "26 sessions · 55 matches");
   sandbox.dateFilter.matches = () => false; calls.length = 0; render(profile);
   assert.equal(calls[0].sessions.length, 0); assert.equal(profile.sessionHistoryOffset, 0);
-  assert.equal(nodes.get("playerMatchesStatus").textContent, "0 sessions · 0 matches");
+  assert.equal(nodes.get("playerMatchesStatus").text, "0 sessions · 0 matches");
 });

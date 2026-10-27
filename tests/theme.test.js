@@ -71,6 +71,8 @@ test("match scoreboard supports section, value-mode, and header detail controls"
   assert.match(demo, /const Scoreboard = window\.NickStatsScoreboard/);
   const view = fs.readFileSync(path.join(__dirname, "../frontend/components/Scoreboard.jsx"), "utf8");
   const root = fs.readFileSync(path.join(__dirname, "../frontend/match-scoreboard.jsx"), "utf8");
+  const controls = fs.readFileSync(path.join(__dirname, "../frontend/components/ComparisonControls.jsx"), "utf8");
+  const table = fs.readFileSync(path.join(__dirname, "../frontend/components/ScoreboardTable.jsx"), "utf8");
   assert.match(demo, /NickStatsMatchScoreboardUI\.render/);
   assert.match(root, /<Scoreboard model=\{model\}/);
   assert.match(root, /<ComparisonControls/);
@@ -78,9 +80,9 @@ test("match scoreboard supports section, value-mode, and header detail controls"
   assert.match(scoreboard, /\["rounds", "Rounds", \["clutches", "multikills", "objectives"\], "rounds"\]/);
   assert.match(scoreboard, /\["roundState", "Round state", \["roundState", "killStage", "timing"\], "roundState"\]/);
   assert.match(scoreboard, /const subgroups = Object\.freeze/);
-  assert.match(scoreboard, /element\("div", null, "scoreboard-section-bar scoreboard-control-row"\)/);
+  assert.match(controls, /scoreboard-section-bar scoreboard-control-row/);
   assert.match(root, /\[\["totals", "Totals"\], \["round", "Per round"\]\]/);
-  assert.match(scoreboard, /utilityButton = element\("button", "Per grenade"/);
+  assert.match(controls, /Per grenade/);
   assert.match(demo, /"Ally blind sec": "flash"/);
   assert.match(demo, /Counts divided by rounds played/);
   assert.match(demo, /group === "trades"[\s\S]*?countedPercent/);
@@ -90,8 +92,8 @@ test("match scoreboard supports section, value-mode, and header detail controls"
   assert.match(demo, /eventPair\(player\[`\$\{phase\}_kills`\], player\[`\$\{phase\}_deaths`\]\)/);
   assert.match(demo, /Object\.keys\(state\.expandedGroups\)\.forEach\(key => \{ state\.expandedGroups\[key\] = false; \}\)/);
   assert.match(demo, /function cycleScoreboardSubgroup\(group\)/);
-  assert.match(scoreboard, /element\("button", null, "demo-subgroup-shortcut"\)/);
-  assert.match(scoreboard, /button\.addEventListener\("click", \(\) => onCycle\(group, button\)\)/);
+  assert.match(table, /className="demo-subgroup-shortcut"/);
+  assert.match(table, /onClick=\{event => cycleGroup/);
   assert.match(view, /button\.getBoundingClientRect\(\)\.left \+ button\.offsetWidth \/ 2/);
   assert.match(view, /event\.key\?\.toLowerCase\(\) !== 'r'/);
   assert.match(view, /scrollGroupIntoView\(wrap, table\.current, pending\.group\)/);

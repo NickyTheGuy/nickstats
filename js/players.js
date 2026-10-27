@@ -7,6 +7,7 @@
   const MAX_RECENT = 10;
   const MAX_GRAPH_PLAYERS = 5;
   const $ = id => document.getElementById(id);
+  const ui = Object.fromEntries(["playerMatchesStatus", "playerGraphPlayerStatus", "playerProfileName", "playerProfileMeta", "playerProfileStatus", "playerDataStatus"].map(id => [id, window.NickStatsShellUI.text(id)]));
   const { number, integer, ratio, titleCase } = window.NickStatsProfile;
   const { matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
   const availability = window.NickStatsAvailability;
@@ -148,27 +149,27 @@
     if (state.historyView === "sessions") { renderPlayerSessions(profile); return; }
     if (manualFilter.active) { renderManualPlayerMatches(profile); return; }
     const history = matchHistory(profile);
-    const status = $("playerMatchesStatus");
+    const status = ui.playerMatchesStatus;
     if (!history.loaded && !history.loading) {
       loadPlayerMatches(profile, 0);
       return;
     }
     if (history.loading && !history.loaded) {
       matchList.clear($("playerMatchesList"));
-      $("playerMatchesPagination").hidden = true;
-      status.textContent = "Loading match history…";
+      ui.playerMatchesPagination.update({ hidden: true });
+      status.update({ text: "Loading match history…" });
       return;
     }
     matchList.render($("playerMatchesList"), history.matches, openHistoryMatch, { editableTags: true });
-    status.classList.remove("error");
-    status.textContent = history.matches.length
+    status.update({ error: false });
+    status.update({ text: history.matches.length
       ? `${history.matches.length} match${history.matches.length === 1 ? "" : "es"} shown for ${profile.payload.player?.name || "this player"}.`
-      : history.offset ? "No more matches." : "No matches found for this player.";
-    $("playerMatchesPagination").hidden = history.offset === 0 && history.matches.length < MATCH_HISTORY_LIMIT;
-    $("playerMatchesPrevious").disabled = history.loading || history.offset === 0;
-    $("playerMatchesNext").disabled = history.loading || history.matches.length < MATCH_HISTORY_LIMIT;
-    $("playerMatchesPageLabel").textContent = history.matches.length
-      ? `Matches ${history.offset + 1}–${history.offset + history.matches.length}` : "";
+      : history.offset ? "No more matches." : "No matches found for this player." });
+    ui.playerMatchesPagination.update({ hidden: history.offset === 0 && history.matches.length < MATCH_HISTORY_LIMIT });
+    ui.playerMatchesPagination.update({ previousDisabled: history.loading || history.offset === 0 });
+    ui.playerMatchesPagination.update({ nextDisabled: history.loading || history.matches.length < MATCH_HISTORY_LIMIT });
+    ui.playerMatchesPagination.update({ text: history.matches.length
+      ? `Matches ${history.offset + 1}–${history.offset + history.matches.length}` : "" });
   }
 
   function renderManualPlayerMatches(profile) {
@@ -179,12 +180,12 @@
     profile.manualHistoryOffset = offset;
     const matches = profileMatchSummaries(profile, rows.slice(offset, offset + MATCH_HISTORY_LIMIT));
     matchList.render($("playerMatchesList"), matches, openHistoryMatch, { editableTags: true });
-    const status = $("playerMatchesStatus"); status.classList.remove("error");
-    status.textContent = `${rows.length} matching match${rows.length === 1 ? "" : "es"} · ${manualFilter.summary()} · Unknown excluded`;
-    $("playerMatchesPagination").hidden = rows.length <= MATCH_HISTORY_LIMIT;
-    $("playerMatchesPrevious").disabled = offset === 0;
-    $("playerMatchesNext").disabled = offset + MATCH_HISTORY_LIMIT >= rows.length;
-    $("playerMatchesPageLabel").textContent = matches.length ? `Matches ${offset + 1}–${offset + matches.length} of ${rows.length}` : "";
+    const status = ui.playerMatchesStatus; status.update({ error: false });
+    status.update({ text: `${rows.length} matching match${rows.length === 1 ? "" : "es"} · ${manualFilter.summary()} · Unknown excluded` });
+    ui.playerMatchesPagination.update({ hidden: rows.length <= MATCH_HISTORY_LIMIT });
+    ui.playerMatchesPagination.update({ previousDisabled: offset === 0 });
+    ui.playerMatchesPagination.update({ nextDisabled: offset + MATCH_HISTORY_LIMIT >= rows.length });
+    ui.playerMatchesPagination.update({ text: matches.length ? `Matches ${offset + 1}–${offset + matches.length} of ${rows.length}` : "" });
   }
 
   function profileMatchSummaries(profile, rows) {
@@ -226,12 +227,12 @@
     });
     const count = sessions.reduce((sum, session) => sum + session.matches.length, 0);
     const undated = sessions.filter(session => session.start == null).length, dated = sessions.length - undated;
-    $("playerMatchesStatus").classList.remove("error");
-    $("playerMatchesStatus").textContent = `${dated} session${dated === 1 ? "" : "s"} · ${count} match${count === 1 ? "" : "es"}${undated ? ` · ${undated} undated` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}`;
-    $("playerMatchesPagination").hidden = sessions.length <= MATCH_HISTORY_LIMIT;
-    $("playerMatchesPrevious").disabled = offset === 0;
-    $("playerMatchesNext").disabled = offset + MATCH_HISTORY_LIMIT >= sessions.length;
-    $("playerMatchesPageLabel").textContent = page.length ? `${undated ? "Sessions / undated games" : "Sessions"} ${offset + 1}–${offset + page.length} of ${sessions.length}` : "";
+    ui.playerMatchesStatus.update({ error: false });
+    ui.playerMatchesStatus.update({ text: `${dated} session${dated === 1 ? "" : "s"} · ${count} match${count === 1 ? "" : "es"}${undated ? ` · ${undated} undated` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}` });
+    ui.playerMatchesPagination.update({ hidden: sessions.length <= MATCH_HISTORY_LIMIT });
+    ui.playerMatchesPagination.update({ previousDisabled: offset === 0 });
+    ui.playerMatchesPagination.update({ nextDisabled: offset + MATCH_HISTORY_LIMIT >= sessions.length });
+    ui.playerMatchesPagination.update({ text: page.length ? `${undated ? "Sessions / undated games" : "Sessions"} ${offset + 1}–${offset + page.length} of ${sessions.length}` : "" });
   }
 
   async function loadPlayerMatches(profile, offset) {
@@ -243,11 +244,11 @@
     const isCurrent = () => activeProfile() === profile && state.display === "profile" && state.view === "matches";
     if (isCurrent()) {
       matchList.clear($("playerMatchesList"));
-      $("playerMatchesPagination").hidden = true;
-      $("playerMatchesStatus").textContent = "Loading match history…";
-      $("playerMatchesStatus").classList.remove("error");
-      $("playerMatchesPrevious").disabled = true;
-      $("playerMatchesNext").disabled = true;
+      ui.playerMatchesPagination.update({ hidden: true });
+      ui.playerMatchesStatus.update({ text: "Loading match history…" });
+      ui.playerMatchesStatus.update({ error: false });
+      ui.playerMatchesPagination.update({ previousDisabled: true });
+      ui.playerMatchesPagination.update({ nextDisabled: true });
     }
     try {
       const steamID = profile.payload.player?.steam_id;
@@ -275,9 +276,9 @@
       history.loaded = false;
       if (isCurrent()) {
         matchList.clear($("playerMatchesList"));
-        $("playerMatchesStatus").textContent = `Could not load match history: ${error.message}`;
-        $("playerMatchesStatus").classList.add("error");
-        $("playerMatchesPagination").hidden = true;
+        ui.playerMatchesStatus.update({ text: `Could not load match history: ${error.message}` });
+        ui.playerMatchesStatus.update({ error: true });
+        ui.playerMatchesPagination.update({ hidden: true });
       }
       return;
     } finally {
@@ -383,7 +384,7 @@
         renderGraphPlayers(); renderGraphs();
       }
     });
-    $("playerGraphPlayerStatus").textContent = `${state.graphPlayers.size} of ${MAX_GRAPH_PLAYERS} players selected`;
+    ui.playerGraphPlayerStatus.update({ text: `${state.graphPlayers.size} of ${MAX_GRAPH_PLAYERS} players selected` });
   }
   function renderGraphs() {
     if (!activeProfile()) return;
@@ -452,15 +453,15 @@
     const profile = activeProfile(); if (!profile) return;
     const payload = profile.payload, player = payload.player || {}, matches = matchesFor(payload), summary = summaryFor(profile);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
-    $("playerProfileName").textContent = player.name || "Unknown player";
+    ui.playerProfileName.update({ text: player.name || "Unknown player" });
     const buyLabel = state.buy === "ALL" ? "All buys" : state.buy === "hero" ? "Hero rounds" : `${titleCase(state.buy)} buys`;
     const opponentBuyLabel = state.opponentBuy === "ALL" ? "All enemy buys" : `vs ${titleCase(state.opponentBuy)}`;
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
-    $("playerProfileMeta").textContent = `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${state.maps.length ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}`;
+    ui.playerProfileMeta.update({ text: `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${state.maps.length ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}` });
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
     const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: summaryFor(profile, map.name) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
-    $("playerProfile").hidden = false; $("playerProfileStatus").textContent = "";
+    $("playerProfile").hidden = false; ui.playerProfileStatus.update({ text: "" });
   }
 
   function activateProfile(id) {
@@ -488,8 +489,8 @@
     state.pendingProfiles.add(id);
     state.profileQueue.push({ id, scroll });
     $("playerProfile").hidden = false;
-    $("playerProfileStatus").classList.remove("error");
-    $("playerProfileStatus").textContent = `${state.pendingProfiles.size} profile${state.pendingProfiles.size === 1 ? "" : "s"} opening…`;
+    ui.playerProfileStatus.update({ error: false });
+    ui.playerProfileStatus.update({ text: `${state.pendingProfiles.size} profile${state.pendingProfiles.size === 1 ? "" : "s"} opening…` });
     if (!state.profileLoading) drainProfileQueue();
   }
 
@@ -520,23 +521,23 @@
       } finally {
         state.pendingProfiles.delete(id);
         if (state.profileQueue.length) {
-          $("playerProfileStatus").textContent = `${state.pendingProfiles.size} profile${state.pendingProfiles.size === 1 ? "" : "s"} opening…`;
+          ui.playerProfileStatus.update({ text: `${state.pendingProfiles.size} profile${state.pendingProfiles.size === 1 ? "" : "s"} opening…` });
         }
       }
     }
     state.profileLoading = false;
-    $("playerProfileStatus").textContent = failures.length ? `Could not load ${failures.length} profile${failures.length === 1 ? "" : "s"}: ${failures[0]}` : "";
-    $("playerProfileStatus").classList.toggle("error", failures.length > 0);
+    ui.playerProfileStatus.update({ text: failures.length ? `Could not load ${failures.length} profile${failures.length === 1 ? "" : "s"}: ${failures[0]}` : "" });
+    ui.playerProfileStatus.update({ error: failures.length > 0 });
   }
 
   async function refreshOpenProfiles() {
     if (!state.profilesStale || !state.profiles.size || state.refreshController) return;
     const controller = new AbortController();
     state.refreshController = controller;
-    const status = $("playerDataStatus");
-    status.hidden = false;
-    status.textContent = "Refreshing open profiles…";
-    status.classList.remove("error");
+    const status = ui.playerDataStatus;
+    status.update({ hidden: false });
+    status.update({ text: "Refreshing open profiles…" });
+    status.update({ error: false });
     try {
       const updated = await Promise.all([...state.profiles.keys()].map(async id => {
         const [profilePayload, teammateRatings] = await Promise.all([
@@ -567,12 +568,12 @@
         renderCurrentDisplay();
         if (state.display === "profile" && state.view === "matches") renderPlayerMatches();
       }
-      status.hidden = true;
-      status.textContent = "";
+      status.update({ hidden: true });
+      status.update({ text: "" });
     } catch (error) {
       if (error.name !== "AbortError") {
-        status.textContent = `Could not refresh profiles: ${error.message}`;
-        status.classList.add("error");
+        status.update({ text: `Could not refresh profiles: ${error.message}` });
+        status.update({ error: true });
       }
     } finally {
       if (state.refreshController === controller) state.refreshController = null;
@@ -606,18 +607,18 @@
   window.NickStatsSegmentedUI.create("playerHistoryViewFilter", { onChange: view => {
       state.historyView = view; $("playerSessionsHelp").hidden = view !== "sessions"; renderPlayerMatches();
     } });
-  $("playerMatchesPrevious").addEventListener("click", () => {
+  ui.playerMatchesPagination = window.NickStatsShellUI.pagination("playerMatchesPagination", () => {
     const profile = activeProfile(); if (!profile) return;
     if (state.historyView === "sessions") { profile.sessionHistoryOffset = Math.max(0, (profile.sessionHistoryOffset || 0) - MATCH_HISTORY_LIMIT); renderPlayerMatches(); return; }
     if (manualFilter.active) { profile.manualHistoryOffset = Math.max(0, (profile.manualHistoryOffset || 0) - MATCH_HISTORY_LIMIT); renderPlayerMatches(); return; }
     loadPlayerMatches(profile, Math.max(0, matchHistory(profile).offset - MATCH_HISTORY_LIMIT));
-  });
-  $("playerMatchesNext").addEventListener("click", () => {
+  }, () => {
     const profile = activeProfile(); if (!profile) return;
     if (state.historyView === "sessions") { profile.sessionHistoryOffset = (profile.sessionHistoryOffset || 0) + MATCH_HISTORY_LIMIT; renderPlayerMatches(); return; }
     if (manualFilter.active) { profile.manualHistoryOffset = (profile.manualHistoryOffset || 0) + MATCH_HISTORY_LIMIT; renderPlayerMatches(); return; }
     loadPlayerMatches(profile, matchHistory(profile).offset + MATCH_HISTORY_LIMIT);
   });
+
   window.addEventListener("nickstats:account-player", () => {
     for (const profile of state.profiles.values()) {
       profile.matchHistory?.controller?.abort();
@@ -646,8 +647,8 @@
       if (activeProfile()) { renderCurrentDisplay(); if (state.display === "profile" && state.view === "matches") renderPlayerMatches(); }
     } });
   }
-  $("playerResetFilters").addEventListener("click", resetPlayerFilters);
-  $("playerHistoryResetFilters").addEventListener("click", resetPlayerFilters);
+  ui.playerResetFilters = window.NickStatsShellUI.button("playerResetFilters", resetPlayerFilters);
+  ui.playerHistoryResetFilters = window.NickStatsShellUI.button("playerHistoryResetFilters", resetPlayerFilters);
   renderRecent(); renderOpenTabs();
   window.NickStatsPlayerBrowser = Object.freeze({
     showSession() { setPlayerDisplay("session"); },

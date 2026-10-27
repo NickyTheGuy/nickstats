@@ -254,9 +254,9 @@ test("Player and Groups render aggregate and size estimates per attempt without 
     assert.equal(target.cards[1][1], "—");
     assert.equal(target.cards[5][2], "");
   }
-  const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  const html = require("./helpers/profile-template")();
   assert.ok(html.includes('id="playerClutchEconomicsStats"'));
-  assert.ok(html.includes('<h3>Expected Clutch Value</h3>'));
+  assert.ok(html.includes('title="Expected Clutch Value"'));
   assert.ok(!html.includes('ClutchEconomicsCoverage'));
   assert.ok(!html.includes('id="playerClutchEconomicsTable"'));
 });

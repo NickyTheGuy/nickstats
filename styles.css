@@ -3313,7 +3313,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   letter-spacing: normal;
   text-transform: none;
 }
-.stats-dropdown-native { display: none !important; }
 .stats-dropdown { position: relative; width: 100%; min-width: 0; color: var(--text); font-size: 12px; font-weight: 800; letter-spacing: normal; text-transform: none; }
 .stats-dropdown > summary {
   position: relative; box-sizing: border-box; min-height: 38px; padding: 9px 34px 8px 11px;
