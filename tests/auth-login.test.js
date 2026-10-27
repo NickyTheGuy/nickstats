@@ -7,6 +7,8 @@ const test = require("node:test");
 
 const root = path.join(__dirname, "..");
 const frontend = fs.readFileSync(path.join(root, "js", "demo.js"), "utf8");
+const api = fs.readFileSync(path.join(root, "frontend/state/account-api.mjs"), "utf8");
+const accountView = fs.readFileSync(path.join(root, "frontend/account/AccountSettings.jsx"), "utf8");
 const routes = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Routes.swift"), "utf8");
 const auth = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Auth.swift"), "utf8");
 const index = fs.readFileSync(path.join(root, "index.html"), "utf8");
@@ -15,10 +17,7 @@ const accountPlayerMigration = fs.readFileSync(path.join(root, "database", "migr
 
 test("browser login uses a persistent server session instead of storing the upload token", () => {
   assert.match(frontend, /fetch\(`\$\{AUTH_ENDPOINT\}\/session`/);
-  assert.match(frontend, /fetch\(`\$\{AUTH_ENDPOINT\}\/login`/);
-  assert.match(frontend, /fetch\(`\$\{AUTH_ENDPOINT\}\/logout`/);
-  assert.match(frontend, /fetch\(`\$\{AUTH_ENDPOINT\}\/password`/);
-  assert.match(frontend, /fetch\(`\$\{AUTH_ENDPOINT\}\/player`/);
+  for (const endpoint of ['login', 'logout', 'password', 'player']) assert.ok(api.includes(`post('${endpoint}'`));
   assert.doesNotMatch(frontend, /uploadToken|Authorization.*Bearer/);
 });
 
@@ -40,11 +39,33 @@ test("upload authorization accepts signed sessions and retains bearer compatibil
 
 test("the site-wide account menu stores a representative player", () => {
   const heroEnd = index.indexOf("</header>");
-  const accountButton = index.indexOf('id="demoAuthButton"');
+  const accountButton = index.indexOf('id="accountApp"');
   const uploadPanel = index.indexOf('class="panel demo-panel demo-upload-panel"');
   assert.ok(accountButton > 0 && accountButton < heroEnd);
   assert.ok(uploadPanel > heroEnd);
-  assert.match(index, /id="demoAccountPlayerSearch"/);
+  assert.match(index, /id="accountDialogsApp"/);
+  assert.match(accountView, /id="demoAccountPlayerSearch"/);
   assert.match(schema, /representative_player_id BIGINT UNSIGNED NULL/);
   assert.match(accountPlayerMigration, /FOREIGN KEY \(representative_player_id\) REFERENCES players \(id\)/);
+});
+
+test('React login completion resumes pending uploads or parsing and cancellation clears pending parsing', () => {
+  const vm = require('node:vm');
+  const state = { uploadPending: true, parsedResult: {}, parsePending: true };
+  const events = [];
+  const helpers = frontend.slice(frontend.indexOf('  function completeLogin('), frontend.indexOf('  async function loadAuthSession('));
+  const actions = vm.runInNewContext(`${helpers}\n({completeLogin, cancelLogin})`, {
+    state, applyAccountSession: session => events.push(session.username),
+    uploadParsedMatch: () => events.push('upload'), parseDemo: () => events.push('parse'), setStatus: text => events.push(text)
+  });
+  actions.completeLogin({ username: 'nick' });
+  assert.deepEqual(events, ['nick', 'upload']);
+  state.uploadPending = false; events.length = 0;
+  actions.completeLogin({ username: 'nick' });
+  assert.deepEqual(events, ['nick', 'parse']); assert.equal(state.parsePending, false);
+  events.length = 0; actions.completeLogin({ username: 'nick' });
+  assert.match(events[1], /Automatic database uploads are enabled/);
+  state.parsePending = true; state.file = {}; state.parsedResult = null; events.length = 0;
+  actions.cancelLogin(); assert.equal(state.parsePending, false);
+  assert.match(events[0], /Ready to parse/);
 });

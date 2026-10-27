@@ -4,7 +4,6 @@
   const $ = id => document.getElementById(id);
   const MATCH_UPLOAD_ENDPOINT = "/nickstats/api/matches";
   const AUTH_ENDPOINT = "/nickstats/api/auth";
-  const PLAYER_ENDPOINT = "/nickstats/api/players";
   const MATCH_LIST_LIMIT = 25;
   const MAX_UNCOMPRESSED_DEMO_BYTES = 768 * 1024 * 1024;
   const Scoreboard = window.NickStatsScoreboard;
@@ -72,6 +71,7 @@
   $("matchResetFilters").addEventListener("click", () => { matchMapFilter.reset(); matchDateFilter.reset(); matchDateFilter.closeMenus(); loadMatches(0); });
   let demoSideControl, demoBuyControl, demoEnemyBuyControl, demoRoundResultControl, demoRoundPhaseControl;
   let authSessionReady = Promise.resolve();
+  let accountUI = null;
   const scoreboardLayoutState = () => ({
     expanded: state.expandedGroups,
     subgroups: state.scoreboardSubgroups,
@@ -358,9 +358,8 @@
   }
 
   function updateAuthenticationDisplay() {
-    const button = $("demoAuthButton");
-    button.textContent = state.authenticated ? `${state.authUsername} · Account` : "Log in";
-    button.classList.toggle("authenticated", state.authenticated);
+    accountUI?.session({ authenticated: state.authenticated, username: state.authUsername,
+      player_id: state.accountPlayerID, player_name: state.accountPlayerName, player_steam_id: state.accountPlayerSteamID });
   }
 
   function applyAccountSession(session) {
@@ -383,96 +382,24 @@
   }
 
   function openUploadAuthentication(message = "") {
-    const dialog = $("demoAuthDialog");
-    const error = $("demoAuthError");
-    error.textContent = message;
-    error.hidden = !message;
-    $("demoAuthPassword").value = "";
-    if (!dialog.open) dialog.showModal();
-    $("demoAuthUsername").focus();
+    accountUI.login(message);
   }
 
-  function openAccountSettings() {
-    $("demoAccountUsername").textContent = state.authUsername || "";
-    $("demoAccountPlayerSearch").value = "";
-    $("demoAccountPlayerResults").replaceChildren();
-    $("demoAccountPlayerStatus").textContent = "";
-    renderAccountPlayer();
-    $("demoCurrentPassword").value = "";
-    $("demoNewPassword").value = "";
-    $("demoConfirmPassword").value = "";
-    $("demoPasswordError").hidden = true;
-    const dialog = $("demoAccountDialog");
-    if (!dialog.open) dialog.showModal();
-    $("demoAccountPlayerSearch").focus();
-  }
-
-  function renderAccountPlayer() {
-    $("demoAccountPlayerCurrent").textContent = state.accountPlayerID
-      ? `${state.accountPlayerName || "Selected player"} · player #${state.accountPlayerID}`
-      : "No player selected.";
-    $("demoAccountPlayerClear").hidden = state.accountPlayerID == null;
-  }
-
-  function renderAccountPlayerResults(players) {
-    const results = $("demoAccountPlayerResults");
-    results.replaceChildren();
-    for (const player of players) {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "demo-account-player-result";
-      const name = document.createElement("strong");
-      name.textContent = player.name || "Unknown player";
-      const details = document.createElement("span");
-      details.textContent = player.steam_id || `Player #${player.id}`;
-      button.append(name, details);
-      button.addEventListener("click", () => setAccountPlayer(player));
-      results.appendChild(button);
+  function completeLogin(session) {
+    applyAccountSession(session);
+    if (state.uploadPending && state.parsedResult) {
+      uploadParsedMatch();
+    } else if (state.parsePending) {
+      state.parsePending = false;
+      parseDemo();
+    } else {
+      setStatus("Automatic database uploads are enabled. Choose one or more demo files.");
     }
   }
 
-  async function searchAccountPlayers() {
-    const query = $("demoAccountPlayerSearch").value.trim();
-    const status = $("demoAccountPlayerStatus");
-    if (!query) {
-      status.textContent = "Enter a player name or Steam ID.";
-      renderAccountPlayerResults([]);
-      return;
-    }
-    status.textContent = "Searching…";
-    try {
-      const parameters = new URLSearchParams({ q: query, limit: "10", offset: "0" });
-      const response = await fetch(`${PLAYER_ENDPOINT}?${parameters}`, { headers: { Accept: "application/json" } });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.reason || `Search failed with HTTP ${response.status}.`);
-      const players = Array.isArray(body?.players) ? body.players : [];
-      renderAccountPlayerResults(players);
-      status.textContent = players.length ? `Choose from ${players.length} matching player${players.length === 1 ? "" : "s"}.` : "No players matched that search.";
-    } catch (error) {
-      renderAccountPlayerResults([]);
-      status.textContent = error.message || "Could not search players.";
-    }
-  }
-
-  async function setAccountPlayer(player) {
-    const status = $("demoAccountPlayerStatus");
-    status.textContent = player ? "Saving player…" : "Clearing player…";
-    try {
-      const response = await fetch(`${AUTH_ENDPOINT}/player`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({ player_id: player?.id ?? null })
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.reason || `Player update failed with HTTP ${response.status}.`);
-      applyAccountSession(body);
-      renderAccountPlayer();
-      renderAccountPlayerResults([]);
-      $("demoAccountPlayerSearch").value = "";
-      status.textContent = player ? `${body.player_name || player.name} now represents this account.` : "Selected player cleared.";
-    } catch (error) {
-      status.textContent = error.message || "Could not update the account player.";
-    }
+  function cancelLogin() {
+    state.parsePending = false;
+    if (state.file && !state.parsedResult) setStatus("Ready to parse. Log in to upload the result automatically.");
   }
 
   async function loadAuthSession() {
@@ -483,13 +410,6 @@
     } catch (_) {
       applyAccountSession(null);
     }
-  }
-
-  async function logOut() {
-    await fetch(`${AUTH_ENDPOINT}/logout`, { method: "POST" }).catch(() => null);
-    applyAccountSession(null);
-    if ($("demoAccountDialog").open) $("demoAccountDialog").close();
-    setStatus("Logged out. Log in again to upload matches.");
   }
 
   async function postParsedMatch(result, replace = false) {
@@ -2855,84 +2775,6 @@
     if (!confirm(`Replace match #${state.duplicateMatchID} with these newly parsed statistics?`)) return;
     uploadParsedMatch(state.parsedResult, { replace: true });
   });
-  $("demoAuthButton").addEventListener("click", () => state.authenticated ? openAccountSettings() : openUploadAuthentication());
-  $("demoAuthForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    const username = $("demoAuthUsername").value.trim();
-    const password = $("demoAuthPassword").value;
-    if (!username || !password) {
-      openUploadAuthentication("Enter your username and password.");
-      return;
-    }
-    const error = $("demoAuthError");
-    error.hidden = true;
-    try {
-      const response = await fetch(`${AUTH_ENDPOINT}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({ username, password })
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.reason || `Login failed with HTTP ${response.status}.`);
-      applyAccountSession(body || { authenticated: true, username });
-      $("demoAuthDialog").close();
-    } catch (loginError) {
-      error.textContent = loginError.message || "Could not log in.";
-      error.hidden = false;
-      return;
-    }
-    if (state.uploadPending && state.parsedResult) {
-      uploadParsedMatch();
-    } else if (state.parsePending) {
-      state.parsePending = false;
-      parseDemo();
-    } else {
-      setStatus("Automatic database uploads are enabled. Choose one or more demo files.");
-    }
-  });
-  $("demoAuthCancelButton").addEventListener("click", () => {
-    state.parsePending = false;
-    $("demoAuthDialog").close();
-    if (state.file && !state.parsedResult) {
-      setStatus("Ready to parse. Log in to upload the result automatically.");
-    }
-  });
-  $("demoAuthDialog").addEventListener("cancel", () => {
-    state.parsePending = false;
-  });
-  $("demoAccountPlayerForm").addEventListener("submit", event => {
-    event.preventDefault();
-    searchAccountPlayers();
-  });
-  $("demoAccountPlayerClear").addEventListener("click", () => setAccountPlayer(null));
-  $("demoPasswordForm").addEventListener("submit", async event => {
-    event.preventDefault();
-    const currentPassword = $("demoCurrentPassword").value;
-    const newPassword = $("demoNewPassword").value;
-    const confirmation = $("demoConfirmPassword").value;
-    const error = $("demoPasswordError");
-    if (newPassword !== confirmation) {
-      error.textContent = "The new passwords do not match.";
-      error.hidden = false;
-      return;
-    }
-    try {
-      const response = await fetch(`${AUTH_ENDPOINT}/password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "application/json" },
-        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
-      });
-      const body = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(body?.reason || `Password change failed with HTTP ${response.status}.`);
-      $("demoAccountDialog").close();
-      setStatus("Password changed successfully.");
-    } catch (passwordError) {
-      error.textContent = passwordError.message || "Could not change the password.";
-      error.hidden = false;
-    }
-  });
-  $("demoLogoutButton").addEventListener("click", logOut);
-  $("demoAccountCloseButton").addEventListener("click", () => $("demoAccountDialog").close());
   demoSideControl = window.NickStatsSegmentedUI.create("demoSideFilter", { onChange: side => setSideFilter(side) });
   demoBuyControl = window.NickStatsSegmentedUI.create("demoBuyFilter", { onChange: buy => setBuyFilter(buy) });
   demoEnemyBuyControl = window.NickStatsSegmentedUI.create("demoEnemyBuyFilter", { onChange: buy => setEnemyBuyFilter(buy) });
@@ -2976,6 +2818,13 @@
   drop.addEventListener("drop", event => chooseFiles(event.dataTransfer.files));
   window.addEventListener("hashchange", syncMatchRoute);
   window.NickStatsMatchBrowser = Object.freeze({ showView: setMatchBrowserView });
+  accountUI = window.NickStatsAccountUI.create({
+    onLogin: completeLogin,
+    onCancel: cancelLogin,
+    onPlayer: applyAccountSession,
+    onPassword() { setStatus("Password changed successfully."); },
+    onLogout() { applyAccountSession(null); setStatus("Logged out. Log in again to upload matches."); }
+  });
   updateAuthenticationDisplay();
   authSessionReady = loadAuthSession();
   loadMatches(0);
