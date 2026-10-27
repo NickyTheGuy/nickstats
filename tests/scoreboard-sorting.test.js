@@ -53,17 +53,9 @@ test("match clutch and combined percentage columns rank rates over raw counts", 
 });
 
 test("match body groups match header order with Initiation and Trades independently visible or expanded", () => {
-  class Node {
-    constructor() {
-      this.dataset = {}; this.children = []; this.className = "";
-      this.classList = { add: (...names) => { this.className += ` ${names.join(" ")}`; }, contains: name => this.className.split(/\s+/).includes(name) };
-    }
-    appendChild(node) { this.children.push(node); }
-    get cells() { return this.children; }
-  }
   const state = { expandedGroups: {}, scoreboardValueMode: "totals", visibleScoreboardSections: new Set(), scoreboardPerGrenadeUtility: false };
   const context = {
-    state, Scoreboard, document: { createElement: () => new Node() },
+    state, Scoreboard,
     SCOREBOARD_GROUPS: Scoreboard.groups, SCOREBOARD_GROUP_SECTION: Scoreboard.groupSection,
     numberValue: value => Number(value) || 0, scoreboardFocus: (group, values) => Scoreboard.focus({ expanded: state.expandedGroups, subgroups: state.subgroups || {} }, group, values),
     activeScoreboardSubgroup: group => Scoreboard.activeSubgroup({ subgroups: state.subgroups || {} }, group),
@@ -71,7 +63,7 @@ test("match body groups match header order with Initiation and Trades independen
     enemyFlashMatchups: () => [], teammateFlashMatchups: () => [], selfFlashMatchups: () => []
   };
   const slice = (start, end) => demoSource.slice(demoSource.indexOf(`  function ${start}(`), demoSource.indexOf(`  function ${end}(`));
-  const render = vm.runInNewContext(`${slice("cell", "speedValue")}\n${slice("scoreboardGroupVisible", "renderScoreboardControls")}\n${slice("playerRow", "regularHeader")}\nplayerRow`, context);
+  const render = vm.runInNewContext(`${slice("cell", "speedValue")}\n${slice("scoreboardGroupVisible", "scoreboardControlsModel")}\n${slice("playerRow", "regularHeader")}\nplayerRow`, context);
   const player = { name: "Nick", rating: 1.2, rounds_played: 10, kast: 80, headshot_percent: 50, adr: 100,
     kills: 1234, deaths: 1000, assists: 200,
     trade_kills: 7, traded_deaths: 5, trade_opportunities: 9,
@@ -83,18 +75,18 @@ test("match body groups match header order with Initiation and Trades independen
       if (initiation) state.visibleScoreboardSections.add("initiation");
       if (trades) state.visibleScoreboardSections.add("trades");
       state.expandedGroups = { initiation: initiationExpanded, trades: tradesExpanded };
-      const row = render(player);
-      const groupCells = row.cells.filter(cell => cell.classList.contains("demo-group-cell"));
+      const row = JSON.parse(JSON.stringify(render(player)));
+      const groupCells = row.cells.filter(cell => cell.className?.split(" ").includes("demo-group-cell"));
       const expected = Array.from(Scoreboard.groups).filter(([group]) => state.visibleScoreboardSections.has(Scoreboard.groupSection[group]))
         .flatMap(([group]) => Array(state.expandedGroups[group] ? Scoreboard.columns[group][0].length : 1).fill(group));
-      assert.deepEqual(groupCells.map(cell => Scoreboard.groups.find(([group]) => cell.classList.contains(`${group}-cell`))[0]), expected);
-      assert.equal(row.cells.find(cell => cell.classList.contains("combat-cell")).textContent,
+      assert.deepEqual(groupCells.map(cell => Scoreboard.groups.find(([group]) => cell.className?.split(" ").includes(`${group}-cell`))[0]), expected);
+      assert.equal(row.cells.find(cell => cell.className?.split(" ").includes("combat-cell")).text,
         mode === "round" ? "123.40-100.00-20.00" : "1234-1000-200");
-      const initiationCells = row.cells.filter(cell => cell.classList.contains("initiation-cell"));
-      const tradeCells = row.cells.filter(cell => cell.classList.contains("trades-cell"));
-      if (initiation) assert.equal(String(initiationCells[0].textContent), initiationExpanded ? mode === "round" ? "0.80" : "8" : "40.0%");
-      if (initiation && initiationExpanded) assert.equal(initiationCells[1].textContent, "40.0%");
-      if (trades) assert.equal(String(tradeCells[0].textContent), tradesExpanded ? mode === "round" ? "0.90" : "9" : mode === "round" ? "0.70-0.50" : "7-5");
+      const initiationCells = row.cells.filter(cell => cell.className?.split(" ").includes("initiation-cell"));
+      const tradeCells = row.cells.filter(cell => cell.className?.split(" ").includes("trades-cell"));
+      if (initiation) assert.equal(String(initiationCells[0].text), initiationExpanded ? mode === "round" ? "0.80" : "8" : "40.0%");
+      if (initiation && initiationExpanded) assert.equal(initiationCells[1].text, "40.0%");
+      if (trades) assert.equal(String(tradeCells[0].text), tradesExpanded ? mode === "round" ? "0.90" : "9" : mode === "round" ? "0.70-0.50" : "7-5");
     }
   }
   state.expandedGroups = { clutches: true };
@@ -106,9 +98,9 @@ test("match body groups match header order with Initiation and Trades independen
     loss_die_ct1_victory: 7000, loss_die_ct1_victory_dead: 7000 };
   for (const mode of ["totals", "round"]) {
     state.scoreboardValueMode = mode;
-    assert.deepEqual(render(player).cells.filter(cell => cell.classList.contains("clutches-cell")).map(cell => cell.textContent),
+    assert.deepEqual(Array.from(render(player).cells).filter(cell => cell.className?.split(" ").includes("clutches-cell")).map(cell => cell.text),
       ["+$2,800", "—", "—", "—", "—", "+$2,800"]);
-    assert.deepEqual(render({ ...player, clutch_economics_available: false }).cells.filter(cell => cell.classList.contains("clutches-cell")).map(cell => cell.textContent),
+    assert.deepEqual(Array.from(render({ ...player, clutch_economics_available: false }).cells).filter(cell => cell.className?.split(" ").includes("clutches-cell")).map(cell => cell.text),
       Array(6).fill("—"));
   }
 });

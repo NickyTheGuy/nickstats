@@ -1,20 +1,27 @@
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import Button from './Button.jsx';
-import SortHeading from './SortHeading.jsx';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import ScoreboardTable from './ScoreboardTable.jsx';
 
 export default function Scoreboard({ model, tableId }) {
   const table = useRef(null);
   const pendingScroll = useRef(null);
+  const wraps = useRef([]);
   const [measurement, setMeasurement] = useState({ model: null, widths: [] });
   const widths = measurement.model === model ? measurement.widths : model.columns.map(column => column.minimumWidth);
-  const details = model.headings.filter(heading => heading.group).flatMap(heading => heading.columns);
-  const totalWidth = widths.reduce((sum, width) => sum + width, 0);
+  const teams = model.teams || [{ rows: model.rows }];
+  function synchronizeScroll(source) {
+    for (const wrap of wraps.current) if (wrap && wrap !== source && wrap.scrollLeft !== source.scrollLeft) wrap.scrollLeft = source.scrollLeft;
+  }
 
   // Measure after React commits the content, before painting wide/long-name tables.
   useLayoutEffect(() => {
     const node = table.current;
+    if (!node) return;
     const copy = node.cloneNode(true);
     copy.removeAttribute('id');
+    // Measure every team against the same headers so both tables align.
+    for (const wrap of wraps.current.slice(1)) {
+      for (const row of wrap?.querySelectorAll('tbody tr') || []) copy.tBodies[0].appendChild(row.cloneNode(true));
+    }
     copy.setAttribute('aria-hidden', 'true');
     Object.assign(copy.style, { position: 'fixed', left: '-100000px', top: '0', visibility: 'hidden', width: 'auto', minWidth: '0', tableLayout: 'auto' });
     document.body.appendChild(copy);
@@ -30,7 +37,7 @@ export default function Scoreboard({ model, tableId }) {
     const pending = pendingScroll.current;
     if (!pending || measurement.model !== model) return;
     pendingScroll.current = null;
-    const wrap = table.current.parentElement;
+    const wrap = wraps.current[0];
     if (pending.viewportX != null) {
       wrap.scrollLeft = pending.scrollLeft;
       const button = table.current.querySelector(`[data-scoreboard-group="${pending.group}"]`);
@@ -39,6 +46,7 @@ export default function Scoreboard({ model, tableId }) {
       const left = window.NickStatsScoreboard.scrollGroupIntoView(wrap, table.current, pending.group);
       if (left != null) wrap.scrollLeft = left;
     }
+    synchronizeScroll(wrap);
   }, [model, measurement]);
 
   function toggleGroup(group) {
@@ -65,43 +73,13 @@ export default function Scoreboard({ model, tableId }) {
     return () => document.removeEventListener('keydown', handleDetailShortcut);
   }, [model]);
 
-  return <div className="player-profile-table-wrap">
-    <table id={tableId} ref={table} className={model.tableClass} style={{ width: '100%', minWidth: `${totalWidth}px` }}>
-      <colgroup>{widths.map((width, index) => <col key={model.columns[index].key} style={{ width: `${width}px` }} />)}</colgroup>
-      <thead>
-        <tr>
-          {model.headings.map((heading, index) => heading.group
-            ? <th key={heading.group} className={`demo-toggle-heading demo-group-start demo-group-end ${heading.group}-heading`}
-              colSpan={heading.columns.length} data-scoreboard-header={heading.group}>
-              <div className="demo-column-heading-actions">
-                <Button className="demo-column-toggle" aria-expanded={heading.expanded}
-                  onClick={() => toggleGroup(heading.group)}>{heading.title} {heading.expanded ? '▾' : '▸'}</Button>
-                {heading.shortcut && <Button className="demo-subgroup-shortcut" data-scoreboard-group={heading.group}
-                  title={heading.shortcut} aria-label={heading.shortcut} onClick={event => cycleGroup(heading.group, event.currentTarget)}><span>R</span></Button>}
-              </div>
-            </th>
-            : <Fragment key={`fixed-${index}`}>
-              {heading.columns.map(column => <th key={column.key} rowSpan={2} scope="col" aria-sort={column.ariaSort} title={column.description}>
-                <SortHeading column={column} onSort={model.actions.sort} />
-              </th>)}
-            </Fragment>)}
-        </tr>
-        <tr>
-          {details.map(column => <th key={column.key} scope="col"
-            className={`demo-group-detail ${column.group}-cell${column.groupStart ? ' demo-group-start' : ''}${column.groupEnd ? ' demo-group-end' : ''}`}
-            aria-sort={column.ariaSort} title={column.description}>
-            <SortHeading column={column} onSort={model.actions.sort} />
-          </th>)}
-        </tr>
-      </thead>
-      <tbody>
-        {model.rows.map(row => <tr key={row.id}>
-          {row.cells.map((cell, index) => {
-            const Cell = index === 0 ? 'th' : 'td';
-            return <Cell key={cell.key} scope={index === 0 ? 'row' : undefined} className={cell.className}>{cell.text}</Cell>;
-          })}
-        </tr>)}
-      </tbody>
-    </table>
-  </div>;
+  return teams.map((team, index) => {
+    const content = <ScoreboardTable key={`table-${index}`} model={model} rows={team.rows} widths={widths} tableId={index === 0 ? tableId : undefined}
+      tableRef={index === 0 ? table : undefined} wrapRef={node => { wraps.current[index] = node; }} showHeader={index === 0}
+      label={team.label} onScroll={event => synchronizeScroll(event.currentTarget)} toggleGroup={toggleGroup} cycleGroup={cycleGroup} />;
+    return model.teams ? <section key={team.id} className="demo-team">
+      <div className="demo-team-head"><h3>{team.name}</h3><span className={`demo-team-score${team.outcome ? ` score-${team.outcome}` : ''}`}>{team.score}</span></div>
+      {content}
+    </section> : content;
+  });
 }

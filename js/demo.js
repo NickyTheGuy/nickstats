@@ -1695,10 +1695,7 @@
   }
 
   function cell(row, value, className) {
-    const td = document.createElement("td");
-    td.textContent = value;
-    if (className) td.className = className;
-    row.appendChild(td);
+    row.cells.push({ text: String(value), className });
   }
 
   function speedValue(value) {
@@ -1732,22 +1729,11 @@
     return Scoreboard.activeSubgroup(scoreboardLayoutState(), group);
   }
 
-  function cycleScoreboardSubgroup(group, anchor) {
+  function cycleScoreboardSubgroup(group) {
     if (!SCOREBOARD_SUBGROUPS[group]) return;
     Scoreboard.cycle(scoreboardLayoutState(), group);
     if (state.scoreboardSort?.group === group) state.scoreboardSort = null;
-    rerenderScoreboard(anchor ? { group, viewportX: anchor.getBoundingClientRect().left + anchor.offsetWidth / 2 } : null);
-  }
-
-  function handleScoreboardDetailShortcut(event) {
-    if (event.key?.toLowerCase() !== "r" || event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
-    if (event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable='true']")) return;
-    const view = $("demoScoreboardView");
-    if (!view || view.hidden || !view.getClientRects().length) return;
-    const group = Object.keys(state.expandedGroups).find(key => state.expandedGroups[key] && SCOREBOARD_SUBGROUPS[key]);
-    if (!group) return;
-    event.preventDefault();
-    cycleScoreboardSubgroup(group, view.querySelector(`.demo-subgroup-shortcut[data-scoreboard-group="${group}"]`));
+    rerenderScoreboard();
   }
 
   function scoreboardGroupVisible(group) {
@@ -1758,7 +1744,7 @@
     if (!scoreboardGroupVisible(group)) return;
     const isExpanded = state.expandedGroups[group];
     const source = isExpanded ? scoreboardFocus(group, expanded) : [collapsed];
-    const rounds = Math.max(1, numberValue(row.dataset.rounds));
+    const rounds = Math.max(1, numberValue(row.rounds));
     const values = state.scoreboardValueMode === "round"
       ? source.map(value => {
           if (group === "clutches" && isExpanded && activeScoreboardSubgroup("clutches")?.[0] === "economics") return value;
@@ -1792,42 +1778,35 @@
     values.forEach(value => cell(row, value, `demo-group-cell ${group}-cell`));
   }
 
-  function renderScoreboardControls() {
-    const target = $("demoScoreboardControls");
-    if (!target) return;
+  function scoreboardControlsModel() {
     const modeNote = state.scoreboardValueMode === "totals"
       ? "Raw counts"
       : `Counts divided by rounds played${state.scoreboardPerGrenadeUtility ? "; utility yield columns use the relevant grenade" : ""}`;
-    Scoreboard.renderControls({
-      target,
-      state: scoreboardLayoutState(),
+    return {
+      sections: SCOREBOARD_SECTIONS.map(([key, label, , style]) => ({ key, label, style, active: state.visibleScoreboardSections.has(key) })),
       defaultSections: SCOREBOARD_DEFAULT_SECTIONS,
-      valueModes: [["totals", "Totals"], ["round", "Per round"]],
+      valueMode: state.scoreboardValueMode,
+      perGrenadeUtility: state.scoreboardPerGrenadeUtility,
       modeNote,
-      onSections: selected => {
-        state.visibleScoreboardSections = selected;
-        Object.keys(state.expandedGroups).forEach(group => { if (!scoreboardGroupVisible(group)) state.expandedGroups[group] = false; });
-        if (state.scoreboardSort?.group && !scoreboardGroupVisible(state.scoreboardSort.group)) state.scoreboardSort = null;
-        rerenderScoreboard();
-      },
-      onValueMode: value => { state.scoreboardValueMode = value; state.scoreboardSort = null; rerenderScoreboard(); },
-      onUtilityBasis: () => { state.scoreboardPerGrenadeUtility = !state.scoreboardPerGrenadeUtility; state.scoreboardSort = null; rerenderScoreboard(); }
-    });
+      actions: {
+        sections(values) {
+          state.visibleScoreboardSections = new Set(values);
+          Object.keys(state.expandedGroups).forEach(group => { if (!scoreboardGroupVisible(group)) state.expandedGroups[group] = false; });
+          if (state.scoreboardSort?.group && !scoreboardGroupVisible(state.scoreboardSort.group)) state.scoreboardSort = null;
+          rerenderScoreboard();
+        },
+        valueMode(value) { state.scoreboardValueMode = value; state.scoreboardSort = null; rerenderScoreboard(); },
+        utilityBasis() { state.scoreboardPerGrenadeUtility = !state.scoreboardPerGrenadeUtility; state.scoreboardSort = null; rerenderScoreboard(); },
+        toggle: toggleColumnGroup,
+        cycle: cycleScoreboardSubgroup,
+        sort(column) { if (column.spec) cycleScoreboardSort(column.spec, column.group); }
+      }
+    };
   }
 
   function playerRow(player) {
-    const row = document.createElement("tr");
-    row.dataset.rounds = String(player.rounds_played ?? 0);
-    const nameCell = document.createElement("td");
-    nameCell.className = "demo-player-name";
-    nameCell.textContent = player.name || "Unknown player";
-    if (player.is_bot) {
-      const badge = document.createElement("span");
-      badge.className = "demo-bot-badge";
-      badge.textContent = "BOT";
-      nameCell.appendChild(badge);
-    }
-    row.appendChild(nameCell);
+    const row = { rounds: player.rounds_played ?? 0, cells: [] };
+    row.cells.push({ text: player.name || "Unknown player", className: "demo-player-name", badge: player.is_bot ? "BOT" : null });
     const ratingClass = player.rating >= 1.10 ? "rating-good" : player.rating <= 0.90 ? "rating-bad" : "rating-average";
     cell(row, player.rating.toFixed(2), `demo-rating ${ratingClass}`);
     cell(row, `${player.rounds_played ?? 0}/${player.round_wins ?? 0}`);
@@ -1948,26 +1927,17 @@
 
   function markGroupBoundaries(row) {
     for (const [group] of SCOREBOARD_GROUPS) {
-      const cells = [...row.cells].filter(item => item.classList.contains(`${group}-cell`));
-      cells[0]?.classList.add("demo-group-start");
-      cells.at(-1)?.classList.add("demo-group-end");
+      const cells = row.cells.filter(item => item.className?.split(" ").includes(`${group}-cell`));
+      if (cells.length) {
+        cells[0].className += " demo-group-start";
+        cells.at(-1).className += " demo-group-end";
+      }
     }
   }
 
-  function regularHeader(row, label) {
-    const th = document.createElement("th");
-    th.rowSpan = 2;
-    sortableHeader(th, label, {
-      Player: sortSpecs.player,
-      "Rounds P/W": sortSpecs.rounds,
-      "K-D-A": sortSpecs.kda,
-      "HS%": sortSpecs.hs,
-      ADR: sortSpecs.adr,
-      KAST: sortSpecs.kast,
-      Opening: sortSpecs.opening,
-      Rating: sortSpecs.rating
-    }[label]);
-    row.appendChild(th);
+  function regularHeader(headings, label) {
+    const spec = { Player: sortSpecs.player, "Rounds P/W": sortSpecs.rounds, KAST: sortSpecs.kast, Rating: sortSpecs.rating }[label];
+    headings.push({ columns: [scoreboardColumn(label, spec)] });
   }
 
   function scoreboardRateLabel(group, detail, expanded) {
@@ -2001,16 +1971,21 @@
     return `${detail} / round`;
   }
 
-  function groupHeader(topRow, detailRow, group, label, labels, collapsedLabel = "Total") {
-    Scoreboard.appendGroupHeader({
-      topRow, detailRow, state: scoreboardLayoutState(), group, label, labels, collapsedLabel,
-      rateLabel: scoreboardRateLabel,
-      onToggle: toggleColumnGroup,
-      onCycle: cycleScoreboardSubgroup,
-      decorateDetail: (child, detail) => {
-        if (detail === "Paul K-D") child.title = "Kills against enemies caught with a grenade or knife out at death or within the prior 1.4 seconds; deaths caught the same way";
-      },
-      sortHeader: (cell, detail, source, sourceGroup) => sortableHeader(cell, detail, groupSortSpec(sourceGroup, source), sourceGroup)
+  function groupHeader(headings, group, label, labels, collapsedLabel = "Total") {
+    const expanded = state.expandedGroups[group];
+    const focusedLabels = expanded ? scoreboardFocus(group, labels) : [collapsedLabel];
+    const subgroup = expanded && activeScoreboardSubgroup(group);
+    const options = SCOREBOARD_SUBGROUPS[group];
+    const position = subgroup && group === "opening" ? ` · ${options.indexOf(subgroup) + 1}/${options.length}` : "";
+    const next = subgroup && options[(options.indexOf(subgroup) + 1) % options.length];
+    headings.push({
+      group, expanded, title: `${subgroup?.[3] || label}${position}`,
+      shortcut: subgroup ? `${label} detail: ${subgroup[1]}. Press R or tap to switch to ${next[1]}` : null,
+      columns: focusedLabels.map((source, index) => ({
+        ...scoreboardColumn(scoreboardRateLabel(group, source, expanded), groupSortSpec(group, source), group),
+        groupStart: index === 0, groupEnd: index === focusedLabels.length - 1,
+        description: Scoreboard.columnDescriptions[source]
+      }))
     });
   }
 
@@ -2168,25 +2143,17 @@
     return maps[group]?.[detail];
   }
 
-  function sortableHeader(th, label, spec, group = null) {
-    if (!spec) {
-      th.textContent = label;
-      return;
-    }
-    const button = document.createElement("button");
-    th.classList.add("demo-sort-heading");
-    button.type = "button";
-    button.className = "demo-sort-button";
-    const active = state.scoreboardSort?.id === spec.id;
+  function scoreboardColumn(label, spec, group = null) {
+    const active = spec && state.scoreboardSort?.id === spec.id;
     const mode = active ? spec.modes[state.scoreboardSort.mode] : null;
-    th.setAttribute("aria-sort", active ? (mode.direction === "asc" ? "ascending" : "descending") : "none");
-    button.classList.toggle("active", active);
-    button.textContent = active
-      ? spec.modes.length === 1 ? `${label} •` : `${label} · ${mode.label}`
-      : label;
-    button.title = active ? `Sorted by ${mode.label}; click for next mode` : `Sort by ${spec.modes[0].label}`;
-    button.addEventListener("click", () => cycleScoreboardSort(spec, group));
-    th.appendChild(button);
+    return {
+      key: `${group || "fixed"}-${spec?.id || label}`, label, spec, group,
+      direction: active ? mode.direction || "desc" : null,
+      ariaSort: active ? mode.direction === "asc" ? "ascending" : "descending" : "none",
+      sortLabel: active ? spec.modes.length === 1 ? `${label} •` : `${label} · ${mode.label}` : label,
+      sortTitle: spec ? active ? `Sorted by ${mode.label}; click for next mode` : `Sort by ${spec.modes[0].label}` : undefined,
+      buttonClassName: "demo-sort-button", headingClassName: "demo-sort-heading"
+    };
   }
 
   function cycleScoreboardSort(spec, group = null) {
@@ -2235,44 +2202,8 @@
     return Scoreboard.normalizedSortValue(raw, denominator, true);
   }
 
-  function scrollScoreboardGroupIntoView(group, wraps) {
-    const source = wraps[0];
-    const next = Scoreboard.scrollGroupIntoView(source, source?.querySelector("table"), group);
-    if (next == null) return;
-    wraps.forEach(wrap => { wrap.scrollLeft = next; });
-  }
-
-  function rerenderScoreboard(anchor = null, revealGroup = null) {
-    const scrollLeft = document.querySelector(".demo-team .table-wrap")?.scrollLeft || 0;
-    render(state.result);
-    const wraps = [...document.querySelectorAll(".demo-team .table-wrap")];
-    wraps.forEach(wrap => {
-      wrap.scrollLeft = scrollLeft;
-    });
-    if (anchor) {
-      const control = document.querySelector(`.demo-subgroup-shortcut[data-scoreboard-group="${anchor.group}"]`);
-      if (control) {
-        const viewportX = control.getBoundingClientRect().left + control.offsetWidth / 2;
-        const adjustment = viewportX - anchor.viewportX;
-        if (Math.abs(adjustment) >= 0.5) wraps.forEach(wrap => { wrap.scrollLeft += adjustment; });
-      }
-    }
-    if (revealGroup) scrollScoreboardGroupIntoView(revealGroup, wraps);
-  }
-
-  function synchronizeScoreboardScrolling() {
-    const wraps = [...document.querySelectorAll(".demo-team .table-wrap")];
-    let synchronizing = false;
-    for (const source of wraps) {
-      source.addEventListener("scroll", () => {
-        if (synchronizing) return;
-        synchronizing = true;
-        for (const target of wraps) {
-          if (target !== source) target.scrollLeft = source.scrollLeft;
-        }
-        requestAnimationFrame(() => { synchronizing = false; });
-      }, { passive: true });
-    }
+  function rerenderScoreboard() {
+    if (state.result) render(state.result);
   }
 
   function toggleColumnGroup(group) {
@@ -2282,7 +2213,7 @@
     if (sortedColumnDisappears) state.scoreboardSort = null;
     Object.keys(state.expandedGroups).forEach(key => { state.expandedGroups[key] = false; });
     state.expandedGroups[group] = next;
-    rerenderScoreboard(null, group);
+    rerenderScoreboard();
   }
 
   function scoreboardColumnWidths() {
@@ -2313,55 +2244,32 @@
     return widths;
   }
 
-  function scoreboardColumns(table) {
-    const colgroup = document.createElement("colgroup");
-    const widths = scoreboardColumnWidths();
-    for (const width of widths) {
-      const column = document.createElement("col");
-      column.style.width = `${width}px`;
-      colgroup.appendChild(column);
-    }
-    table.style.minWidth = `${widths.reduce((sum, width) => sum + width, 0)}px`;
-    table.appendChild(colgroup);
-  }
-
-  function renderTeam(team, index, outcome) {
-    const section = document.createElement("section");
-    section.className = "demo-team";
-    const heading = document.createElement("div");
-    heading.className = "demo-team-head";
-    const name = document.createElement("h3");
-    name.textContent = team.name || `Team ${index + 1}`;
-    const score = document.createElement("span");
-    score.className = `demo-team-score${outcome ? ` score-${outcome}` : ""}`;
-    score.textContent = Number.isFinite(team.score) ? team.score : "—";
-    heading.append(name, score);
-
-    const wrap = document.createElement("div");
-    wrap.className = "table-wrap";
-    const table = document.createElement("table");
-    table.className = `demo-score-table${Object.entries(state.expandedGroups).filter(([, expanded]) => expanded).map(([group]) => ` ${group}-expanded`).join("")}`;
-    table.setAttribute("aria-label", `${team.name || `Team ${index + 1}`} player statistics`);
-    const thead = document.createElement("thead");
-    const header = document.createElement("tr");
-    const detailHeader = document.createElement("tr");
-    ["Player", "Rating", "Rounds P/W", "KAST"].forEach(label => regularHeader(header, label));
-    const showGroup = (group, label, labels, collapsedLabel) => {
-      if (scoreboardGroupVisible(group)) groupHeader(header, detailHeader, group, label, labels, collapsedLabel);
-    };
+  function matchScoreboardModel(teams) {
+    const headings = [];
+    ["Player", "Rating", "Rounds P/W", "KAST"].forEach(label => regularHeader(headings, label));
     SCOREBOARD_GROUPS.forEach(([group, label]) => {
-      const [labels, collapsedLabel] = SCOREBOARD_COLUMNS[group];
-      showGroup(group, label, labels, collapsedLabel);
+      if (scoreboardGroupVisible(group)) groupHeader(headings, group, label, ...SCOREBOARD_COLUMNS[group]);
     });
-    thead.append(header, detailHeader);
-    const body = document.createElement("tbody");
-    sortedPlayers(team.players).forEach(player => body.appendChild(playerRow(player)));
-    scoreboardColumns(table);
-    if (index === 0) table.appendChild(thead);
-    table.appendChild(body);
-    wrap.appendChild(table);
-    section.append(heading, wrap);
-    return section;
+    const widths = scoreboardColumnWidths();
+    const columns = headings.flatMap(heading => heading.columns);
+    columns.forEach((column, index) => { column.minimumWidth = widths[index]; });
+    const scores = teams.map(team => team.score).filter(Number.isFinite);
+    const high = scores.length ? Math.max(...scores) : null;
+    const low = scores.length ? Math.min(...scores) : null;
+    return {
+      ...scoreboardControlsModel(), headings, columns, wrapClass: "table-wrap",
+      tableClass: `demo-score-table${Object.entries(state.expandedGroups).filter(([, expanded]) => expanded).map(([group]) => ` ${group}-expanded`).join("")}`,
+      teams: teams.map((team, index) => ({
+        id: index, name: team.name || `Team ${index + 1}`, label: `${team.name || `Team ${index + 1}`} player statistics`,
+        score: Number.isFinite(team.score) ? team.score : "—",
+        outcome: high === low || !Number.isFinite(team.score) ? "" : team.score === high ? "winner" : "loser",
+        rows: sortedPlayers(team.players || []).map(player => {
+          const row = playerRow(player);
+          return { ...row, id: `${duelIdentity(player.steam_id, player.name)}:${(team.players || []).indexOf(player)}`,
+            cells: row.cells.map((cell, column) => ({ ...cell, key: columns[column].key })) };
+        })
+      }))
+    };
   }
 
   function duelIdentity(steamId, name) {
@@ -2509,17 +2417,7 @@
   function render(result) {
     const teams = teamsForSide(result);
     renderMatchBanner(result);
-    renderScoreboardControls();
-    const finiteScores = teams.map(team => team.score).filter(Number.isFinite);
-    const highScore = finiteScores.length ? Math.max(...finiteScores) : null;
-    const lowScore = finiteScores.length ? Math.min(...finiteScores) : null;
-    $("demoTeams").replaceChildren(...teams.map((team, index) => {
-      const outcome = highScore === lowScore || !Number.isFinite(team.score)
-        ? ""
-        : team.score === highScore ? "winner" : "loser";
-      return renderTeam(team, index, outcome);
-    }));
-    synchronizeScoreboardScrolling();
+    window.NickStatsMatchScoreboardUI.render($("demoTeams"), matchScoreboardModel(teams));
     renderActiveDetail(result, teams);
     $("demoResults").hidden = false;
   }
@@ -3045,7 +2943,6 @@
     if (state.result) render(state.result);
   });
   const analysisSectionTabs = window.NickStatsSectionTabsUI.create("demoAnalysisTabsApp", { kind: "match", onChange: setResultView });
-  document.addEventListener("keydown", handleScoreboardDetailShortcut);
   document.querySelectorAll("[data-match-browser-view]").forEach(button => {
     button.addEventListener("click", () => {
       if (button.dataset.matchBrowserView === "list") showMatchList();
