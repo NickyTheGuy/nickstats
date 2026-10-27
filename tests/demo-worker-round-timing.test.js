@@ -156,8 +156,9 @@ test("side damage is not counted again when round deltas are allocated", () => {
 });
 
 test("failed uploads leave the compact match available for download", () => {
-  assert.match(indexSource, /id="demoParsedDownloadButton"[^>]*hidden/);
-  assert.match(frontendSource, /state\.parsedResult = result;\s*\$\("demoParsedDownloadButton"\)\.hidden = false/);
+  const actions = fs.readFileSync(path.join(__dirname, "../frontend/upload/UploadActions.jsx"), "utf8");
+  assert.match(actions, /id="demoParsedDownloadButton" hidden=\{!model\.download\}/);
+  assert.match(frontendSource, /state\.parsedResult = result;\s*uploadUI\.update\(\{ download: true \}\)/);
   assert.match(frontendSource, /compactMatchResult\(state\.parsedResult\)/);
 });
 

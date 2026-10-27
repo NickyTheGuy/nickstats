@@ -16,6 +16,7 @@
   const state = {
     file: null,
     files: [],
+    parsing: false,
     batchRunning: false,
     batchCurrent: null,
     parsedResult: null,
@@ -72,6 +73,7 @@
   let demoSideControl, demoBuyControl, demoEnemyBuyControl, demoRoundResultControl, demoRoundPhaseControl;
   let authSessionReady = Promise.resolve();
   let accountUI = null;
+  let uploadUI = null;
   const scoreboardLayoutState = () => ({
     expanded: state.expandedGroups,
     subgroups: state.scoreboardSubgroups,
@@ -343,14 +345,11 @@
   }
 
   function setStatus(message, error = false) {
-    $("demoStatus").textContent = message;
-    $("demoStatus").classList.toggle("error", error);
+    uploadUI.status(message, error);
   }
 
   function showDiagnosticsDownload(show) {
-    const panel = $("demoDiagnostics");
-    panel.hidden = !show || !state.diagnostics;
-    if (panel.hidden) panel.open = false;
+    uploadUI.update({ diagnostics: Boolean(show && state.diagnostics) });
   }
 
   function parsedMatchDescription(result) {
@@ -434,19 +433,14 @@
     if (!result || state.uploading) return;
     if (!state.authenticated) {
       state.uploadPending = true;
-      $("demoRetryUploadButton").hidden = false;
+      uploadUI.update({ retry: true });
       openUploadAuthentication("Log in before this match can be saved.");
       return;
     }
 
     state.uploading = true;
     state.uploadPending = false;
-    const retryButton = $("demoRetryUploadButton");
-    const replaceButton = $("demoReplaceUploadButton");
-    retryButton.hidden = true;
-    retryButton.disabled = true;
-    replaceButton.hidden = true;
-    replaceButton.disabled = true;
+    uploadUI.update({ uploading: true, retry: false, replace: false });
     setStatus(`${parsedMatchDescription(result)} ${replace ? "Replacing the stored match" : "Uploading compact statistics"}…`);
 
     try {
@@ -455,7 +449,7 @@
 
       const matchID = responseBody?.id == null ? "" : ` as match #${responseBody.id}`;
       state.duplicateMatchID = responseBody?.created === false && !responseBody?.replaced ? responseBody.id : null;
-      replaceButton.hidden = state.duplicateMatchID == null;
+      uploadUI.update({ replace: state.duplicateMatchID != null });
       const outcome = responseBody?.replaced
         ? "Replaced the stored match"
         : responseBody?.created === false ? "It was already stored" : "Saved to the database";
@@ -465,8 +459,7 @@
       await loadMatches(0);
     } catch (error) {
       state.uploadPending = true;
-      if (replace) replaceButton.hidden = false;
-      else retryButton.hidden = false;
+      uploadUI.update(replace ? { replace: true } : { retry: true });
       const reason = error.message || "The API could not be reached.";
       setStatus(`${parsedMatchDescription(result)} Database upload failed: ${reason}`, true);
       showDiagnosticsDownload(true);
@@ -476,8 +469,7 @@
       }
     } finally {
       state.uploading = false;
-      retryButton.disabled = false;
-      replaceButton.disabled = false;
+      uploadUI.update({ uploading: false });
     }
   }
 
@@ -568,41 +560,19 @@
   }
 
   function renderBatchQueue() {
-    const batch = $("demoBatch");
-    batch.hidden = state.files.length < 2;
-    $("demoBatchList").replaceChildren(...state.files.map((file, index) => {
-      const item = document.createElement("li");
-      item.dataset.batchIndex = String(index);
-      item.dataset.state = "waiting";
-      const name = document.createElement("span");
-      name.className = "demo-batch-name";
-      name.textContent = file.name;
-      const detail = document.createElement("span");
-      detail.className = "demo-batch-detail";
-      detail.textContent = "Waiting";
-      item.append(name, detail);
-      return item;
-    }));
-    $("demoBatchSummary").textContent = `0 of ${state.files.length} complete`;
-    $("demoBatchBar").style.width = "0%";
+    uploadUI.queue(state.files);
   }
 
   function updateBatchItem(index, itemState, detail) {
-    const item = $("demoBatchList").querySelector(`[data-batch-index="${index}"]`);
-    if (!item) return;
-    item.dataset.state = itemState;
-    const status = item.querySelector(".demo-batch-detail");
-    if (status) status.textContent = detail;
+    uploadUI.item(index, itemState, detail);
   }
 
   function updateBatchProgress(completed, total, saved, failed) {
-    $("demoBatchSummary").textContent = completed === total
-      ? `${saved} saved · ${failed} failed`
-      : `${completed} of ${total} complete`;
-    $("demoBatchBar").style.width = `${total ? 100 * completed / total : 0}%`;
+    uploadUI.progress(completed, total, saved, failed);
   }
 
   function chooseFiles(fileList) {
+    if (state.parsing || state.batchRunning || state.uploading) return;
     const selected = Array.from(fileList || []);
     if (!selected.length) return;
     const files = selected.filter(supportedDemoFile);
@@ -618,17 +588,10 @@
     state.duplicateMatchID = null;
     state.diagnostics = null;
     showDiagnosticsDownload(false);
-    $("demoRetryUploadButton").hidden = true;
-    $("demoReplaceUploadButton").hidden = true;
-    $("demoParsedDownloadButton").hidden = true;
     const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-    $("demoFileLabel").textContent = files.length === 1
+    uploadUI.select(files, files.length === 1
       ? `${files[0].name} · ${formatBytes(files[0].size)}`
-      : `${files.length} demos · ${formatBytes(totalBytes)} total`;
-    $("demoParseButton").textContent = files.length === 1 ? "Parse match" : `Parse ${files.length} matches`;
-    $("demoParseButton").disabled = false;
-    $("demoClearButton").disabled = false;
-    renderBatchQueue();
+      : `${files.length} demos · ${formatBytes(totalBytes)} total`);
     setStatus(`${files.length} demo${files.length === 1 ? "" : "s"} ready to parse locally.${rejected ? ` Ignored ${rejected} unsupported file${rejected === 1 ? "" : "s"}.` : ""}`);
   }
 
@@ -2349,22 +2312,23 @@
   }
 
   async function parseDemo() {
-    if (!state.file) return;
-    await authSessionReady;
-    if (!state.authenticated) {
-      state.parsePending = true;
-      openUploadAuthentication("Log in to parse and automatically save this match.");
-      return;
-    }
-    if (state.files.length > 1) {
-      await parseDemoBatch();
-      return;
-    }
-    state.diagnostics = null;
-    showDiagnosticsDownload(false);
-    $("demoParseButton").disabled = true;
-    setStatus("Loading the browser demo parser…");
+    if (!state.file || state.parsing || state.batchRunning || state.uploading) return;
+    state.parsing = true;
+    uploadUI.update({ busy: true });
     try {
+      await authSessionReady;
+      if (!state.authenticated) {
+        state.parsePending = true;
+        openUploadAuthentication("Log in to parse and automatically save this match.");
+        return;
+      }
+      if (state.files.length > 1) {
+        await parseDemoBatch();
+        return;
+      }
+      state.diagnostics = null;
+      showDiagnosticsDownload(false);
+      setStatus("Loading the browser demo parser…");
       await ensureWorker();
       const demo = await readDemo(state.file);
       const data = demo.data;
@@ -2375,13 +2339,14 @@
       result.played_at = demo.matchTime?.timestamp ?? null;
       result.played_at_source = demo.matchTime?.source ?? null;
       state.parsedResult = result;
-      $("demoParsedDownloadButton").hidden = false;
+      uploadUI.update({ download: true });
       await uploadParsedMatch(result);
     } catch (error) {
       setStatus(error.message || "The demo could not be parsed.", true);
       showDiagnosticsDownload(true);
     } finally {
-      $("demoParseButton").disabled = !state.file;
+      state.parsing = false;
+      uploadUI.update({ busy: false });
     }
   }
 
@@ -2411,14 +2376,7 @@
     state.batchRunning = true;
     state.diagnostics = null;
     showDiagnosticsDownload(false);
-    $("demoParseButton").disabled = true;
-    $("demoClearButton").disabled = true;
-    $("demoInput").disabled = true;
-    $("demoDropZone").classList.add("disabled");
-    $("demoBatch").setAttribute("aria-busy", "true");
-    $("demoRetryUploadButton").hidden = true;
-    $("demoReplaceUploadButton").hidden = true;
-    $("demoParsedDownloadButton").hidden = true;
+    uploadUI.update({ busy: true, batchRunning: true, retry: false, replace: false, download: false });
     renderBatchQueue();
     let saved = 0;
     let failed = 0;
@@ -2474,15 +2432,12 @@
       await wakeLock?.release().catch(() => {});
       state.batchRunning = false;
       state.batchCurrent = null;
-      $("demoInput").disabled = false;
-      $("demoDropZone").classList.remove("disabled");
-      $("demoBatch").removeAttribute("aria-busy");
-      $("demoParseButton").disabled = false;
-      $("demoClearButton").disabled = false;
+      uploadUI.update({ batchRunning: false });
     }
   }
 
   function clear() {
+    if (state.parsing || state.batchRunning || state.uploading) return;
     state.file = null;
     state.files = [];
     state.parsedResult = null;
@@ -2490,18 +2445,7 @@
     state.parsePending = false;
     state.duplicateMatchID = null;
     state.diagnostics = null;
-    showDiagnosticsDownload(false);
-    $("demoInput").value = "";
-    $("demoFileLabel").textContent = "Choose one or more demos";
-    $("demoParseButton").textContent = "Parse match";
-    $("demoParseButton").disabled = true;
-    $("demoClearButton").disabled = true;
-    $("demoRetryUploadButton").hidden = true;
-    $("demoReplaceUploadButton").hidden = true;
-    $("demoParsedDownloadButton").hidden = true;
-    $("demoBatch").hidden = true;
-    $("demoBatchList").replaceChildren();
-    setStatus("Choose one or more demo files.");
+    uploadUI.reset();
   }
 
   function compactMatchResult(result) {
@@ -2763,18 +2707,6 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  $("demoInput").addEventListener("change", event => chooseFiles(event.target.files));
-  $("demoParseButton").addEventListener("click", parseDemo);
-  $("demoClearButton").addEventListener("click", clear);
-  $("demoDownloadButton").addEventListener("click", downloadJson);
-  $("demoParsedDownloadButton").addEventListener("click", downloadParsedJson);
-  $("demoDiagnosticsDownloadButton").addEventListener("click", downloadDiagnostics);
-  $("demoRetryUploadButton").addEventListener("click", () => uploadParsedMatch());
-  $("demoReplaceUploadButton").addEventListener("click", () => {
-    if (state.duplicateMatchID == null || !state.parsedResult) return;
-    if (!confirm(`Replace match #${state.duplicateMatchID} with these newly parsed statistics?`)) return;
-    uploadParsedMatch(state.parsedResult, { replace: true });
-  });
   demoSideControl = window.NickStatsSegmentedUI.create("demoSideFilter", { onChange: side => setSideFilter(side) });
   demoBuyControl = window.NickStatsSegmentedUI.create("demoBuyFilter", { onChange: buy => setBuyFilter(buy) });
   demoEnemyBuyControl = window.NickStatsSegmentedUI.create("demoEnemyBuyFilter", { onChange: buy => setEnemyBuyFilter(buy) });
@@ -2806,18 +2738,18 @@
   $("matchListPreviousButton").addEventListener("click", () => loadMatches(Math.max(0, state.matchListOffset - MATCH_LIST_LIMIT)));
   $("matchListNextButton").addEventListener("click", () => loadMatches(state.matchListOffset + MATCH_LIST_LIMIT));
 
-  const drop = $("demoDropZone");
-  ["dragenter", "dragover"].forEach(type => drop.addEventListener(type, event => {
-    event.preventDefault();
-    drop.classList.add("dragging");
-  }));
-  ["dragleave", "drop"].forEach(type => drop.addEventListener(type, event => {
-    event.preventDefault();
-    drop.classList.remove("dragging");
-  }));
-  drop.addEventListener("drop", event => chooseFiles(event.dataTransfer.files));
   window.addEventListener("hashchange", syncMatchRoute);
   window.NickStatsMatchBrowser = Object.freeze({ showView: setMatchBrowserView });
+  uploadUI = window.NickStatsUploadUI.create({
+    files: chooseFiles, parse: parseDemo, clear,
+    retry: () => uploadParsedMatch(),
+    replace() {
+      if (state.duplicateMatchID == null || !state.parsedResult || state.uploading) return;
+      if (!confirm(`Replace match #${state.duplicateMatchID} with these newly parsed statistics?`)) return;
+      uploadParsedMatch(state.parsedResult, { replace: true });
+    },
+    downloadMatch: downloadJson, downloadParsed: downloadParsedJson, downloadDiagnostics
+  });
   accountUI = window.NickStatsAccountUI.create({
     onLogin: completeLogin,
     onCancel: cancelLogin,

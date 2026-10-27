@@ -1,3 +1,4 @@
+import './upload.jsx';
 import './account.jsx';
 import './match-scoreboard.jsx';
 import './weapon-breakdown.jsx';

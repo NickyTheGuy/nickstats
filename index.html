@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20261027-6">
+  <link rel="stylesheet" href="./styles.css?v=20261027-7">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.10.27.6</span>
+          <span class="demo-build">Build 2026.10.27.7</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -28,42 +28,8 @@
     <section class="app-view" id="matchPage" role="tabpanel" aria-labelledby="matchPageTab" data-app-view="match">
       <div class="match-page-stack">
       <section class="panel demo-panel demo-upload-panel">
-        <div class="section-head">
-          <div>
-            <div class="eyebrow">Upload</div>
-            <h2>Add a match</h2>
-          </div>
-        </div>
-
-        <div class="demo-drop" id="demoDropZone">
-          <div>
-            <strong id="demoFileLabel">Choose one or more demos</strong>
-            <span><code>.dem</code>, <code>.zst</code>, <code>.gz</code>, or <code>.zip</code> · batches parse one at a time in the browser</span>
-          </div>
-          <label class="button button-primary" for="demoInput">Choose demos</label>
-          <input class="file-input" id="demoInput" type="file" multiple accept=".dem,.gz,.dem.gz,.zst,.dem.zst,.zip,application/gzip,application/zstd,application/zip">
-        </div>
-
-        <div class="actions">
-          <button class="button button-primary" id="demoParseButton" type="button" disabled>Parse match</button>
-          <button class="button button-secondary" id="demoClearButton" type="button" disabled>Clear</button>
-          <button class="button button-primary" id="demoRetryUploadButton" type="button" hidden>Retry upload</button>
-          <button class="button button-secondary" id="demoReplaceUploadButton" type="button" hidden>Replace stored match</button>
-          <button class="button button-secondary" id="demoParsedDownloadButton" type="button" hidden>Download match JSON</button>
-          <div class="status" id="demoStatus" role="status" aria-live="polite">Choose one or more demo files.</div>
-        </div>
-
-        <section class="demo-batch" id="demoBatch" aria-labelledby="demoBatchTitle" hidden>
-          <div class="demo-batch-head">
-            <div>
-              <h3 id="demoBatchTitle">Batch queue</h3>
-              <p>Existing matches are replaced automatically when reparsed.</p>
-            </div>
-            <strong id="demoBatchSummary">0 of 0 complete</strong>
-          </div>
-          <div class="demo-batch-track" aria-hidden="true"><span id="demoBatchBar"></span></div>
-          <ol class="demo-batch-list" id="demoBatchList"></ol>
-        </section>
+        <div id="demoUploadApp"></div>
+      </section>
       </section>
 
       <section class="panel match-library-panel">
@@ -153,19 +119,13 @@
             <div id="demoTimeline"></div>
           </section>
           <div class="actions">
-            <button class="button button-primary" id="demoDownloadButton" type="button">Download match JSON</button>
+            <div id="demoDownloadApp" style="display: contents"></div>
           </div>
         </div>
         </div>
       </section>
 
-      <details class="demo-diagnostics" id="demoDiagnostics" hidden>
-        <summary>Parser troubleshooting</summary>
-        <div class="demo-diagnostics-body">
-          <p>Download the round-allocation report when a parsed match cannot be uploaded.</p>
-          <button class="button button-secondary" id="demoDiagnosticsDownloadButton" type="button">Download diagnostics JSON</button>
-        </div>
-      </details>
+      <div id="demoDiagnosticsApp"></div>
       </div>
     </section>
 
@@ -399,20 +359,20 @@
 
   <script defer src="./js/navigation.js?v=20261010-1"></script>
   <script defer src="./js/data-freshness.js?v=20260927-4"></script>
-  <script defer src="./js/filters.js?v=20261027-6"></script>
+  <script defer src="./js/filters.js?v=20261027-7"></script>
   <script defer src="./js/manual-filters.js?v=20261019-1"></script>
   <script defer src="./js/dropdown.js?v=20261006-1"></script>
   <script defer src="./js/stat-availability.js?v=20260930-9"></script>
   <script defer src="./js/scoreboard.js?v=20261009-1"></script>
-  <script defer src="./js/round-timeline.js?v=20261027-6"></script>
-  <script defer src="./js/graphs.js?v=20261027-6"></script>
-  <script defer src="./assets/ui/nickstats-ui.js?v=20261027-6"></script>
-  <script defer src="./js/demo.js?v=20261027-6"></script>
-  <script defer src="./js/profile.js?v=20261027-6"></script>
+  <script defer src="./js/round-timeline.js?v=20261027-7"></script>
+  <script defer src="./js/graphs.js?v=20261027-7"></script>
+  <script defer src="./assets/ui/nickstats-ui.js?v=20261027-7"></script>
+  <script defer src="./js/demo.js?v=20261027-7"></script>
+  <script defer src="./js/profile.js?v=20261027-7"></script>
   <script defer src="./js/quick-comparison.js?v=20261011-2"></script>
-  <script defer src="./js/match-sessions.js?v=20261027-6"></script>
-  <script defer src="./js/players.js?v=20261027-6"></script>
-  <script defer src="./js/groups.js?v=20261027-6"></script>
-  <script defer src="./js/sessions.js?v=20261027-6"></script>
+  <script defer src="./js/match-sessions.js?v=20261027-7"></script>
+  <script defer src="./js/players.js?v=20261027-7"></script>
+  <script defer src="./js/groups.js?v=20261027-7"></script>
+  <script defer src="./js/sessions.js?v=20261027-7"></script>
 </body>
 </html>
