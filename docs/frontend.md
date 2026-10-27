@@ -1,6 +1,6 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs and routed Session tabs share React navigation controls. Both graph axes use React category dropdowns and statistic autocomplete; graph settings and bucket inputs also use React. Graph summaries, legends, notes and empty states now render in React. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs and routed Session tabs share React navigation controls. Both graph axes use React category dropdowns and statistic autocomplete; graph settings and bucket inputs also use React. Graph summaries, legends, notes and empty states now render in React, as do the graph SVGs and match timeline charts. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
@@ -12,6 +12,8 @@ The frontend is moving to React a screen at a time. Session, match lists/cards, 
 | Profile rendering bridge | `frontend/profile.jsx` |
 | Group roster, recent players and graph selection | `frontend/players/PlayerRoster.jsx`, `RecentPlayers.jsx`, `GraphPlayerChoices.jsx` |
 | Player selection mounting/data bridge | `frontend/player-selection.jsx` |
+| Shared SVG chart, marks and tooltip | `frontend/graphs/Chart.jsx`, `SvgMark.jsx`, `ChartTooltip.jsx` |
+| Chart model, mounting and tooltip interaction | `frontend/state/chart.mjs`, `frontend/chart.jsx`, `frontend/hooks/useChartTooltip.js` |
 | Graph summaries, legends, notes and empty states | `frontend/graphs/GraphSummary.jsx`, `GraphLegend.jsx`, `frontend/graph-output.jsx` |
 | Shared summary card, legend key and empty state | `frontend/components/SummaryCard.jsx`, `ColorKey.jsx`, `EmptyState.jsx` |
 | Graph summary model and statistics | `frontend/state/graph-output.mjs` |
@@ -158,7 +160,7 @@ The routing and data controllers retain profile-close fallback, Session-close fa
 
 ## Graph statistic pickers
 
-Both axes in Player and Group graphs share MetricPicker, Autocomplete and OptionDropdown. The graph controller publishes metric metadata, categories, selected IDs and search drafts through `NickStatsMetricPickerUI.sync`. Picker callbacks update the graph model and redraw it. Graph settings also publish their state to that controller; SVG rendering still uses it; summaries, legends and notes are published to React.
+Both axes in Player and Group graphs share MetricPicker, Autocomplete and OptionDropdown. The graph controller publishes metric metadata, categories, selected IDs and search drafts through `NickStatsMetricPickerUI.sync`. Picker callbacks update the graph model and redraw it. Graph settings also publish their state to that controller; the controller publishes chart geometry, summaries, legends and notes to React.
 
 Each picker has an independent store. Empty queries show the current category; typed words search across categories, including account tag statistics. Every word must match the category/name, and results are capped at 30. Selecting a result updates its category unless All categories is selected. Category changes clear the search and return focus to the input. Arrow keys wrap through suggestions, Enter selects, Escape restores the selected name, and outside clicks or focus changes dismiss the list. Input drafts, including a deliberately blank field, survive filter redraws; changing accounts or losing a tag resets unavailable selections through the graph model. The X-axis excludes round differential.
 
@@ -178,4 +180,12 @@ The graph controller prepares chart samples and sends the displayed series, metr
 
 GraphSummary renders shared SummaryCard and EmptyState components. GraphLegend renders ColorKey components using the same stable series colors. Player IDs key both lists, so filtering a series preserves other players' cards and colors even when names are duplicated. Empty results clear both cards and legend and use the existing match/Session/round-specific messages.
 
-Each Player/Group prefix has one persistent React root in its summary container. Portals render the corresponding legend and explanatory/validation note, keeping all three outputs in the same render. The note mount uses display: contents to preserve spacing when the note is hidden. The chart controller still draws SVG marks, axes, tooltips and the missing-dates message, but no longer builds summary or legend DOM or changes the note element.
+Each Player/Group prefix has one persistent React root in its summary container. Portals render the corresponding legend and explanatory/validation note, keeping all three outputs in the same render. The note mount uses display: contents to preserve spacing when the note is hidden. The chart controller prepares geometry and the missing-dates message as a chart model. React renders the SVG, summaries, legend and notes.
+
+## SVG charts and tooltips
+
+The graph calculations now build a chart frame containing plain marks (type, SVG attributes, text and optional tooltip metadata). `NickStatsChartModel.frame/mark` supplies the lightweight builders. Distribution, relationship, match/Session trend and round calculations retain their geometry, colors, axis labels, gap handling and tooltip text; they no longer create SVG DOM nodes or attach listeners.
+
+`NickStatsChartUI.render(target, model)` mounts a persistent Chart root for each container. SvgMark renders the shared SVG primitives and converts SVG attribute names to React props. ChartTooltip renders the shared overlay. `useChartTooltip` owns interaction state, clears stale overlays when the chart model changes, and handles outside dismissal. Data marks support pointer hover, touch taps and keyboard focus; Enter/Space shows the tooltip and Escape dismisses it. Tooltip positioning retains the existing bounds and placement.
+
+Match round timelines use the same renderer. `NickStatsGraphs.roundSeriesModel` prepares exact cumulative geometry; the timeline controller supplies its label and frame class or an EmptyState message. Selecting players/statistics and changing filters updates the existing root rather than replacing its DOM. Player and Group SVG IDs remain the same; their HTML placeholders are now GraphChartApp containers. The tooltip is shared by both profile graphs and exact match timelines.

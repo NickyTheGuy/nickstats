@@ -9,11 +9,12 @@ const vm = require("node:vm");
 test("bars and lines render for match trends and exact-round deaths", async () => {
   const { createGraphSettings } = await import("../frontend/state/graph-settings.mjs");
   const { graphOutputModel } = await import("../frontend/state/graph-output.mjs");
-  let settings, output;
+  const { chartFrame, chartMark } = await import("../frontend/state/chart.mjs");
+  let settings, output, svg;
   const nodes = new Map();
   class Element {
     constructor(tag) { this.tag = tag; this.children = []; this.listeners = {}; this.attributes = {}; this.style = { setProperty() {} }; this.hidden = false; this.value = ""; }
-    get options() { return this.children.filter(child => child.tag === "option"); }
+    get options() { return this.children.filter(child => child.type === "option"); }
     appendChild(child) { this.children.push(child); }
     append(...children) { children.forEach(child => this.appendChild(child)); }
     replaceChildren(...children) { this.children = []; this.append(...children); }
@@ -37,14 +38,14 @@ test("bars and lines render for match trends and exact-round deaths", async () =
     nodes.set(`playerGraph${name}`, new Element(name === "Category" ? "select" : "div"));
   }
   nodes.set("playerGraphSettingsApp", new Element("div"));
-  const svg = nodes.get("playerGraphSvg");
+  nodes.set("playerGraphChartApp", new Element("div"));
   const pickers = new Map();
   const choose = (label, axis = "y") => {
     const { config, callbacks } = pickers.get(axis), metric = config.choices.find(choice => choice.label === label);
     assert.ok(metric, `metric ${label}`);
     callbacks.onSelect({ metricId: metric.id, category: metric.group });
   };
-  const context = { window: { NickStatsGraphOutputUI: { render(_prefix, input) { output = graphOutputModel(input); } }, NickStatsGraphSettingsUI: { create(_prefix, onChange) {
+  const context = { window: { NickStatsChartModel: {frame:chartFrame,mark:chartMark}, NickStatsChartUI: {render(_target, model) {svg=model;}}, NickStatsGraphOutputUI: { render(_prefix, input) { output = graphOutputModel(input); } }, NickStatsGraphSettingsUI: { create(_prefix, onChange) {
     settings = createGraphSettings(onChange); settings.set("type", "trend"); return settings;
   } }, NickStatsMetricPickerUI: {
     sync(_prefix, axis, config, callbacks) { pickers.set(axis, { config, callbacks }); },
@@ -56,16 +57,16 @@ test("bars and lines render for match trends and exact-round deaths", async () =
     { round_kills: [{ round: 1, kills: 0, deaths: 1, differential: -1 }, { round: 2, kills: 1, deaths: 0, differential: -2 }] }
   ] }];
   context.window.NickStatsGraphs.render({ prefix: "player", series });
-  assert.ok(svg.children.some(child => child.tag === "rect" && child.attributes.class === "graph-series-bar"));
+  assert.ok(svg.marks.some(child => child.type === "rect" && child.attributes.class === "graph-series-bar"));
   const dated = [0, 1, 2].map(index => ({ label: `Player ${index}`, samples: [
     { id: "1", date: 1787356800, stats: { rounds: 20, kills: 15 + index, deaths: 10 } },
     { id: "2", date: 1787961600, stats: { rounds: 20, kills: 16 + index, deaths: 10 } }
   ] }));
   context.window.NickStatsGraphs.render({ prefix: "player", series: dated });
-  const datedBars = svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar");
+  const datedBars = svg.marks.filter(child => child.type === "rect" && child.attributes.class === "graph-series-bar");
   assert.equal(datedBars.length, 6);
   assert.ok(datedBars.every(bar => bar.attributes.x >= 68 && bar.attributes.x + bar.attributes.width <= 864));
-  assert.ok(svg.children.some(child => child.tag === "text" && /Aug \d+/.test(child.textContent)));
+  assert.ok(svg.marks.some(child => child.type === "text" && /Aug \d+/.test(child.text)));
   const busy = Array.from({ length: 11 }, (_, index) => ({
     id: String(index + 1), date: 1787356800 + (index === 10 ? 60 : index) * 86400,
     stats: { rounds: 20, kills: 15 + index, deaths: 10 }
@@ -74,12 +75,12 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   context.window.NickStatsGraphs.render({ prefix: "player", series: [
     { label: "Frequent", samples: busy }, { label: "Occasional", samples: sparse }
   ] });
-  const groupedBars = svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar")
+  const groupedBars = svg.marks.filter(child => child.type === "rect" && child.attributes.class === "graph-series-bar")
     .sort((a, b) => a.attributes.x - b.attributes.x);
   assert.equal(groupedBars.length, 13);
   assert.ok(groupedBars.every((bar, index) => index === groupedBars.length - 1 || bar.attributes.x + bar.attributes.width <= groupedBars[index + 1].attributes.x));
   settings.set("style", "line");
-  assert.equal(svg.children.filter(child => child.tag === "polyline" && child.attributes.class === "graph-series-line").length, 1);
+  assert.equal(svg.marks.filter(child => child.type === "polyline" && child.attributes.class === "graph-series-line").length, 1);
   settings.set("style", "bars");
   context.window.NickStatsGraphs.render({ prefix: "player", series });
   settings.set("type", "distribution");
@@ -88,37 +89,37 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   settings.range(1, "3");
   settings.range(2, "1");
 
-  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 3);
+  assert.equal(svg.marks.filter(child => child.type === "rect" && child.attributes.class === "graph-series-bar").length, 3);
   assert.equal(output.note, "");
-  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "0–<1"));
-  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "2–<3"));
+  assert.ok(svg.marks.some(child => child.type === "text" && child.text === "0–<1"));
+  assert.ok(svg.marks.some(child => child.type === "text" && child.text === "2–<3"));
   settings.range(0, ".1");
 
-  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "<0.1"));
-  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 4);
+  assert.ok(svg.marks.some(child => child.type === "text" && child.text === "<0.1"));
+  assert.equal(svg.marks.filter(child => child.type === "rect" && child.attributes.class === "graph-series-bar").length, 4);
   settings.set("mode", "manual");
   settings.manual("1, 2, 3");
 
-  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 4);
-  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "<1"));
-  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "≥3"));
+  assert.equal(svg.marks.filter(child => child.type === "rect" && child.attributes.class === "graph-series-bar").length, 4);
+  assert.ok(svg.marks.some(child => child.type === "text" && child.text === "<1"));
+  assert.ok(svg.marks.some(child => child.type === "text" && child.text === "≥3"));
   assert.match(output.note, /comma-separated cutoffs/);
   assert.notEqual(output.note, "");
   settings.set("type", "trend");
   settings.set("style", "line");
-  assert.ok(svg.children.some(child => child.tag === "circle" && child.attributes.class === "graph-point"));
+  assert.ok(svg.marks.some(child => child.type === "circle" && child.attributes.class === "graph-point"));
   choose("Deaths");
   settings.set("scope", "round");
   assert.equal(settings.getSnapshot().supportsRounds, true);
-  assert.ok(svg.children.some(child => child.tag === "polyline" && child.attributes.class === "graph-series-line"));
+  assert.ok(svg.marks.some(child => child.type === "polyline" && child.attributes.class === "graph-series-line"));
   settings.set("style", "bars");
-  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 2);
+  assert.equal(svg.marks.filter(child => child.type === "rect" && child.attributes.class === "graph-series-bar").length, 2);
   assert.match(output.note, /average deaths/);
   choose("Round differential");
   assert.equal(settings.getSnapshot().scope, "round");
   assert.equal(settings.getSnapshot().roundOnly, true);
-  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 2);
-  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Average round differential"));
+  assert.equal(svg.marks.filter(child => child.type === "rect" && child.attributes.class === "graph-series-bar").length, 2);
+  assert.ok(svg.marks.some(child => child.type === "text" && child.text === "Average round differential"));
   // A tag can drive X buckets, with the statistic remaining on Y.
   context.window.NickStatsManualFilters = { store: { account: "nick", ready: true,
     filters: [{ id: "sleep", name: "Sleep", kind: "number" }], stateFor: (_, id) => id === "1" ? 8.5 : "unknown" } };
@@ -129,15 +130,15 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   settings.set("mode", "auto");
   assert.equal(nodes.get("playerGraphXAxisControl").hidden, false);
   assert.equal(nodes.get("playerGraphMetricLabel").textContent, "Y-axis");
-  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Sleep"));
-  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Average Rating"));
-  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 1);
-  assert.ok(svg.children.every(child => !Object.values(child.attributes).some(value => /NaN/.test(String(value)))));
+  assert.ok(svg.marks.some(child => child.type === "text" && child.text === "Sleep"));
+  assert.ok(svg.marks.some(child => child.type === "text" && child.text === "Average Rating"));
+  assert.equal(svg.marks.filter(child => child.type === "rect" && child.attributes.class === "graph-series-bar").length, 1);
+  assert.ok(svg.marks.every(child => !Object.values(child.attributes).some(value => /NaN/.test(String(value)))));
   // The same tag also works as Y; missing assignments exclude match samples.
   choose("Sleep");
   choose("Rating", "x");
-  assert.ok(svg.children.some(child => child.tag === "text" && child.textContent === "Average Sleep"));
-  assert.equal(svg.children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 1);
+  assert.ok(svg.marks.some(child => child.type === "text" && child.text === "Average Sleep"));
+  assert.equal(svg.marks.filter(child => child.type === "rect" && child.attributes.class === "graph-series-bar").length, 1);
   settings.set("type", "distribution");
   assert.equal(nodes.get("playerGraphMetricLabel").textContent, "Statistic");
   assert.equal(nodes.get("playerGraphXAxisControl").hidden, true);
@@ -154,7 +155,7 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   ] }] });
   settings.set("mode", "manual");
   settings.manual("0, 1, 2, 3, 4, 5, 6");
-  const marks = className => svg.children.filter(child => child.attributes.class === className);
+  const marks = className => svg.marks.filter(child => child.attributes.class === className);
   assert.equal(marks("graph-series-bar").length, 4);
   assert.equal(marks("graph-series-line").length, 0);
   assert.equal(marks("graph-point").length, 0);

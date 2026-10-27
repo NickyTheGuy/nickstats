@@ -76,33 +76,28 @@ test("match differential uses the chosen team across a side swap and retains the
   assert.equal(gold.points[24].value, -17);
 });
 
-test("match timelines draw differential and selected player statistics as graphs", () => {
-  class Node {
-    constructor(tag) { this.tag = tag; this.children = []; this.attributes = {}; }
-    setAttribute(key, value) { this.attributes[key] = value; }
-    appendChild(child) { this.children.push(child); }
-    replaceChildren() { this.children = []; }
-    addEventListener() {}
-  }
-  context.document = { createElement: tag => new Node(tag), createElementNS: (_, tag) => new Node(tag) };
+test("match timelines draw differential and selected player statistics as graphs", async () => {
+  const {chartFrame,chartMark}=await import("../frontend/state/chart.mjs");
+  let svg;
+  context.window.NickStatsChartModel={frame:chartFrame,mark:chartMark};
+  context.window.NickStatsChartUI={render(_target,model){svg=model;}};
   context.window.NickStatsAvailability = { scope: stats => stats };
   vm.runInContext(fs.readFileSync(path.join(__dirname, "../js/graphs.js"), "utf8"), context);
-  const target = new Node("div");
+  const target = {id:"testTimeline"};
   const payload = { rounds: 25, teams: [{ name: "Blue", players: [0] }], players: [
     { steam_id: "blue", round_slices: Array.from({ length: 25 }, (_, index) => ({ round: index + 1, result: index < 13 ? "win" : "loss" })) }
   ] };
   timeline.render(target, payload, "differential", { phase: "OVERTIME" }, "blue");
-  const svg = target.children[0].children[0];
-  assert.equal(svg.tag, "svg");
-  assert.equal(svg.children.filter(child => child.tag === "circle").length, 1);
-  assert.match(svg.children.find(child => child.tag === "circle").attributes["aria-label"], /Round 25: \+1 · 13–12 · round lost/);
+  assert.equal(svg.viewBox, "0 0 900 420");
+  assert.equal(svg.marks.filter(child => child.type === "circle").length, 1);
+  assert.match(svg.marks.find(child => child.type === "circle").attributes["aria-label"], /Round 25: \+1 · 13–12 · round lost/);
   const playerPayload = { rounds: 2, teams: [{ players: [0, 1] }], players: [
     { name: "Blue", round_slices: [{ round: 1, stats: { kda: [2, 1, 0, 0, 120] } }, { round: 2, stats: { kda: [0, 0, 0, 0, 0] } }] },
     { name: "Gold", round_slices: [{ round: 1, stats: { kda: [1, 0, 0, 0, 90] } }] }
   ] };
   timeline.render(target, playerPayload, "kills", {}, null, new Set([0]), "line");
-  assert.equal(target.children[0].children[0].children.filter(child => child.tag === "circle").length, 2);
-  assert.match(target.children[0].children[0].children.filter(child => child.tag === "circle")[1].attributes["aria-label"], /Round 2: 2 kills total · 0 this round/);
+  assert.equal(svg.marks.filter(child => child.type === "circle").length, 2);
+  assert.match(svg.marks.filter(child => child.type === "circle")[1].attributes["aria-label"], /Round 2: 2 kills total · 0 this round/);
   timeline.render(target, playerPayload, "damage", {}, null, new Set([0, 1]), "bars");
-  assert.equal(target.children[0].children[0].children.filter(child => child.tag === "rect" && child.attributes.class === "graph-series-bar").length, 4);
+  assert.equal(svg.marks.filter(child => child.type === "rect" && child.attributes.class === "graph-series-bar").length, 4);
 });

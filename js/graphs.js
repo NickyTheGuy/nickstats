@@ -1,7 +1,6 @@
 (() => {
   "use strict";
 
-  const SVG_NS = "http://www.w3.org/2000/svg";
   const colors = ["#455f97", "#d18c00", "#168a77", "#9d51ba", "#bd343e", "#067daa", "#a0522d", "#667b13", "#d05c95", "#555a6c"];
   const MAX_BUCKETS = 24;
   const number = value => Number.isFinite(Number(value)) ? Number(value) : 0;
@@ -225,29 +224,12 @@
       }).filter(sample => sample.matchIDs.length);
   }
 
-  const svgElement = (tag, attributes = {}, text = null) => {
-    const element = document.createElementNS(SVG_NS, tag);
-    Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
-    if (text != null) element.textContent = text;
-    return element;
-  };
-
-  function attachTooltip(svg, element, label, anchorX, anchorY) {
-    const hide = () => svg.querySelector(".graph-tooltip")?.remove();
-    const show = () => {
-      hide();
-      const width = Math.min(360, Math.max(150, label.length * 6.2 + 16));
-      const x = Math.max(5, Math.min(895 - width, anchorX - width / 2));
-      const y = anchorY > 54 ? anchorY - 36 : anchorY + 10;
-      const tooltip = svgElement("g", { class: "graph-tooltip", role: "tooltip" });
-      tooltip.appendChild(svgElement("rect", { x, y, width, height: 28, rx: 6 }));
-      tooltip.appendChild(svgElement("text", { x: x + 8, y: y + 18 }, label));
-      svg.appendChild(tooltip);
-    };
-    element.setAttribute("aria-label", label);
-    element.addEventListener("pointerenter", show);
-    element.addEventListener("pointerleave", hide);
+  const chartMark = (...args) => window.NickStatsChartModel.mark(...args);
+  function attachTooltip(mark, label, x, y) {
+    mark.attributes["aria-label"] = label;
+    mark.tooltip = { label, x, y };
   }
+
   const format = (value, metric) => `${number(value).toFixed(metric.digits)}${metric.suffix}`;
   const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
   function valuesFor(series, metric) {
@@ -302,21 +284,21 @@
     return { edges, manual: true };
   }
 
-  function setLine(svg, x1, y1, x2, y2, className = "graph-axis") {
-    svg.appendChild(svgElement("line", { x1, y1, x2, y2, class: className }));
+  function setLine(chart, x1, y1, x2, y2, className = "graph-axis") {
+    chart.add(chartMark("line", { x1, y1, x2, y2, class: className }));
   }
 
-  function drawAxes(svg, { left, top, width, height, min, max, metric, yMax = null }) {
-    setLine(svg, left, top, left, top + height); setLine(svg, left, top + height, left + width, top + height);
+  function drawAxes(chart, { left, top, width, height, min, max, metric, yMax = null }) {
+    setLine(chart, left, top, left, top + height); setLine(chart, left, top + height, left + width, top + height);
     for (let tick = 0; tick <= 4; tick += 1) {
       const y = top + height - height * tick / 4;
-      setLine(svg, left, y, left + width, y, "graph-grid-line");
+      setLine(chart, left, y, left + width, y, "graph-grid-line");
       const value = yMax == null ? min + (max - min) * tick / 4 : yMax * tick / 4;
-      svg.appendChild(svgElement("text", { x: left - 9, y: y + 4, class: "graph-axis-label", "text-anchor": "end" }, yMax == null ? format(value, metric) : `${value.toFixed(0)}%`));
+      chart.add(chartMark("text", { x: left - 9, y: y + 4, class: "graph-axis-label", "text-anchor": "end" }, yMax == null ? format(value, metric) : `${value.toFixed(0)}%`));
     }
   }
 
-  function drawDistribution(svg, prepared, domainSeries, metric, bins, displayStyle, customRange = null, units = "matches") {
+  function drawDistribution(chart, prepared, domainSeries, metric, bins, displayStyle, customRange = null, units = "matches") {
     const bounds = niceDistributionBounds(domainSeries.length ? domainSeries : prepared, metric, bins);
     if (!bounds) return;
     const { min, max, binWidth } = bounds;
@@ -348,17 +330,17 @@
     const groupWidth = width / bins;
     for (let index = 0; index < bins; index += 1) {
       const x = left + index * groupWidth;
-      svg.appendChild(svgElement("rect", { x, y: top, width: groupWidth, height, class: `graph-bucket-band${index % 2 ? " graph-bucket-band-alt" : ""}` }));
-      setLine(svg, x, top, x, top + height, "graph-bucket-divider");
+      chart.add(chartMark("rect", { x, y: top, width: groupWidth, height, class: `graph-bucket-band${index % 2 ? " graph-bucket-band-alt" : ""}` }));
+      setLine(chart, x, top, x, top + height, "graph-bucket-divider");
     }
-    setLine(svg, left + width, top, left + width, top + height, "graph-bucket-divider");
-    drawAxes(svg, { left, top, width, height, min, max, metric, yMax });
+    setLine(chart, left + width, top, left + width, top + height, "graph-bucket-divider");
+    drawAxes(chart, { left, top, width, height, min, max, metric, yMax });
     for (let index = 0; index < (edges ? bins : bins + 1); index += 1) {
       const x = left + groupWidth * (index + (edges ? .5 : 0)), y = top + height + 20;
       const label = edges ? bucketLabel(index) : formatBoundary(min + index * binWidth);
       const attributes = { x, y, class: "graph-bucket-label", "text-anchor": "middle" };
       if (bins > 10) attributes.transform = `rotate(${bins > 17 ? -55 : -35} ${x} ${y})`;
-      svg.appendChild(svgElement("text", attributes, label));
+      chart.add(chartMark("text", attributes, label));
     }
     const pointTitle = (series, value, index) => {
       if (edges) return `${series.label}: ${value.toFixed(1)}% of ${units} · ${bucketLabel(index)}`;
@@ -372,12 +354,12 @@
           const x = left + width * (index + .5) / bins, y = top + height - height * value / yMax;
           return `${x},${y}`;
         }).join(" ");
-        const line = svgElement("polyline", { points, class: "graph-series-line", stroke: colors[colorIndex % colors.length] });
-        svg.appendChild(line);
+        const line = chartMark("polyline", { points, class: "graph-series-line", stroke: colors[colorIndex % colors.length] });
+        chart.add(line);
         series.percentages.forEach((value, index) => {
           const x = left + width * (index + .5) / bins, y = top + height - height * value / yMax;
-          const dot = svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
-          svg.appendChild(dot); attachTooltip(svg, dot, pointTitle(series, value, index), x, y);
+          const dot = chartMark("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
+          chart.add(dot); attachTooltip(dot, pointTitle(series, value, index), x, y);
         });
       });
     } else {
@@ -386,7 +368,7 @@
         const colorIndex = series.colorIndex ?? seriesIndex;
         series.percentages.forEach((value, index) => {
           const barHeight = height * value / yMax;
-          const bar = svgElement("rect", {
+          const bar = chartMark("rect", {
             x: left + index * groupWidth + (groupWidth - innerWidth) / 2 + seriesIndex * barWidth,
             y: top + height - barHeight,
             width: Math.max(1, barWidth - 1),
@@ -394,16 +376,16 @@
             fill: colors[colorIndex % colors.length],
             class: "graph-series-bar"
           });
-          svg.appendChild(bar);
-          attachTooltip(svg, bar, pointTitle(series, value, index), number(bar.getAttribute("x")) + number(bar.getAttribute("width")) / 2, number(bar.getAttribute("y")));
+          chart.add(bar);
+          attachTooltip(bar, pointTitle(series, value, index), number(bar.attributes.x) + number(bar.attributes.width) / 2, number(bar.attributes.y));
         });
       });
     }
-    svg.appendChild(svgElement("text", { x: left + width / 2, y: 448, class: "graph-axis-title", "text-anchor": "middle" }, metric.label));
-    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Share of ${units}`));
+    chart.add(chartMark("text", { x: left + width / 2, y: 448, class: "graph-axis-title", "text-anchor": "middle" }, metric.label));
+    chart.add(chartMark("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Share of ${units}`));
   }
 
-  function drawRelationship(svg, prepared, domainPrepared, xMetric, yMetric, bins, displayStyle, customRange, units = "matches") {
+  function drawRelationship(chart, prepared, domainPrepared, xMetric, yMetric, bins, displayStyle, customRange, units = "matches") {
     const bounds = niceDistributionBounds(domainPrepared.length ? domainPrepared : prepared, xMetric, bins);
     if (!bounds) return;
     const edges = customRange ? [-Infinity, ...customRange.edges, Infinity]
@@ -412,22 +394,22 @@
     const values = bucketed.flatMap(series => series.buckets.filter(bucket => bucket.count).map(bucket => bucket.value));
     const min = Math.min(0, ...values), max = Math.max(0, ...values), span = max - min || 1;
     const left = 68, top = 24, width = 796, height = 318, groupWidth = width / (edges.length - 1);
-    drawAxes(svg, { left, top, width, height, min, max: min + span, metric: yMetric });
+    drawAxes(chart, { left, top, width, height, min, max: min + span, metric: yMetric });
     const yPosition = value => top + height - height * (value - min) / span;
     bucketed.forEach((series, seriesIndex) => {
       const color = colors[(series.colorIndex ?? seriesIndex) % colors.length];
       let segment = [];
-      const flush = () => { if (displayStyle === "line" && segment.length > 1) svg.appendChild(svgElement("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: color })); segment = []; };
+      const flush = () => { if (displayStyle === "line" && segment.length > 1) chart.add(chartMark("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: color })); segment = []; };
       series.buckets.forEach((bucket, index) => {
         if (!bucket.count) { flush(); return; }
         const x = left + groupWidth * (index + .5), y = yPosition(bucket.value);
         segment.push(`${x},${y}`);
         const barWidth = groupWidth * .8 / bucketed.length;
-        const shape = displayStyle === "line" ? svgElement("circle", { cx: x, cy: y, r: 4, fill: color, class: "graph-point" })
-          : svgElement("rect", { x: left + index * groupWidth + groupWidth * .1 + seriesIndex * barWidth, y: Math.min(y, yPosition(0)),
+        const shape = displayStyle === "line" ? chartMark("circle", { cx: x, cy: y, r: 4, fill: color, class: "graph-point" })
+          : chartMark("rect", { x: left + index * groupWidth + groupWidth * .1 + seriesIndex * barWidth, y: Math.min(y, yPosition(0)),
             width: Math.max(1, barWidth - 1), height: Math.max(1, Math.abs(y - yPosition(0))), fill: color, class: "graph-series-bar" });
-        svg.appendChild(shape);
-        attachTooltip(svg, shape, `${series.label}: ${format(bucket.value, yMetric)} · ${bucket.count} ${units} · ${bucket.lower === -Infinity ? "−∞" : format(bucket.lower, xMetric)}–${bucket.upper === Infinity ? "∞" : format(bucket.upper, xMetric)}`, x, y);
+        chart.add(shape);
+        attachTooltip(shape, `${series.label}: ${format(bucket.value, yMetric)} · ${bucket.count} ${units} · ${bucket.lower === -Infinity ? "−∞" : format(bucket.lower, xMetric)}–${bucket.upper === Infinity ? "∞" : format(bucket.upper, xMetric)}`, x, y);
       });
       if (displayStyle === "line") flush();
     });
@@ -435,13 +417,13 @@
       const lower = edges[index], upper = edges[index + 1];
       const label = lower === -Infinity ? `<${format(upper, xMetric)}` : upper === Infinity ? `≥${format(lower, xMetric)}` : `${format(lower, xMetric)}–${format(upper, xMetric)}`;
       const x = left + groupWidth * (index + .5), y = top + height + 20;
-      svg.appendChild(svgElement("text", { x, y, class: "graph-bucket-label", "text-anchor": "middle", ...(edges.length > 11 ? { transform: `rotate(-35 ${x} ${y})` } : {}) }, label));
+      chart.add(chartMark("text", { x, y, class: "graph-bucket-label", "text-anchor": "middle", ...(edges.length > 11 ? { transform: `rotate(-35 ${x} ${y})` } : {}) }, label));
     }
-    svg.appendChild(svgElement("text", { x: left + width / 2, y: 448, class: "graph-axis-title", "text-anchor": "middle" }, xMetric.label));
-    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Average ${yMetric.label}`));
+    chart.add(chartMark("text", { x: left + width / 2, y: 448, class: "graph-axis-title", "text-anchor": "middle" }, xMetric.label));
+    chart.add(chartMark("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Average ${yMetric.label}`));
   }
 
-  function drawTrend(svg, prepared, metric, displayStyle = "line", unit = "Match") {
+  function drawTrend(chart, prepared, metric, displayStyle = "line", unit = "Match") {
     const allPoints = prepared.flatMap(series => series.values);
     if (!allPoints.length) return;
     let min = Math.min(...allPoints.map(point => point.value)), max = Math.max(...allPoints.map(point => point.value));
@@ -456,7 +438,7 @@
     matches.sort((a, b) => allDated ? a.date - b.date || a.id.localeCompare(b.id, undefined, { numeric: true }) : a.id.localeCompare(b.id, undefined, { numeric: true }));
     const positions = new Map(matches.map((match, index) => [match.id, index]));
     const left = 68, top = 24, width = 796, height = 318;
-    drawAxes(svg, { left, top, width, height, min, max, metric });
+    drawAxes(chart, { left, top, width, height, min, max, metric });
     const zeroY = top + height - height * (0 - min) / (max - min);
     const barWidth = Math.max(1, Math.min(28, width / Math.max(1, matches.length * prepared.length) * .8));
     const edgePadding = displayStyle === "bars" ? Math.max(8, barWidth * prepared.length / 2 + 3) : 4;
@@ -476,8 +458,8 @@
       const x = xFor(match);
       if (x - lastTickX < 72) return;
       lastTickX = x;
-      setLine(svg, x, top + height, x, top + height + 5);
-      svg.appendChild(svgElement("text", { x, y: top + height + 19, class: "graph-bucket-label", "text-anchor": "middle" },
+      setLine(chart, x, top + height, x, top + height + 5);
+      chart.add(chartMark("text", { x, y: top + height + 19, class: "graph-bucket-label", "text-anchor": "middle" },
         hasDateRange ? new Date(match.date * 1000).toLocaleString(undefined, tickFormat) : `#${match.id}`));
     });
     prepared.forEach((series, seriesIndex) => {
@@ -491,7 +473,7 @@
       if (displayStyle === "line") {
         let segment = [], previous = null;
         const flush = () => {
-          if (segment.length > 1) svg.appendChild(svgElement("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: colors[colorIndex % colors.length] }));
+          if (segment.length > 1) chart.add(chartMark("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: colors[colorIndex % colors.length] }));
           segment = [];
         };
         coordinates.forEach(({ point, x, y }) => {
@@ -504,14 +486,14 @@
       }
       coordinates.forEach(({ point, x, y }) => {
         const mark = displayStyle === "bars"
-          ? svgElement("rect", { x: x + (seriesIndex - (prepared.length - 1) / 2) * barWidth - barWidth / 2, y: Math.min(y, zeroY), width: barWidth, height: Math.max(2, Math.abs(y - zeroY)), fill: colors[colorIndex % colors.length], class: "graph-series-bar" })
-          : svgElement("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
+          ? chartMark("rect", { x: x + (seriesIndex - (prepared.length - 1) / 2) * barWidth - barWidth / 2, y: Math.min(y, zeroY), width: barWidth, height: Math.max(2, Math.abs(y - zeroY)), fill: colors[colorIndex % colors.length], class: "graph-series-bar" })
+          : chartMark("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
         const date = point.date > 0 ? new Date(point.date * 1000).toLocaleDateString() : `${unit} #${point.id}`;
-        svg.appendChild(mark); attachTooltip(svg, mark, `${series.label} · ${date}${point.matchIDs ? ` · ${point.matchIDs.length} matches` : ""}: ${format(point.value, metric)}`, x, y);
+        chart.add(mark); attachTooltip(mark, `${series.label} · ${date}${point.matchIDs ? ` · ${point.matchIDs.length} matches` : ""}: ${format(point.value, metric)}`, x, y);
       });
     });
-    svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, hasDateRange ? `${unit} date (${unit.toLowerCase()}s evenly spaced)` : `${unit} order`));
-    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, metric.label));
+    chart.add(chartMark("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, hasDateRange ? `${unit} date (${unit.toLowerCase()}s evenly spaced)` : `${unit} order`));
+    chart.add(chartMark("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, metric.label));
   }
 
   function dateTicks(first, last) {
@@ -543,7 +525,7 @@
     return ticks;
   }
 
-  function drawRounds(svg, prepared, metric, displayStyle = "line", { exact = false, firstRound = 1, maxRound = 0 } = {}) {
+  function drawRounds(chart, prepared, metric, displayStyle = "line", { exact = false, firstRound = 1, maxRound = 0 } = {}) {
     const all = prepared.flatMap(series => series.roundValues);
     const lastRound = Math.max(maxRound, ...all.map(point => point.round));
     const minValue = Math.min(0, ...all.map(point => point.value)), maxValue = Math.max(0, ...all.map(point => point.value));
@@ -551,25 +533,25 @@
     const left = 68, top = 24, width = 796, height = 318;
     const averageMetric = { ...metric, digits: exact ? 0 : metric.id === "damage" || metric.id === "adr" ? 1 : 2 };
     const axisMetric = exact && range < 4 ? { ...averageMetric, digits: 1 } : averageMetric;
-    drawAxes(svg, { left, top, width, height, min: minValue, max: minValue + range, metric: axisMetric });
+    drawAxes(chart, { left, top, width, height, min: minValue, max: minValue + range, metric: axisMetric });
     const xFor = round => left + width * (lastRound === firstRound ? .5 : (round - firstRound) / (lastRound - firstRound));
     const yFor = value => top + height - height * (value - minValue) / range;
     const zeroY = yFor(0);
-    if (metric.id === "round_diff") setLine(svg, left, zeroY, left + width, zeroY, "graph-zero-line");
+    if (metric.id === "round_diff") setLine(chart, left, zeroY, left + width, zeroY, "graph-zero-line");
     const barWidth = Math.max(1, Math.min(22, width / Math.max(1, (lastRound - firstRound + 1) * prepared.length) * .8));
     const tickStep = lastRound - firstRound <= 36 ? 1 : Math.ceil((lastRound - firstRound + 1) / 36);
     for (let round = firstRound; round <= lastRound; round += 1) {
       const x = xFor(round);
-      if (round === 13 || round === 25) setLine(svg, x, top, x, top + height, "graph-bucket-divider");
+      if (round === 13 || round === 25) setLine(chart, x, top, x, top + height, "graph-bucket-divider");
       if (round === firstRound || round === lastRound || round % tickStep === 0) {
-        svg.appendChild(svgElement("text", { x, y: top + height + 19, class: "graph-bucket-label", "text-anchor": "middle" }, String(round)));
+        chart.add(chartMark("text", { x, y: top + height + 19, class: "graph-bucket-label", "text-anchor": "middle" }, String(round)));
       }
     }
     prepared.forEach((series, index) => {
       const color = colors[(series.colorIndex ?? index) % colors.length];
       let segment = [], previous = null;
       const flush = () => {
-        if (segment.length > 1) svg.appendChild(svgElement("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: color }));
+        if (segment.length > 1) chart.add(chartMark("polyline", { points: segment.join(" "), class: "graph-series-line", stroke: color }));
         segment = [];
       };
       if (displayStyle === "line") {
@@ -583,19 +565,25 @@
       series.roundValues.forEach(point => {
         const x = xFor(point.round), y = yFor(point.value);
         const mark = displayStyle === "bars"
-          ? svgElement("rect", { x: x + (index - (prepared.length - 1) / 2) * barWidth - barWidth / 2, y: Math.min(y, zeroY), width: barWidth, height: Math.max(2, Math.abs(zeroY - y)), fill: color, class: "graph-series-bar" })
-          : svgElement("circle", { cx: x, cy: y, r: 4, fill: color, class: "graph-point" });
-        svg.appendChild(mark);
+          ? chartMark("rect", { x: x + (index - (prepared.length - 1) / 2) * barWidth - barWidth / 2, y: Math.min(y, zeroY), width: barWidth, height: Math.max(2, Math.abs(zeroY - y)), fill: color, class: "graph-series-bar" })
+          : chartMark("circle", { cx: x, cy: y, r: 4, fill: color, class: "graph-point" });
+        chart.add(mark);
         const signed = metric.id === "round_diff" && point.value > 0 ? "+" : "";
         const detail = exact
           ? metric.id === "round_diff" ? ` · ${point.forScore}–${point.againstScore} · round ${point.roundValue > 0 ? "won" : "lost"}`
             : ` ${roundLabel(metric)} total · ${point.roundValue} this round`
           : ` ${roundLabel(metric)} (${point.appearances} played)`;
-        attachTooltip(svg, mark, `${series.label} · Round ${point.round}: ${signed}${format(point.value, averageMetric)}${detail}`, x, y);
+        attachTooltip(mark, `${series.label} · Round ${point.round}: ${signed}${format(point.value, averageMetric)}${detail}`, x, y);
       });
     });
-    svg.appendChild(svgElement("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, "Round number"));
-    svg.appendChild(svgElement("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `${exact && metric.id !== "round_diff" ? "Total " : exact ? "" : "Average "}${roundLabel(metric)}`));
+    chart.add(chartMark("text", { x: left + width / 2, y: 396, class: "graph-axis-title", "text-anchor": "middle" }, "Round number"));
+    chart.add(chartMark("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `${exact && metric.id !== "round_diff" ? "Total " : exact ? "" : "Average "}${roundLabel(metric)}`));
+  }
+
+  function roundSeriesModel(series, metric, style, options) {
+    const chart = window.NickStatsChartModel.frame();
+    drawRounds(chart, series, metric, style, options);
+    return chart;
   }
 
   function metricChoices(category, query) {
@@ -608,8 +596,9 @@
 
   function draw(prefix) {
     const state = graphState.get(prefix); if (!state) return;
-    const svg = document.getElementById(`${prefix}GraphSvg`);
-    if (!svg) return;
+    const target = document.getElementById(`${prefix}GraphChartApp`);
+    if (!target) return;
+    const chart = window.NickStatsChartModel.frame({ id: `${prefix}GraphSvg` });
     state.settings.configure({ metricId: state.metricId, xMetricId: state.xAxis.metricId,
       roundOnly: state.metricId === "round_diff", supportsRounds: Object.hasOwn(roundMetrics, state.metricId) });
     const settings = state.settings.getSnapshot();
@@ -630,8 +619,7 @@
     const prepared = state.series.map(scopedSeries).map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
     const domainPrepared = state.domainSeries.map(scopedSeries).map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
     const roundPrepared = roundsMode ? state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || [], {}, roundMetric) })).filter(series => series.roundValues.length) : [];
-    svg.setAttribute("viewBox", !roundsMode && ["distribution", "relationship"].includes(settings.type) ? "0 0 900 460" : "0 0 900 420");
-    svg.replaceChildren();
+    chart.viewBox = !roundsMode && ["distribution", "relationship"].includes(settings.type) ? "0 0 900 460" : "0 0 900 420";
     const multiTrendNeedsDates = !roundsMode && settings.type === "trend" && state.independent && independentTrendNeedsDates(prepared);
     const note = roundsMode
       ? `Each ${settings.style === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
@@ -646,12 +634,13 @@
         : `Each ${unit} gets one horizontal slot in date order. Lines pause across long gaps in a player's games. Hover for the exact date and value.`;
     const shown = roundsMode ? roundPrepared : prepared;
     window.NickStatsGraphOutputUI.render(prefix, { series: shown, roundsMode, relationship, metric, xMetric, unit, colors, format, note });
-    if (!shown.length) return;
-    if (roundsMode) { drawRounds(svg, roundPrepared, metric, settings.style); return; }
+    if (!shown.length) { window.NickStatsChartUI.render(target, chart); return; }
+    if (roundsMode) { drawRounds(chart, roundPrepared, metric, settings.style); window.NickStatsChartUI.render(target, chart); return; }
     if (multiTrendNeedsDates) {
-      svg.appendChild(svgElement("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
-    } else if (relationship) drawRelationship(svg, prepared, domainPrepared, xMetric, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
-    else settings.type === "trend" ? drawTrend(svg, prepared, metric, settings.style, sessionsMode ? "Session" : "Match") : drawDistribution(svg, prepared, domainPrepared, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
+      chart.add(chartMark("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
+    } else if (relationship) drawRelationship(chart, prepared, domainPrepared, xMetric, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
+    else settings.type === "trend" ? drawTrend(chart, prepared, metric, settings.style, sessionsMode ? "Session" : "Match") : drawDistribution(chart, prepared, domainPrepared, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
+    window.NickStatsChartUI.render(target, chart);
   }
 
   function render({ prefix, series, domainSeries = series, independent = false }) {
@@ -682,5 +671,5 @@
     draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, relationshipSamples, relationshipBuckets, syncTagMetrics, metricChoices, statsForMatch, samplesForMatches, sessionSamples, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks, drawRoundSeries: drawRounds, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, relationshipSamples, relationshipBuckets, syncTagMetrics, metricChoices, statsForMatch, samplesForMatches, sessionSamples, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks, roundSeriesModel, render });
 })();

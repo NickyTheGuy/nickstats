@@ -85,7 +85,6 @@
   }
 
   function render(target, payload, metric = "kills", filters = {}, viewerSteamID = null, selectedPlayers = null, displayStyle = "line") {
-    target.replaceChildren();
     const players = payload?.players || [];
     const roundCount = finite(payload?.rounds);
     const series = metric === "differential"
@@ -100,25 +99,20 @@
         }));
     const visible = series.filter(item => item.roundValues.length);
     if (!visible.length) {
-      const empty = document.createElement("p"); empty.className = "graph-empty";
-      empty.textContent = metric === "differential"
+      window.NickStatsChartUI.render(target, { marks: [], empty: metric === "differential"
         ? "Round results are unavailable for this phase. Reparse older demos to add round data."
         : selectedPlayers?.size === 0 ? "Select a player to see the timeline."
-          : "No per-round data for the selected players and filters. Reparse older demos to add round data.";
-      target.appendChild(empty); return;
+          : "No per-round data for the selected players and filters. Reparse older demos to add round data." });
+      return;
     }
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("viewBox", "0 0 900 420");
-    svg.setAttribute("role", "img");
-    svg.setAttribute("aria-label", `${metrics[metric]} by exact match round`);
     const firstRound = filters.phase === "OVERTIME" ? 25 : 1;
     const maxRound = filters.phase === "REGULATION" ? Math.min(24, roundCount) : roundCount;
-    window.NickStatsGraphs.drawRoundSeries(svg, visible, {
+    const chart = window.NickStatsGraphs.roundSeriesModel(visible, {
       id: metric === "differential" ? "round_diff" : metric,
       label: metrics[metric], digits: 0, suffix: ""
     }, displayStyle, { exact: true, firstRound, maxRound });
-    const frame = document.createElement("div"); frame.className = "round-timeline-graph-frame";
-    frame.appendChild(svg); target.appendChild(frame);
+    chart.label = `${metrics[metric]} by exact match round`;
+    window.NickStatsChartUI.render(target, chart, { frameClassName: "round-timeline-graph-frame" });
   }
   window.NickStatsRoundTimeline = Object.freeze({ metrics, metricValue, matchesFilters, withDifferentials, matchDifferential, cumulativeValues, averages, render });
 })();
