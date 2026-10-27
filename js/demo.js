@@ -2516,132 +2516,6 @@
     return steamId ? `steam:${steamId}` : `name:${String(name || "").toLocaleLowerCase()}`;
   }
 
-  function renderDuelMatrix(teams) {
-    const players = teams.flatMap((team, teamIndex) =>
-      (team.players || []).map(player => ({ player, teamIndex, teamName: team.name || `Team ${teamIndex + 1}` }))
-    );
-    const wrap = document.createElement("div");
-    wrap.className = "table-wrap demo-duel-matrix-wrap";
-    const table = document.createElement("table");
-    table.className = "demo-duel-matrix";
-    const head = document.createElement("thead");
-    const headRow = document.createElement("tr");
-    const corner = document.createElement("th");
-    corner.textContent = "K-D ↓ / Opponent →";
-    corner.className = "duel-corner";
-    headRow.appendChild(corner);
-    players.forEach((entry, index) => {
-      const th = document.createElement("th");
-      th.textContent = entry.player.name || "Unknown";
-      th.title = entry.teamName;
-      if (index > 0 && entry.teamIndex !== players[index - 1].teamIndex) th.classList.add("duel-team-column-start");
-      headRow.appendChild(th);
-    });
-    head.appendChild(headRow);
-
-    const body = document.createElement("tbody");
-    players.forEach((rowEntry, rowIndex) => {
-      const row = document.createElement("tr");
-      if (rowIndex > 0 && rowEntry.teamIndex !== players[rowIndex - 1].teamIndex) row.classList.add("duel-team-row-start");
-      const rowName = document.createElement("th");
-      rowName.scope = "row";
-      rowName.textContent = rowEntry.player.name || "Unknown";
-      rowName.title = rowEntry.teamName;
-      row.appendChild(rowName);
-      const duelMap = new Map((rowEntry.player.duels || []).map(duel => [
-        duelIdentity(duel.opponent_steam_id, duel.opponent), duel
-      ]));
-      players.forEach((columnEntry, columnIndex) => {
-        const td = document.createElement("td");
-        if (columnIndex > 0 && columnEntry.teamIndex !== players[columnIndex - 1].teamIndex) {
-          td.classList.add("duel-team-column-start");
-        }
-        const duel = duelMap.get(duelIdentity(columnEntry.player.steam_id, columnEntry.player.name));
-        if (!duel) {
-          td.textContent = "—";
-          td.classList.add("duel-unavailable");
-        } else {
-          const kills = duel.kills || 0;
-          const deaths = duel.deaths || 0;
-          const differential = kills - deaths;
-          td.textContent = `${kills}-${deaths}`;
-          td.title = rowEntry === columnEntry
-            ? `${rowEntry.player.name}: ${deaths} self-kill${deaths === 1 ? "" : "s"}`
-            : `${rowEntry.player.name}: ${kills} kills and ${deaths} deaths against ${columnEntry.player.name}`;
-          td.classList.add(differential > 0 ? "duel-positive" : differential < 0 ? "duel-negative" : "duel-even");
-        }
-        row.appendChild(td);
-      });
-      body.appendChild(row);
-    });
-    table.append(head, body);
-    wrap.appendChild(table);
-    return wrap;
-  }
-
-  function renderTradeMatrix(teams) {
-    const players = teams.flatMap((team, teamIndex) =>
-      (team.players || []).map(player => ({ player, teamIndex, teamName: team.name || `Team ${teamIndex + 1}` }))
-    );
-    const wrap = document.createElement("div");
-    wrap.className = "table-wrap demo-duel-matrix-wrap";
-    const table = document.createElement("table");
-    table.className = "demo-duel-matrix demo-trade-matrix";
-    const head = document.createElement("thead");
-    const headRow = document.createElement("tr");
-    const corner = document.createElement("th");
-    corner.textContent = "O/A/S ↓ / Teammate →";
-    corner.title = "Opportunities / attempts / successes";
-    headRow.appendChild(corner);
-    players.forEach((entry, index) => {
-      const th = document.createElement("th");
-      th.textContent = entry.player.name || "Unknown";
-      th.title = entry.teamName;
-      if (index > 0 && entry.teamIndex !== players[index - 1].teamIndex) th.classList.add("duel-team-column-start");
-      headRow.appendChild(th);
-    });
-    head.appendChild(headRow);
-
-    const body = document.createElement("tbody");
-    players.forEach((rowEntry, rowIndex) => {
-      const row = document.createElement("tr");
-      if (rowIndex > 0 && rowEntry.teamIndex !== players[rowIndex - 1].teamIndex) row.classList.add("duel-team-row-start");
-      const rowName = document.createElement("th");
-      rowName.scope = "row";
-      rowName.textContent = rowEntry.player.name || "Unknown";
-      rowName.title = `${rowEntry.teamName} · potential trader`;
-      row.appendChild(rowName);
-      const matchupMap = new Map((rowEntry.player.trade_matchups || []).map(matchup => [
-        duelIdentity(matchup.teammate_steam_id, matchup.teammate), matchup
-      ]));
-      players.forEach((columnEntry, columnIndex) => {
-        const td = document.createElement("td");
-        if (columnIndex > 0 && columnEntry.teamIndex !== players[columnIndex - 1].teamIndex) {
-          td.classList.add("duel-team-column-start");
-        }
-        const isSelf = rowEntry === columnEntry;
-        const isTeammate = rowEntry.teamIndex === columnEntry.teamIndex;
-        if (isSelf || !isTeammate) {
-          td.textContent = "—";
-          td.classList.add("duel-unavailable");
-        } else {
-          const matchup = matchupMap.get(duelIdentity(columnEntry.player.steam_id, columnEntry.player.name));
-          const opportunities = matchup?.opportunities || 0;
-          const attempts = matchup?.attempts || 0;
-          const successes = matchup?.successes || 0;
-          td.textContent = `${opportunities}/${attempts}/${successes}`;
-          td.title = `${rowEntry.player.name} responding to ${columnEntry.player.name}: ${opportunities} opportunities, ${attempts} attempts, ${successes} successes`;
-          td.classList.add(successes ? "trade-success" : attempts ? "trade-attempt" : opportunities ? "trade-opportunity" : "trade-none");
-        }
-        row.appendChild(td);
-      });
-      body.appendChild(row);
-    });
-    table.append(head, body);
-    wrap.appendChild(table);
-    return wrap;
-  }
-
   function teamsForSide(result) {
     let teams = Array.isArray(result.teams) ? result.teams : [];
     const buy = state.buyFilter === "hero" ? "ALL" : state.buyFilter;
@@ -2746,8 +2620,8 @@
 
   function renderActiveDetail(result, teams) {
     if (state.resultView === "weapons") $("demoWeapons").replaceChildren(...teams.map(renderWeaponTeam));
-    if (state.resultView === "trades") $("demoTrades").replaceChildren(renderTradeMatrix(teams));
-    if (state.resultView === "duels") $("demoDuels").replaceChildren(renderDuelMatrix(teams));
+    if (state.resultView === "trades") window.NickStatsMatchMatrixUI.render($("demoTrades"), teams, "trades");
+    if (state.resultView === "duels") window.NickStatsMatchMatrixUI.render($("demoDuels"), teams, "duels");
     if (state.resultView === "timeline") renderTimeline(result);
   }
 

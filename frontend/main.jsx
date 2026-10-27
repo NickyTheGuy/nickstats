@@ -1,3 +1,4 @@
+import './match-matrix.jsx';
 import './timeline-controls.jsx';
 import './section-tabs.jsx';
 import './chart.jsx';
