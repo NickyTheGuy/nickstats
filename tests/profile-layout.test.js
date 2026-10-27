@@ -8,16 +8,17 @@ const test = require("node:test");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
 const profile = fs.readFileSync(path.join(__dirname, "..", "js", "profile.js"), "utf8");
 const players = fs.readFileSync(path.join(__dirname, "..", "js", "players.js"), "utf8");
+const sections = fs.readFileSync(path.join(__dirname, "../frontend/state/section-tabs.mjs"), "utf8");
 const demo = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), "utf8");
 
 test("graph statistic search stays beside its category and the view follows it", () => {
   assert.match(html, /class="graph-stat-controls"[\s\S]*?id="playerGraphXPicker"[\s\S]*?id="playerGraphPicker"[\s\S]*?id="playerGraphSettingsApp"/);
   assert.doesNotMatch(html, /id="playerGraphSearch"/);
-  assert.match(profile, /component\.querySelectorAll\("\[for\], \[aria-controls\]"\)/);
+  assert.match(profile, /component\.querySelectorAll\("\[for\], \[aria-controls\], \[aria-labelledby\]"\)/);
 });
 
 test("player match history loads only when its profile tab is opened", () => {
-  assert.match(html, /data-player-view="matches">Matches<\/button>/);
+  assert.match(sections, /\['matches', 'Matches'\]/);
   assert.match(html, /data-player-profile-view="matches"[\s\S]*?id="playerMatchesList"/);
   assert.match(players, /if \(view === "matches" && state\.display === "profile" && activeProfile\(\)\) renderPlayerMatches\(\)/);
   assert.match(players, /steam_id: steamID,[\s\S]*?fetch\(`\$\{MATCH_ENDPOINT\}\?\$\{parameters\}`/);
@@ -27,11 +28,11 @@ test("player match history loads only when its profile tab is opened", () => {
 });
 
 test("round state has its own shared player and group profile tab", () => {
-  assert.match(html, /data-player-view="roundState">Round state<\/button>/);
+  assert.match(sections, /\['roundState', 'Round state'\]/);
   assert.match(html, /data-player-profile-view="roundState"[\s\S]*?id="playerRoundStateKillStats"[\s\S]*?id="playerRoundStateDeathStats"[\s\S]*?id="playerKillStageStats"[\s\S]*?id="playerTimingAverageStats"[\s\S]*?id="playerPhaseStats"/);
   assert.match(profile, /fillCards\(`\$\{prefix\}RoundStateKillStats`/);
   assert.match(profile, /fillCards\(`\$\{prefix\}RoundStateDeathStats`/);
-  assert.match(profile, /element\.dataset\.comboProfileView = element\.dataset\.playerView/);
+  assert.match(sections, /data-combo-profile-view/);
   assert.match(profile, /element\.dataset\.comboProfilePanel = element\.dataset\.playerProfileView/);
 });
 

@@ -2735,11 +2735,7 @@
     };
     if (!panels[view]) return;
     state.resultView = view;
-    document.querySelectorAll("[data-demo-result-view]").forEach(button => {
-      const active = button.dataset.demoResultView === view;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-selected", String(active));
-    });
+    analysisSectionTabs.set(view, { notify: false });
     Object.entries(panels).forEach(([name, id]) => {
       $(id).hidden = name !== view;
     });
@@ -3326,9 +3322,7 @@
   window.NickStatsDropdown.enhance($("demoTimelineDisplay"));
   $("demoTimelineMetric").addEventListener("change", () => { if (state.result) renderTimeline(state.result); });
   $("demoTimelineDisplay").addEventListener("change", () => { if (state.result) renderTimeline(state.result); });
-  document.querySelectorAll("[data-demo-result-view]").forEach(button => {
-    button.addEventListener("click", () => setResultView(button.dataset.demoResultView));
-  });
+  const analysisSectionTabs = window.NickStatsSectionTabsUI.create("demoAnalysisTabsApp", { kind: "match", onChange: setResultView });
   document.addEventListener("keydown", handleScoreboardDetailShortcut);
   document.querySelectorAll("[data-match-browser-view]").forEach(button => {
     button.addEventListener("click", () => {

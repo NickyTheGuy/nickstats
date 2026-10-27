@@ -1,6 +1,6 @@
 # Editing the NickStats interface
 
-The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs and routed Session tabs share React navigation controls. Both graph axes use React category dropdowns and statistic autocomplete; graph settings and bucket inputs also use React. Graph summaries, legends, notes and empty states now render in React, as do the graph SVGs and match timeline charts. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
+The frontend is moving to React a screen at a time. Session, match lists/cards, grouped Session history, and the Player/Group quick comparison scoreboards now use React. Map, date, tag, and segmented filters and Player/Group searches and selection controls also use shared React components. Detailed Player/Group stat cards, metric lists, count strips and tables also render in React. Player/Group workspace tabs, routed Session tabs, detailed-stat sections and Match analysis tabs share React navigation controls. Both graph axes use React category dropdowns and statistic autocomplete; graph settings and bucket inputs also use React. Graph summaries, legends, notes and empty states now render in React, as do the graph SVGs and match timeline charts. Profile aggregation, graphs and routing still use the existing JavaScript controllers. The API and demo parser work as before.
 
 ## Where to edit
 
@@ -29,6 +29,7 @@ The frontend is moving to React a screen at a time. Session, match lists/cards, 
 | Segmented filters and shared choices | `frontend/filters/SegmentedFilter.jsx`, `frontend/state/segmented-config.mjs` |
 | Segmented selection and disabled state | `frontend/state/segmented-filter.mjs` |
 | Shared buttons, toggles, option groups | `frontend/components/Button.jsx`, `ToggleButton.jsx`, `ToggleGroup.jsx` |
+| Detail/analysis tabs and shared section choices | `frontend/navigation/SectionTabs.jsx`, `frontend/state/section-tabs.mjs`, `frontend/section-tabs.jsx` |
 | Tab selection, closing and keyboard navigation | `frontend/components/TabList.jsx`, `CloseButton.jsx` |
 | Player/Group workspace tabs and Session peers | `frontend/navigation/WorkspaceTabs.jsx`, `frontend/navigation.jsx` |
 | Comparison UI state and actions | `frontend/hooks/useComparison.js`, `frontend/state/comparison.mjs` |
@@ -156,7 +157,7 @@ Player profiles, fixed Quick comparison/Graphs tabs, and routed Sessions render 
 
 TabList supports disabled options, accessible per-tab metadata, optional closable wrappers and the shared CloseButton. Left/Right wrap through enabled tabs; Home/End select the first/last enabled tab. Delete closes a focused closable tab. Closing restores focus to the selected remaining tab, including after an asynchronous hash change. Fixed tabs stay first and cannot be closed; a Session-only workspace disables them until a player profile is opened. Map tabs in comparison scoreboards continue to use the same TabList without closable wrappers.
 
-The routing and data controllers retain profile-close fallback, Session-close fallback, `#session/<player>/<match>` links, history navigation, request cancellation and caches. React owns the workspace nav elements; controllers publish data instead of replacing, appending or removing tab nodes. The inner detailed-stat navigation is still part of the existing profile layout.
+The routing and data controllers retain profile-close fallback, Session-close fallback, `#session/<player>/<match>` links, history navigation, request cancellation and caches. React owns the workspace nav elements; controllers publish data instead of replacing, appending or removing tab nodes. The inner detailed-stat and Match analysis navigation use SectionTabs, described below.
 
 ## Graph statistic pickers
 
@@ -189,3 +190,11 @@ The graph calculations now build a chart frame containing plain marks (type, SVG
 `NickStatsChartUI.render(target, model)` mounts a persistent Chart root for each container. SvgMark renders the shared SVG primitives and converts SVG attribute names to React props. ChartTooltip renders the shared overlay. `useChartTooltip` owns interaction state, clears stale overlays when the chart model changes, and handles outside dismissal. Data marks support pointer hover, touch taps and keyboard focus; Enter/Space shows the tooltip and Escape dismisses it. Tooltip positioning retains the existing bounds and placement.
 
 Match round timelines use the same renderer. `NickStatsGraphs.roundSeriesModel` prepares exact cumulative geometry; the timeline controller supplies its label and frame class or an EmptyState message. Selecting players/statistics and changing filters updates the existing root rather than replacing its DOM. Player and Group SVG IDs remain the same; their HTML placeholders are now GraphChartApp containers. The tooltip is shared by both profile graphs and exact match timelines.
+
+## Detailed-stat and Match analysis tabs
+
+SectionTabs reuses TabList and the existing synchronous selection store used by segmented controls. `section-tabs.mjs` defines the Player/Group section choices and Match analysis choices, labels, existing data attributes, tab IDs and panel references. `NickStatsSectionTabsUI.create(target, { kind, onChange })` mounts one root per tab bar; controllers synchronize selection with `set(value, { notify: false })` while retaining panel visibility and lazy data loading.
+
+All detailed-stat panels now have stable IDs, tabpanel roles and aria-labelledby references. The Group layout clone rewrites those references to Group IDs before React mounts its tabs. Match analysis retains its existing tab/panel IDs. Left/Right, Home/End and wrapping use the same behavior as workspace and comparison map tabs. Only the selected tab is in the Tab sequence, and keyed buttons preserve focus across state changes.
+
+Player profiles continue sharing one detailed-stat choice across open players. Group profiles share a separate choice. The Matches section still loads standalone history on demand; Match analysis still renders the requested detail when opened and resets to Scoreboard for a newly opened match. Controllers no longer attach tab click listeners or change active/tabindex/aria-selected attributes directly.

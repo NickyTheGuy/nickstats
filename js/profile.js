@@ -294,20 +294,15 @@
     component.querySelectorAll("[id]").forEach(element => {
       if (element.id.startsWith("player")) element.id = `combo${element.id.slice("player".length)}`;
     });
-    component.querySelectorAll("[for], [aria-controls]").forEach(element => {
-      for (const attribute of ["for", "aria-controls"]) {
+    component.querySelectorAll("[for], [aria-controls], [aria-labelledby]").forEach(element => {
+      for (const attribute of ["for", "aria-controls", "aria-labelledby"]) {
         const value = element.getAttribute(attribute);
         if (value) element.setAttribute(attribute, value.replace(/\bplayer(?=[A-Z])/g, "combo"));
       }
     });
-    component.querySelectorAll("[data-player-view]").forEach(element => {
-      element.dataset.comboProfileView = element.dataset.playerView; delete element.dataset.playerView;
-    });
     component.querySelectorAll("[data-player-profile-view]").forEach(element => {
       element.dataset.comboProfilePanel = element.dataset.playerProfileView; delete element.dataset.playerProfileView;
     });
-    const tabs = component.querySelector(".player-profile-tabs");
-    if (tabs) tabs.setAttribute("aria-label", "Conditional player statistics");
     target.replaceChildren(...component.childNodes);
   }
 

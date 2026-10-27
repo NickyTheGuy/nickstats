@@ -79,10 +79,7 @@
   }
   function setPlayerView(view) {
     state.view = view;
-    document.querySelectorAll("[data-player-view]").forEach(button => {
-      const active = button.dataset.playerView === view;
-      button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
-    });
+    profileSectionTabs.set(view, { notify: false });
     document.querySelectorAll("[data-player-profile-view]").forEach(panel => { panel.hidden = panel.dataset.playerProfileView !== view; });
     syncStatsToolbar();
     if (view === "matches" && state.display === "profile" && activeProfile()) renderPlayerMatches();
@@ -605,7 +602,7 @@
 
   window.NickStatsPlayerSearchUI.create({ prefix: "player", onSelect: player => loadProfile(player.id),
     initialMessage: "Search for a player to open their profile." });
-  document.querySelectorAll("[data-player-view]").forEach(button => button.addEventListener("click", () => setPlayerView(button.dataset.playerView)));
+  const profileSectionTabs = window.NickStatsSectionTabsUI.create("playerDetailTabsApp", { kind: "player", onChange: setPlayerView });
   window.NickStatsSegmentedUI.create("playerHistoryViewFilter", { onChange: view => {
       state.historyView = view; $("playerSessionsHelp").hidden = view !== "sessions"; renderPlayerMatches();
     } });

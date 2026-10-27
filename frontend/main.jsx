@@ -1,3 +1,4 @@
+import './section-tabs.jsx';
 import './chart.jsx';
 import './graph-output.jsx';
 import './graph-settings.jsx';

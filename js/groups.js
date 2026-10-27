@@ -391,10 +391,7 @@
 
   function setComboProfileView(view) {
     state.comboView = view;
-    document.querySelectorAll("[data-combo-profile-view]").forEach(button => {
-      const active = button.dataset.comboProfileView === view;
-      button.classList.toggle("active", active); button.setAttribute("aria-selected", String(active)); button.tabIndex = active ? 0 : -1;
-    });
+    profileSectionTabs.set(view, { notify: false });
     document.querySelectorAll("[data-combo-profile-panel]").forEach(panel => { panel.hidden = panel.dataset.comboProfilePanel !== view; });
   }
 
@@ -511,7 +508,7 @@
   $("comboMatchesNext").addEventListener("click", () => { state.matchListOffset += MATCH_LIST_LIMIT; runCombination(); });
   $("groupBuildButton").addEventListener("click", () => buildGroup());
   $("groupClearButton").addEventListener("click", clear);
-  document.querySelectorAll("[data-combo-profile-view]").forEach(button => button.addEventListener("click", () => setComboProfileView(button.dataset.comboProfileView)));
+  const profileSectionTabs = window.NickStatsSectionTabsUI.create("comboDetailTabsApp", { kind: "combo", onChange: setComboProfileView });
   const comboResultFilter = window.NickStatsSegmentedUI.create("comboResultFilter", { onChange: result => { state.result = result; runCombination(); } });
   const comboConditionFilter = window.NickStatsSegmentedUI.create("comboConditionFilter", {
     onChange: value => { state.comboCondition = value; runCombination(); }
