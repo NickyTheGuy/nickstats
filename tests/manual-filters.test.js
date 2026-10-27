@@ -6,7 +6,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const source = fs.readFileSync(path.join(__dirname, "../js/manual-filters.js"), "utf8");
 let createTagFilterStore;
-test.before(async () => { ({ createTagFilterStore } = await import('../frontend/state/tag-filter.mjs')); });
+test.before(async () => { ({ createTagFilterStore } = await import('../frontend/features/filters/state/tag-filter.mjs')); });
 function api() {
   const context = vm.createContext({ window: { addEventListener() {} }, document: { addEventListener() {} }, fetch() { throw new Error("Unexpected fetch"); } });
   vm.runInContext(source, context);

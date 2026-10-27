@@ -69,10 +69,10 @@ test("collapsed scoreboard summaries stay within their columns", () => {
 
 test("match scoreboard supports section, value-mode, and header detail controls", () => {
   assert.match(demo, /const Scoreboard = window\.NickStatsScoreboard/);
-  const view = fs.readFileSync(path.join(__dirname, "../frontend/components/Scoreboard.jsx"), "utf8");
-  const root = fs.readFileSync(path.join(__dirname, "../frontend/match-scoreboard.jsx"), "utf8");
-  const controls = fs.readFileSync(path.join(__dirname, "../frontend/components/ComparisonControls.jsx"), "utf8");
-  const table = fs.readFileSync(path.join(__dirname, "../frontend/components/ScoreboardTable.jsx"), "utf8");
+  const view = fs.readFileSync(path.join(__dirname, "../frontend/shared/scoreboard/Scoreboard.jsx"), "utf8");
+  const root = fs.readFileSync(path.join(__dirname, "../frontend/features/matches/adapters/scoreboard.jsx"), "utf8");
+  const controls = fs.readFileSync(path.join(__dirname, "../frontend/shared/scoreboard/ComparisonControls.jsx"), "utf8");
+  const table = fs.readFileSync(path.join(__dirname, "../frontend/shared/scoreboard/ScoreboardTable.jsx"), "utf8");
   assert.match(demo, /NickStatsMatchScoreboardUI\.render/);
   assert.match(root, /<Scoreboard model=\{model\}/);
   assert.match(root, /<ComparisonControls/);

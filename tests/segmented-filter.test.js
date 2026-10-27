@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const modules = Promise.all([import('../frontend/state/segmented-filter.mjs'), import('../frontend/state/segmented-config.mjs')]);
+const modules = Promise.all([import('../frontend/features/filters/state/segmented-filter.mjs'), import('../frontend/features/filters/state/segmented-config.mjs')]);
 
 test('segmented selections notify synchronously and silent reset avoids feedback callbacks', async () => {
   const [{ createSegmentedFilter }, { segmentedFilters }] = await modules;

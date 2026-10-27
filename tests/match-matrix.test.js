@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const model = import('../frontend/state/match-matrix.mjs');
+const model = import('../frontend/features/matches/state/match-matrix.mjs');
 
 test('duel identities distinguish equal names, fall back to names, and preserve self-kills and unavailable data', async () => {
   const { matchMatrix } = await model;

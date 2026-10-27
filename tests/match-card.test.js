@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const model = import('../frontend/state/match-card.mjs');
+const model = import('../frontend/features/matches/state/match-card.mjs');
 
 test('map artwork normalizes demo paths and gracefully handles unsupported maps', async () => {
   const { artworkFor } = await model;

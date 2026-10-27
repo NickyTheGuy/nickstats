@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const modulePromise = import('../frontend/state/player-search.mjs');
+const modulePromise = import('../frontend/features/players/state/player-search.mjs');
 const response = players => ({ ok: true, json: async () => ({ players }) });
 function pendingRequests() {
   const requests = [];

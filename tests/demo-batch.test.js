@@ -6,8 +6,8 @@ const path = require("node:path");
 const test = require("node:test");
 
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-const picker = fs.readFileSync(path.join(__dirname, "../frontend/components/FileDropZone.jsx"), "utf8");
-const queue = fs.readFileSync(path.join(__dirname, "../frontend/upload/BatchQueue.jsx"), "utf8");
+const picker = fs.readFileSync(path.join(__dirname, "../frontend/features/upload/FileDropZone.jsx"), "utf8");
+const queue = fs.readFileSync(path.join(__dirname, "../frontend/features/upload/BatchQueue.jsx"), "utf8");
 const source = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), "utf8");
 
 test("the demo picker accepts and displays a multi-file queue", () => {

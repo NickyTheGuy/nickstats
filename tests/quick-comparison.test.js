@@ -10,10 +10,10 @@ const scoreboardSource = fs.readFileSync(path.join(__dirname, "..", "js", "score
 const compareSource = fs.readFileSync(path.join(__dirname, "..", "js", "groups.js"), "utf8");
 const playersSource = fs.readFileSync(path.join(__dirname, "..", "js", "players.js"), "utf8");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
-const workspace = fs.readFileSync(path.join(__dirname, "../frontend/navigation/WorkspaceTabs.jsx"), "utf8");
-const controlsSource = fs.readFileSync(path.join(__dirname, "../frontend/components/ComparisonControls.jsx"), "utf8");
-const viewSource = fs.readFileSync(path.join(__dirname, "../frontend/components/Scoreboard.jsx"), "utf8");
-const tableSource = fs.readFileSync(path.join(__dirname, "../frontend/components/ScoreboardTable.jsx"), "utf8");
+const workspace = fs.readFileSync(path.join(__dirname, "../frontend/features/navigation/WorkspaceTabs.jsx"), "utf8");
+const controlsSource = fs.readFileSync(path.join(__dirname, "../frontend/shared/scoreboard/ComparisonControls.jsx"), "utf8");
+const viewSource = fs.readFileSync(path.join(__dirname, "../frontend/shared/scoreboard/Scoreboard.jsx"), "utf8");
+const tableSource = fs.readFileSync(path.join(__dirname, "../frontend/shared/scoreboard/ScoreboardTable.jsx"), "utf8");
 const styles = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
 
 test("match and quick comparison use React scoreboards without legacy DOM rendering", () => {
@@ -154,7 +154,7 @@ test("player and group quick-comparison switches sit above shared filters", () =
 
 test("player, group, and match views share a two-row economy matchup control", () => {
   for (const attribute of ["data-player-buy", "data-player-enemy-buy", "data-group-buy", "data-group-enemy-buy", "data-demo-buy", "data-demo-enemy-buy"]) {
-    assert.match(fs.readFileSync(path.join(__dirname, "../frontend/state/segmented-config.mjs"), "utf8"), new RegExp(attribute));
+    assert.match(fs.readFileSync(path.join(__dirname, "../frontend/features/filters/state/segmented-config.mjs"), "utf8"), new RegExp(attribute));
   }
   assert.match(html, /economy-matchup-title">Economy matchup/);
   assert.match(html, />Your buy</);

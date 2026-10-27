@@ -7,13 +7,13 @@ const read = file => fs.readFileSync(path.join(__dirname, '..', file), 'utf8');
 test('React controls replace the native-select adapter and global touch interception', () => {
   assert.doesNotMatch(read('index.html'), /js\/dropdown\.js/);
   assert.equal(fs.existsSync(path.join(__dirname, '../js/dropdown.js')), false);
-  for (const file of ['frontend/components/Dropdown.jsx', 'frontend/components/OptionDropdown.jsx']) {
+  for (const file of ['frontend/shared/components/forms/Dropdown.jsx', 'frontend/shared/components/forms/OptionDropdown.jsx']) {
     assert.doesNotMatch(read(file), /touchstart|touchend|\.click\(\)/);
   }
 });
 
 test('option dropdown uses shared buttons and skips disabled options during keyboard navigation', () => {
-  const source = read('frontend/components/OptionDropdown.jsx');
+  const source = read('frontend/shared/components/forms/OptionDropdown.jsx');
   assert.match(source, /<Button/);
   assert.match(source, /button:not\(:disabled\)/);
   assert.match(source, /ArrowDown[\s\S]*ArrowUp[\s\S]*Home[\s\S]*End/);
@@ -21,7 +21,7 @@ test('option dropdown uses shared buttons and skips disabled options during keyb
 });
 
 test('dropdowns dismiss outside pointer presses and restore focus on Escape', () => {
-  const source = read('frontend/components/Dropdown.jsx');
+  const source = read('frontend/shared/components/forms/Dropdown.jsx');
   assert.match(source, /addEventListener\('pointerdown', dismiss, true\)/);
   assert.match(source, /contains\(event\.target\)/);
   assert.match(source, /removeEventListener\('pointerdown', dismiss, true\)/);

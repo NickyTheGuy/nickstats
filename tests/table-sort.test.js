@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const modulePromise = import('../frontend/state/table-sort.mjs');
+const modulePromise = import('../frontend/shared/state/table-sort.mjs');
 
 test('table sorts raw numeric values rather than rounded or styled display values without mutating input', async () => {
   const { sortTableRows } = await modulePromise;

@@ -7,9 +7,9 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 test("bars and lines render for match trends and exact-round deaths", async () => {
-  const { createGraphSettings } = await import("../frontend/state/graph-settings.mjs");
-  const { graphOutputModel } = await import("../frontend/state/graph-output.mjs");
-  const { chartFrame, chartMark } = await import("../frontend/state/chart.mjs");
+  const { createGraphSettings } = await import("../frontend/features/graphs/state/graph-settings.mjs");
+  const { graphOutputModel } = await import("../frontend/features/graphs/state/graph-output.mjs");
+  const { chartFrame, chartMark } = await import("../frontend/features/graphs/state/chart.mjs");
   let settings, output, svg;
   const nodes = new Map();
   class Element {

@@ -19,7 +19,7 @@ test("match previews use the selected player and match side totals", async () =>
   assert.match(queries, /rating: stats\.rating[\s\S]*?adr: stats\.averageDamagePerRound/);
   assert.match(models, /case viewerStats = "viewer_stats"/);
   assert.match(players, /parameters\.set\("viewer_player_id", profilePlayerID\)/);
-  const { previewStats } = await import('../frontend/state/match-card.mjs');
+  const { previewStats } = await import('../frontend/features/matches/state/match-card.mjs');
   assert.deepEqual(previewStats({ rating: 1.2, kills: 20, deaths: 10, assists: 5, adr: 81.25 }), [['Rating', '1.20'], ['K-D-A', '20-10-5'], ['ADR', '81.3']]);
 });
 
@@ -30,7 +30,7 @@ test("match list exposes the database-wide earliest played date for every range 
 });
 
 test("selected viewer's team appears first only in matches they played", async () => {
-  const { teamsFor } = await import('../frontend/state/match-card.mjs');
+  const { teamsFor } = await import('../frontend/features/matches/state/match-card.mjs');
   const match = { teams: [{ name: 'First' }, { name: 'Mine' }], viewer_team_slot: 1 };
   assert.deepEqual(teamsFor(match).map(team => team.name), ['Mine', 'First']);
   assert.deepEqual(teamsFor({ ...match, viewer_team_slot: null }).map(team => team.name), ['First', 'Mine']);
@@ -64,7 +64,7 @@ test("match loading reserves page height and cancels obsolete requests", () => {
 });
 
 test("match details use a stable, filter-independent React banner", () => {
-  const banner = fs.readFileSync(path.join(__dirname, "../frontend/matches/MatchBanner.jsx"), "utf8");
+  const banner = fs.readFileSync(path.join(__dirname, "../frontend/features/matches/MatchBanner.jsx"), "utf8");
   assert.match(html, /id="demoMatchBannerApp"/);
   assert.match(demo, /ui\.banner\.update\(\{ result, accountSteamID: state\.accountPlayerSteamID \}\)/);
   assert.match(banner, /artworkFor\(map\)/);

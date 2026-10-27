@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const modulePromise = import('../frontend/state/map-filter.mjs');
+const modulePromise = import('../frontend/features/filters/state/map-filter.mjs');
 
 test('map options are unique and selected values survive only while available', async () => {
   const { createMapFilterStore } = await modulePromise;

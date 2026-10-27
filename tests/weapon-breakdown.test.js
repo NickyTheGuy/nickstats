@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const modulePromise = import('../frontend/state/weapon-breakdown.mjs');
+const modulePromise = import('../frontend/features/matches/state/weapon-breakdown.mjs');
 
 test('weapon rates use rounds used, while usage uses player rounds, preserving raw sort precision', async () => {
   const { weaponBreakdown } = await modulePromise;
@@ -30,7 +30,7 @@ test('weapon labels cover known weapons, unknown IDs and missing or zero denomin
 
 test('weapon sort mode restores original event order, keeps ties stable, and leaves other table sort behavior unchanged', async () => {
   const { weaponBreakdown } = await modulePromise;
-  const { nextTableSort, sortTableRows } = await import('../frontend/state/table-sort.mjs');
+  const { nextTableSort, sortTableRows } = await import('../frontend/shared/state/table-sort.mjs');
   const model = weaponBreakdown({ weapon_stats: [{ weapon: 'awp', kills: 1 }, { weapon: 'ak47', kills: 3 }, { weapon: 'knife', kills: 3 }] });
   const sort = nextTableSort(null, 1, true);
   assert.deepEqual(sortTableRows(model.rows, model.sortRows, sort).map(row => row.values[0]), ['AK-47', 'Knife', 'AWP']);

@@ -1,5 +1,5 @@
 const test = require('node:test'), assert = require('node:assert/strict');
-const modules = import('../frontend/state/graph-settings.mjs');
+const modules = import('../frontend/features/graphs/state/graph-settings.mjs');
 const config = {metricId:'kills', xMetricId:'tag:1', supportsRounds:true, roundOnly:false};
 
 test('graph view constraints enforce round differential and restore match view for unsupported stats', async () => {

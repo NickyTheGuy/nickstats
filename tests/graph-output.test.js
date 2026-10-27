@@ -1,5 +1,5 @@
 const test = require('node:test'), assert = require('node:assert/strict');
-const modules = import('../frontend/state/graph-output.mjs');
+const modules = import('../frontend/features/graphs/state/graph-output.mjs');
 const metric = {label:'Rating',digits:2,suffix:'%'}, xMetric={label:'Sleep',digits:1,suffix:'h'};
 const base = {roundsMode:false,relationship:false,metric,xMetric,unit:'match',colors:['red','blue','green'],note:'Graph note',format:(value,metric)=>`${value.toFixed(metric.digits)}${metric.suffix}`};
 

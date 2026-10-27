@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 let DateRangeFilter;
-test.before(async () => { ({ DateRangeStore: DateRangeFilter } = await import('../frontend/state/date-range.mjs')); });
+test.before(async () => { ({ DateRangeStore: DateRangeFilter } = await import('../frontend/features/filters/state/date-range.mjs')); });
 
 test("date range covers whole local days and excludes undated matches only while active", () => {
   const filter = new DateRangeFilter();

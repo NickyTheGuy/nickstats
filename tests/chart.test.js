@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const modules=import('../frontend/state/chart.mjs');
+const modules=import('../frontend/features/graphs/state/chart.mjs');
 test('tooltip boxes remain within horizontal graph bounds and flip below markers near the top',async()=>{
  const {tooltipBox}=await modules;
  for(const x of [-100,0,450,900,1200]){

@@ -1,5 +1,5 @@
 const test = require('node:test'), assert = require('node:assert/strict');
-const modulePromise = import('../frontend/state/metric-picker.mjs');
+const modulePromise = import('../frontend/features/graphs/state/metric-picker.mjs');
 const choices = [{ id: 'rating', label: 'Rating', group: 'Core' }, { id: 'kills', label: 'Kills', group: 'Core' },
   { id: 'opening', label: 'Opening kills per round', group: 'Opening' }, { id: 'tag:1', label: 'Sleep hours', group: 'Tags' }];
 const config = { choices, categories: [['All','All categories'], ['Core','Core'], ['Opening','Opening'], ['Tags','Tags']], metricId:'rating', category:'Core', query:null };

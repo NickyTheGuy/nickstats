@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const modulePromise = import('../frontend/state/account-api.mjs');
+const modulePromise = import('../frontend/features/account/state/account-api.mjs');
 
 test('account requests retain session endpoints and payloads, trim usernames, and clear linked players with null', async () => {
   const { createAccountAPI } = await modulePromise;

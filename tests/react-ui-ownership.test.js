@@ -13,7 +13,7 @@ test('HTML is a static app shell and all interactive elements are owned by React
 });
 
 test('Player and Group profile layouts share stable, labeled section panels without DOM cloning', async () => {
-  const { sectionTabs } = await import('../frontend/state/section-tabs.mjs');
+  const { sectionTabs } = await import('../frontend/features/navigation/state/section-tabs.mjs');
   for (const prefix of ['player', 'combo']) {
     const source = require('./helpers/profile-template')(prefix);
     const panels = [...source.matchAll(/id="([^"]+)" role="tabpanel" aria-labelledby=\{`([^`]+)`\}/g)];

@@ -7,8 +7,8 @@ const test = require("node:test");
 
 const root = path.join(__dirname, "..");
 const frontend = fs.readFileSync(path.join(root, "js", "demo.js"), "utf8");
-const api = fs.readFileSync(path.join(root, "frontend/state/account-api.mjs"), "utf8");
-const accountView = fs.readFileSync(path.join(root, "frontend/account/AccountSettings.jsx"), "utf8");
+const api = fs.readFileSync(path.join(root, "frontend/features/account/state/account-api.mjs"), "utf8");
+const accountView = fs.readFileSync(path.join(root, "frontend/features/account/AccountSettings.jsx"), "utf8");
 const routes = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Routes.swift"), "utf8");
 const auth = fs.readFileSync(path.join(root, "backend", "Sources", "NickStatsAPI", "Auth.swift"), "utf8");
 const index = fs.readFileSync(path.join(root, "index.html"), "utf8");

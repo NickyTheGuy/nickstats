@@ -2,60 +2,66 @@
 
 The interface now uses React throughout: navigation, account and upload forms, profile layouts and statistics, graphs, comparisons, Sessions, filters and match lists. Small components such as Button, TextField, TabList, Pagination, StatSection and the shared tables are reused across screens. The static HTML supplies page containers and mount points. Existing JavaScript controllers retain routing, fetching, filtering, statistical calculations, compression and parser workers; they publish data to React rather than building UI nodes.
 
+## Source organization
+
+Start with [the frontend guide](../frontend/README.md). `frontend/main.jsx` only loads feature entry points. Each feature owns its components, `mount.jsx` entry, controller adapters, state and specialized hooks. Shared UI primitives are grouped by purpose under `frontend/shared/components`; shared scoreboards, hooks and table-sort state have their own locations under `shared`.
+
 ## Where to edit
 
 | What you want to change | File |
 | --- | --- |
-| Shared profile and graph layouts | `frontend/profile-layout.jsx`, `frontend/components/StatSection.jsx` |
-| Page controls, status messages, pagination and tabs | `frontend/shell.jsx`, `frontend/state/shell-elements.mjs`, `frontend/components/Pagination.jsx` |
-| Match summary banner | `frontend/matches/MatchBanner.jsx` |
-| Login/account settings and API actions | `frontend/account/`, `frontend/state/account-api.mjs` |
-| Upload selection, queue and actions | `frontend/upload/`, `frontend/state/upload.mjs` |
-| Session title, loading/error messages, page layout | `frontend/pages/SessionPage.jsx` |
-| Profile cards, metric lists and count strips | `frontend/components/StatCard.jsx`, `MetricList.jsx`, `CountStrip.jsx`, `frontend/profile/StatCards.jsx` |
-| Shared sortable table and sort state | `frontend/components/DataTable.jsx`, `frontend/hooks/useSortedRows.js`, `frontend/state/table-sort.mjs` |
-| Profile rendering bridge | `frontend/profile.jsx` |
-| Group roster, recent players and graph selection | `frontend/players/PlayerRoster.jsx`, `RecentPlayers.jsx`, `GraphPlayerChoices.jsx` |
-| Player selection mounting/data bridge | `frontend/player-selection.jsx` |
-| Shared SVG chart, marks and tooltip | `frontend/graphs/Chart.jsx`, `SvgMark.jsx`, `ChartTooltip.jsx` |
-| Chart model, mounting and tooltip interaction | `frontend/state/chart.mjs`, `frontend/chart.jsx`, `frontend/hooks/useChartTooltip.js` |
-| Graph summaries, legends, notes and empty states | `frontend/graphs/GraphSummary.jsx`, `GraphLegend.jsx`, `frontend/graph-output.jsx` |
-| Shared summary card, legend key and empty state | `frontend/components/SummaryCard.jsx`, `ColorKey.jsx`, `EmptyState.jsx` |
-| Graph summary model and statistics | `frontend/state/graph-output.mjs` |
-| Graph view, type, display and bucket UI | `frontend/graphs/GraphSettings.jsx`, `BucketControls.jsx`, `frontend/components/OptionField.jsx`, `NumberStepper.jsx` |
-| Graph settings, metric-specific drafts and constraints | `frontend/state/graph-settings.mjs`, `frontend/graph-settings.jsx` |
-| Graph statistic/category selectors and autocomplete | `frontend/graphs/MetricPicker.jsx`, `frontend/components/Autocomplete.jsx` |
-| Metric search, drafts and keyboard selection | `frontend/state/metric-picker.mjs`, `frontend/metric-picker.jsx` |
-| Player/Group search layout and result buttons | `frontend/search/PlayerSearch.jsx`, `PlayerSearchResult.jsx` |
-| Shared search form and player identity | `frontend/components/SearchForm.jsx`, `PlayerIdentity.jsx` |
-| Search requests, debounce and cancellation | `frontend/state/player-search.mjs` |
-| Player/Group comparison headings | `frontend/pages/ComparisonPage.jsx` |
-| Shared map tabs and empty states | `frontend/components/ComparisonBody.jsx` |
-| Segmented filters and shared choices | `frontend/filters/SegmentedFilter.jsx`, `frontend/state/segmented-config.mjs` |
-| Segmented selection and disabled state | `frontend/state/segmented-filter.mjs` |
-| Shared buttons, toggles, option groups | `frontend/components/Button.jsx`, `ToggleButton.jsx`, `ToggleGroup.jsx` |
-| Detail/analysis tabs and shared section choices | `frontend/navigation/SectionTabs.jsx`, `frontend/state/section-tabs.mjs`, `frontend/section-tabs.jsx` |
-| Tab selection, closing and keyboard navigation | `frontend/components/TabList.jsx`, `CloseButton.jsx` |
-| Player/Group workspace tabs and Session peers | `frontend/navigation/WorkspaceTabs.jsx`, `frontend/navigation.jsx` |
-| Comparison UI state and actions | `frontend/hooks/useComparison.js`, `frontend/state/comparison.mjs` |
-| Match tag editing and numeric-value drafts | `frontend/tags/MatchTagEditor.jsx`, `frontend/components/TagValueForm.jsx` |
-| Match lists and grouped Session history | `frontend/matches/MatchList.jsx`, `MatchCard.jsx`, `SessionHistory.jsx` |
-| Shared map artwork and rating/K-D-A/ADR preview | `frontend/components/MapArtwork.jsx`, `StatPreview.jsx` |
-| Card data formatting and scores | `frontend/state/match-card.mjs` |
-| List mounting/data bridge | `frontend/match-list.jsx` |
-| Shared account tag subscription | `frontend/hooks/useManualTags.js` |
-| Tag filter UI, conditions, creation and sharing | `frontend/filters/TagFilter.jsx`, `frontend/components/TagCondition.jsx`, `TagCreateForm.jsx`, `TagShareMenu.jsx` |
-| Tag selection and account synchronization | `frontend/state/tag-filter.mjs` |
-| Date filter UI and reusable calendars | `frontend/filters/DateRangeFilter.jsx`, `frontend/components/Calendar.jsx` |
-| Month selector and option dropdowns | `frontend/components/OptionDropdown.jsx` |
-| Date bounds, draft range and month navigation | `frontend/state/date-range.mjs` |
-| Map filter UI | `frontend/filters/MapFilter.jsx` |
-| Dropdown dismissal and checkbox options | `frontend/components/Dropdown.jsx`, `CheckboxGroup.jsx` |
-| Map selection and matching | `frontend/state/map-filter.mjs` |
-| Persisted section preferences | `frontend/state/sections.mjs` |
-| Sections and value-mode buttons | `frontend/components/ComparisonControls.jsx` |
-| Scoreboard table markup, group headings, cell layout | `frontend/components/Scoreboard.jsx` |
-| Sort buttons | `frontend/components/SortHeading.jsx` |
+| Shared profile and graph layouts | `frontend/features/profiles/layout.jsx`, `frontend/features/profiles/StatSection.jsx` |
+| Page controls, status messages, pagination and tabs | `frontend/features/app/mount.jsx`, `frontend/features/app/state/elements.mjs`, `frontend/shared/components/navigation/Pagination.jsx` |
+| Match summary banner | `frontend/features/matches/MatchBanner.jsx` |
+| Login/account settings and API actions | `frontend/features/account/`, `frontend/features/account/state/account-api.mjs` |
+| Upload selection, queue and actions | `frontend/features/upload/`, `frontend/features/upload/state/upload.mjs` |
+| Session title, loading/error messages, page layout | `frontend/features/sessions/SessionPage.jsx` |
+| Profile cards, metric lists and count strips | `frontend/shared/components/stats/StatCard.jsx`, `MetricList.jsx`, `CountStrip.jsx`, `frontend/features/profiles/StatCards.jsx` |
+| Shared sortable table and sort state | `frontend/shared/components/tables/DataTable.jsx`, `frontend/shared/hooks/useSortedRows.js`, `frontend/shared/state/table-sort.mjs` |
+| Profile rendering bridge | `frontend/features/profiles/adapters/stats.jsx` |
+| Group roster and recent players | `frontend/features/players/PlayerRoster.jsx`, `RecentPlayers.jsx` |
+| Graph player selection | `frontend/features/graphs/GraphPlayerChoices.jsx` |
+| Player selection mounting/data bridge | `frontend/features/players/adapters/selection.jsx` |
+| Shared SVG chart, marks and tooltip | `frontend/features/graphs/Chart.jsx`, `SvgMark.jsx`, `ChartTooltip.jsx` |
+| Chart model, mounting and tooltip interaction | `frontend/features/graphs/state/chart.mjs`, `frontend/features/graphs/adapters/chart.jsx`, `frontend/features/graphs/hooks/useChartTooltip.js` |
+| Graph summaries, legends, notes and empty states | `frontend/features/graphs/GraphSummary.jsx`, `GraphLegend.jsx`, `frontend/features/graphs/adapters/output.jsx` |
+| Shared summary card and empty state | `frontend/shared/components/stats/SummaryCard.jsx`, `frontend/shared/components/feedback/EmptyState.jsx` |
+| Graph legend key | `frontend/features/graphs/ColorKey.jsx` |
+| Graph summary model and statistics | `frontend/features/graphs/state/graph-output.mjs` |
+| Graph view, type, display and bucket UI | `frontend/features/graphs/GraphSettings.jsx`, `BucketControls.jsx`, `frontend/shared/components/forms/OptionField.jsx`, `NumberStepper.jsx` |
+| Graph settings, metric-specific drafts and constraints | `frontend/features/graphs/state/graph-settings.mjs`, `frontend/features/graphs/adapters/settings.jsx` |
+| Graph statistic/category selectors and autocomplete | `frontend/features/graphs/MetricPicker.jsx`, `frontend/features/graphs/Autocomplete.jsx` |
+| Metric search, drafts and keyboard selection | `frontend/features/graphs/state/metric-picker.mjs`, `frontend/features/graphs/adapters/metric-picker.jsx` |
+| Player/Group search layout and result buttons | `frontend/features/players/search/PlayerSearch.jsx`, `PlayerSearchResult.jsx` |
+| Shared search form and player identity | `frontend/shared/components/forms/SearchForm.jsx`, `PlayerIdentity.jsx` |
+| Search requests, debounce and cancellation | `frontend/features/players/state/player-search.mjs` |
+| Player/Group comparison headings | `frontend/features/comparisons/ComparisonPage.jsx` |
+| Shared map tabs and empty states | `frontend/features/comparisons/ComparisonBody.jsx` |
+| Segmented filters and shared choices | `frontend/features/filters/SegmentedFilter.jsx`, `frontend/features/filters/state/segmented-config.mjs` |
+| Segmented selection and disabled state | `frontend/features/filters/state/segmented-filter.mjs` |
+| Shared buttons, toggles, option groups | `frontend/shared/components/buttons/Button.jsx`, `ToggleButton.jsx`, `ToggleGroup.jsx` |
+| Detail/analysis tabs and shared section choices | `frontend/features/navigation/SectionTabs.jsx`, `frontend/features/navigation/state/section-tabs.mjs`, `frontend/features/navigation/adapters/sections.jsx` |
+| Tab selection, closing and keyboard navigation | `frontend/shared/components/navigation/TabList.jsx`, `CloseButton.jsx` |
+| Player/Group workspace tabs and Session peers | `frontend/features/navigation/WorkspaceTabs.jsx`, `frontend/features/navigation/adapters/workspace.jsx` |
+| Comparison UI state and actions | `frontend/features/comparisons/hooks/useComparison.js`, `frontend/features/comparisons/state/comparison.mjs` |
+| Match tag editing and numeric-value drafts | `frontend/features/tags/MatchTagEditor.jsx`, `frontend/features/tags/TagValueForm.jsx` |
+| Match lists and grouped Session history | `frontend/features/matches/MatchList.jsx`, `MatchCard.jsx`, `SessionHistory.jsx` |
+| Shared map artwork and rating/K-D-A/ADR preview | `frontend/features/matches/MapArtwork.jsx`, `StatPreview.jsx` |
+| Card data formatting and scores | `frontend/features/matches/state/match-card.mjs` |
+| List mounting/data bridge | `frontend/features/matches/adapters/list.jsx` |
+| Shared account tag subscription | `frontend/features/tags/hooks/useManualTags.js` |
+| Tag filter UI, conditions, creation and sharing | `frontend/features/filters/TagFilter.jsx`, `frontend/features/tags/TagCondition.jsx`, `TagCreateForm.jsx`, `TagShareMenu.jsx` |
+| Tag selection and account synchronization | `frontend/features/filters/state/tag-filter.mjs` |
+| Date filter UI and reusable calendars | `frontend/features/filters/DateRangeFilter.jsx`, `frontend/features/filters/Calendar.jsx` |
+| Month selector and option dropdowns | `frontend/shared/components/forms/OptionDropdown.jsx` |
+| Date bounds, draft range and month navigation | `frontend/features/filters/state/date-range.mjs` |
+| Map filter UI | `frontend/features/filters/MapFilter.jsx` |
+| Dropdown dismissal and checkbox options | `frontend/shared/components/forms/Dropdown.jsx`, `CheckboxGroup.jsx` |
+| Map selection and matching | `frontend/features/filters/state/map-filter.mjs` |
+| Persisted section preferences | `frontend/features/comparisons/state/sections.mjs` |
+| Sections and value-mode buttons | `frontend/shared/scoreboard/ComparisonControls.jsx` |
+| Scoreboard table markup, group headings, cell layout | `frontend/shared/scoreboard/Scoreboard.jsx` |
+| Sort buttons | `frontend/shared/components/tables/SortHeading.jsx` |
 | Colors, spacing, typography | `styles.css` |
 | Which statistics appear and how values are formatted | `js/quick-comparison.js` |
 | Session data fetching and URL/tab behavior | `js/sessions.js` |
@@ -83,7 +89,7 @@ Frontend CI rebuilds the bundle and checks that the committed output matches the
 
 ## How the comparison migration works
 
-`frontend/main.jsx` mounts SessionPage inside `#sessionApp` and exposes a small adapter for the existing session controller. React owns that subtree, including loading/error states. `frontend/comparison-store.mjs` publishes controller input and loading status to React with immutable snapshots and `useSyncExternalStore`. The controller supplies data and calls `loading`, `error`, or `render`; it never edits React's elements directly.
+`frontend/main.jsx` loads feature entry points; `frontend/features/sessions/mount.jsx` mounts SessionPage inside `#sessionApp` and exposes a small adapter for the existing session controller. React owns that subtree, including loading/error states. `frontend/features/comparisons/state/store.mjs` publishes controller input and loading status to React with immutable snapshots and `useSyncExternalStore`. The controller supplies data and calls `loading`, `error`, or `render`; it never edits React's elements directly.
 
 `useComparison` owns map selection, value mode, utility basis, sorting, group expansion, and subgroup cycling through a React reducer. Shared section preferences use a small external store with `useSyncExternalStore`, preserving the existing localStorage key. Each comparison retains its own map and display state. `NickStatsQuickComparison.model(input, viewState)` computes formatted stats from a copy of that state; it does not subscribe to UI events or create DOM nodes. The earlier DOM-rendering path has been removed; the same stat model is used in component tests.
 
@@ -117,11 +123,11 @@ The date calendar retains the existing CSS classes and custom month menu styling
 
 Player matches, expanded Player sessions and Group match lists include MatchTagEditor directly inside each React MatchCard. It reuses Dropdown, ToggleGroup and TagCreateForm. TagValueForm keeps a numeric draft separate from the saved value; empty input saves Unknown. It preserves text typed during a pending save and retains drafts on failures. Shared tags render read-only values, and pending controls are disabled. `useManualTags` subscribes to the existing account store's version so assignments, capabilities and errors remain consistent across controls.
 
-MatchTagEditor is a normal child of MatchCard. Lists use stable match IDs as React keys so form drafts and focus survive data updates. React unmounts editors and subscriptions when cards leave the list. The previous per-card mounting adapter and DOM observer have been removed. Only one match tag editor opens at a time, managed by the small shared store in `frontend/state/match-editor.mjs`.
+MatchTagEditor is a normal child of MatchCard. Lists use stable match IDs as React keys so form drafts and focus survive data updates. React unmounts editors and subscriptions when cards leave the list. The previous per-card mounting adapter and DOM observer have been removed. Only one match tag editor opens at a time, managed by the small shared store in `frontend/features/tags/state/match-editor.mjs`.
 
 ## Match lists and Session history
 
-`NickStatsMatchList.render` publishes matches and an open callback into a React root for each persistent list container. `renderSessions` publishes grouped history into the same Player list root; `clear` empties it through React rather than replacing managed DOM. MatchCard, MapArtwork and StatPreview are reused for the Match page, Player matches, expanded Sessions and Group matches. Scores, viewer-team order, artwork normalization and accessible labels come from pure helpers in `frontend/state/match-card.mjs`. The React MatchBanner shares the same artwork and score helpers.
+`NickStatsMatchList.render` publishes matches and an open callback into a React root for each persistent list container. `renderSessions` publishes grouped history into the same Player list root; `clear` empties it through React rather than replacing managed DOM. MatchCard, MapArtwork and StatPreview are reused for the Match page, Player matches, expanded Sessions and Group matches. Scores, viewer-team order, artwork normalization and accessible labels come from pure helpers in `frontend/features/matches/state/match-card.mjs`. The React MatchBanner shares the same artwork and score helpers.
 
 SessionHistory owns expand/collapse state and renders nested MatchList components. Its header opens the existing routed Session tab; Show/Hide matches expands the group independently. The Player controller still computes session boundaries, filtered summaries, records and pagination, while React owns cards and their interactions. Existing routing, API queries, filter scopes and loading/error messages are preserved.
 
@@ -154,7 +160,7 @@ CheckboxGroup accepts optional label classes, per-option input properties and a 
 
 DataTable uses the shared SortHeading button and `useSortedRows` hook. Each mounted table owns its sort choice, so changing a filter, switching profiles, or temporarily showing no rows retains that choice. Name columns start ascending; statistic columns start descending; clicking again reverses the order. Sorting uses separate raw values to avoid comparing rounded percentages or colored display objects, and ties retain their input order. React updates keyed headings so keyboard focus survives sorting and data refreshes. Row/column scopes and aria-sort describe the current table state.
 
-`profile-layout.jsx` renders one parameterized ProfileLayout and GraphLayout for Player and Group. StatSection supplies reusable section headings and wrappers. A synchronous initial mount makes their empty data-view containers available before the controllers attach their persistent roots. Layouts are mounted once; controllers never clone or replace populated React containers.
+`features/profiles/layout.jsx` renders one parameterized ProfileLayout and GraphLayout for Player and Group. StatSection supplies reusable section headings and wrappers. A synchronous initial mount makes their empty data-view containers available before the controllers attach their persistent roots. Layouts are mounted once; controllers never clone or replace populated React containers.
 
 ## Workspace navigation
 
@@ -204,20 +210,20 @@ All detailed-stat panels now have stable IDs, tabpanel roles and aria-labelledby
 
 Player profiles continue sharing one detailed-stat choice across open players. Group profiles share a separate choice. The Matches section still loads standalone history on demand; Match analysis still renders the requested detail when opened and resets to Scoreboard for a newly opened match. Controllers no longer attach tab click listeners or change active/tabindex/aria-selected attributes directly.
 
-Match timeline controls use `matches/TimelineControls.jsx`, shared `OptionField` dropdowns and `CheckboxGroup`. The match controller retains metric, display and selected-player state and publishes props through `NickStatsTimelineControlsUI`; keyed checkboxes preserve focus when selections change. Player selection is retained while viewing team round differential and resets to the linked player (or first available player) for a different match.
+Match timeline controls use `features/matches/TimelineControls.jsx`, shared `OptionField` dropdowns and `CheckboxGroup`. The match controller retains metric, display and selected-player state and publishes props through `NickStatsTimelineControlsUI`; keyed checkboxes preserve focus when selections change. Player selection is retained while viewing team round differential and resets to the linked player (or first available player) for a different match.
 
-Match Duels and Trade responses use the shared `components/MatrixTable.jsx`. `state/match-matrix.mjs` maps filtered teams into row/column labels, tooltips and colored cells. Missing duels stay unavailable; missing teammate trade responses stay zero; self/opponent trade cells stay unavailable. Persistent React roots preserve the existing table containers and scrolling while filters change.
+Match Duels and Trade responses use the shared `shared/components/tables/MatrixTable.jsx`. `features/matches/state/match-matrix.mjs` maps filtered teams into row/column labels, tooltips and colored cells. Missing duels stay unavailable; missing teammate trade responses stay zero; self/opponent trade cells stay unavailable. Persistent React roots preserve the existing table containers and scrolling while filters change.
 
-Match weapon breakdowns use `matches/WeaponBreakdown.jsx`, the shared `Disclosure` and sortable `DataTable`. `state/weapon-breakdown.mjs` formats labels and rates while retaining raw sort values. Each keyed player retains independent expansion and sorting through filters and section switches; loading another stored match resets both. Weapon headings toggle between their default sort direction and original event order using the table’s optional `toggleOff` mode. Empty tables retain their headings and show an empty message.
+Match weapon breakdowns use `features/matches/WeaponBreakdown.jsx`, the shared `Disclosure` and sortable `DataTable`. `features/matches/state/weapon-breakdown.mjs` formats labels and rates while retaining raw sort values. Each keyed player retains independent expansion and sorting through filters and section switches; loading another stored match resets both. Weapon headings toggle between their default sort direction and original event order using the table’s optional `toggleOff` mode. Empty tables retain their headings and show an empty message.
 
 The Match scoreboard now supplies a plain view model to the same React `Scoreboard` and `ComparisonControls` used by comparisons and Sessions. `ScoreboardTable` renders both team tables with shared measured column widths and synchronized scrolling. The match controller retains all stat formatting, filtered calculations and multi-mode sort rules; React owns the buttons, headers, rows and focus. Group expansion, R subgroup cycling and scroll anchoring use the shared scoreboard implementation. Match defaults and Totals/Per round choices remain distinct from comparison settings.
 
-Account login and settings now render through `account.jsx`, `account/LoginForm`, `AccountSettings` and `PasswordForm`. Shared `Modal`, `TextField`, `FormMessage`, `Button` and `useAsyncAction` own focus, inputs, validation, pending states and errors. Account linking uses the existing cancellable player-search store. `state/account-api.mjs` sends cookie-authenticated API requests; passwords stay in the form and are discarded on close. The match controller still applies sessions, dispatches account events and resumes pending parsing/uploads after login. No registration form is introduced.
+Account login and settings now render through `features/account/mount.jsx`, `features/account/LoginForm`, `AccountSettings` and `PasswordForm`. Shared `Modal`, `TextField`, `FormMessage`, `Button` and `useAsyncAction` own focus, inputs, validation, pending states and errors. Account linking uses the existing cancellable player-search store. `features/account/state/account-api.mjs` sends cookie-authenticated API requests; passwords stay in the form and are discarded on close. The match controller still applies sessions, dispatches account events and resumes pending parsing/uploads after login. No registration form is introduced.
 
-The upload/parser interface uses `upload/UploadPanel`, `UploadActions` and `BatchQueue`, backed by the subscribable `state/upload.mjs` display store. Shared `FileDropZone`, `ProgressBar`, `FormMessage`, `Disclosure` and buttons render selection, queue progress and diagnostics. `upload.jsx` also owns the JSON download actions through portals. File reads, compression, parser workers, duplicate handling, sequential uploads and wake locks remain in the controller. Parsing and saving lock file selection and Clear to keep in-flight results tied to the chosen files; login continuation and retry/replacement still use the existing controller paths.
+The upload/parser interface uses `upload/UploadPanel`, `UploadActions` and `BatchQueue`, backed by the subscribable `features/upload/state/upload.mjs` display store. Shared `FileDropZone`, `ProgressBar`, `FormMessage`, `Disclosure` and buttons render selection, queue progress and diagnostics. `features/upload/mount.jsx` also owns the JSON download actions through portals. File reads, compression, parser workers, duplicate handling, sequential uploads and wake locks remain in the controller. Parsing and saving lock file selection and Clear to keep in-flight results tied to the chosen files; login continuation and retry/replacement still use the existing controller paths.
 
 ## App shell and UI ownership
 
-`js/navigation.js` retains route selection and page visibility, publishing the active page to the shared TabList. The Match list/detail tabs use the same keyboard navigation. `shell.jsx` mounts persistent Button, text, warning and Pagination views using immutable snapshots; `state/shell-elements.mjs` contains their initial labels and presentation. Match, Player history and Group history reuse Pagination. Controllers publish status, disabled and pagination values through the returned adapters.
+`js/navigation.js` retains route selection and page visibility, publishing the active page to the shared TabList. The Match list/detail tabs use the same keyboard navigation. `features/app/mount.jsx` mounts persistent Button, text, warning and Pagination views using immutable snapshots; `features/app/state/elements.mjs` contains their initial labels and presentation. Match, Player history and Group history reuse Pagination. Controllers publish status, disabled and pagination values through the returned adapters.
 
 `MatchBanner` uses the unfiltered match and account representative to order teams, preserving artwork, score colors, dates and full match-ID tooltips. UI controllers no longer create elements or assign textContent. The remaining temporary anchors in the download helpers invoke browser file downloads. Layout visibility and scroll measurements remain in routing/controllers or React layout effects. The unused native-select dropdown adapter and DOM scoreboard renderers have been removed.

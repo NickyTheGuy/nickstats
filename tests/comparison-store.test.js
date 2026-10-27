@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const storeModule = import('../frontend/comparison-store.mjs');
+const storeModule = import('../frontend/features/comparisons/state/store.mjs');
 
 test('React comparison snapshots remain stable between updates and preserve previous state', async () => {
   const { createComparisonStore } = await storeModule;

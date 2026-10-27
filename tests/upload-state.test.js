@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const modulePromise = import('../frontend/state/upload.mjs');
+const modulePromise = import('../frontend/features/upload/state/upload.mjs');
 
 test('upload queues preserve file order and previous snapshots as progress updates arrive', async () => {
   const { createUploadStore } = await modulePromise;

@@ -77,7 +77,7 @@ test("match differential uses the chosen team across a side swap and retains the
 });
 
 test("match timelines draw differential and selected player statistics as graphs", async () => {
-  const {chartFrame,chartMark}=await import("../frontend/state/chart.mjs");
+  const {chartFrame,chartMark}=await import("../frontend/features/graphs/state/chart.mjs");
   let svg;
   context.window.NickStatsChartModel={frame:chartFrame,mark:chartMark};
   context.window.NickStatsChartUI={render(_target,model){svg=model;}};

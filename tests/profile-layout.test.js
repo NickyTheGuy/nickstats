@@ -8,7 +8,7 @@ const test = require("node:test");
 const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8") + require("./helpers/profile-template")();
 const profile = fs.readFileSync(path.join(__dirname, "..", "js", "profile.js"), "utf8");
 const players = fs.readFileSync(path.join(__dirname, "..", "js", "players.js"), "utf8");
-const sections = fs.readFileSync(path.join(__dirname, "../frontend/state/section-tabs.mjs"), "utf8");
+const sections = fs.readFileSync(path.join(__dirname, "../frontend/features/navigation/state/section-tabs.mjs"), "utf8");
 const demo = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), "utf8");
 
 test("graph statistic search stays beside its category and the view follows it", () => {
