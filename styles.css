@@ -1057,7 +1057,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .round-timeline-heading h3 { margin: 0 0 4px; }
 .round-timeline-heading p { margin: 0; color: var(--muted); font-size: 13px; }
 .round-timeline-heading .timeline-option-field { display: grid; gap: 2px; flex: none; min-width: 170px; color: var(--muted); font-size: 11px; font-weight: 850; line-height: 1.2; letter-spacing: .06em; text-transform: uppercase; }
-.round-timeline-heading select:not(.stats-dropdown-native) { padding: 8px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
 .round-timeline-graph-frame { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .round-timeline-graph-frame svg { display: block; width: 100%; min-width: 620px; height: auto; }
 .match-timeline-player-picker { margin: 0 0 12px; }

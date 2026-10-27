@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Counter-Strike 2 match analysis.">
   <title>NickStats — CS2 Match Analysis</title>
-  <link rel="stylesheet" href="./styles.css?v=20261027-1">
+  <link rel="stylesheet" href="./styles.css?v=20261027-2">
 </head>
 <body>
   <main class="shell">
     <header class="hero app-hero">
       <div>
         <div class="demo-prototype-line">
-          <span class="demo-build">Build 2026.10.27.1</span>
+          <span class="demo-build">Build 2026.10.27.2</span>
         </div>
         <h1>NickStats</h1>
       </div>
@@ -149,15 +149,7 @@
             <div class="demo-weapon-teams" id="demoWeapons"></div>
           </section>
           <section class="demo-analysis-panel" id="demoTimelineView" role="tabpanel" aria-labelledby="demoTimelineTab" hidden>
-            <div class="round-timeline-heading">
-              <div><h3>Round timeline</h3><p>Compare running totals at the end of each round. Hover to see what happened in that round. Round differential follows the cumulative team score.</p></div>
-              <div class="timeline-option-field"><span>Statistic</span><select id="demoTimelineMetric" aria-label="Timeline statistic"><option value="kills">Kills</option><option value="deaths">Deaths</option><option value="damage">Damage</option><option value="awp">AWP kills</option><option value="differential">Round differential</option></select></div>
-              <div class="timeline-option-field"><span>Display</span><select id="demoTimelineDisplay" aria-label="Timeline display"><option value="line">Line</option><option value="bars">Bars</option></select></div>
-            </div>
-            <div class="graph-player-picker match-timeline-player-picker" id="demoTimelinePlayerPicker">
-              <div><strong>Players</strong><span id="demoTimelinePlayerStatus"></span></div>
-              <div class="graph-player-choices" id="demoTimelinePlayerChoices"></div>
-            </div>
+            <div id="demoTimelineControlsApp"></div>
             <div id="demoTimeline"></div>
           </section>
           <div class="actions">
@@ -462,20 +454,20 @@
 
   <script defer src="./js/navigation.js?v=20261010-1"></script>
   <script defer src="./js/data-freshness.js?v=20260927-4"></script>
-  <script defer src="./js/filters.js?v=20261027-1"></script>
+  <script defer src="./js/filters.js?v=20261027-2"></script>
   <script defer src="./js/manual-filters.js?v=20261019-1"></script>
   <script defer src="./js/dropdown.js?v=20261006-1"></script>
   <script defer src="./js/stat-availability.js?v=20260930-9"></script>
   <script defer src="./js/scoreboard.js?v=20261009-1"></script>
-  <script defer src="./js/round-timeline.js?v=20261027-1"></script>
-  <script defer src="./js/graphs.js?v=20261027-1"></script>
-  <script defer src="./assets/ui/nickstats-ui.js?v=20261027-1"></script>
-  <script defer src="./js/demo.js?v=20261027-1"></script>
-  <script defer src="./js/profile.js?v=20261027-1"></script>
+  <script defer src="./js/round-timeline.js?v=20261027-2"></script>
+  <script defer src="./js/graphs.js?v=20261027-2"></script>
+  <script defer src="./assets/ui/nickstats-ui.js?v=20261027-2"></script>
+  <script defer src="./js/demo.js?v=20261027-2"></script>
+  <script defer src="./js/profile.js?v=20261027-2"></script>
   <script defer src="./js/quick-comparison.js?v=20261011-2"></script>
-  <script defer src="./js/match-sessions.js?v=20261027-1"></script>
-  <script defer src="./js/players.js?v=20261027-1"></script>
-  <script defer src="./js/groups.js?v=20261027-1"></script>
-  <script defer src="./js/sessions.js?v=20261027-1"></script>
+  <script defer src="./js/match-sessions.js?v=20261027-2"></script>
+  <script defer src="./js/players.js?v=20261027-2"></script>
+  <script defer src="./js/groups.js?v=20261027-2"></script>
+  <script defer src="./js/sessions.js?v=20261027-2"></script>
 </body>
 </html>

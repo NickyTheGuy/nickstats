@@ -1,3 +1,4 @@
+import './timeline-controls.jsx';
 import './section-tabs.jsx';
 import './chart.jsx';
 import './graph-output.jsx';

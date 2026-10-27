@@ -58,6 +58,8 @@
     roundResultFilter: "ALL",
     roundPhaseFilter: "ALL",
     resultView: "scoreboard",
+    timelineMetric: "kills",
+    timelineDisplay: "line",
     timelineMatchKey: null,
     timelineSelectedPlayers: new Set(),
     expandedWeaponPlayers: new Set(),
@@ -2759,25 +2761,23 @@
       const viewer = indices.find(index => players[index]?.steam_id === state.accountPlayerSteamID && state.accountPlayerSteamID);
       state.timelineSelectedPlayers = new Set(viewer == null ? indices.slice(0, 1) : [viewer]);
     }
-    const metric = $("demoTimelineMetric").value;
-    const picker = $("demoTimelinePlayerPicker"); picker.hidden = metric === "differential";
-    const choices = $("demoTimelinePlayerChoices"); choices.replaceChildren();
-    indices.forEach(index => {
-      const label = document.createElement("label"); label.className = "graph-player-choice match-timeline-player-choice";
-      label.style.setProperty("--series-color", window.NickStatsGraphs.colors[index % window.NickStatsGraphs.colors.length]);
-      const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.checked = state.timelineSelectedPlayers.has(index);
-      const name = document.createElement("span"); name.textContent = players[index]?.name || `Player ${index + 1}`;
-      checkbox.addEventListener("change", () => {
-        checkbox.checked ? state.timelineSelectedPlayers.add(index) : state.timelineSelectedPlayers.delete(index);
+    const metric = state.timelineMetric;
+    window.NickStatsTimelineControlsUI.render($("demoTimelineControlsApp"), {
+      metrics: Object.entries(window.NickStatsRoundTimeline.metrics), metric, display: state.timelineDisplay,
+      players: indices.map(index => ({ index, name: players[index]?.name || `Player ${index + 1}`,
+        color: window.NickStatsGraphs.colors[index % window.NickStatsGraphs.colors.length] })),
+      selected: [...state.timelineSelectedPlayers],
+      onMetricChange(value) { state.timelineMetric = value; renderTimeline(result); },
+      onDisplayChange(value) { state.timelineDisplay = value; renderTimeline(result); },
+      onPlayerChange(index, checked) {
+        checked ? state.timelineSelectedPlayers.add(index) : state.timelineSelectedPlayers.delete(index);
         renderTimeline(result);
-      });
-      label.append(checkbox, name); choices.appendChild(label);
+      }
     });
-    $("demoTimelinePlayerStatus").textContent = `${state.timelineSelectedPlayers.size} of ${indices.length} players selected`;
     window.NickStatsRoundTimeline.render($("demoTimeline"), payload, metric, {
       side: state.sideFilter, buy: state.buyFilter, opponentBuy: state.enemyBuyFilter,
       result: state.roundResultFilter, phase: state.roundPhaseFilter, heroOnly: state.heroOnly
-    }, state.accountPlayerSteamID, state.timelineSelectedPlayers, $("demoTimelineDisplay").value);
+    }, state.accountPlayerSteamID, state.timelineSelectedPlayers, state.timelineDisplay);
   }
 
   function render(result) {
@@ -3318,10 +3318,6 @@
     for (const set of [setSideFilter, setBuyFilter, setEnemyBuyFilter, setRoundResultFilter, setRoundPhaseFilter]) set("ALL", false);
     if (state.result) render(state.result);
   });
-  window.NickStatsDropdown.enhance($("demoTimelineMetric"));
-  window.NickStatsDropdown.enhance($("demoTimelineDisplay"));
-  $("demoTimelineMetric").addEventListener("change", () => { if (state.result) renderTimeline(state.result); });
-  $("demoTimelineDisplay").addEventListener("change", () => { if (state.result) renderTimeline(state.result); });
   const analysisSectionTabs = window.NickStatsSectionTabsUI.create("demoAnalysisTabsApp", { kind: "match", onChange: setResultView });
   document.addEventListener("keydown", handleScoreboardDetailShortcut);
   document.querySelectorAll("[data-match-browser-view]").forEach(button => {
