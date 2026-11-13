@@ -1,6 +1,6 @@
 "use strict";
 
-const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@4.0.0/dist/deadem-cs2.min.js";
+const PARSER_URL = "https://cdn.jsdelivr.net/npm/@deademx/cs2@5.0.0/dist/deadem-cs2.min.js";
 const ZSTD_URL = "https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js";
 const MAX_UNCOMPRESSED_DEMO_BYTES = 768 * 1024 * 1024;
 const demoSizeLimitMessage = bytes => {
@@ -142,7 +142,7 @@ let libraryError = null;
 try {
   self.window = self;
   importScripts(PARSER_URL);
-  if (!self.deademCs2) throw new Error("The parser library loaded without its browser API.");
+  if (!self.deadem?.cs2) throw new Error("The parser library loaded without its browser API.");
 } catch (error) {
   libraryError = error;
 }
@@ -196,7 +196,7 @@ async function parseDemo(fileName, buffer) {
     Parser,
     ParserConfiguration,
     StringTableType
-  } = self.deademCs2;
+  } = self.deadem?.cs2;
 
   const parser = new Parser(new ParserConfiguration({
     entityClasses: ["CCSTeam", "CCSGameRulesProxy", "CCSPlayerController", "CCSPlayerPawn", ...WEAPON_ENTITY_CLASSES],
@@ -1245,6 +1245,12 @@ async function parseDemo(fileName, buffer) {
       }
     }
     return { winner_side: null, reason: null, field: null };
+  }
+
+  function sampleGameRulesRoundEnd(tick) {
+    const state = gameRulesRoundState(parser.getDemo());
+    const winner = gameRulesRoundCompletion(round, state);
+    if (winner !== null) finishRound(winner, false, "game_rules_round_count", tick);
   }
 
   function currentStableTeamScores() {
@@ -2327,17 +2333,18 @@ async function parseDemo(fileName, buffer) {
     refreshTradeEngagement(best.prior, best.trader.userId, tick);
   }
 
-  parser.registerPostInterceptor(InterceptorStage.DEMO_PACKET, async demoPacket => {
+  parser.registerPostInterceptor(InterceptorStage.DEMO_PACKET, demoPacket => {
     packetCounts.demo_packets += 1;
     if (!demoPacket.getIsInitial()) {
       refreshUserInfo();
       samplePlayerInventories(demoPacket.tick);
       samplePlayerMotion(demoPacket.tick);
       sampleClutchResources(demoPacket.tick);
+      sampleGameRulesRoundEnd(demoPacket.tick);
     }
   });
 
-  parser.registerPostInterceptor(InterceptorStage.MESSAGE_PACKET, async (demoPacket, messagePacket) => {
+  parser.registerPostInterceptor(InterceptorStage.MESSAGE_PACKET, (demoPacket, messagePacket) => {
     if (messagePacket.type === MessagePacketType.NET_SET_CON_VAR) {
       for (const variable of messagePacket.data.convars?.cvars || []) {
         if (!Object.hasOwn(CLUTCH_CASH_RULES, variable.name)) continue;
@@ -2397,10 +2404,16 @@ async function parseDemo(fileName, buffer) {
         finishRound(integer(gameEvent.winner), false, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
         break;
       case "round_freeze_end":
+        // Modern demos can omit both round_start and round_end events.
+        if (round.finished) {
+          if (pendingClutchEconomics) pendingClutchEconomics.endTick = round.endTick;
+          round = freshRound();
+        }
         round.boundaryEvents.push({ event: descriptor.name, tick: demoPacket.tick });
         round.freezeSeen = true;
         round.live = true;
         round.liveStartTick = demoPacket.tick;
+        round.gameRulesCompletedAtStart = gameRulesRoundState(parser.getDemo())?.completed;
         // Discard transient pre-freeze spawns (for example a bot created while
         // a player reconnects) and snapshot the roster that actually goes live.
         round.participants.clear();
@@ -2526,7 +2539,7 @@ async function parseDemo(fileName, buffer) {
     error.diagnostics = {
       format_version: 1,
       parser: "@deademx/cs2",
-      parser_version: "4.0.0",
+      parser_version: "5.0.0",
       source_file: fileName,
       source_bytes: buffer.byteLength,
       map: mapName || null,
@@ -2673,7 +2686,7 @@ async function parseDemo(fileName, buffer) {
   const result = {
     format_version: 1,
     parser: "@deademx/cs2",
-    parser_version: "4.0.0",
+    parser_version: "5.0.0",
     match_uid: providerMatchId ? `faceit:${providerMatchId}` : `sha256:${demoSha256}`,
     provider: providerMatchId ? "faceit" : null,
     provider_match_id: providerMatchId,
@@ -2752,7 +2765,7 @@ async function parseDemo(fileName, buffer) {
   const diagnostics = {
     format_version: 1,
     diagnostic: "round_side_allocation",
-    nickstats_build: "2026.09.23.3",
+    nickstats_build: "2026.11.13.1",
     parser: result.parser,
     parser_version: result.parser_version,
     source_file: fileName,
@@ -3315,8 +3328,8 @@ function pawnHorizontalSpeed(pawn) {
     } catch {
       vector = null;
     }
-    const x = numberOrNull(vector?.[0] ?? vector?.x ?? vector?.xValue);
-    const y = numberOrNull(vector?.[1] ?? vector?.y ?? vector?.yValue);
+    const x = numberOrNull(vector?.[0] ?? vector?.m_vecX ?? vector?.x ?? vector?.xValue);
+    const y = numberOrNull(vector?.[1] ?? vector?.m_vecY ?? vector?.y ?? vector?.yValue);
     if (x !== null && y !== null) return Math.hypot(x, y);
 
     for (const [xField, yField] of [
@@ -3338,19 +3351,19 @@ function pawnHorizontalSpeed(pawn) {
 }
 
 function pawnPosition(pawn) {
-  const cellX = numberOrNull(pawn.getField("CBodyComponent.m_cellX"));
-  const cellY = numberOrNull(pawn.getField("CBodyComponent.m_cellY"));
-  const cellZ = numberOrNull(pawn.getField("CBodyComponent.m_cellZ"));
-  const vector = pawn.getField("CBodyComponent.m_vecOrigin");
-  const vecX = numberOrNull(pawn.getField("CBodyComponent.m_vecX")) ?? numberOrNull(vector?.[0]);
-  const vecY = numberOrNull(pawn.getField("CBodyComponent.m_vecY")) ?? numberOrNull(vector?.[1]);
-  const vecZ = numberOrNull(pawn.getField("CBodyComponent.m_vecZ")) ?? numberOrNull(vector?.[2]) ?? 0;
-  if (cellX === null || cellY === null || vecX === null || vecY === null) return null;
-  return {
-    x: cellX * 128 + vecX,
-    y: cellY * 128 + vecY,
-    z: (cellZ ?? 0) * 128 + vecZ
-  };
+  // 5.0 includes the send-node prefix; keep the old shape for legacy fixtures.
+  for (const prefix of ["CBodyComponent.m_skeletonInstance.m_vecOrigin", "CBodyComponent"]) {
+    const cellX = numberOrNull(safePawnField(pawn, `${prefix}.m_cellX`));
+    const cellY = numberOrNull(safePawnField(pawn, `${prefix}.m_cellY`));
+    const cellZ = numberOrNull(safePawnField(pawn, `${prefix}.m_cellZ`));
+    const vector = safePawnField(pawn, `${prefix}.m_vecOrigin`);
+    const vecX = numberOrNull(safePawnField(pawn, `${prefix}.m_vecX`)) ?? numberOrNull(vector?.[0]);
+    const vecY = numberOrNull(safePawnField(pawn, `${prefix}.m_vecY`)) ?? numberOrNull(vector?.[1]);
+    const vecZ = numberOrNull(safePawnField(pawn, `${prefix}.m_vecZ`)) ?? numberOrNull(vector?.[2]) ?? 0;
+    if (cellX === null || cellY === null || vecX === null || vecY === null) continue;
+    return { x: cellX * 128 + vecX, y: cellY * 128 + vecY, z: (cellZ ?? 0) * 128 + vecZ };
+  }
+  return null;
 }
 
 function distance(a, b) {
@@ -3379,6 +3392,29 @@ function scalarEventFields(event) {
   ));
 }
 
+function gameRulesRoundState(demo) {
+  for (const entity of demo.getEntitiesByClassNameIterator("CCSGameRulesProxy")) {
+    return {
+      completed: integer(safePawnField(entity, "m_pGameRules.m_totalRoundsPlayed")),
+      winner: integer(safePawnField(entity, "m_pGameRules.m_iRoundWinStatus")),
+      warmup: safePawnField(entity, "m_pGameRules.m_bWarmupPeriod")
+    };
+  }
+  return null;
+}
+
+function gameRulesRoundCompletion(round, state) {
+  if (!state || state.warmup || !round.freezeSeen || !round.live || round.finished ||
+      !Number.isInteger(round.gameRulesCompletedAtStart) || !Number.isInteger(state.completed) ||
+      state.completed <= round.gameRulesCompletedAtStart || ![2, 3].includes(state.winner)) return null;
+  return state.winner;
+}
+
+function controllerMatchStat(entity, field) {
+  return numberOrNull(safePawnField(entity, `m_pActionTrackingServices.m_matchStats.${field}`) ??
+    safePawnField(entity, `m_pActionTrackingServices.${field}`));
+}
+
 function readEndState(demo) {
   const teams = [];
   const players = [];
@@ -3400,11 +3436,11 @@ function readEndState(demo) {
     players.push({
       name,
       team,
-      kills: numberOrNull(entity.getField("m_pActionTrackingServices.m_iKills")),
-      deaths: numberOrNull(entity.getField("m_pActionTrackingServices.m_iDeaths")),
-      assists: numberOrNull(entity.getField("m_pActionTrackingServices.m_iAssists")),
-      headshots: numberOrNull(entity.getField("m_pActionTrackingServices.m_iHeadShotKills")),
-      damage: numberOrNull(entity.getField("m_pActionTrackingServices.m_iDamage"))
+      kills: controllerMatchStat(entity, "m_iKills"),
+      deaths: controllerMatchStat(entity, "m_iDeaths"),
+      assists: controllerMatchStat(entity, "m_iAssists"),
+      headshots: controllerMatchStat(entity, "m_iHeadShotKills"),
+      damage: controllerMatchStat(entity, "m_iDamage")
     });
   }
 
@@ -3476,7 +3512,7 @@ function valueOf(key) {
     case 4: return key.valShort;
     case 5: return key.valByte;
     case 6: return key.valBool;
-    case 7: return key.valUint64;
+    case 7: return key.valUint64 == null ? null : String(key.valUint64);
     case 8: return key.valLong;
     case 9: return key.valShort;
     default: return null;
@@ -3502,6 +3538,7 @@ function number(value) {
 }
 
 function numberOrNull(value) {
+  if (value == null || value === "") return null;
   const result = Number(value);
   return Number.isFinite(result) ? result : null;
 }

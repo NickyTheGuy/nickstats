@@ -15,7 +15,7 @@ function workerContext() {
     importScripts() {},
     self: {
       addEventListener() {},
-      deademCs2: {},
+      deadem: { cs2: {} },
       postMessage() {}
     }
   });

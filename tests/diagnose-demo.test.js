@@ -72,3 +72,16 @@ test('comparison allowlists stay aligned with the production worker', async () =
   const messageNames = worker.match(/messagePacketTypes: \[([\s\S]*?)\]/)[1].match(/MessagePacketType\.\w+/g).map(s => s.split('.')[1]);
   for (const name of messageNames) assert.ok(tool.includes(`'${name}'`), name);
 });
+
+test('worker summaries include useful statistics without identities or arbitrary fields', async () => {
+  const { matchSummary } = await import('../tools/diagnose-demo.mjs');
+  const summary = matchSummary({rounds:19,teams:[{name:'secret-team',score:13,players:[{
+    name:'private-player',steam_id:'76561198012345678',kills:17,rounds_played:19,
+    by_side:{T:{rounds_played:7,kills:5},CT:{rounds_played:12,kills:12}},
+    chat:'private-chat',kill_context:{speed_on_kill:{samples:17}}
+  }]}]}, {parsed_completed_rounds:19});
+  assert.equal(summary.players[0].has_steam_id, true);
+  assert.equal(summary.players[0].speed_samples, 17);
+  assert.deepEqual(summary.players[0].side_rounds, [7,12]);
+  assert.doesNotMatch(JSON.stringify(summary), /secret|private|765611/);
+});

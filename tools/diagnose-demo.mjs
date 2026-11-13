@@ -48,6 +48,30 @@ export function packetSummary(demoPacket, messagePacket) {
   return out;
 }
 
+export function matchSummary(result, diagnostics) {
+  const players = (result.teams || []).flatMap(team => team.players || []);
+  return {
+    rounds: result.rounds,
+    parsed_rounds: diagnostics?.parsed_completed_rounds,
+    team_scores: (result.teams || []).map(team => team.score),
+    player_count: players.length,
+    round_records: result.round_timing?.length || 0,
+    economy_records: result.round_economy?.length || 0,
+    player_round_records: result.player_round_slices?.length || 0,
+    death_records: result.death_events?.length || 0,
+    players: players.map((player, slot) => ({ slot,
+      has_steam_id: /^[0-9]{17}$/.test(player.steam_id || ''),
+      ...Object.fromEntries(['kills','deaths','assists','headshots','damage','rounds_played',
+        'trade_kills','trade_opportunities','trade_attempts'].map(key => [key, player[key]])),
+      side_rounds: ['T','CT'].map(side => player.by_side?.[side]?.rounds_played ?? null),
+      side_kills: ['T','CT'].map(side => player.by_side?.[side]?.kills ?? null),
+      side_damage: ['T','CT'].map(side => player.by_side?.[side]?.damage ?? null),
+      weapon_count: player.weapon_stats?.length || 0,
+      speed_samples: player.kill_context?.speed_on_kill?.samples ?? null
+    }))
+  };
+}
+
 function contextFor(bundle, version) {
   const context = vm.createContext({ TextDecoder, TextEncoder, ReadableStream, WritableStream,
     TransformStream, DecompressionStream, CompressionStream, MessageChannel, performance,
@@ -149,7 +173,7 @@ async function childRun() {
     if (mode === 'nickstats-worker') {
       let onMessage;
       context.importScripts = url => {
-        if (url !== bundleURL('4.0.0')) throw new Error('Unexpected worker dependency');
+        if (url !== bundleURL(version)) throw new Error('Unexpected worker dependency');
         // Bundle already loaded and instrumented above.
       };
       context.addEventListener = (type, callback) => { if (type === 'message') onMessage = callback; };
@@ -157,8 +181,9 @@ async function childRun() {
       const result = new Promise(resolve => { complete = resolve; });
       context.postMessage = value => {
         if (value.type === 'result') {
-          // Never retain exported match/player data.
+          // Export only an allowlisted anonymous summary, never names/IDs/payloads.
           report.completed_rounds = value.result?.rounds;
+          report.match_summary = matchSummary(value.result, value.diagnostics);
           complete(null);
         } else if (value.type === 'error') complete(new Error(value.message));
       };
@@ -209,7 +234,7 @@ export function runIsolated(data, timeoutMs, onProgress = () => {}) {
 async function main() {
   const args = process.argv.slice(2);
   if (!args.length || args.includes('--help')) {
-    console.log('Usage: node tools/diagnose-demo.mjs "/path/to/match.dem" [--out report.json] [--timeout 180] [--bundles directory]\n'
+    console.log('Usage: node tools/diagnose-demo.mjs "/path/to/match.dem" [--out report.json] [--timeout 180] [--bundles directory] [--worker-only]\n'
       + 'Requires Node 20+. Extract .dem.bz2/.zst first. Only parser libraries are downloaded; the demo stays local.\n'
       + '--bundles uses local deadem-4.0.0.js and deadem-5.0.0.js instead of downloading.');
     return;
@@ -219,6 +244,7 @@ async function main() {
   const options = {};
   while (args.length) {
     const key = args.shift();
+    if (key === '--worker-only') { options[key] = true; continue; }
     if (!['--out','--timeout','--bundles'].includes(key) || !args.length) throw new Error('Invalid arguments. Use --help.');
     options[key] = args.shift();
   }
@@ -241,13 +267,16 @@ async function main() {
     node: process.versions.node, platform: process.platform, architecture: process.arch,
     demo: { bytes: file.size, sha256: hash.digest('hex') }, libraries: [], runs: [] };
   let source = null;
+  let workerVersion = null;
   try { source = await readFile(join(dirname(script), '../js/demo-worker.js'), 'utf8'); }
   catch { console.log('NickStats worker not found: running standalone parser comparisons only.'); }
   if (source) {
-    if (!source.includes(bundleURL('4.0.0'))) throw new Error('This tool expects the NickStats 4.0.0 worker.');
+    workerVersion = versions.find(version => source.includes(bundleURL(version)));
+    if (!workerVersion) throw new Error('NickStats worker uses an unsupported parser version.');
     report.nickstats_worker_sha256 = digest(source);
   }
-  for (const version of versions) {
+  if (options['--worker-only'] && !source) throw new Error('--worker-only requires the tool inside the repository tools folder.');
+  for (const version of options['--worker-only'] ? [workerVersion] : versions) {
     let bundle;
     try {
       if (options['--bundles']) bundle = await readFile(join(resolve(options['--bundles']), `deadem-${version}.js`), 'utf8');
@@ -264,7 +293,8 @@ async function main() {
       continue;
     }
     report.libraries.push({ version, sha256: digest(bundle), url: bundleURL(version) });
-    const modes = version === '4.0.0' && source ? ['nickstats-worker','filtered','unfiltered'] : ['filtered','unfiltered'];
+    const modes = options['--worker-only'] ? ['nickstats-worker']
+      : version === workerVersion ? ['nickstats-worker','filtered','unfiltered'] : ['filtered','unfiltered'];
     for (const mode of modes) {
       console.log(`Testing ${version}: ${mode}…`);
       let lastLog = 0;

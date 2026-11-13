@@ -5,7 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const worker = fs.readFileSync(path.join(__dirname, "../js/demo-worker.js"), "utf8");
-const context = vm.createContext({ console, importScripts() {}, self: { addEventListener() {}, deademCs2: {}, postMessage() {} } });
+const context = vm.createContext({ console, importScripts() {}, self: { addEventListener() {}, deadem: { cs2: {} }, postMessage() {} } });
 vm.runInContext(worker, context);
 // Build the sets inside the VM to match the freeze-end inventory snapshot.
 const holder = (buy, equipment) => {

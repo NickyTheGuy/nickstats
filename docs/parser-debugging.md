@@ -24,7 +24,8 @@ is deliberately omitted; its code location is retained where available.
 
 The tool runs each parser both with NickStats' class/message filters and without
 filters. When the script remains inside `tools/` in the repository, it also runs
-the actual current NickStats 4.0.0 worker, discarding the exported match data.
+the actual current NickStats worker with its pinned parser version, discarding
+the exported match data after constructing an anonymous statistics summary.
 A standalone copy still runs the four parser comparisons. This helps distinguish
 an integration failure from an underlying decoding failure. A successful raw
 parse does not verify the correctness of NickStats statistics or validate a
@@ -32,6 +33,17 @@ parse does not verify the correctness of NickStats statistics or validate a
 require a reproducible demo or an upstream test case.
 `passed` means the parser returned without an exception. Some parsers tolerate
 truncated files; `saw_demo_stop` records whether a terminal demo packet was seen.
+
+To test just the updated NickStats 5.0.0 integration rather than repeat all four
+raw parser comparisons:
+
+```sh
+node tools/diagnose-demo.mjs "/path/to/match.dem" --worker-only --out nickstats-parser-5-report.json
+```
+
+The worker summary includes anonymous per-player K/D/A, damage, rounds and side
+splits, plus round/economy record counts and movement sample coverage. These help
+check the integration rather than just whether the underlying parser finishes.
 
 Runs are sequential and isolated in separate worker threads. Each has a default
 three-minute timeout; the tool prints periodic progress and saves the report

@@ -2,7 +2,7 @@
 
 ## @deademx/cs2
 
-NickStats loads [@deademx/cs2 version 4.0.0](https://github.com/Igor-Losev/deadem/tree/v4.0.0/packages/cs2) from jsDelivr for Counter-Strike 2 demo parsing.
+NickStats loads [@deademx/cs2 version 5.0.0](https://github.com/Igor-Losev/deadem/tree/v5.0.0/packages/cs2) from jsDelivr for Counter-Strike 2 demo parsing.
 
 The MIT License
 

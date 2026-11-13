@@ -24,7 +24,7 @@ function workerContext() {
   const context = vm.createContext({
     console,
     importScripts() {},
-    self: { addEventListener() {}, deademCs2: {}, postMessage() {} }
+    self: { addEventListener() {}, deadem: { cs2: {} }, postMessage() {} }
   });
   vm.runInContext(worker, context, { filename: workerPath });
   return context;
