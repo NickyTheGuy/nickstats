@@ -5,6 +5,7 @@
   const MAX_GROUP = 10;
   const MATCH_LIST_LIMIT = 50;
   const MAX_INCLUDED = 5;
+  const GROUP_REFRESH_AGE_MS = 60_000;
   const GROUP_SELECTION_KEY = "nickstats.groupSelection.v1";
   const $ = id => document.getElementById(id);
   const ui = Object.fromEntries(["groupStatus", "comboMatchesStatus", "comboGraphPlayerStatus", "comboProfileTitle", "comboProfileMeta"].map(id => [id, window.NickStatsShellUI.text(id)]));
@@ -31,7 +32,7 @@
   const state = {
     selected: new Map(savedRoster.map(({ player }) => [String(player.id), player])), players: [],
     choices: new Map(savedRoster.map(({ player, choice }) => [String(player.id), choice])),
-    groupController: null, groupStale: false,
+    groupController: null, groupStale: false, groupLoadedAt: 0,
     side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL",
     comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile", graphPlayers: null, matchListKey: "", matchListOffset: 0
   };
@@ -212,6 +213,7 @@
     state.groupController?.abort();
     state.groupController = null;
     state.groupStale = false;
+    state.groupLoadedAt = 0;
     state.players = [];
     $("groupResults").hidden = true;
   }
@@ -270,6 +272,7 @@
       persistRoster();
       renderSelectedRoster();
       state.groupStale = false;
+      state.groupLoadedAt = Date.now();
       $("groupResults").hidden = false;
       runCombination();
       setStatus(`Built ${selectedPlayers("include").length} conditional player profile${selectedPlayers("include").length === 1 ? "" : "s"}.`);
@@ -293,9 +296,19 @@
   }
 
   window.addEventListener("nickstats:matches-changed", markGroupStale);
+  function ensureCurrentGroup({ force = false } = {}) {
+    if ($("groupsPage").hidden || document.hidden || state.groupController || state.selected.size < 2 ||
+        ![...state.selected.keys()].some(id => state.choices.get(id) !== "exclude")) return;
+    if (force || state.groupStale || !state.players.length || Date.now() - state.groupLoadedAt >= GROUP_REFRESH_AGE_MS) {
+      buildGroup({ refresh: true });
+    }
+  }
+
   window.addEventListener("nickstats:page", event => {
-    if (event.detail?.page === "groups" && state.groupStale) buildGroup({ refresh: true });
+    if (event.detail?.page === "groups") ensureCurrentGroup({ force: true });
   });
+  window.addEventListener("focus", () => ensureCurrentGroup());
+  document.addEventListener("visibilitychange", () => ensureCurrentGroup());
 
   function choiceFor(player) {
     return state.choices.get(player.profileId) || "include";
@@ -524,4 +537,7 @@
       onReset: () => { if (state.players.length) runCombination(); } });
   });
   renderSelectedRoster();
+  // Initial navigation fires before this controller loads. Restore selections
+  // from storage, but always obtain their match data from the API.
+  ensureCurrentGroup();
 })();
