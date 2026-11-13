@@ -101,6 +101,19 @@
 
   function syncStatsToolbar() {
     $("playerStatsToolbar").hidden = state.display === "session" || (state.display === "profile" && state.view === "matches");
+    syncTradeTeammates();
+  }
+
+  function syncTradeTeammates() {
+    const profile = activeProfile();
+    window.NickStatsProfileUI.trades?.($("playerTradeTeammatesApp"), {
+      playerId: profile?.payload.player?.id,
+      matchIds: profile ? matchesFor(profile.payload).map(match => match.id) : [],
+      side: state.side,
+      active: Boolean(profile) && !$("playersPage").hidden && state.display === "profile" && state.view === "trades",
+      unsupported: state.buy !== "ALL" || state.opponentBuy !== "ALL" || state.roundResult !== "ALL" || state.roundPhase !== "ALL" || state.heroOnly,
+      onPlayer: id => loadProfile(id)
+    });
   }
 
   function renderCurrentDisplay() {
@@ -461,6 +474,7 @@
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
     const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: summaryFor(profile, map.name) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
+    syncTradeTeammates();
     $("playerProfile").hidden = false; ui.playerProfileStatus.update({ text: "" });
   }
 
@@ -478,7 +492,7 @@
     if (state.activeId === id) {
       const next = ids[index + 1] || ids[index - 1]; state.activeId = null;
       if (next && state.profiles.has(next)) activateProfile(next);
-      else { $("playerProfile").hidden = !window.NickStatsSessions?.hasTabs(); renderOpenTabs(); }
+      else { $("playerProfile").hidden = !window.NickStatsSessions?.hasTabs(); renderOpenTabs(); syncTradeTeammates(); }
     } else activateProfile(state.activeId);
   }
   function loadProfile(playerID, { scroll = true } = {}) {
@@ -599,6 +613,7 @@
   window.addEventListener("nickstats:matches-changed", markProfilesStale);
   window.addEventListener("nickstats:page", event => {
     if (event.detail?.page === "players") refreshOpenProfiles();
+    syncTradeTeammates();
   });
 
   window.NickStatsPlayerSearchUI.create({ prefix: "player", onSelect: player => loadProfile(player.id),

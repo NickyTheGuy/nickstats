@@ -3,6 +3,7 @@ import StatCards from '../StatCards.jsx';
 import MetricList from '../../../shared/components/stats/MetricList.jsx';
 import CountStrip from '../../../shared/components/stats/CountStrip.jsx';
 import DataTable from '../../../shared/components/tables/DataTable.jsx';
+import TradeTeammates from '../TradeTeammates.jsx';
 
 const roots = new WeakMap();
 function render(target, Component, props) {
@@ -14,5 +15,6 @@ window.NickStatsProfileUI = Object.freeze({
   cards(target, cards) { render(target, StatCards, { cards }); },
   list(target, metrics) { render(target, MetricList, { metrics }); },
   strip(target, metrics) { render(target, CountStrip, { metrics }); },
+  trades(target, props) { render(target, TradeTeammates, props); },
   table(target, headers, rows, sortRows) { render(target, DataTable, { headers, rows, sortRows }); }
 });

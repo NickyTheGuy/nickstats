@@ -227,3 +227,14 @@ The upload/parser interface uses `upload/UploadPanel`, `UploadActions` and `Batc
 `js/navigation.js` retains route selection and page visibility, publishing the active page to the shared TabList. The Match list/detail tabs use the same keyboard navigation. `features/app/mount.jsx` mounts persistent Button, text, warning and Pagination views using immutable snapshots; `features/app/state/elements.mjs` contains their initial labels and presentation. Match, Player history and Group history reuse Pagination. Controllers publish status, disabled and pagination values through the returned adapters.
 
 `MatchBanner` uses the unfiltered match and account representative to order teams, preserving artwork, score colors, dates and full match-ID tooltips. UI controllers no longer create elements or assign textContent. The remaining temporary anchors in the download helpers invoke browser file downloads. Layout visibility and scroll measurements remain in routing/controllers or React layout effects. The unused native-select dropdown adapter and DOM scoreboard renderers have been removed.
+
+## Teammate trade scoreboards
+
+`features/profiles/TradeTeammates.jsx` renders the Player Trades section's two
+full-width cards using the shared DataTable, Button, FormMessage and Pagination
+components. `hooks/useTradeTeammates.js` owns lazy loading, retry and cancellation;
+`state/trade-teammates.mjs` owns selection keys, the bounded short-lived cache and
+raw percentage calculations. `js/players.js` supplies the active profile's filtered
+match IDs and side. Sorting runs before optional DataTable pagination, so page
+changes never restrict the sort to one page. This feature needs the new backend
+read endpoint documented in `backend/README.md`; it keeps the existing schema.

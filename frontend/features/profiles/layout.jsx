@@ -57,6 +57,7 @@ function ProfileLayout({ prefix }) {
           <div className="player-detail-grid" id={`${prefix}TradeDeathStats`} />
         </StatSection>
       </div>
+      {prefix === 'player' && <div id="playerTradeTeammatesApp" />}
     </div>
     <div className="player-profile-view" id={`${prefix}SectionOpenings`} role="tabpanel" aria-labelledby={`${prefix}DetailOpeningsTab`} {...{[prefix === "player" ? "data-player-profile-view" : "data-combo-profile-panel"]: "openings"}} hidden>
       <div className="player-section-grid">

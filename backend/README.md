@@ -108,3 +108,23 @@ Apply `database/migrations/020_shared_tags.sql` after 019, then rebuild/restart 
 
 
 Session scoreboards request `GET /groups?players=...&matches=...` with the session's exact match IDs. The optional `matches` parameter accepts 1–100 unique positive IDs and scopes all comparison queries before stats are built. Omitting it preserves full-history comparisons. Rebuild/restart the API to enable this optimization; no migration or demo reparse is needed. Older APIs ignore the new parameter and remain correct, but retain the slower full-history behavior.
+
+## Profile teammate trade tables
+
+`POST /players/:id/trade-teammates` is a public read-only aggregate. The JSON body
+contains `match_ids` (up to 20,000 positive IDs) and `side` (`ALL`, `T`, or `CT`).
+It returns `outgoing` and `incoming` teammate rows with player ID, current name,
+opportunities, attempts and completed trades. Both directions are read in one
+transaction using the existing trader/teammate ledger indexes. SQL aggregates
+the selected matches; no full match payloads are downloaded. The endpoint does
+not modify matches, tags or dates. Rebuild/restart the API to enable it; there
+is no migration or reparse requirement.
+
+The frontend requests these tables only when the Player profile Trades section
+is open, caches up to eight selections for one minute, invalidates on match
+changes, and aborts requests on selection/view changes. Tables paginate at 50
+rows after sorting the complete result set. Match filters and player side are
+exact; buy, opponent buy, round result, phase and hero filters are unavailable
+for this breakdown because the persisted pairing ledger has side-level totals.
+The UI explains that restriction instead of presenting unfiltered pairings as
+filtered results. Bots without global player identities remain plain-text names.

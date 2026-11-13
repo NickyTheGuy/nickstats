@@ -145,6 +145,17 @@ func routes(_ app: Application) throws {
         return try await getTeammateRatings(playerID, on: request.db)
     }
 
+    // Read-only aggregate; a body avoids putting thousands of match IDs in a URL.
+    app.on(.POST, "players", ":id", "trade-teammates", body: .collect(maxSize: "512kb")) { request async throws -> TradeTeammatesResponse in
+        guard let playerID = request.parameters.get("id", as: Int64.self), playerID > 0 else {
+            throw Abort(.badRequest, reason: "Invalid player ID.")
+        }
+        let selection = try request.content.decode(TradeTeammatesRequest.self)
+        return try await request.db.transaction { database in
+            try await getTradeTeammates(playerID, selection: selection, on: database)
+        }
+    }
+
     app.get("players", ":id") { request async throws -> Response in
         guard let playerID = request.parameters.get("id", as: Int64.self), playerID > 0 else {
             throw Abort(.badRequest, reason: "Invalid player ID.")

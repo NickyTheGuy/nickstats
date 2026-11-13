@@ -3096,6 +3096,15 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   background: linear-gradient(145deg, rgba(var(--profile-accent-rgb), .13), rgba(255, 255, 255, .76) 56%);
 }
 
+.trade-teammate-cards { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-top: 14px; }
+.trade-teammate-card { width: 100%; box-sizing: border-box; }
+.trade-teammate-card .player-profile-table { min-width: 640px; }
+.trade-teammate-card .muted, .trade-teammate-cards > .muted { color: var(--muted); font-size: 12px; }
+.trade-player-link { padding: 0; border: 0; background: transparent; font: inherit; font-weight: 700; text-align: left; text-transform: none; color: var(--blue); cursor: pointer; }
+.trade-player-link:hover, .trade-player-link:focus-visible { text-decoration: underline; }
+.trade-teammate-card tbody th { text-transform: none; letter-spacing: normal; font-size: inherit; }
+.table-pagination { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
 [data-player-profile-view="utility"] .player-stat-section,
 [data-combo-profile-panel="utility"] .player-stat-section {
   --profile-accent: var(--blue);
