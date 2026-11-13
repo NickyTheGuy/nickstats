@@ -11,7 +11,7 @@ vm.runInContext(availabilitySource, context);
 vm.runInContext(fs.readFileSync(path.join(__dirname, "../js/match-sessions.js"), "utf8"), context);
 vm.runInContext(source, context);
 
-const { metrics, metricChoices, samplesForMatches, statsForMatch, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks } = context.window.NickStatsGraphs;
+const { metrics, metricChoices, samplesForMatches, statsForMatch, datedTrendSeries, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks } = context.window.NickStatsGraphs;
 
 test("manual cutoffs accept ordered CSV values and reject invalid boundaries", () => {
   assert.deepEqual(Array.from(parseCutoffs("5, 10, 15").edges), [5, 10, 15]);
@@ -185,10 +185,34 @@ test("matches without qualifying rounds do not become zero-valued observations",
   assert.equal(samplesForMatches([{ id: 9, sides: [] }], "ALL").length, 0);
 });
 
-test("independent multi-player trends wait for complete date coverage", () => {
-  assert.equal(independentTrendNeedsDates([{ values: [{ date: 100 }] }]), false);
-  assert.equal(independentTrendNeedsDates([{ values: [{ date: 100 }] }, { values: [{ date: 0 }] }]), true);
-  assert.equal(independentTrendNeedsDates([{ values: [{ date: 100 }] }, { values: [{ date: 200 }] }]), false);
+test("chronological trends omit undated points without mutating histories or changing player colors", () => {
+  const input = [
+    { label: "Undated", values: [{date:0,value:99}] },
+    { label: "Mixed", values: [{date:100,value:1},{date:0,value:99},{date:null,value:99},
+      {date:-1,value:99},{date:Infinity,value:99},{date:200,value:2}] },
+    { label: "Dated", colorIndex:4, values:[{date:300,value:3}] }
+  ];
+  const result = datedTrendSeries(input);
+  assert.deepEqual(Array.from(result, item => item.label), ["Mixed","Dated"]);
+  assert.deepEqual(Array.from(result, item => item.colorIndex), [1,4]);
+  assert.deepEqual(Array.from(result[0].values, point => point.value), [1,2]);
+  assert.equal(input[1].values.length,6);
+  assert.equal(datedTrendSeries([input[0]]).length,0);
+});
+
+test("session trends omit undated singleton sessions while preserving dated session totals", () => {
+  const samples = [
+    {id:'1',date:100,stats:{rounds:20,kills:10,__schema:'nickstats.match/27'}},
+    {id:'2',date:200,stats:{rounds:20,kills:15,__schema:'nickstats.match/27'}},
+    {id:'3',date:0,stats:{rounds:20,kills:999,__schema:'nickstats.match/27'}}
+  ];
+  const sessions = context.window.NickStatsGraphs.sessionSamples(samples);
+  assert.equal(sessions.length,2);
+  const trend = datedTrendSeries([{values:sessions}]);
+  assert.equal(trend[0].values.length,1);
+  assert.equal(trend[0].values[0].stats.kills,25);
+  assert.equal(trend[0].values[0].stats.rounds,40);
+  assert.equal(samples.length,3);
 });
 
 test("distribution bounds come from the stable available-player pool", () => {

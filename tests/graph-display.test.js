@@ -67,6 +67,25 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   assert.equal(datedBars.length, 6);
   assert.ok(datedBars.every(bar => bar.attributes.x >= 68 && bar.attributes.x + bar.attributes.width <= 864));
   assert.ok(svg.marks.some(child => child.type === "text" && /Aug \d+/.test(child.text)));
+  const mixedDates = dated.slice(0,2).map((player,index) => ({...player, samples:[...player.samples,
+    {id:`undated-${index}`,date:0,stats:{rounds:20,kills:999,deaths:1}}]}));
+  context.window.NickStatsGraphs.render({prefix:"player",series:mixedDates,independent:true});
+  assert.equal(svg.marks.filter(mark => mark.attributes.class === 'graph-series-bar').length,4);
+  assert.ok(output.cards.every(card => card.lines.some(line => /n=2$/.test(line))));
+  assert.match(output.note,/Matches without dates are excluded/);
+  assert.ok(!svg.marks.some(mark => /Dates needed/.test(mark.text || '')));
+  settings.set('type','distribution');
+  assert.ok(output.cards.every(card => card.lines.some(line => /n=3$/.test(line))), 'distribution retains undated matches');
+  settings.set('type','trend');
+  const missingDates = {...mixedDates[0],samples:[mixedDates[0].samples.at(-1)]};
+  context.window.NickStatsGraphs.render({prefix:'player',series:[missingDates,mixedDates[1]],independent:true});
+  assert.equal(output.cards.length,1);
+  assert.equal(output.cards[0].label,mixedDates[1].label);
+  assert.equal(output.cards[0].color,context.window.NickStatsGraphs.colors[1]);
+  context.window.NickStatsGraphs.render({prefix:'player',series:[missingDates],independent:true});
+  assert.equal(output.cards.length,0);
+  assert.match(output.empty,/No qualifying match samples/);
+  assert.equal(svg.marks.length,0);
   const busy = Array.from({ length: 11 }, (_, index) => ({
     id: String(index + 1), date: 1787356800 + (index === 10 ? 60 : index) * 86400,
     stats: { rounds: 20, kills: 15 + index, deaths: 10 }

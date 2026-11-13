@@ -236,8 +236,10 @@
     return series.samples.map(sample => ({ ...sample, value: metric.value(sample.stats, sample) })).filter(sample => Number.isFinite(sample.value));
   }
 
-  function independentTrendNeedsDates(series) {
-    return series.length > 1 && series.some(item => item.values.some(point => point.date <= 0));
+  function datedTrendSeries(series) {
+    return series.map((item, index) => ({ ...item, colorIndex: item.colorIndex ?? index,
+      values: item.values.filter(point => Number.isFinite(Number(point.date)) && Number(point.date) > 0)
+    })).filter(item => item.values.length);
   }
 
   function distributionBounds(series) {
@@ -616,11 +618,16 @@
     state.settings.validation(range?.error || "");
     const roundMetric = roundMetrics[metric.id];
     const scopedSeries = series => sessionsMode ? { ...series, samples: sessionSamples(series.samples, series.sessionMatches) } : series;
-    const prepared = state.series.map(scopedSeries).map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
-    const domainPrepared = state.domainSeries.map(scopedSeries).map(series => ({ ...series, values: relationship ? relationshipSamples(series, xMetric, metric) : valuesFor(series, metric) })).filter(series => series.values.length);
+    const chronologicalTrend = !roundsMode && settings.type === "trend";
+    const prepare = series => {
+      const prepared = series.map(scopedSeries).map((item, index) => ({ ...item, colorIndex: item.colorIndex ?? index,
+        values: relationship ? relationshipSamples(item, xMetric, metric) : valuesFor(item, metric)
+      }));
+      return chronologicalTrend ? datedTrendSeries(prepared) : prepared.filter(item => item.values.length);
+    };
+    const prepared = prepare(state.series), domainPrepared = prepare(state.domainSeries);
     const roundPrepared = roundsMode ? state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || [], {}, roundMetric) })).filter(series => series.roundValues.length) : [];
     chart.viewBox = !roundsMode && ["distribution", "relationship"].includes(settings.type) ? "0 0 900 460" : "0 0 900 420";
-    const multiTrendNeedsDates = !roundsMode && settings.type === "trend" && state.independent && independentTrendNeedsDates(prepared);
     const note = roundsMode
       ? `Each ${settings.style === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
       : relationship
@@ -629,16 +636,12 @@
       ? range?.error ? `${range.error} Showing automatic buckets until valid.`
         : mode === "manual" ? "Enter comma-separated cutoffs. For example, 5, 10, 15 makes <5, 5–<10, 10–<15, and ≥15."
           : ""
-      : multiTrendNeedsDates
-        ? `Independent multi-player trends need reliable dates before their timelines can be aligned. Select one player for ${unit} order, or use Distribution for comparisons now.`
-        : `Each ${unit} gets one horizontal slot in date order. Lines pause across long gaps in a player's games. Hover for the exact date and value.`;
+      : `Each ${unit} gets one horizontal slot in date order. ${sessionsMode ? "Sessions" : "Matches"} without dates are excluded. Lines pause across long gaps in a player's games. Hover for the exact date and value.`;
     const shown = roundsMode ? roundPrepared : prepared;
     window.NickStatsGraphOutputUI.render(prefix, { series: shown, roundsMode, relationship, metric, xMetric, unit, colors, format, note });
     if (!shown.length) { window.NickStatsChartUI.render(target, chart); return; }
     if (roundsMode) { drawRounds(chart, roundPrepared, metric, settings.style); window.NickStatsChartUI.render(target, chart); return; }
-    if (multiTrendNeedsDates) {
-      chart.add(chartMark("text", { x: 450, y: 205, class: "graph-waiting-message", "text-anchor": "middle" }, "Dates needed to align these players’ trends"));
-    } else if (relationship) drawRelationship(chart, prepared, domainPrepared, xMetric, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
+    if (relationship) drawRelationship(chart, prepared, domainPrepared, xMetric, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
     else settings.type === "trend" ? drawTrend(chart, prepared, metric, settings.style, sessionsMode ? "Session" : "Match") : drawDistribution(chart, prepared, domainPrepared, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
     window.NickStatsChartUI.render(target, chart);
   }
@@ -671,5 +674,5 @@
     draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, relationshipSamples, relationshipBuckets, syncTagMetrics, metricChoices, statsForMatch, samplesForMatches, sessionSamples, independentTrendNeedsDates, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks, roundSeriesModel, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, relationshipSamples, relationshipBuckets, syncTagMetrics, metricChoices, statsForMatch, samplesForMatches, sessionSamples, datedTrendSeries, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks, roundSeriesModel, render });
 })();
