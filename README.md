@@ -34,6 +34,13 @@ Open the published site, or clone/download the repository and serve the folder w
 
 The UI uses shared React components throughout, including navigation, account and upload forms, profile layouts and statistics, graphs, comparisons, Sessions and filters. Existing JavaScript controllers retain API access, routing and stat calculations. See [Editing the interface](docs/frontend.md) for component locations and build commands. The committed frontend bundle keeps static-folder hosting working.
 
+Graphs include **Teammate rating** under Core, including either axis of X vs. Y.
+Each match uses the average overall career rating of its known teammates, matching
+the profile definition. Sessions pool known teammate appearances rather than
+averaging per-match averages. Missing ratings are excluded, and zero remains a
+valid rating. Player and conditional Group graphs use the same definition; the
+career ratings themselves are not recalculated under graph filters.
+
 ## Match parsing
 
 Parser 5.0 uses the namespaced browser API and full send-node paths for positions,

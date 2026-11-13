@@ -37,7 +37,10 @@
 
   const metrics = [
     ["Core", [
-      ["rating", "Rating", rating, 2], ["kd", "K/D", stats => ratio(stats.kills, stats.deaths), 2],
+      ["rating", "Rating", rating, 2],
+      ["teammate_rating", "Teammate rating", stats => number(stats.teammate_rating_samples) > 0
+        ? number(stats.teammate_rating_total) / number(stats.teammate_rating_samples) : Number.NaN, 2],
+      ["kd", "K/D", stats => ratio(stats.kills, stats.deaths), 2],
       ["adr", "ADR", rate("damage"), 1], ["kast", "KAST", percentage("kast_rounds", "rounds"), 1, "%"],
       ["kills", "Kills", count("kills"), 0], ["deaths", "Deaths", count("deaths"), 0], ["damage", "Damage", count("damage"), 0],
       ["round_diff", "Round differential", () => Number.NaN, 2],
@@ -202,14 +205,22 @@
     return stats;
   }
 
-  function samplesForMatches(matches, side = "ALL", buy = "ALL", roundResult = "ALL", opponentBuy = "ALL", roundPhase = "ALL", heroOnly = false) {
+  function samplesForMatches(matches, side = "ALL", buy = "ALL", roundResult = "ALL", opponentBuy = "ALL", roundPhase = "ALL", heroOnly = false, teammateRatings = {}) {
     return (matches || []).map((match, index) => ({
       id: String(match.id ?? index),
       date: number(match.played_at ?? match.date),
       result: match.result,
       map: match.map,
-      stats: statsForMatch(match, side, buy, roundResult, opponentBuy, roundPhase, heroOnly)
+      stats: {
+        ...statsForMatch(match, side, buy, roundResult, opponentBuy, roundPhase, heroOnly),
+        ...teammateRatingCounters(match, teammateRatings)
+      }
     })).filter(sample => number(sample.stats.rounds) > 0);
+  }
+
+  function teammateRatingCounters(match, ratings) {
+    const known = (match.teammate_ids || match.teammateIds || []).map(id => ratings[String(id)]).filter(Number.isFinite);
+    return { teammate_rating_total: known.reduce((sum, value) => sum + value, 0), teammate_rating_samples: known.length };
   }
 
   // Build boundaries from the complete history, then pool only qualifying samples.

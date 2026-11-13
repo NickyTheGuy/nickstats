@@ -393,7 +393,7 @@
       candidate.graphCache ||= new Map();
       const key = aggregationKey();
       if (!candidate.graphCache.has(key)) {
-        candidate.graphCache.set(key, window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly));
+        candidate.graphCache.set(key, window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly, candidate.payload.teammateRatings));
       }
       return { id, colorIndex, label: candidate.payload.player?.name || "Unknown player", samples: candidate.graphCache.get(key), sessionMatches: candidate.payload.matches || [],
         roundMatches: matches.map(match => ({ round_kills: window.NickStatsRoundTimeline.withDifferentials(match.round_kills).filter(row => window.NickStatsRoundTimeline.matchesFilters(row, {
@@ -656,6 +656,7 @@
   });
   window.NickStatsPlayerStats = Object.freeze({
     expandDenseProfile,
+    teammateRatingsFor,
     sessionSummary: matches => quickSummary(matches, aggregate(matches, "ALL", "ALL", "ALL", "ALL", "ALL", false))
   });
 })();

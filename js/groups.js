@@ -254,7 +254,12 @@
         headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal
       }));
       if (controller.signal.aborted) return;
-      state.players = (payload.players || []).map(normalizePlayer).sort((a, b) => a.label.localeCompare(b.label));
+      const players = await Promise.all((payload.players || []).map(async player => ({
+        ...normalizePlayer(player),
+        teammateRatings: await window.NickStatsPlayerStats.teammateRatingsFor(player.id, controller.signal)
+      })));
+      if (controller.signal.aborted) return;
+      state.players = players.sort((a, b) => a.label.localeCompare(b.label));
       populateMaps({ reset: !refresh });
       if (!refresh) state.graphPlayers = null;
       state.players.forEach(player => { if (!state.choices.has(player.profileId)) state.choices.set(player.profileId, "include"); });
@@ -451,7 +456,7 @@
     const series = current.included.map((candidate, colorIndex) => {
       const matches = comboProfileRows(current, candidate);
       return { id: idFor(candidate), colorIndex, label: candidate.label, sessionMatches: candidate.rows,
-        samples: window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly),
+        samples: window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly, candidate.teammateRatings),
         roundMatches: matches.map(match => ({ round_kills: window.NickStatsRoundTimeline.withDifferentials(match.round_kills).filter(row => window.NickStatsRoundTimeline.matchesFilters(row, {
           side: state.side, buy: state.buy, opponentBuy: state.opponentBuy, result: state.roundResult, phase: state.roundPhase, heroOnly: state.heroOnly
         })) })) };

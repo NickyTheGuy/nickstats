@@ -193,4 +193,23 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   assert.equal(output.cards[0].lines.length, 1);
   assert.match(output.cards[0].lines[0], /^Mean .* · n=5$/);
 
+  settings.set('mode','auto');
+  settings.set('type','relationship');
+  choose('Teammate rating','x');
+  choose('Kills');
+  context.window.NickStatsGraphs.render({prefix:'player',series:[{label:'Player',samples:[
+    {id:'1',stats:{rounds:20,kills:10,teammate_rating_total:2,teammate_rating_samples:2}},
+    {id:'2',stats:{rounds:20,kills:20,teammate_rating_total:1.5,teammate_rating_samples:1}},
+    {id:'3',stats:{rounds:20,kills:999}}
+  ]}]});
+  assert.ok(svg.marks.some(mark => mark.type === 'text' && mark.text === 'Teammate rating'));
+  assert.match(output.cards[0].lines[0],/^X · Teammate rating: Mean 1.25/);
+  assert.match(output.cards[0].lines[1],/^Y · Kills: Mean 15/);
+  assert.equal(output.cards[0].lines[2],'2 paired matches');
+  choose('Teammate rating');
+  choose('Kills','x');
+  assert.ok(svg.marks.some(mark => mark.type === 'text' && mark.text === 'Average Teammate rating'));
+  assert.match(output.cards[0].lines[1],/^Y · Teammate rating: Mean 1.25/);
+  assert.equal(output.cards[0].lines[2],'2 paired matches');
+
 });

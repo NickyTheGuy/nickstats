@@ -13,6 +13,35 @@ vm.runInContext(source, context);
 
 const { metrics, metricChoices, samplesForMatches, statsForMatch, datedTrendSeries, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks } = context.window.NickStatsGraphs;
 
+test("teammate rating graphs use career ratings per appearance and exclude unknown values on either axis", () => {
+  const matches = [
+    {id:'1',played_at:100,teammate_ids:[2,3],rounds:20,kills:10,schema:'nickstats.match/27'},
+    {id:'2',played_at:200,teammateIds:['4','5'],rounds:20,kills:15,schema:'nickstats.match/27'},
+    {id:'3',played_at:300,teammate_ids:[5],rounds:20,kills:999,schema:'nickstats.match/27'},
+    {id:'4',played_at:400,teammate_ids:[6],rounds:20,kills:0,schema:'nickstats.match/27'},
+    {id:'5',played_at:500,teammate_ids:[4],rounds:0,kills:10,schema:'nickstats.match/27'}
+  ];
+  const samples = samplesForMatches(matches,'ALL','ALL','ALL','ALL','ALL',false,{2:1.2,3:.8,4:1.6,5:null,6:0});
+  const teammate = metrics.get('teammate_rating'), kills = metrics.get('kills');
+  assert.equal(teammate.label,'Teammate rating');
+  assert.ok(metricChoices('Core','teammate rating').flatMap(([,choices]) => choices).some(([id]) => id === teammate.id));
+  assert.equal(teammate.value(samples[0].stats),1);
+  assert.equal(teammate.value(samples[1].stats),1.6);
+  assert.ok(Number.isNaN(teammate.value(samples[2].stats)));
+  assert.equal(teammate.value(samples[3].stats),0);
+  assert.equal(samples.length,4,'matches with no qualifying rounds are excluded');
+  for (const [x,y] of [[teammate,kills],[kills,teammate]]) {
+    const paired = context.window.NickStatsGraphs.relationshipSamples({samples},x,y);
+    assert.deepEqual(Array.from(paired, point => point.id),['1','2','4']);
+    assert.equal(paired[2].value,0);
+    assert.equal(paired[2].y,0);
+  }
+  const session = context.window.NickStatsGraphs.sessionSamples(samples.slice(0,3));
+  assert.equal(session.length,1);
+  assert.ok(Math.abs(teammate.value(session[0].stats)-1.2)<1e-10,'sessions weight known teammate appearances, not per-match averages');
+  assert.ok(Number.isNaN(teammate.value({rounds:20})), 'older/missing teammate data is not a zero');
+});
+
 test("manual cutoffs accept ordered CSV values and reject invalid boundaries", () => {
   assert.deepEqual(Array.from(parseCutoffs("5, 10, 15").edges), [5, 10, 15]);
   for (const input of ["", "5, 5", "10, 5", "5,", "5; 10", "5, Infinity"]) {
