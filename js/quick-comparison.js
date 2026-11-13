@@ -95,7 +95,7 @@
     function columnScalesWithValueMode(column, formatted) {
       if (state.valueMode === "totals" || !column.group || column.key.startsWith("clutch-economy-")) return false;
       return !(/rate|success|percent|\bkd\b|adr|speed/.test(column.key) ||
-        /^[-+−]?\d+(?:\.\d+)?%$/.test(formatted) || ["timing-kill", "timing-death"].includes(column.key));
+        /^[-+−]?\d+(?:\.\d+)?%$/.test(formatted) || ["timing", "timing-kill", "timing-death"].includes(column.key));
     }
 
     function columnDenominator(column, item) {
@@ -131,24 +131,14 @@
       if (!columnScalesWithValueMode(column, formatted)) return formatted;
       const denominator = columnDenominator(column, item);
       if (!denominator) return "—";
-      // Use the counters directly: localized totals such as 1,234 must not
-      // make the combined K-D-A column fall back to a single kill rate.
-      if (column.key === "combat") return ["kills", "deaths", "assists"]
-        .map(key => decimal(number(item.stats[key]) / denominator, 2)).join("-");
-      const kda = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
-      if (kda) return kda.slice(1).map(part => decimal(number(part) / denominator, 2)).join("-");
-      const opening = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?) · (.+)$/);
-      if (opening) return `${decimal(number(opening[1]) / denominator, 2)}-${decimal(number(opening[2]) / denominator, 2)} · ${opening[3]}`;
-      const pair = formatted.match(/^(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
-      if (pair) return `${decimal(number(pair[1]) / denominator, 2)}-${decimal(number(pair[2]) / denominator, 2)}`;
-      const fraction = formatted.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)( · .+)?$/);
-      if (fraction) return `${decimal(number(fraction[1]) / denominator, 2)}/${decimal(number(fraction[2]) / denominator, 2)}${fraction[3] || ""}`;
-      const triple = formatted.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
-      if (triple) return triple.slice(1).map(part => decimal(number(part) / denominator, 2)).join("/");
-      const utilitySummary = formatted.match(/^(\d+(?:\.\d+)?) dmg · (\d+(?:\.\d+)?) thrown$/);
-      if (utilitySummary) return `${decimal(number(utilitySummary[1]) / denominator, 2)} dmg · ${decimal(number(utilitySummary[2]) / denominator, 2)} thrown`;
-      const countedPercent = formatted.match(/^(\d+(?:\.\d+)?) (\([^)]+\))$/);
-      if (countedPercent) return `${decimal(number(countedPercent[1]) / denominator, 2)} ${countedPercent[2]}`;
+      // Format each count from its raw counter, before locale grouping is applied.
+      // Composite displays must not be reconstructed from their sort value (often K-D).
+      let formattedCounts = false;
+      const scaled = column.format(item, count => {
+        formattedCounts = true;
+        return decimal(number(count) / denominator, 2);
+      });
+      if (formattedCounts) return scaled;
       const scaledValue = ["utility-blind-seconds", "utility-teammate-blind-seconds", "utility-self-blind-seconds"].includes(column.key)
         ? number(value) / 1000 : number(value);
       return decimal(scaledValue / denominator, 2);
@@ -162,7 +152,7 @@
         "utility-self-flashes": "flash", "utility-self-blind-seconds": "flash", "utility-flash-assists": "flash", "utility-own-flash": "flash"
       }[column.key] : null;
       const unit = grenadeUnit || (state.valueMode === "match" ? "match" : "round");
-      if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || (column.label.endsWith("%") && !column.label.includes("(Succ%)")) || ["timing-kill", "timing-death"].includes(column.key)) return column.label;
+      if (/rate|success|percent|\bkd\b|adr|speed/.test(column.key) || (column.label.endsWith("%") && !column.label.includes("(Succ%)")) || ["timing", "timing-kill", "timing-death"].includes(column.key)) return column.label;
       const compositeLabels = {
         combat: `K/${unit}-D/${unit}-A/${unit}`,
         opening: `K/${unit}-D/${unit} · Att%`,
@@ -188,10 +178,12 @@
     }
 
     function renderTable(comparison) {
+      // Composite displays accept a count formatter so rate mode can divide raw
+      // counters while leaving percentages, averages and other suffixes intact.
       const clutchValue = (stats, statPrefix, size) => number(stats[`${statPrefix}_1v${size}`]);
       const clutchTotal = (stats, statPrefix) => [1, 2, 3, 4, 5].reduce((total, size) => total + clutchValue(stats, statPrefix, size), 0);
       const clutchRate = (wins, attempts) => attempts ? 100 * wins / attempts : null;
-      const clutchDisplay = (wins, attempts) => `${integer(wins)}/${integer(attempts)} · ${attempts ? percent(clutchRate(wins, attempts)) : "—"}`;
+      const clutchDisplay = (wins, attempts, formatCount = integer) => `${formatCount(wins)}/${formatCount(attempts)} · ${attempts ? percent(clutchRate(wins, attempts)) : "—"}`;
       const fixedColumns = [
         { key: "player", label: "Player", value: item => item.player.label, format: item => item.player.label },
         { key: "rating", label: "Rating", value: item => item.stats.rating, format: item => decimal(item.stats.rating, 2), className: item => `demo-rating ${item.stats.rating >= 1.10 ? "rating-good" : item.stats.rating <= 0.90 ? "rating-bad" : "rating-average"}` },
@@ -212,7 +204,7 @@
         { key: "combat-adr", label: "ADR", value: item => item.stats.adr, format: item => decimal(item.stats.adr, 1) }
       ] : [{
         key: "combat", label: "K-D-A", value: item => number(item.stats.kills),
-        format: item => `${integer(item.stats.kills)}-${integer(item.stats.deaths)}-${integer(item.stats.assists)}`
+        format: (item, formatCount = integer) => `${formatCount(item.stats.kills)}-${formatCount(item.stats.deaths)}-${formatCount(item.stats.assists)}`
       }];
       const openingColumns = state.expandedGroups.opening ? [
         { key: "opening-k", label: "K", value: item => number(item.stats.opening_kills), format: item => integer(item.stats.opening_kills) },
@@ -242,27 +234,27 @@
         { key: "opening-assist-rate", label: "Assist %", value: item => item.stats.openingAssistRate, format: item => availability.available(item.stats, "openingAssistRate") ? percent(item.stats.openingAssistRate) : "—" }
       ] : [{
         key: "opening", label: "K-D · Att%", value: item => item.stats.openingAttemptRate,
-        format: item => `${integer(item.stats.opening_kills)}-${integer(item.stats.opening_deaths)} · ${percent(item.stats.openingAttemptRate)}`
+        format: (item, formatCount = integer) => `${formatCount(item.stats.opening_kills)}-${formatCount(item.stats.opening_deaths)} · ${percent(item.stats.openingAttemptRate)}`
       }];
       const tradesColumns = state.expandedGroups.trades ? [
         { key: "trade-opportunities", label: "K Opp", value: item => number(item.stats.trade_opportunities), format: item => integer(item.stats.trade_opportunities) },
         { key: "trade-attempts", label: "K Att", value: item => number(item.stats.trade_attempts), format: item => integer(item.stats.trade_attempts) },
-        { key: "trade-kills", label: "K (Succ%)", value: item => 100 * number(item.stats.trade_kills) / Math.max(1, number(item.stats.trade_attempts)), format: item => `${integer(item.stats.trade_kills)} (${percent(100 * number(item.stats.trade_kills) / Math.max(1, number(item.stats.trade_attempts)))})` },
+        { key: "trade-kills", label: "K (Succ%)", value: item => 100 * number(item.stats.trade_kills) / Math.max(1, number(item.stats.trade_attempts)), format: (item, formatCount = integer) => `${formatCount(item.stats.trade_kills)} (${percent(100 * number(item.stats.trade_kills) / Math.max(1, number(item.stats.trade_attempts)))})` },
         { key: "tradeable-deaths", label: "D Opp", value: item => number(item.stats.tradeable_deaths), format: item => integer(item.stats.tradeable_deaths) },
         { key: "attempted-tradeable-deaths", label: "D Att", value: item => number(item.stats.attempted_tradeable_deaths), format: item => integer(item.stats.attempted_tradeable_deaths) },
-        { key: "traded-deaths", label: "D (Succ%)", value: item => 100 * number(item.stats.traded_deaths) / Math.max(1, number(item.stats.attempted_tradeable_deaths)), format: item => `${integer(item.stats.traded_deaths)} (${percent(100 * number(item.stats.traded_deaths) / Math.max(1, number(item.stats.attempted_tradeable_deaths)))})` }
+        { key: "traded-deaths", label: "D (Succ%)", value: item => 100 * number(item.stats.traded_deaths) / Math.max(1, number(item.stats.attempted_tradeable_deaths)), format: (item, formatCount = integer) => `${formatCount(item.stats.traded_deaths)} (${percent(100 * number(item.stats.traded_deaths) / Math.max(1, number(item.stats.attempted_tradeable_deaths)))})` }
       ] : [{
         key: "trades", label: "K-D", value: item => number(item.stats.trade_kills) - number(item.stats.traded_deaths),
-        format: item => `${integer(item.stats.trade_kills)}-${integer(item.stats.traded_deaths)}`
+        format: (item, formatCount = integer) => `${formatCount(item.stats.trade_kills)}-${formatCount(item.stats.traded_deaths)}`
       }];
       const clutchColumns = state.expandedGroups.clutches
         ? [5, 4, 3, 2, 1].map(size => ({
             key: `clutch-${size}`, label: `1v${size}`, value: item => clutchRate(clutchValue(item.stats, "clutch", size), clutchValue(item.stats, "clutch_attempt", size)),
-            format: item => clutchDisplay(clutchValue(item.stats, "clutch", size), clutchValue(item.stats, "clutch_attempt", size))
+            format: (item, formatCount = integer) => clutchDisplay(clutchValue(item.stats, "clutch", size), clutchValue(item.stats, "clutch_attempt", size), formatCount)
           }))
         : [{
             key: "clutches", label: "Total W/A · Win%", value: item => clutchRate(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt")),
-            format: item => clutchDisplay(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt"))
+            format: (item, formatCount = integer) => clutchDisplay(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt"), formatCount)
           }];
       if (state.expandedGroups.clutches) {
         const economy = item => Scoreboard.clutchEconomics(availability.scope(item.stats, "clutchEconomics"), "clutch_econ_");
@@ -283,57 +275,57 @@
         contactRoundsColumn
       ] : [contactRoundsColumn];
       const roundStateColumns = state.expandedGroups.roundState ? [
-        { key: "context-clawback-bozo", label: "Clawback-Bozo K-D", value: item => number(item.stats.clawback_kills) - number(item.stats.bozo_deaths), format: item => availability.available(item.stats, "clawback_kills") ? `${integer(item.stats.clawback_kills)}-${integer(item.stats.bozo_deaths)}` : "—" },
-        { key: "context-even", label: "Even K-D", value: item => number(item.stats.even_kills) - number(item.stats.even_deaths), format: item => availability.available(item.stats, "even_kills") ? `${integer(item.stats.even_kills)}-${integer(item.stats.even_deaths)}` : "—" },
-        { key: "context-advantage", label: "Advantage K / Outnumbered D", value: item => number(item.stats.advantage_kills) - number(item.stats.disadvantage_deaths), format: item => availability.available(item.stats, "advantage_kills") ? `${integer(item.stats.advantage_kills)}-${integer(item.stats.disadvantage_deaths)}` : "—" },
-        { key: "context-cleanup", label: "Cleanup K-D", value: item => number(item.stats.cleanup_kills) - number(item.stats.cleanup_deaths), format: item => availability.available(item.stats, "cleanup_kills") ? `${integer(item.stats.cleanup_kills)}-${integer(item.stats.cleanup_deaths)}` : "—" }
+        { key: "context-clawback-bozo", label: "Clawback-Bozo K-D", value: item => number(item.stats.clawback_kills) - number(item.stats.bozo_deaths), format: (item, formatCount = integer) => availability.available(item.stats, "clawback_kills") ? `${formatCount(item.stats.clawback_kills)}-${formatCount(item.stats.bozo_deaths)}` : "—" },
+        { key: "context-even", label: "Even K-D", value: item => number(item.stats.even_kills) - number(item.stats.even_deaths), format: (item, formatCount = integer) => availability.available(item.stats, "even_kills") ? `${formatCount(item.stats.even_kills)}-${formatCount(item.stats.even_deaths)}` : "—" },
+        { key: "context-advantage", label: "Advantage K / Outnumbered D", value: item => number(item.stats.advantage_kills) - number(item.stats.disadvantage_deaths), format: (item, formatCount = integer) => availability.available(item.stats, "advantage_kills") ? `${formatCount(item.stats.advantage_kills)}-${formatCount(item.stats.disadvantage_deaths)}` : "—" },
+        { key: "context-cleanup", label: "Cleanup K-D", value: item => number(item.stats.cleanup_kills) - number(item.stats.cleanup_deaths), format: (item, formatCount = integer) => availability.available(item.stats, "cleanup_kills") ? `${formatCount(item.stats.cleanup_kills)}-${formatCount(item.stats.cleanup_deaths)}` : "—" }
       ] : [{
         key: "round-state", label: "Clawback-Bozo K-D", value: item => number(item.stats.clawback_kills) - number(item.stats.bozo_deaths),
-        format: item => availability.available(item.stats, "clawback_kills") ? `${integer(item.stats.clawback_kills)}-${integer(item.stats.bozo_deaths)}` : "—"
+        format: (item, formatCount = integer) => availability.available(item.stats, "clawback_kills") ? `${formatCount(item.stats.clawback_kills)}-${formatCount(item.stats.bozo_deaths)}` : "—"
       }];
       const contextColumns = state.expandedGroups.killContext ? [
-        { key: "context-enemy-blind", label: "Enemy blind K-D", value: item => number(item.stats.blinded_kills) - number(item.stats.deaths_while_blind), format: item => `${integer(item.stats.blinded_kills)}-${integer(item.stats.deaths_while_blind)}` },
-        { key: "context-killer-blind", label: "Killer blind K-D", value: item => number(item.stats.blind_kills) - number(item.stats.deaths_to_blind_killer), format: item => `${integer(item.stats.blind_kills)}-${integer(item.stats.deaths_to_blind_killer)}` },
-        { key: "context-wallbang", label: "Wallbang K-D", value: item => number(item.stats.wallbang_kills) - number(item.stats.wallbang_deaths), format: item => `${integer(item.stats.wallbang_kills)}-${integer(item.stats.wallbang_deaths)}` },
-        { key: "context-smoke", label: "Smoke K-D", value: item => number(item.stats.smoke_kills) - number(item.stats.smoke_deaths), format: item => `${integer(item.stats.smoke_kills)}-${integer(item.stats.smoke_deaths)}` },
-        { key: "context-air", label: "Air K-D", value: item => number(item.stats.airborne_kills) - number(item.stats.airborne_deaths), format: item => `${integer(item.stats.airborne_kills)}-${integer(item.stats.airborne_deaths)}` },
-        { key: "context-grenade", label: "Grenade out K-D", value: item => number(item.stats.grenade_out_kills) - number(item.stats.grenade_out_deaths), format: item => `${integer(item.stats.grenade_out_kills)}-${integer(item.stats.grenade_out_deaths)}` },
-        { key: "context-knife", label: "Knife out K-D", value: item => number(item.stats.knife_out_kills) - number(item.stats.knife_out_deaths), format: item => `${integer(item.stats.knife_out_kills)}-${integer(item.stats.knife_out_deaths)}` },
-        { key: "context-paul", label: "Paul K-D", value: item => number(item.stats.equipment_disadvantage_kills) - number(item.stats.equipment_disadvantage_deaths), format: item => `${integer(item.stats.equipment_disadvantage_kills)}-${integer(item.stats.equipment_disadvantage_deaths)}` },
-        { key: "context-running", label: "Run K-D", value: item => number(item.stats.running_kills) - number(item.stats.running_killer_deaths), format: item => `${integer(item.stats.running_kills)}-${integer(item.stats.running_killer_deaths)}` }
+        { key: "context-enemy-blind", label: "Enemy blind K-D", value: item => number(item.stats.blinded_kills) - number(item.stats.deaths_while_blind), format: (item, formatCount = integer) => `${formatCount(item.stats.blinded_kills)}-${formatCount(item.stats.deaths_while_blind)}` },
+        { key: "context-killer-blind", label: "Killer blind K-D", value: item => number(item.stats.blind_kills) - number(item.stats.deaths_to_blind_killer), format: (item, formatCount = integer) => `${formatCount(item.stats.blind_kills)}-${formatCount(item.stats.deaths_to_blind_killer)}` },
+        { key: "context-wallbang", label: "Wallbang K-D", value: item => number(item.stats.wallbang_kills) - number(item.stats.wallbang_deaths), format: (item, formatCount = integer) => `${formatCount(item.stats.wallbang_kills)}-${formatCount(item.stats.wallbang_deaths)}` },
+        { key: "context-smoke", label: "Smoke K-D", value: item => number(item.stats.smoke_kills) - number(item.stats.smoke_deaths), format: (item, formatCount = integer) => `${formatCount(item.stats.smoke_kills)}-${formatCount(item.stats.smoke_deaths)}` },
+        { key: "context-air", label: "Air K-D", value: item => number(item.stats.airborne_kills) - number(item.stats.airborne_deaths), format: (item, formatCount = integer) => `${formatCount(item.stats.airborne_kills)}-${formatCount(item.stats.airborne_deaths)}` },
+        { key: "context-grenade", label: "Grenade out K-D", value: item => number(item.stats.grenade_out_kills) - number(item.stats.grenade_out_deaths), format: (item, formatCount = integer) => `${formatCount(item.stats.grenade_out_kills)}-${formatCount(item.stats.grenade_out_deaths)}` },
+        { key: "context-knife", label: "Knife out K-D", value: item => number(item.stats.knife_out_kills) - number(item.stats.knife_out_deaths), format: (item, formatCount = integer) => `${formatCount(item.stats.knife_out_kills)}-${formatCount(item.stats.knife_out_deaths)}` },
+        { key: "context-paul", label: "Paul K-D", value: item => number(item.stats.equipment_disadvantage_kills) - number(item.stats.equipment_disadvantage_deaths), format: (item, formatCount = integer) => `${formatCount(item.stats.equipment_disadvantage_kills)}-${formatCount(item.stats.equipment_disadvantage_deaths)}` },
+        { key: "context-running", label: "Run K-D", value: item => number(item.stats.running_kills) - number(item.stats.running_killer_deaths), format: (item, formatCount = integer) => `${formatCount(item.stats.running_kills)}-${formatCount(item.stats.running_killer_deaths)}` }
       ] : [{
         key: "kill-context", label: "Bullshit K-D", value: item => number(item.stats.unfair_kills) - number(item.stats.unfair_deaths),
-        format: item => `${integer(item.stats.unfair_kills)}-${integer(item.stats.unfair_deaths)}`
+        format: (item, formatCount = integer) => `${formatCount(item.stats.unfair_kills)}-${formatCount(item.stats.unfair_deaths)}`
       }];
       const stageAvailable = (item, alive, kind = "kills") => availability.available(item.stats, `enemy_alive_${alive}_${kind}`);
       const stageColumns = state.expandedGroups.killStage ? [5, 4, 3, 2, 1].map(alive => ({
         key: `enemy-alive-${alive}`, label: `${alive} alive K-D`,
         value: item => number(item.stats[`enemy_alive_${alive}_kills`]) - number(item.stats[`enemy_alive_${alive}_deaths`]),
-        format: item => stageAvailable(item, alive)
-          ? `${integer(item.stats[`enemy_alive_${alive}_kills`])}-${integer(item.stats[`enemy_alive_${alive}_deaths`])}` : "—"
+        format: (item, formatCount = integer) => stageAvailable(item, alive)
+          ? `${formatCount(item.stats[`enemy_alive_${alive}_kills`])}-${formatCount(item.stats[`enemy_alive_${alive}_deaths`])}` : "—"
       })) : [{
         key: "kill-stage-summary", label: "5/1 alive K", value: item => number(item.stats.enemy_alive_5_kills) - number(item.stats.enemy_alive_1_kills),
-        format: item => stageAvailable(item, 5)
-          ? `${integer(item.stats.enemy_alive_5_kills)}/${integer(item.stats.enemy_alive_1_kills)}` : "—"
+        format: (item, formatCount = integer) => stageAvailable(item, 5)
+          ? `${formatCount(item.stats.enemy_alive_5_kills)}/${formatCount(item.stats.enemy_alive_1_kills)}` : "—"
       }];
-      const movementPair = (item, killKey, deathKey) => `${integer(item.stats[killKey])}-${integer(item.stats[deathKey])}`;
+      const movementPair = (item, killKey, deathKey, formatCount = integer) => `${formatCount(item.stats[killKey])}-${formatCount(item.stats[deathKey])}`;
       const speedAverage = (item, totalKey, samplesKey) => number(item.stats[totalKey]) / Math.max(1, number(item.stats[samplesKey]));
       const speedPair = (item, totalKey, samplesKey, maximumKey, suffix = "") => {
         const average = speedAverage(item, totalKey, samplesKey), maximum = number(item.stats[maximumKey]);
         return `${decimal(average, 1)}${suffix}/${decimal(maximum, 1)}${suffix}`;
       };
       const movementColumns = state.expandedGroups.movement ? [
-        { key: "movement-moving", label: "Move K-D", value: item => number(item.stats.moving_kills) - number(item.stats.moving_killer_deaths), format: item => movementPair(item, "moving_kills", "moving_killer_deaths") },
-        { key: "movement-still", label: "Still K-D", value: item => number(item.stats.still_kills) - number(item.stats.still_killer_deaths), format: item => movementPair(item, "still_kills", "still_killer_deaths") },
-        { key: "movement-running", label: "Run K-D", value: item => number(item.stats.running_kills) - number(item.stats.running_killer_deaths), format: item => movementPair(item, "running_kills", "running_killer_deaths") },
-        { key: "movement-air", label: "Air K-D", value: item => number(item.stats.airborne_kills) - number(item.stats.airborne_deaths), format: item => movementPair(item, "airborne_kills", "airborne_deaths") },
+        { key: "movement-moving", label: "Move K-D", value: item => number(item.stats.moving_kills) - number(item.stats.moving_killer_deaths), format: (item, formatCount = integer) => movementPair(item, "moving_kills", "moving_killer_deaths", formatCount) },
+        { key: "movement-still", label: "Still K-D", value: item => number(item.stats.still_kills) - number(item.stats.still_killer_deaths), format: (item, formatCount = integer) => movementPair(item, "still_kills", "still_killer_deaths", formatCount) },
+        { key: "movement-running", label: "Run K-D", value: item => number(item.stats.running_kills) - number(item.stats.running_killer_deaths), format: (item, formatCount = integer) => movementPair(item, "running_kills", "running_killer_deaths", formatCount) },
+        { key: "movement-air", label: "Air K-D", value: item => number(item.stats.airborne_kills) - number(item.stats.airborne_deaths), format: (item, formatCount = integer) => movementPair(item, "airborne_kills", "airborne_deaths", formatCount) },
         { key: "movement-kill-speed", label: "Kill speed avg/max", value: item => speedAverage(item, "kill_speed_total", "kill_speed_samples"), format: item => speedPair(item, "kill_speed_total", "kill_speed_samples", "kill_speed_max") },
         { key: "movement-kill-percent", label: "Kill speed avg/peak %", value: item => speedAverage(item, "kill_speed_percent_total", "kill_speed_percent_samples"), format: item => speedPair(item, "kill_speed_percent_total", "kill_speed_percent_samples", "kill_speed_percent_max", "%") },
         { key: "movement-death-speed", label: "Enemy speed avg/max", value: item => speedAverage(item, "death_speed_total", "death_speed_samples"), format: item => speedPair(item, "death_speed_total", "death_speed_samples", "death_speed_max") },
         { key: "movement-death-percent", label: "Enemy speed avg/peak %", value: item => speedAverage(item, "death_speed_percent_total", "death_speed_percent_samples"), format: item => speedPair(item, "death_speed_percent_total", "death_speed_percent_samples", "death_speed_percent_max", "%") }
       ] : [{
         key: "movement", label: "Move/run/air", value: item => number(item.stats.moving_kills),
-        format: item => `${integer(item.stats.moving_kills)}/${integer(item.stats.running_kills)}/${integer(item.stats.airborne_kills)}`
+        format: (item, formatCount = integer) => `${formatCount(item.stats.moving_kills)}/${formatCount(item.stats.running_kills)}/${formatCount(item.stats.airborne_kills)}`
       }];
       const utilityDamage = item => number(item.stats.he_damage) + number(item.stats.fire_damage);
       const utilityThrown = item => ["he_grenades_thrown", "flashbangs_thrown", "smokes_thrown", "fire_grenades_thrown", "decoys_thrown"].reduce((total, key) => total + number(item.stats[key]), 0);
@@ -358,7 +350,7 @@
         { key: "utility-own-flash", label: "K on your flash", value: item => number(item.stats.own_flash_kills), format: item => integer(item.stats.own_flash_kills) }
       ] : [{
         key: "utility", label: "Damage · thrown", value: utilityDamage,
-        format: item => `${integer(utilityDamage(item))} dmg · ${integer(utilityThrown(item))} thrown`
+        format: (item, formatCount = integer) => `${formatCount(utilityDamage(item))} dmg · ${formatCount(utilityThrown(item))} thrown`
       }];
       const multikillRounds = item => [2, 3, 4, 5].reduce((total, kills) => total + number(item.stats[`kill_rounds_${kills}k`]), 0);
       const regularMultikillColumns = [
@@ -388,20 +380,20 @@
         { key: "objective-defuses", label: "Defuses", value: item => number(item.stats.bomb_defuses), format: item => integer(item.stats.bomb_defuses) }
       ] : [{
         key: "objectives", label: "Plants/defuses", value: item => number(item.stats.bomb_plants),
-        format: item => `${integer(item.stats.bomb_plants)}/${integer(item.stats.bomb_defuses)}`
+        format: (item, formatCount = integer) => `${formatCount(item.stats.bomb_plants)}/${formatCount(item.stats.bomb_defuses)}`
       }];
       const timed = item => number(item.stats.timed_rounds) > 0;
       const averageTime = (item, kind) => {
         const samples = number(item.stats[`${kind}_time_samples`]);
         return samples ? number(item.stats[`${kind}_time_total_ms`]) / samples / 1000 : Number.NaN;
       };
-      const timingPair = (item, phase) => timed(item) ? `${integer(item.stats[`${phase}_kills`])}-${integer(item.stats[`${phase}_deaths`])}` : "—";
+      const timingPair = (item, phase, formatCount = integer) => timed(item) ? `${formatCount(item.stats[`${phase}_kills`])}-${formatCount(item.stats[`${phase}_deaths`])}` : "—";
       const timingColumns = state.expandedGroups.timing ? [
         { key: "timing-kill", label: "Avg kill", value: item => averageTime(item, "kill"), format: item => timed(item) ? seconds(averageTime(item, "kill")) : "—" },
         { key: "timing-death", label: "Avg death", value: item => averageTime(item, "death"), format: item => timed(item) ? seconds(averageTime(item, "death")) : "—" },
         ...["early", "mid", "late", "postplant"].map(phase => ({
           key: `timing-${phase}`, label: `${phase === "postplant" ? "Post-plant" : titleCase(phase)} K-D`,
-          value: item => number(item.stats[`${phase}_kills`]) - number(item.stats[`${phase}_deaths`]), format: item => timingPair(item, phase)
+          value: item => number(item.stats[`${phase}_kills`]) - number(item.stats[`${phase}_deaths`]), format: (item, formatCount = integer) => timingPair(item, phase, formatCount)
         }))
       ] : [{
         key: "timing", label: "Avg K/D time", value: item => averageTime(item, "kill"),

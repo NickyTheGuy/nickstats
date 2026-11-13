@@ -105,7 +105,7 @@ test("quick comparison uses shared React sections, rate controls and measured ta
   assert.match(controlsSource, /<ToggleGroup/);
   assert.match(componentSource, /state\.valueMode === "match" \? item\.rows\.length : number\(item\.stats\.rounds\)/);
   assert.match(componentSource, /"utility-enemies-flashed": "flash"/);
-  assert.match(componentSource, /const kda = formatted\.match/);
+  assert.doesNotMatch(componentSource, /formatted\.match/);
   assert.match(viewSource, /cloneNode\(true\)/);
   assert.match(viewSource, /getBoundingClientRect\(\)\.width/);
   assert.match(viewSource, /scrollGroupIntoView/);

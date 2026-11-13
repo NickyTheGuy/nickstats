@@ -23,6 +23,70 @@ function setup(prefix = 'session') {
 }
 
 for (const prefix of ['player', 'combo', 'session']) {
+test(`${prefix} scales raw composite counters across thousands separators and keeps rates unchanged`, () => {
+  const app = setup(prefix);
+  for (const locale of ['en-US', 'de-DE', 'fr-FR', 'ar-EG']) {
+    app.context.window.NickStatsProfile = { ...app.context.window.NickStatsProfile,
+      integer: value => Math.round(Number(value) || 0).toLocaleString(locale) };
+    for (const [kills, deaths] of [[1125,1036], [970,1012], [999,999], [1000,1], [0,0]]) {
+      const stats = { __schema: 'nickstats.match/27', rounds: 2000, timed_rounds: 2000,
+        kills, deaths, assists: 1001, mid_kills: kills, mid_deaths: deaths,
+        kill_time_samples: 10, kill_time_total_ms: 250000,
+        death_time_samples: 10, death_time_total_ms: 300000,
+        trade_kills: kills, traded_deaths: deaths, trade_attempts:2000, attempted_tradeable_deaths:2000,
+        clawback_kills: kills, bozo_deaths: deaths,
+        enemy_alive_5_kills: kills, enemy_alive_5_deaths: deaths, enemy_alive_1_kills: deaths,
+        unfair_kills: kills, unfair_deaths: deaths,
+        blinded_kills: kills, deaths_while_blind: deaths,
+        moving_kills: kills, moving_killer_deaths: deaths, running_kills: deaths, airborne_kills: 1001,
+        bomb_plants: kills, bomb_defuses: deaths,
+        he_damage: kills, fire_damage: deaths, he_grenades_thrown: 1001,
+        opening_kills: kills, opening_deaths: deaths, openingAttemptRate: 40,
+        clutch_1v1: kills, clutch_attempt_1v1: 2000 };
+      const input = { players: [{ id:'1', label:'Sample', rows:Array.from({length:4}, () => ({schema:'nickstats.match/27'})) }],
+        summarize: () => stats };
+      const render = (mode, expandedGroups = {}) => app.context.window.NickStatsQuickComparison.model(input, {
+        map:'ALL', valueMode:mode, expandedGroups, sectionSubgroups:{},
+        visibleSections:new Set(['overview','opening','trades','rounds','roundState','context','movement','utility'])
+      });
+      const text = (model, key) => model.rows[0].cells.find(cell => cell.key === key)?.text;
+      const localizedPair = `${kills.toLocaleString(locale)}-${deaths.toLocaleString(locale)}`;
+      assert.equal(text(render('totals', {timing:true}), 'timing-mid'), localizedPair);
+      for (const mode of ['round','match']) {
+        const denominator = mode === 'round' ? 2000 : 4;
+        const rate = value => (value / denominator).toFixed(2);
+        const pair = `${rate(kills)}-${rate(deaths)}`;
+        const collapsed = render(mode);
+        for (const key of ['trades','round-state','kill-context']) assert.equal(text(collapsed,key), pair, `${locale} ${mode} ${key}`);
+        assert.equal(text(collapsed,'combat'), `${pair}-${rate(1001)}`);
+        assert.equal(text(collapsed,'objectives'), `${rate(kills)}/${rate(deaths)}`);
+        assert.equal(text(collapsed,'kill-stage-summary'), `${rate(kills)}/${rate(deaths)}`);
+        assert.equal(text(collapsed,'movement'), `${rate(kills)}/${rate(deaths)}/${rate(1001)}`);
+        assert.equal(text(collapsed,'utility'), `${rate(kills+deaths)} dmg · ${rate(1001)} thrown`);
+        assert.equal(text(collapsed,'opening'), `${pair} · 40.0%`);
+        assert.equal(text(collapsed,'clutches'), `${rate(kills)}/${rate(2000)} · ${(100*kills/2000).toFixed(1)}%`);
+        assert.equal(text(collapsed,'timing'), '25.0s/30.0s');
+        const expanded = render(mode,{timing:true,roundState:true,killStage:true,killContext:true,movement:true});
+        for (const key of ['timing-mid','context-clawback-bozo','enemy-alive-5','context-enemy-blind','movement-moving']) {
+          assert.equal(text(expanded,key),pair,`${locale} ${mode} ${key}`);
+        }
+        assert.equal(text(expanded,'timing-kill'),'25.0s');
+        assert.equal(text(expanded,'timing-death'),'30.0s');
+        const results = render(mode,{trades:true,clutches:true});
+        assert.equal(text(results,'trade-kills'),`${rate(kills)} (${(100*kills/2000).toFixed(1)}%)`);
+        assert.equal(text(results,'traded-deaths'),`${rate(deaths)} (${(100*deaths/2000).toFixed(1)}%)`);
+        assert.equal(text(results,'clutch-1'),`${rate(kills)}/${rate(2000)} · ${(100*kills/2000).toFixed(1)}%`);
+      }
+      stats.timed_rounds = 0;
+      assert.equal(text(render('round',{timing:true}),'timing-mid'),'—');
+      stats.rounds = 0;
+      assert.equal(text(render('round'),'combat'),'—');
+    }
+  }
+});
+}
+
+for (const prefix of ['player', 'combo', 'session']) {
 test(`${prefix} component view preserves rows, rating colors, map filters and stable sorting`, () => {
   const app = setup(prefix);
   assert.deepEqual(Array.from(app.model.rows, row => row.id), ['1', '2']);

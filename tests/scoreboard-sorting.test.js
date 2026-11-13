@@ -177,7 +177,7 @@ test("comparison K-D-A keeps all three rates when localized totals exceed 999", 
   const api = vm.runInNewContext(`${helpers}\n({displayedValue, columnSortValue})`, context);
   for (const locale of ["en-US", "de-DE", "fr-FR"]) {
     const column = { key: "combat", group: "combat", value: item => item.stats.kills,
-      format: item => ["kills", "deaths", "assists"].map(key => item.stats[key].toLocaleString(locale)).join("-") };
+      format: (item, formatCount = value => value.toLocaleString(locale)) => ["kills", "deaths", "assists"].map(key => formatCount(item.stats[key])).join("-") };
     for (const stats of [
       { rounds: 2000, kills: 1234, deaths: 1000, assists: 200 },
       { rounds: 2000, kills: 900, deaths: 1234, assists: 1000 },
