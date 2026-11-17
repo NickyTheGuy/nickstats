@@ -168,3 +168,46 @@ A synthetic two-player, 500-matches-each fixture with 24 slices and 120 counters
 per match shrank from 116.2 MB to 8.9 MB before compression (92.4%). This is a
 shape test, not a production latency prediction; browser expansion adds work and
 compressed transfer savings may be much smaller.
+
+## Real-data Groups encoding benchmark
+
+After updating/rebuilding **only the backend**, log in to Nick Stats and build
+one group normally. Run this in the browser console to request a diagnostic report
+for the same selected players (no frontend deployment is required):
+
+```js
+(async () => {
+  const entry = performance.getEntriesByType("resource").slice().reverse()
+    .find(entry => new URL(entry.name).pathname.endsWith("/api/groups"));
+  if (!entry) throw new Error("Build a group first.");
+  const url = new URL(entry.name);
+  url.searchParams.set("benchmark", "1");
+  const response = await fetch(url, { cache: "no-store", credentials: "same-origin" });
+  if (!response.ok) throw new Error(`${response.status}: ${await response.text()}`);
+  console.log(JSON.stringify({
+    serverTiming: response.headers.get("Server-Timing"),
+    report: await response.json()
+  }, null, 2));
+})();
+```
+
+This requires a valid login and explicitly opting in with `benchmark=1`. The
+normal Groups route and wire format are unchanged. The benchmark builds group
+data once and sequentially compares verbose objects, padded arrays, and a
+candidate shared-layout representation. Each is encoded with both the configured
+Vapor response encoder and Foundation's `JSONEncoder`. Each trial reports
+conversion milliseconds, encoding milliseconds, their sum, and uncompressed
+bytes. The same conversion duration is included in both encoder totals; it is
+performed once per format, not twice. Buffers are discarded between trials.
+
+The small report also includes row, layout, key, populated-slot, and padded-slot
+counts. A copy is written to backend logs under `Groups wire benchmark`. No match
+payloads or statistic values are logged. The candidate layout format is diagnostic
+only; it is not enabled for normal clients. Nothing is stored in the database.
+
+Expect this diagnostic request to take substantially longer than a regular group
+request: it deliberately encodes the history six times. If the proxy times out,
+check backend logs for the report after the work completes. Database build and
+network compression are excluded from the individual trial timings. This is one
+sample in fixed order, not a statistically controlled benchmark; repeat on an idle
+server to assess variability. Changing groups between samples changes the input.

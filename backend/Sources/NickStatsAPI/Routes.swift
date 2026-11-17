@@ -287,12 +287,28 @@ func routes(_ app: Application) throws {
     }
 
     app.get("groups") { request async throws -> Response in
+        let benchmark = request.query[Int.self, at: "benchmark"] == 1
+        if benchmark {
+            guard authenticatedUsername(request) != nil else {
+                throw Abort(.unauthorized, reason: "Log in to run the Groups wire benchmark.")
+            }
+        }
         let timing = ProfileTimingRecorder()
         let totalStart = timing.start()
         let buildStart = timing.start()
         let payload = try await comparisonData(request, timing: timing)
         timing.record("build", since: buildStart)
         let response = Response(status: .ok)
+        if benchmark {
+            let report = try benchmarkGroupWire(payload)
+            try response.content.encode(report)
+            response.headers.replaceOrAdd(name: "Cache-Control", value: "no-store")
+            timing.record("total", since: totalStart)
+            response.headers.replaceOrAdd(name: "Server-Timing", value: timing.serverTimingHeader())
+            let reportJSON = String(decoding: try JSONEncoder().encode(report), as: UTF8.self)
+            request.logger.info("Groups wire benchmark", metadata: ["report": "\(reportJSON)"])
+            return response
+        }
         if request.query[Int.self, at: "wire"] == 2 {
             let denseStart = timing.start()
             let densePayload = DenseComparisonResponse(payload)
