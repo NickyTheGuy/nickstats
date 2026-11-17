@@ -63,6 +63,16 @@
     return payload.ratings || {};
   }
   function expandDenseProfile(payload) {
+    // Wire-4 Groups contains independently encoded wire-3 profile envelopes.
+    // Decode each dictionary in its own scope before normalizing group players.
+    if (Array.isArray(payload?.players) && payload.players.some(player => player.player)) {
+      payload.players = payload.players.map(profile => {
+        if (!profile.player) return profile;
+        const expanded = expandDenseProfile(profile);
+        return { ...expanded.player, matches: expanded.matches || [] };
+      });
+      return payload;
+    }
     const keys = Array.isArray(payload?.stat_keys) ? payload.stat_keys : [];
     const layouts = Array.isArray(payload?.stat_layouts) ? payload.stat_layouts : null;
     if (!keys.length && !layouts) return payload;

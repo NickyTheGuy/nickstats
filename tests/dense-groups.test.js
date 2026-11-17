@@ -86,3 +86,29 @@ test('shared-layout individual profiles decode with the original identity and ma
   assert.equal(result.matches[0].played_at,100);
   assert.equal(decode(result),result);
 });
+
+test('wire-4 Groups keeps per-player layouts independent and normalizes the group envelope',()=>{
+  const payload = {players:[
+    {player:{id:1,steam_id:'1',name:'One'},stat_keys:['deaths','kills'],stat_layouts:[[0,1]],
+      matches:[{id:10,teammate_ids:[2],sides:[{side:'T',stat_layout:0,stats:[0,2]}]}]},
+    {player:{id:2,steam_id:'2',name:'Two'},stat_keys:['damage','kills'],stat_layouts:[[0,1]],
+      matches:[{id:10,sides:[{side:'CT',hero:true,stat_layout:0,stats:[80,0]}]}]}
+  ]};
+  const result = decode(payload);
+  assert.equal(result.players[0].id,1);
+  assert.equal(result.players[1].name,'Two');
+  assert.deepEqual({...result.players[0].matches[0].sides[0].stats},{deaths:0,kills:2});
+  assert.deepEqual({...result.players[1].matches[0].sides[0].stats},{damage:80,kills:0});
+  assert.equal(result.players[1].matches[0].sides[0].hero,true);
+  assert.equal(result.players[0].matches[0].teammate_ids[0],2);
+  assert.equal(decode(result),result);
+  assert.ok(!Object.hasOwn(result.players[0],'stat_keys'));
+});
+
+test('wire-4 empty player histories remain distinct and malformed inner layouts fail',()=>{
+  const result = decode({players:[{player:{id:1},stat_keys:[],stat_layouts:[],matches:[]}]});
+  assert.equal(result.players[0].id,1);
+  assert.equal(result.players[0].matches.length,0);
+  assert.throws(()=>decode({players:[{player:{id:1},stat_keys:['kills'],stat_layouts:[[1]],
+    matches:[{sides:[{stat_layout:0,stats:[2]}]}]}]}),/Invalid group statistic/);
+});

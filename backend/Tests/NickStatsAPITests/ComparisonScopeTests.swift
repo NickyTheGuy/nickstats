@@ -18,3 +18,13 @@ import Vapor
         try comparisonMatchIDs((1...101).map { String($0) }.joined(separator: ","))
     }
 }
+
+@Test func allGroupWireVersionsUseTheSameValidatedPlayerSelection() throws {
+    #expect(try comparisonPlayerIDs("2, 1") == [2, 1])
+    for value in ["", "1", "1,1", "1,0", "1,-2", "1,nope"] {
+        #expect(throws: Abort.self) { try comparisonPlayerIDs(value) }
+    }
+    #expect(throws: Abort.self) {
+        try comparisonPlayerIDs((1...21).map { String($0) }.joined(separator: ","))
+    }
+}

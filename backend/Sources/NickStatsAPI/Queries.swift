@@ -1226,11 +1226,8 @@ func comparisonMatchIDs(_ raw: String?) throws -> [Int64]? {
     return ids
 }
 
-func comparisonData(_ request: Request, timing: ProfileTimingRecorder? = nil, useHistoryCache: Bool = false) async throws -> ComparisonResponse {
-    guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
-    let query = try request.query.decode(ComparisonQuery.self)
-    let matchIDs = try comparisonMatchIDs(query.matches)
-    let tokens = query.players.split(separator: ",")
+func comparisonPlayerIDs(_ raw: String) throws -> [Int64] {
+    let tokens = raw.split(separator: ",")
     let requestedIDs = tokens.compactMap { Int64($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
     let playerIDs = requestedIDs.reduce(into: [Int64]()) { result, id in
         if id > 0 && !result.contains(id) { result.append(id) }
@@ -1239,6 +1236,14 @@ func comparisonData(_ request: Request, timing: ProfileTimingRecorder? = nil, us
           (2...20).contains(playerIDs.count) else {
         throw Abort(.badRequest, reason: "players must contain 2-20 unique positive player IDs.")
     }
+    return playerIDs
+}
+
+func comparisonData(_ request: Request, timing: ProfileTimingRecorder? = nil, useHistoryCache: Bool = false) async throws -> ComparisonResponse {
+    guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
+    let query = try request.query.decode(ComparisonQuery.self)
+    let matchIDs = try comparisonMatchIDs(query.matches)
+    let playerIDs = try comparisonPlayerIDs(query.players)
     var players: [ComparisonPlayer] = []
     for (index, playerID) in playerIDs.enumerated() {
         let playerStart = timing?.start()

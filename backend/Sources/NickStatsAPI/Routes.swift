@@ -180,23 +180,8 @@ func routes(_ app: Application) throws {
             let totalStart = timing.start()
             let wireVersion = request.query[Int.self, at: "wire"]
             if wireVersion == 3 {
-                let buildStart = timing.start()
-                let history = try await loadPlayerHistory(playerID, on: request.db, timing: timing)
-                timing.record("build", since: buildStart)
-                if let data = history.data {
-                    response.body = .init(data: data)
-                    timing.record("cache_hit", since: totalStart)
-                } else {
-                    guard let profile = history.profile else { throw Abort(.internalServerError) }
-                    let layoutStart = timing.start()
-                    let layout = LayoutPlayerProfileDataResponse(profile)
-                    timing.record("layouts", since: layoutStart)
-                    let encodeStart = timing.start()
-                    let data = try JSONEncoder().encode(layout)
-                    timing.record("encode", since: encodeStart)
-                    response.body = .init(data: data)
-                    await playerHistoryCache.storeEncoded(data, playerID: playerID, generation: history.generation)
-                }
+                let data = try await encodedPlayerHistory(playerID, on: request.db, timing: timing)
+                response.body = .init(data: data)
                 response.headers.contentType = .json
                 timing.record("total", since: totalStart)
                 let serverTiming = timing.serverTimingHeader()
@@ -322,6 +307,41 @@ func routes(_ app: Application) throws {
         }
         let timing = ProfileTimingRecorder()
         let totalStart = timing.start()
+        if !benchmark && request.query[Int.self, at: "wire"] == 4 {
+            let query = try request.query.decode(ComparisonQuery.self)
+            let playerIDs = try comparisonPlayerIDs(query.players)
+            let matchIDs = try comparisonMatchIDs(query.matches)
+            var fragments: [Data] = []
+            let buildStart = timing.start()
+            if matchIDs == nil {
+                for (index, playerID) in playerIDs.enumerated() {
+                    let playerStart = timing.start()
+                    fragments.append(try await encodedPlayerHistory(playerID, on: request.db, timing: timing))
+                    timing.record("player_\(index + 1)", since: playerStart)
+                }
+            } else {
+                // Scoped comparisons must never reuse an unfiltered full history.
+                let scoped = try await comparisonData(request, timing: timing)
+                for player in scoped.players {
+                    let identity = PlayerProfileIdentity(id: player.id, steamID: player.steamID,
+                        name: player.name, firstSeenAt: nil, lastSeenAt: nil)
+                    fragments.append(try encodeLayoutHistory(.init(player: identity, matches: player.matches), timing: timing))
+                }
+            }
+            timing.record("build", since: buildStart)
+            let assemblyStart = timing.start()
+            let data = assembleProfileGroup(fragments)
+            timing.record("assembly", since: assemblyStart)
+            let response = Response(status: .ok)
+            response.headers.contentType = .json
+            response.headers.replaceOrAdd(name: "Cache-Control", value: "no-store")
+            response.body = .init(data: data)
+            timing.record("total", since: totalStart)
+            let serverTiming = timing.serverTimingHeader()
+            response.headers.replaceOrAdd(name: "Server-Timing", value: serverTiming)
+            request.logger.info("Group profile timing", metadata: ["player_count": "\(playerIDs.count)", "server_timing": "\(serverTiming)"])
+            return response
+        }
         let buildStart = timing.start()
         let payload = try await comparisonData(request, timing: timing, useHistoryCache: !benchmark)
         timing.record("build", since: buildStart)

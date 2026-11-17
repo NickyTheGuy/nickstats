@@ -40,7 +40,8 @@ private func historyFixture(_ id: Int64 = 1, matchID: Int64 = 10, date: Int64? =
     #expect(await cache.lookup(2, now: now).profile == nil)
     await cache.storeEncoded(Data([1, 2]), playerID: 1, generation: 0)
     await cache.storeEncoded(Data([1]), playerID: 3, generation: 0)
-    #expect(await cache.lookup(1, now: now).profile == nil)
+    #expect(await cache.lookup(1, now: now).data == nil)
+    #expect(await cache.lookup(1, now: now).profile != nil)
     #expect(await cache.lookup(3, now: now.addingTimeInterval(11)).profile == nil)
     let noRoom = PlayerHistoryCache(maximumCounters: 0)
     await noRoom.insert(historyFixture(), generation: 0)
@@ -67,4 +68,44 @@ private func historyFixture(_ id: Int64 = 1, matchID: Int64 = 10, date: Int64? =
     #expect(wire.matches[0].sides[0].stats == [0])
     let restored = try JSONDecoder().decode(LayoutPlayerProfileDataResponse.self, from: JSONEncoder().encode(wire))
     #expect(restored.matches[0].teammate_ids == [2])
+}
+
+
+@Test func encodedHistoriesSurviveRawEvictionAndInvalidateWithoutRawEntries() async {
+    let cache = PlayerHistoryCache(maximumEntries: 8, maximumCounters: 1, maximumBytes: 64)
+    let now = Date()
+    await cache.insert(historyFixture(1), generation: 0, now: now)
+    await cache.storeEncoded(Data([1]), playerID: 1, generation: 0, now: now)
+    await cache.insert(historyFixture(2), generation: 0, now: now)
+    await cache.storeEncoded(Data([2]), playerID: 2, generation: 0, now: now)
+    #expect(await cache.lookup(1, now: now).profile == nil)
+    #expect(await cache.lookup(1, now: now).data == Data([1]))
+    #expect(await cache.lookup(2, now: now).data == Data([2]))
+    await cache.markChanged([.init(matchID: 12, playerIDs: [1])])
+    #expect(await cache.lookup(1, now: now).data == nil)
+    #expect(await cache.lookup(2, now: now).data == Data([2]))
+    await cache.storeEncoded(Data([9]), playerID: 1, generation: 0, now: now)
+    #expect(await cache.lookup(1, now: now).data == nil)
+    #expect(await cache.lookup(2, now: now.addingTimeInterval(301)).data == nil)
+}
+
+@Test func aNewSharedMatchInvalidatesBothPlayersAndRefreshPreservesPreviousMatches() async throws {
+    let cache = PlayerHistoryCache()
+    for id in [Int64(1), Int64(2)] {
+        await cache.insert(historyFixture(id), generation: 0)
+        await cache.storeEncoded(Data([UInt8(id)]), playerID: id, generation: 0)
+    }
+    await cache.markChanged([.init(matchID: 12, playerIDs: [1, 2])])
+    for id in [Int64(1), Int64(2)] {
+        let stale = await cache.lookup(id)
+        #expect(stale.data == nil)
+        #expect(stale.staleMatchIDs == [12])
+        let old = try #require(stale.profile)
+        let added = historyFixture(id, matchID: 12, date: 200)
+        let refreshed = refreshedPlayerHistory(old, identity: added.player,
+            replacing: stale.staleMatchIDs, with: added.matches)
+        await cache.insert(refreshed, generation: stale.generation)
+        #expect(await cache.lookup(id).profile?.matches.map(\.id) == [12, 10])
+        #expect(await cache.lookup(id).staleMatchIDs.isEmpty)
+    }
 }

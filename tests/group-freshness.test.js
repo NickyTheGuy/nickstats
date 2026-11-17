@@ -43,7 +43,7 @@ test('returning to Groups reloads matches without resetting its roster, roles, f
   const app=setup();
   app.listeners.get('nickstats:page')({detail:{page:'groups'}});
   assert.equal(app.requests.length,1);
-  assert.equal(app.requests[0].url,'/nickstats/api/groups?players=1%2C2&wire=3');
+  assert.equal(app.requests[0].url,'/nickstats/api/groups?players=1%2C2&wire=4');
   assert.equal(app.requests[0].options.cache,'no-store');
   assert.deepEqual(app.ratingRequests,['1','2'],'ratings start before the history response arrives');
   app.finish(0,['old','new-this-week']);

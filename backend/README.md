@@ -330,3 +330,56 @@ checks every available statistic against the source, including zero values;
 `verified_counters` reports the count. This is one sample in fixed order; repeat
 on an idle server to assess variability. A copy is logged under `Groups assembly
 benchmark`, including if the proxy times out before the report arrives.
+
+## Encoded per-player Groups assembly (Build 2026.11.17.4)
+
+The Groups frontend now requests `wire=4`. Its response contains complete wire-3
+profile envelopes in `players`, each with its own identity, statistic keys, layouts,
+and matches. The frontend expands each player using that player's dictionaries,
+then normalizes it to the existing Groups structure. Wire-3, wire-2 and verbose
+responses remain supported for staggered deployments and older clients.
+
+Unscoped Groups requests retrieve the same encoded JSON used by normal wire-3
+profiles. Only missing or stale players are built/encoded. The response joins the
+fragments into one JSON body, without decoding or re-encoding their counters.
+No group-combination cache is stored. Requests with a `matches` scope bypass full
+history reuse and encode only that scoped data; a scope must never expose an
+unfiltered history. Both logged-in benchmarks retain their uncached behavior.
+
+Raw histories and encoded responses now have **independent** LRU budgets: at most
+8 raw histories / 4 million populated counters, and at most 8 encoded responses /
+64 MiB of JSON. Evicting raw dictionaries does not evict encoded fragments. These
+are bounded caches, so not every requested player is guaranteed to remain cached.
+Counter count remains a memory proxy, not an exact RAM limit. Both stores expire
+entries after five minutes; hits do not extend expiry. No data is persisted across
+backend restarts. Normal profiles and Groups warm the same encoded store.
+
+Example: after a cached group of two players plays one new match, nothing changes
+on the site until that match is uploaded. A successful upload marks that match ID
+stale for both players and immediately removes both encoded responses. On the next
+request, each retained raw history reloads only that match and current identity,
+keeps its older matches, merges/sorts the result, and re-encodes the full player
+response. An unaffected player's encoding remains reusable. If a raw history has
+expired or been evicted, that player's history must be rebuilt in full instead.
+Reparses/replacements and extension date updates use the same invalidation path.
+Generation guards prevent fills racing with a write from repopulating stale data.
+The cache preserves canonical data; it does not alter tags or match dates.
+
+Deploy **both backend and frontend**: update `index.html`, `js/players.js` and
+`js/groups.js`, and rebuild the backend. No React rebuild, migration or reparse is
+required. Reload nginx after recreating the backend so it resolves the current
+Docker address. From the nginx compose directory:
+
+```sh
+docker compose exec nginx nginx -t && docker compose exec nginx nginx -s reload
+```
+
+For verification, request the same group twice, then a different combination of
+already requested players. Expect `wire=4` and `assembly` in `Server-Timing`.
+A fully warm request shows `encoded_hit` and no `layouts`/`encode` phases. Cold or
+changed players show `history_miss`/`history_refresh`, `history_build`, `layouts`
+and `encode`. These phases are aggregated across players and overlap per-player
+and `build` totals. `build` for wire-4 means obtaining all fragments, including any
+needed history building and encoding. Assembly still copies bytes into a combined
+response; compression, transfer, JSON parsing and browser rendering are additional
+costs. Use the existing browser measurements to assess those stages.
