@@ -278,3 +278,55 @@ The history phase includes transfer and JSON parsing; layout expansion is separa
 Ratings overlap the history request. Prepare/render measures synchronous JavaScript
 preparation and render calls, not browser paint. Total includes the whole successful
 load. Timings can include browser scheduling delays; do not add overlapping phases.
+
+## Per-player assembly benchmark
+
+`/groups?players=...&benchmark=2` adds a second, logged-in diagnostic. It does
+**not** change normal Groups responses, frontend files, or production caches.
+After pulling/rebuilding the backend, reload nginx so it resolves the recreated
+backend container's current address. From the nginx compose directory:
+
+```sh
+docker compose exec nginx nginx -t && docker compose exec nginx nginx -s reload
+```
+
+Log in, build the desired group, then run this in the browser console:
+
+```js
+(async () => {
+  const entry = performance.getEntriesByType("resource").slice().reverse()
+    .find(entry => new URL(entry.name).pathname.endsWith("/api/groups"));
+  if (!entry) throw new Error("Build a group first.");
+  const url = new URL(entry.name);
+  url.searchParams.set("benchmark", "2");
+  const response = await fetch(url, { cache: "no-store", credentials: "same-origin" });
+  if (!response.ok) throw new Error(`${response.status}: ${await response.text()}`);
+  console.log(JSON.stringify(await response.json(), null, 2));
+})();
+```
+
+Use three or more players to include a changed-roster subset trial. Two-player
+samples still compare the current format, cold per-player encoding, warm assembly,
+and reordered assembly. The different-roster sample drops the last player and
+reverses the rest, retaining Groups' minimum of two players.
+
+The proposed envelope is `players: [<complete wire-3 profile object>, ...]`, each
+with its own `player`, `stat_keys`, `stat_layouts` and `matches`. This allows the
+same encoded individual-profile objects to be joined without decoding, counter
+encoding, or remapping layouts to a group-wide dictionary. The cold candidate
+encodes each player once with Foundation, as normal wire-3 profiles do; the
+baseline uses the current Groups Vapor encoder. Prior measurements showed little
+difference between those encoders. Benchmark identity dates are absent because
+the Groups source has only ID, Steam ID and name; real cached profiles can also
+contain first/last-seen identity dates.
+
+Each trial reports conversion, encoding, assembly, total milliseconds and
+uncompressed bytes, plus the number of encoded/reused players. Warm trials reuse
+request-local fragments to isolate assembly cost; they do not prove production
+cache hit rates or account for expiry, eviction or concurrent invalidation.
+Database work, cache lookup, compression, transfer, browser decoding and counter
+verification are outside trial timings. The benchmark decodes each fragment and
+checks every available statistic against the source, including zero values;
+`verified_counters` reports the count. This is one sample in fixed order; repeat
+on an idle server to assess variability. A copy is logged under `Groups assembly
+benchmark`, including if the proxy times out before the report arrives.
