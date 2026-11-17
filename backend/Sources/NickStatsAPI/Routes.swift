@@ -138,11 +138,24 @@ func routes(_ app: Application) throws {
         try await listPlayers(request)
     }
 
-    app.get("players", ":id", "teammate-ratings") { request async throws -> TeammateRatingResponse in
+    app.get("players", ":id", "teammate-ratings") { request async throws -> Response in
         guard let playerID = request.parameters.get("id", as: Int64.self), playerID > 0 else {
             throw Abort(.badRequest, reason: "Invalid player ID.")
         }
-        return try await getTeammateRatings(playerID, on: request.db)
+        let timing = ProfileTimingRecorder()
+        let totalStart = timing.start()
+        let queryStart = timing.start()
+        let payload = try await getTeammateRatings(playerID, on: request.db)
+        timing.record("ratings", since: queryStart)
+        let response = Response(status: .ok)
+        let encodeStart = timing.start()
+        try response.content.encode(payload)
+        timing.record("encode", since: encodeStart)
+        timing.record("total", since: totalStart)
+        let serverTiming = timing.serverTimingHeader()
+        response.headers.replaceOrAdd(name: "Server-Timing", value: serverTiming)
+        request.logger.info("Teammate ratings timing", metadata: ["player_id": "\(playerID)", "server_timing": "\(serverTiming)"])
+        return response
     }
 
     // Read-only aggregate; a body avoids putting thousands of match IDs in a URL.
@@ -273,7 +286,20 @@ func routes(_ app: Application) throws {
         return response
     }
 
-    app.get("groups") { request async throws -> ComparisonResponse in
-        try await comparisonData(request)
+    app.get("groups") { request async throws -> Response in
+        let timing = ProfileTimingRecorder()
+        let totalStart = timing.start()
+        let buildStart = timing.start()
+        let payload = try await comparisonData(request, timing: timing)
+        timing.record("build", since: buildStart)
+        let response = Response(status: .ok)
+        let encodeStart = timing.start()
+        try response.content.encode(payload)
+        timing.record("encode", since: encodeStart)
+        timing.record("total", since: totalStart)
+        let serverTiming = timing.serverTimingHeader()
+        response.headers.replaceOrAdd(name: "Server-Timing", value: serverTiming)
+        request.logger.info("Group profile timing", metadata: ["player_count": "\(payload.players.count)", "server_timing": "\(serverTiming)"])
+        return response
     }
 }

@@ -1226,7 +1226,7 @@ func comparisonMatchIDs(_ raw: String?) throws -> [Int64]? {
     return ids
 }
 
-func comparisonData(_ request: Request) async throws -> ComparisonResponse {
+func comparisonData(_ request: Request, timing: ProfileTimingRecorder? = nil) async throws -> ComparisonResponse {
     guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
     let query = try request.query.decode(ComparisonQuery.self)
     let matchIDs = try comparisonMatchIDs(query.matches)
@@ -1240,17 +1240,21 @@ func comparisonData(_ request: Request) async throws -> ComparisonResponse {
         throw Abort(.badRequest, reason: "players must contain 2-20 unique positive player IDs.")
     }
     var players: [ComparisonPlayer] = []
-    for playerID in playerIDs {
+    for (index, playerID) in playerIDs.enumerated() {
+        let playerStart = timing?.start()
+        let identityStart = timing?.start()
         guard let identity = try await sql.raw("""
             SELECT id, CAST(steam_id AS CHAR) AS steam_id, current_name
             FROM players WHERE id = \(bind: playerID)
             """).first() else { throw Abort(.notFound, reason: "Player \(playerID) was not found.") }
+        timing?.record("identity", since: identityStart)
         players.append(ComparisonPlayer(
             id: try int64(identity, "id"),
             steamID: try identity.decode(column: "steam_id", as: String.self),
             name: try identity.decode(column: "current_name", as: String.self),
-            matches: try await comparisonMatches(playerID: playerID, matchIDs: matchIDs, sql: sql)
+            matches: try await comparisonMatches(playerID: playerID, matchIDs: matchIDs, sql: sql, timing: timing)
         ))
+        timing?.record("player_\(index + 1)", since: playerStart)
     }
     return ComparisonResponse(players: players)
 }

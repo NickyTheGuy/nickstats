@@ -128,3 +128,22 @@ exact; buy, opponent buy, round result, phase and hero filters are unavailable
 for this breakdown because the persisted pairing ledger has side-level totals.
 The UI explains that restriction instead of presenting unfiltered pairings as
 filtered results. Bots without global player identities remain plain-text names.
+
+## Measuring slow Groups loads
+
+Groups and `/players/:id/teammate-ratings` now return `Server-Timing` headers
+and log the same measurements as `Group profile timing` and `Teammate ratings
+timing`. Rebuild/restart the backend to enable these; no frontend update or
+migration is needed. In browser Network tools, select the `groups?players=...`
+request and copy its Response Headers → `Server-Timing`. Also note response size,
+waiting/TTFB and download time. Inspect the subsequent `teammate-ratings` requests
+separately because Groups currently waits for those before showing results.
+
+Groups exposes `build`, `encode`, `total`, `player_1`, `player_2`, etc. Player
+ordinals follow the IDs in the request's `players` parameter. Detailed phase
+measurements (for example `side_stats`, `weapons`, `event_kills`, `buy_slices`)
+are summed across players to keep the header short. Metrics are nested and
+overlap: do not add `side_data`, individual query phases, player totals and
+`build` together. `total` measures API work before sending the response, not VPN
+latency, proxy waiting or body transfer time. Teammate-rating requests expose
+`ratings` (query and result construction), `encode` and `total`.

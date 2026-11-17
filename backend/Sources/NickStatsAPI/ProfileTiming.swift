@@ -34,7 +34,15 @@ final class ProfileTimingRecorder: @unchecked Sendable {
     }
 
     func serverTimingHeader() -> String {
-        metrics.map { metric in
+        // Groups repeats these phases for each player. Sum matching names so
+        // headers remain bounded and browsers show one entry per phase.
+        var names: [String] = []
+        var totals: [String: Double] = [:]
+        for metric in metrics {
+            if totals[metric.name] == nil { names.append(metric.name) }
+            totals[metric.name, default: 0] += metric.durationMilliseconds
+        }
+        return names.map { ProfileTimingMetric(name: $0, durationMilliseconds: totals[$0, default: 0]) }.map { metric in
             "\(metric.name);dur=\(String(format: "%.1f", metric.durationMilliseconds))"
         }.joined(separator: ", ")
     }
