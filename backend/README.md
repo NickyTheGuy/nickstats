@@ -220,3 +220,61 @@ check backend logs for the report after the work completes. Database build and
 network compression are excluded from the individual trial timings. This is one
 sample in fixed order, not a statistically controlled benchmark; repeat on an idle
 server to assess variability. Changing groups between samples changes the input.
+
+## Shared player histories and profile layouts (Build 2026.11.17.3)
+
+Both Groups and compact individual profiles now reuse a process-local player
+history cache. Groups with a scoped `matches` query bypass it; the encoding
+benchmark also bypasses it so it continues to measure real construction work.
+The first load after a restart, expiry, or eviction still builds the full history.
+Opening a profile can warm its Groups history and vice versa. Group combinations
+are not cached, so filters and roster choices are evaluated as before.
+
+The cache keeps at most 8 histories, 4 million populated counters in total, and
+64 MiB of encoded profile responses, using LRU eviction. Counter count is a memory
+proxy, not an exact RAM limit; raw dictionaries and metadata consume additional
+memory. Individual entries expire after five minutes even when frequently read.
+No cache state is persisted and no database migration is needed.
+
+Uploads/replacements and extension date synchronization mark affected players'
+match IDs stale and discard their encoded profile response. The next read loads
+only those matches plus current identity information, preserves the other matches,
+and sorts the merged history by date. A generation guard rejects cache fills that
+race with mutations. Expired entries are fully rebuilt; oversized histories are
+served normally without being cached. Database edits made outside the API are
+picked up on expiry or restart.
+
+The frontend now requests individual profiles with `compact=true&wire=3`, using
+the same shared-layout representation as Groups while retaining the profile's
+`player` identity envelope. Warm profiles reuse encoded JSON too. Older wire-2
+profile clients retain their existing cache and incremental refresh behavior.
+The decoder accepts wire-3, padded wire-2, and verbose responses, so staggered
+deployment remains compatible. Deploy **both backend and frontend** to activate
+all changes: copy `index.html`, `js/players.js`, and `js/groups.js`, and rebuild the
+backend and your nginx service as usual. No React bundle rebuild is required.
+
+Groups starts teammate-rating requests alongside the main history request instead
+of waiting for it to finish. Results still wait for complete ratings before being
+rendered, preserving rating and graph values and existing error handling.
+
+For validation, load the same group twice within five minutes. In `Server-Timing`,
+`history_miss` means full construction, `history_hit` means history reuse, and
+`history_refresh` means changed-match construction. These overlap `build` and
+per-player totals. Groups still converts/encodes the combined response on each
+request. For individual profiles, the second actual network request should show
+`cache_hit` and no `layouts`/`encode`. Simply switching an already-open frontend
+profile tab may not make a network request.
+
+After a successful Groups load, this browser-console command shows the latest
+client measurements (milliseconds):
+
+```js
+console.table(performance.getEntriesByType("measure")
+  .filter(entry => entry.name.startsWith("NickStats Groups:"))
+  .map(entry => ({ phase: entry.name, ms: +entry.duration.toFixed(1) })));
+```
+
+The history phase includes transfer and JSON parsing; layout expansion is separate.
+Ratings overlap the history request. Prepare/render measures synchronous JavaScript
+preparation and render calls, not browser paint. Total includes the whole successful
+load. Timings can include browser scheduling delays; do not add overlapping phases.

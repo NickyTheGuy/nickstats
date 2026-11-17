@@ -531,7 +531,7 @@
       const { id, scroll } = state.profileQueue.shift();
       try {
         const [profilePayload, teammateRatings] = await Promise.all([
-          fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=2`, {
+          fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=3`, {
             headers: { Accept: "application/json" }, cache: "no-store"
           }).then(apiJson),
           teammateRatingsFor(id)
@@ -571,7 +571,7 @@
     try {
       const updated = await Promise.all([...state.profiles.keys()].map(async id => {
         const [profilePayload, teammateRatings] = await Promise.all([
-          fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=2`, {
+          fetch(`${PLAYER_ENDPOINT}/${encodeURIComponent(id)}?compact=true&wire=3`, {
             headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal
           }).then(apiJson),
           teammateRatingsFor(id, controller.signal)

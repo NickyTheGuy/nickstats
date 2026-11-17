@@ -89,9 +89,9 @@ func routes(_ app: Application) throws {
             try await importMatch(payload, replacingExisting: replaceExisting, on: database)
         }
         if !result.affectedPlayerIDs.isEmpty {
-            await profileResponseCache.markChanged([
-                ProfileMatchChange(matchID: result.id, playerIDs: result.affectedPlayerIDs)
-            ])
+            let changes = [ProfileMatchChange(matchID: result.id, playerIDs: result.affectedPlayerIDs)]
+            await profileResponseCache.markChanged(changes)
+            await playerHistoryCache.markChanged(changes)
         }
         let response = Response(status: result.created ? .created : .ok)
         try response.content.encode(UploadResponse(id: result.id, created: result.created, replaced: result.replaced))
@@ -116,6 +116,7 @@ func routes(_ app: Application) throws {
             try await syncFaceitDates(payload, on: database)
         }
         await profileResponseCache.markChanged(result.changes)
+        await playerHistoryCache.markChanged(result.changes)
         return result.response
     }
 
@@ -178,6 +179,31 @@ func routes(_ app: Application) throws {
             let timing = ProfileTimingRecorder()
             let totalStart = timing.start()
             let wireVersion = request.query[Int.self, at: "wire"]
+            if wireVersion == 3 {
+                let buildStart = timing.start()
+                let history = try await loadPlayerHistory(playerID, on: request.db, timing: timing)
+                timing.record("build", since: buildStart)
+                if let data = history.data {
+                    response.body = .init(data: data)
+                    timing.record("cache_hit", since: totalStart)
+                } else {
+                    guard let profile = history.profile else { throw Abort(.internalServerError) }
+                    let layoutStart = timing.start()
+                    let layout = LayoutPlayerProfileDataResponse(profile)
+                    timing.record("layouts", since: layoutStart)
+                    let encodeStart = timing.start()
+                    let data = try JSONEncoder().encode(layout)
+                    timing.record("encode", since: encodeStart)
+                    response.body = .init(data: data)
+                    await playerHistoryCache.storeEncoded(data, playerID: playerID, generation: history.generation)
+                }
+                response.headers.contentType = .json
+                timing.record("total", since: totalStart)
+                let serverTiming = timing.serverTimingHeader()
+                response.headers.replaceOrAdd(name: "Server-Timing", value: serverTiming)
+                request.logger.info("Compact player profile timing", metadata: ["player_id": "\(playerID)", "server_timing": "\(serverTiming)"])
+                return response
+            }
             var cacheVersion: UInt64?
             if wireVersion == 2 {
                 let cacheStart = timing.start()
@@ -296,7 +322,7 @@ func routes(_ app: Application) throws {
         let timing = ProfileTimingRecorder()
         let totalStart = timing.start()
         let buildStart = timing.start()
-        let payload = try await comparisonData(request, timing: timing)
+        let payload = try await comparisonData(request, timing: timing, useHistoryCache: !benchmark)
         timing.record("build", since: buildStart)
         let response = Response(status: .ok)
         if benchmark {

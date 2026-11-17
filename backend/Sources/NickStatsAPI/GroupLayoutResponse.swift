@@ -86,3 +86,22 @@ struct LayoutComparisonResponse: Content {
         stat_layouts = layouts
     }
 }
+
+/// Individual profiles share the same layouts and row representation as Groups.
+struct LayoutPlayerProfileDataResponse: Content {
+    var player: PlayerProfileIdentity
+    var stat_keys: [String]
+    var stat_layouts: [[Int]]
+    var matches: [LayoutComparisonResponse.Match]
+
+    init(_ value: PlayerProfileDataResponse) {
+        let identity = value.player
+        let group = LayoutComparisonResponse(ComparisonResponse(players: [
+            ComparisonPlayer(id: identity.id, steamID: identity.steamID, name: identity.name, matches: value.matches)
+        ]))
+        player = identity
+        stat_keys = group.stat_keys
+        stat_layouts = group.stat_layouts
+        matches = group.players[0].matches
+    }
+}

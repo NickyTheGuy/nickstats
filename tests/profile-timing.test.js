@@ -59,7 +59,7 @@ test("player profiles use a backwards-compatible dense wire format", () => {
   assert.match(models, /struct DensePlayerProfileDataResponse: Content/);
   assert.match(models, /case statKeys = "stat_keys"/);
   assert.match(models, /stats = statKeys\.map \{ value\.stats\[\$0\] \}/);
-  assert.match(players, /compact=true&wire=2/);
+  assert.match(players, /compact=true&wire=3/);
   assert.match(players, /if \(values\[index\] != null\) stats\[rowKeys\[index\]\] = values\[index\]/);
 });
 

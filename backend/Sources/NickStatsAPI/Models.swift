@@ -308,7 +308,7 @@ struct PlayerProfileResponse: Content {
 
 /// The data the interactive profile UI actually needs. The full response remains
 /// available for API clients that consume the precomputed career summaries.
-struct PlayerProfileDataResponse: Content {
+struct PlayerProfileDataResponse: Content, Sendable {
     var player: PlayerProfileIdentity
     var matches: [ComparisonMatch]
 }
@@ -715,7 +715,7 @@ struct ComparisonPlayer: Content {
     }
 }
 
-struct ComparisonMatch: Content {
+struct ComparisonMatch: Content, Sendable {
     var id: Int64
     var schema: String
     var playedAt: Int64?
@@ -765,7 +765,7 @@ struct ComparisonRoundKill: Content, Sendable {
     }
 }
 
-struct ComparisonSideStats: Content {
+struct ComparisonSideStats: Content, Sendable {
     var side: PlayerSide
     var buyType: String
     var opponentBuyType: String

@@ -74,3 +74,15 @@ test('individual padded profiles still preserve zero and unavailable statistics'
   assert.deepEqual({...result.matches[0].sides[0].stats},{kills:0,damage:80});
   assert.equal(result.player.id,1);
 });
+
+test('shared-layout individual profiles decode with the original identity and match metadata',()=>{
+  const payload = {player:{id:1,steam_id:'1',first_seen_at:50,last_seen_at:100},
+    stat_keys:['damage','deaths','kills'],stat_layouts:[[1,2]],matches:[
+      {id:10,played_at:100,teammate_ids:[2],sides:[{side:'T',stat_layout:0,stats:[0,2]}]}
+    ]};
+  const result = decode(payload);
+  assert.deepEqual({...result.matches[0].sides[0].stats},{deaths:0,kills:2});
+  assert.equal(result.player.first_seen_at,50);
+  assert.equal(result.matches[0].played_at,100);
+  assert.equal(decode(result),result);
+});

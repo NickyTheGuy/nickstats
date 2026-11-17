@@ -6,7 +6,7 @@ const source = fs.readFileSync(require.resolve('../js/groups.js'),'utf8');
 const tick = () => new Promise(resolve => setImmediate(resolve));
 
 function setup() {
-  const listeners = new Map(), requests = [], rendered = [], statuses = [];
+  const listeners = new Map(), requests = [], rendered = [], statuses = [], ratingRequests = [], measures = new Map();
   let now = 100000;
   const nodes = {groupsPage:{hidden:false},groupResults:{hidden:false}};
   const state = {selected:new Map([['1',{id:'1'}],['2',{id:'2'}]]),
@@ -18,7 +18,8 @@ function setup() {
     GROUP_DATA_ENDPOINT:'/nickstats/api/groups',GROUP_REFRESH_AGE_MS:60000,
     $:id=>nodes[id],ui:{groupBuildButton:{update(){}}},
     window:{addEventListener:(event,fn)=>listeners.set(event,fn),
-      NickStatsPlayerStats:{expandDenseProfile:value=>value,teammateRatingsFor:async()=>({'3':1.2})}},
+      performance:{now:()=>now,clearMeasures:name=>measures.delete(name),measure:(name,value)=>measures.set(name,value)},
+      NickStatsPlayerStats:{expandDenseProfile:value=>value,teammateRatingsFor:async id=>{ratingRequests.push(String(id));return {'3':1.2};}}},
     fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),
     apiJson:response=>response.json(),
     normalizePlayer:player=>({profileId:String(player.id),label:player.name,rows:player.matches}),
@@ -34,7 +35,7 @@ function setup() {
     {id:1,name:'Current name',matches:ids.map(id=>({id}))},
     {id:2,name:'Excluded',matches:[]}
   ]})});
-  return {state,nodes,document,listeners,requests,rendered,statuses,finish,
+  return {state,nodes,document,listeners,requests,rendered,statuses,ratingRequests,measures,finish,
     ensure:sandbox.ensure,advance:ms=>{now+=ms;}};
 }
 
@@ -44,9 +45,12 @@ test('returning to Groups reloads matches without resetting its roster, roles, f
   assert.equal(app.requests.length,1);
   assert.equal(app.requests[0].url,'/nickstats/api/groups?players=1%2C2&wire=3');
   assert.equal(app.requests[0].options.cache,'no-store');
+  assert.deepEqual(app.ratingRequests,['1','2'],'ratings start before the history response arrives');
   app.finish(0,['old','new-this-week']);
   await tick();
   assert.deepEqual(app.rendered,[['old','new-this-week']]);
+  assert.equal(app.measures.size,5);
+  assert.ok(app.measures.has('NickStats Groups: total'));
   assert.equal(app.state.selected.get('1').match_count,2);
   assert.equal(app.state.choices.get('2'),'exclude');
   assert.equal(app.state.side,'CT');

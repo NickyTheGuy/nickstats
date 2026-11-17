@@ -62,7 +62,7 @@ test("rapid selections load every distinct profile in click order and activate t
     requests[index * 2 + 1].resolve({ ratings: {} });
     await new Promise(resolve => setImmediate(resolve));
   }
-  assert.deepEqual(requests.map(item => item.url.split("/").at(-1)), ["1?compact=true&wire=2", "teammate-ratings", "2?compact=true&wire=2", "teammate-ratings", "3?compact=true&wire=2", "teammate-ratings"]);
+  assert.deepEqual(requests.map(item => item.url.split("/").at(-1)), ["1?compact=true&wire=3", "teammate-ratings", "2?compact=true&wire=3", "teammate-ratings", "3?compact=true&wire=3", "teammate-ratings"]);
   assert.deepEqual([...state.profiles.keys()], ["1", "2", "3"]);
   assert.deepEqual(activations, ["1", "3"]);
   assert.equal(state.pendingProfiles.size, 0);

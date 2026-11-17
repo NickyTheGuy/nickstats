@@ -245,6 +245,15 @@
 
   async function buildGroup({ refresh = false } = {}) {
     if (state.selected.size < 2) return;
+    const perf = window.performance;
+    const now = () => perf?.now() ?? Date.now();
+    const started = now();
+    const measure = (phase, start) => {
+      if (!perf?.measure) return;
+      const name = `NickStats Groups: ${phase}`;
+      perf.clearMeasures(name);
+      perf.measure(name, { start, end: now() });
+    };
     state.groupController?.abort();
     const controller = new AbortController();
     state.groupController = controller;
@@ -252,14 +261,28 @@
     setStatus(refresh ? "Refreshing group profiles…" : "Loading stored matches and building group profiles…");
     try {
       const parameters = new URLSearchParams({ players: [...state.selected.keys()].join(","), wire: "3" });
-      const payload = window.NickStatsPlayerStats.expandDenseProfile(await apiJson(await fetch(`${GROUP_DATA_ENDPOINT}?${parameters}`, {
-        headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal
-      })));
+      const [payload, ratings] = await Promise.all([
+        fetch(`${GROUP_DATA_ENDPOINT}?${parameters}`, {
+          headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal
+        }).then(apiJson).then(payload => {
+          measure("history request and JSON", started);
+          const decodeStart = now();
+          const expanded = window.NickStatsPlayerStats.expandDenseProfile(payload);
+          measure("layout expansion", decodeStart);
+          return expanded;
+        }),
+        Promise.all([...state.selected.keys()].map(async id => [String(id),
+          await window.NickStatsPlayerStats.teammateRatingsFor(id, controller.signal)])).then(ratings => {
+            measure("teammate ratings", started);
+            return ratings;
+          })
+      ]);
       if (controller.signal.aborted) return;
-      const players = await Promise.all((payload.players || []).map(async player => ({
-        ...normalizePlayer(player),
-        teammateRatings: await window.NickStatsPlayerStats.teammateRatingsFor(player.id, controller.signal)
-      })));
+      const renderStart = now();
+      const ratingsByPlayer = new Map(ratings);
+      const players = (payload.players || []).map(player => ({
+        ...normalizePlayer(player), teammateRatings: ratingsByPlayer.get(String(player.id)) || {}
+      }));
       if (controller.signal.aborted) return;
       state.players = players.sort((a, b) => a.label.localeCompare(b.label));
       populateMaps({ reset: !refresh });
@@ -276,7 +299,10 @@
       $("groupResults").hidden = false;
       runCombination();
       setStatus(`Built ${selectedPlayers("include").length} conditional player profile${selectedPlayers("include").length === 1 ? "" : "s"}.`);
+      measure("prepare and render", renderStart);
+      measure("total", started);
     } catch (error) {
+      controller.abort();
       if (error.name !== "AbortError") setStatus(`Could not build group profiles: ${error.message}`, true);
     } finally {
       if (state.groupController === controller) {

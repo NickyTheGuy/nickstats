@@ -1226,7 +1226,7 @@ func comparisonMatchIDs(_ raw: String?) throws -> [Int64]? {
     return ids
 }
 
-func comparisonData(_ request: Request, timing: ProfileTimingRecorder? = nil) async throws -> ComparisonResponse {
+func comparisonData(_ request: Request, timing: ProfileTimingRecorder? = nil, useHistoryCache: Bool = false) async throws -> ComparisonResponse {
     guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
     let query = try request.query.decode(ComparisonQuery.self)
     let matchIDs = try comparisonMatchIDs(query.matches)
@@ -1242,6 +1242,14 @@ func comparisonData(_ request: Request, timing: ProfileTimingRecorder? = nil) as
     var players: [ComparisonPlayer] = []
     for (index, playerID) in playerIDs.enumerated() {
         let playerStart = timing?.start()
+        if useHistoryCache && matchIDs == nil {
+            let history = try await loadPlayerHistory(playerID, on: request.db, timing: timing)
+            guard let profile = history.profile else { throw Abort(.internalServerError) }
+            players.append(ComparisonPlayer(id: profile.player.id, steamID: profile.player.steamID,
+                name: profile.player.name, matches: profile.matches))
+            timing?.record("player_\(index + 1)", since: playerStart)
+            continue
+        }
         let identityStart = timing?.start()
         guard let identity = try await sql.raw("""
             SELECT id, CAST(steam_id AS CHAR) AS steam_id, current_name
