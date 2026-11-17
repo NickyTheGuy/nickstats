@@ -150,24 +150,34 @@ latency, proxy waiting or body transfer time. Teammate-rating requests expose
 
 ## Compact Groups responses
 
-The Groups frontend requests `/groups?players=...&wire=2`. This returns one
-shared `stat_keys` list and dense statistic arrays for every player's side rows,
-using the existing individual-profile wire format. Player identities, match
-metadata, teammate IDs, weapons, round rows and filter dimensions are unchanged.
-Null slots represent unavailable statistics; real zero counters stay zero.
-Omitting `wire=2` preserves the verbose response for older clients. A newer
-frontend also accepts an older server's verbose response.
+The Groups frontend requests `/groups?players=...&wire=3`. This returns one
+shared `stat_keys` list and a `stat_layouts` table. Each side row identifies its
+layout with `stat_layout`; its `stats` values align with the statistic indexes in
+that layout. Only available counters are sent. Zero is a real counter, while an
+absent key remains unavailable. Empty statistic rows use an empty layout.
+Player identities, match metadata, teammate IDs, weapons, round rows and filter
+dimensions are unchanged.
 
-Deploy the updated backend and frontend controller files together to obtain the
-performance benefit; there is no migration or reparse. `Server-Timing` now
-separates `dense` conversion from `encode`, alongside the existing `build` and
-`total`. Compare the same roster and filters after deployment, recording resource
-size and transferred bytes as well as those timings. This stage changes the
-response representation; it does not cache Groups or reduce its database work.
-A synthetic two-player, 500-matches-each fixture with 24 slices and 120 counters
-per match shrank from 116.2 MB to 8.9 MB before compression (92.4%). This is a
-shape test, not a production latency prediction; browser expansion adds work and
-compressed transfer savings may be much smaller.
+Older clients can still request the padded-array format with `wire=2`, or omit
+`wire` for verbose objects. The updated frontend accepts all three formats,
+including verbose responses from older backends. Individual profiles continue
+using their existing format.
+
+**Deploy both the updated backend and frontend** (`index.html`,
+`js/players.js`, and `js/groups.js`) to obtain the benefit. No React build,
+database migration or demo reparse is needed. Build 2026.11.17.2 versions the
+controller URLs to invalidate cached JavaScript. Check for `wire=3` in the
+Groups request and `layouts` conversion timing alongside `build`, `encode` and
+`total` in `Server-Timing`.
+
+A real-data benchmark of two players, 309 player-match entries and 24,430 side
+rows measured 23.11 MB and 5.31 seconds for shared-layout conversion plus encoding,
+compared with 53.45 MB / 12.31 seconds for padded arrays and 101.36 MB / 7.40
+seconds for verbose objects. These are single-run uncompressed sizes and server
+serialization times, not total request times or predicted compressed savings.
+This changes representation only; it does not cache Groups or reduce database
+work. Compare the same roster/filters after deployment and record resource size,
+transferred bytes, and timings.
 
 ## Real-data Groups encoding benchmark
 
@@ -202,8 +212,7 @@ performed once per format, not twice. Buffers are discarded between trials.
 
 The small report also includes row, layout, key, populated-slot, and padded-slot
 counts. A copy is written to backend logs under `Groups wire benchmark`. No match
-payloads or statistic values are logged. The candidate layout format is diagnostic
-only; it is not enabled for normal clients. Nothing is stored in the database.
+payloads or statistic values are logged. The shared-layout format is also served to normal clients requesting `wire=3`. Nothing is stored in the database.
 
 Expect this diagnostic request to take substantially longer than a regular group
 request: it deliberately encodes the history six times. If the proxy times out,

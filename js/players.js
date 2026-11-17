@@ -64,18 +64,34 @@
   }
   function expandDenseProfile(payload) {
     const keys = Array.isArray(payload?.stat_keys) ? payload.stat_keys : [];
-    if (!keys.length) return payload;
-    for (const match of (payload.players || [payload]).flatMap(player => player.matches || [])) {
-      for (const row of match.sides || []) {
-        if (!Array.isArray(row.stats)) continue;
-        const values = row.stats, stats = {};
-        for (let index = 0; index < keys.length && index < values.length; index += 1) {
-          if (values[index] != null) stats[keys[index]] = values[index];
+    const layouts = Array.isArray(payload?.stat_layouts) ? payload.stat_layouts : null;
+    if (!keys.length && !layouts) return payload;
+    // Resolve each shared layout once, rather than for every statistic row.
+    const layoutKeys = layouts?.map(layout => {
+      if (!Array.isArray(layout) || layout.some(index => !Number.isInteger(index) || index < 0 || index >= keys.length)) {
+        throw new Error("Invalid group statistic layout.");
+      }
+      return layout.map(index => keys[index]);
+    });
+    for (const player of payload.players || [payload]) {
+      for (const match of player.matches || []) {
+        for (const row of match.sides || []) {
+          if (!Array.isArray(row.stats)) continue;
+          const values = row.stats, stats = {};
+          const rowKeys = layoutKeys ? layoutKeys[row.stat_layout] : keys;
+          if (layoutKeys && (!Number.isInteger(row.stat_layout) || !rowKeys || rowKeys.length !== values.length)) {
+            throw new Error("Invalid group statistic values.");
+          }
+          for (let index = 0; index < rowKeys.length && index < values.length; index += 1) {
+            if (values[index] != null) stats[rowKeys[index]] = values[index];
+          }
+          row.stats = stats;
+          if (layoutKeys) delete row.stat_layout;
         }
-        row.stats = stats;
       }
     }
     delete payload.stat_keys;
+    delete payload.stat_layouts;
     return payload;
   }
   function setPlayerView(view) {

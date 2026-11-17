@@ -251,7 +251,7 @@
     ui.groupBuildButton.update({ disabled: true });
     setStatus(refresh ? "Refreshing group profiles…" : "Loading stored matches and building group profiles…");
     try {
-      const parameters = new URLSearchParams({ players: [...state.selected.keys()].join(","), wire: "2" });
+      const parameters = new URLSearchParams({ players: [...state.selected.keys()].join(","), wire: "3" });
       const payload = window.NickStatsPlayerStats.expandDenseProfile(await apiJson(await fetch(`${GROUP_DATA_ENDPOINT}?${parameters}`, {
         headers: { Accept: "application/json" }, cache: "no-store", signal: controller.signal
       })));

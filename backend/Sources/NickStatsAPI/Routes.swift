@@ -309,7 +309,14 @@ func routes(_ app: Application) throws {
             request.logger.info("Groups wire benchmark", metadata: ["report": "\(reportJSON)"])
             return response
         }
-        if request.query[Int.self, at: "wire"] == 2 {
+        if request.query[Int.self, at: "wire"] == 3 {
+            let layoutStart = timing.start()
+            let layoutPayload = LayoutComparisonResponse(payload)
+            timing.record("layouts", since: layoutStart)
+            let encodeStart = timing.start()
+            try response.content.encode(layoutPayload)
+            timing.record("encode", since: encodeStart)
+        } else if request.query[Int.self, at: "wire"] == 2 {
             let denseStart = timing.start()
             let densePayload = DenseComparisonResponse(payload)
             timing.record("dense", since: denseStart)
