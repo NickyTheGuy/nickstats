@@ -18,7 +18,7 @@ function setup() {
     GROUP_DATA_ENDPOINT:'/nickstats/api/groups',GROUP_REFRESH_AGE_MS:60000,
     $:id=>nodes[id],ui:{groupBuildButton:{update(){}}},
     window:{addEventListener:(event,fn)=>listeners.set(event,fn),
-      NickStatsPlayerStats:{teammateRatingsFor:async()=>({'3':1.2})}},
+      NickStatsPlayerStats:{expandDenseProfile:value=>value,teammateRatingsFor:async()=>({'3':1.2})}},
     fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),
     apiJson:response=>response.json(),
     normalizePlayer:player=>({profileId:String(player.id),label:player.name,rows:player.matches}),
@@ -42,7 +42,7 @@ test('returning to Groups reloads matches without resetting its roster, roles, f
   const app=setup();
   app.listeners.get('nickstats:page')({detail:{page:'groups'}});
   assert.equal(app.requests.length,1);
-  assert.equal(app.requests[0].url,'/nickstats/api/groups?players=1%2C2');
+  assert.equal(app.requests[0].url,'/nickstats/api/groups?players=1%2C2&wire=2');
   assert.equal(app.requests[0].options.cache,'no-store');
   app.finish(0,['old','new-this-week']);
   await tick();

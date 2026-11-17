@@ -65,7 +65,7 @@
   function expandDenseProfile(payload) {
     const keys = Array.isArray(payload?.stat_keys) ? payload.stat_keys : [];
     if (!keys.length) return payload;
-    for (const match of payload.matches || []) {
+    for (const match of (payload.players || [payload]).flatMap(player => player.matches || [])) {
       for (const row of match.sides || []) {
         if (!Array.isArray(row.stats)) continue;
         const values = row.stats, stats = {};

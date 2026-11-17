@@ -664,6 +664,45 @@ struct ComparisonResponse: Content {
     var players: [ComparisonPlayer]
 }
 
+/// Share one statistic dictionary across the whole group, including players
+/// with different historical schemas. Null slots preserve unavailable values.
+struct DenseComparisonResponse: Content, Sendable {
+    var statKeys: [String]
+    var players: [DenseComparisonPlayer]
+
+    enum CodingKeys: String, CodingKey {
+        case players
+        case statKeys = "stat_keys"
+    }
+
+    init(_ response: ComparisonResponse) {
+        var names = Set<String>()
+        for player in response.players {
+            for match in player.matches {
+                for side in match.sides { names.formUnion(side.stats.keys) }
+            }
+        }
+        let keys = names.sorted()
+        statKeys = keys
+        players = response.players.map { player in
+            DenseComparisonPlayer(id: player.id, steamID: player.steamID, name: player.name,
+                matches: player.matches.map { DenseComparisonMatch($0, statKeys: keys) })
+        }
+    }
+}
+
+struct DenseComparisonPlayer: Content, Sendable {
+    var id: Int64
+    var steamID: String
+    var name: String
+    var matches: [DenseComparisonMatch]
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, matches
+        case steamID = "steam_id"
+    }
+}
+
 struct ComparisonPlayer: Content {
     var id: Int64
     var steamID: String

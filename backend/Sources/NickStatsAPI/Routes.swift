@@ -293,9 +293,18 @@ func routes(_ app: Application) throws {
         let payload = try await comparisonData(request, timing: timing)
         timing.record("build", since: buildStart)
         let response = Response(status: .ok)
-        let encodeStart = timing.start()
-        try response.content.encode(payload)
-        timing.record("encode", since: encodeStart)
+        if request.query[Int.self, at: "wire"] == 2 {
+            let denseStart = timing.start()
+            let densePayload = DenseComparisonResponse(payload)
+            timing.record("dense", since: denseStart)
+            let encodeStart = timing.start()
+            try response.content.encode(densePayload)
+            timing.record("encode", since: encodeStart)
+        } else {
+            let encodeStart = timing.start()
+            try response.content.encode(payload)
+            timing.record("encode", since: encodeStart)
+        }
         timing.record("total", since: totalStart)
         let serverTiming = timing.serverTimingHeader()
         response.headers.replaceOrAdd(name: "Server-Timing", value: serverTiming)

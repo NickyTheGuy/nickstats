@@ -147,3 +147,24 @@ overlap: do not add `side_data`, individual query phases, player totals and
 `build` together. `total` measures API work before sending the response, not VPN
 latency, proxy waiting or body transfer time. Teammate-rating requests expose
 `ratings` (query and result construction), `encode` and `total`.
+
+## Compact Groups responses
+
+The Groups frontend requests `/groups?players=...&wire=2`. This returns one
+shared `stat_keys` list and dense statistic arrays for every player's side rows,
+using the existing individual-profile wire format. Player identities, match
+metadata, teammate IDs, weapons, round rows and filter dimensions are unchanged.
+Null slots represent unavailable statistics; real zero counters stay zero.
+Omitting `wire=2` preserves the verbose response for older clients. A newer
+frontend also accepts an older server's verbose response.
+
+Deploy the updated backend and frontend controller files together to obtain the
+performance benefit; there is no migration or reparse. `Server-Timing` now
+separates `dense` conversion from `encode`, alongside the existing `build` and
+`total`. Compare the same roster and filters after deployment, recording resource
+size and transferred bytes as well as those timings. This stage changes the
+response representation; it does not cache Groups or reduce its database work.
+A synthetic two-player, 500-matches-each fixture with 24 slices and 120 counters
+per match shrank from 116.2 MB to 8.9 MB before compression (92.4%). This is a
+shape test, not a production latency prediction; browser expansion adds work and
+compressed transfer savings may be much smaller.
