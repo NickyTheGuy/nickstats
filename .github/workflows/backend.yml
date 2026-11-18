@@ -14,11 +14,31 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container: swift:6.3-noble
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: integration-only
+          MYSQL_ROOT_HOST: '%'
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pintegration-only"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      MYSQL_HOST: mysql
+      MYSQL_USER: root
+      MYSQL_PASSWORD: integration-only
+      MYSQL_DATABASE: nickstats_analyzer_test
+      NICKSTATS_UPLOAD_TOKEN: integration-upload-token
+      NICKSTATS_ANALYZER_INTEGRATION: '1'
     steps:
       - uses: actions/checkout@v4
+      - name: Install integration tools
+        run: apt-get update -qq && apt-get install -y -qq default-mysql-client python3
       - name: Resolve packages
         working-directory: backend
         run: swift package resolve
       - name: Build and test
         working-directory: backend
         run: swift test
+      - name: Analyzer HTTP and MySQL integration
+        run: python3 backend/Tests/Integration/analyzer.py

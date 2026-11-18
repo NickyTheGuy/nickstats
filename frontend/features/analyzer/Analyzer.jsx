@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import SourcePicker from './SourcePicker.jsx';
+import { groupRoundKeys } from './state/query.mjs';
+import { loadCaptureHeaders, loadSelectedRounds } from './state/server.mjs';
 import Button from '../../shared/components/buttons/Button.jsx';
 import FormMessage from '../../shared/components/feedback/FormMessage.jsx';
 import MapWindow from './MapWindow.jsx';
@@ -10,7 +13,12 @@ import { COMBAT_LAYERS } from './state/combat.mjs';
 import { PLAYER_COLORS, UTILITY_TYPES } from './state/replay.mjs';
 import { openReplayFile } from './state/files.mjs';
 
-export default function Analyzer() {
+export default function Analyzer({entryStore}) {
+  const entry=useSyncExternalStore(entryStore.subscribe,entryStore.getSnapshot);
+  const [mode,setMode]=useState('match'),[queryPlayers,setQueryPlayers]=useState(null);
+  const [groupRounds,setGroupRounds]=useState({sections:[],numbers:[]}),[remoteRounds,setRemoteRounds]=useState([]);
+  const [loadingRounds,setLoadingRounds]=useState(false),[retry,setRetry]=useState(0);
+  const roundOperation=useRef(null);
   const [replays,setReplays] = useState([]), [mapName,setMapName] = useState('');
   const [selectedRounds,setSelectedRounds] = useState([]), [selectedPlayers,setSelectedPlayers] = useState([]);
   const [utilities,setUtilities] = useState(UTILITY_TYPES), [side,setSide] = useState(0);
@@ -19,22 +27,49 @@ export default function Analyzer() {
   const [filters,setFilters]=useState({result:'all',buy:[],enemyBuy:[]});
   const [combatLayers,setCombatLayers]=useState(COMBAT_LAYERS);
   const operation = useRef(null);
-  useEffect(() => () => operation.current?.abort(), []);
+  useEffect(() => () => { operation.current?.abort();roundOperation.current?.abort(); }, []);
+  const clearSource=useCallback(()=>{operation.current?.abort();roundOperation.current?.abort();setReplays([]);setRemoteRounds([]);setMapName('');setQueryPlayers(null);setBusy(false);setLoadingRounds(false);setError('');setStatus('');setPlaying(false);},[]);
+  const chooseSource=useCallback(async source=>{
+    clearSource();setMode(source.mode);setQueryPlayers(source.mode==='groups'?source.players:null);
+    setFilters({result:'all',buy:[],enemyBuy:[]});setSide(0);setGroupRounds({sections:[],numbers:[]});
+    const available=source.matches.filter(m=>m.capture);
+    if(!available.length){if(source.matches.length)setError('No movement is stored for this selection. Reparse these demos from Match to capture it.');return;}
+    const controller=new AbortController();operation.current=controller;setBusy(true);
+    try {
+      const loaded=await loadCaptureHeaders(available,{signal:controller.signal,onStatus:setStatus});controller.signal.throwIfAborted();
+      setReplays(loaded);setMapName(loaded[0].map);
+      setSelectedPlayers(source.mode==='groups'?source.players.filter(p=>p.steam_id).map(p=>`steam:${p.steam_id}`):loaded[0].players.map(p=>p.id));
+      setSelectedRounds([`${loaded[0].match_uid}:${loaded[0].rounds[0].number}`]);
+    }catch(e){if(!controller.signal.aborted)setError(e.message);}
+    finally{if(operation.current===controller){setBusy(false);setStatus('');operation.current=null;}}
+  },[clearSource]);
   useEffect(() => {
     const pause = () => setPlaying(false);
     const navigate = event => { if (event.detail.page !== 'analyzer') pause(); };
     document.addEventListener('visibilitychange',pause); window.addEventListener('nickstats:page',navigate);
     return () => { document.removeEventListener('visibilitychange',pause); window.removeEventListener('nickstats:page',navigate); };
   }, []);
-  const players = useMemo(() => [...new Map(replays.filter(r=>r.map===mapName).flatMap(r=>r.players.map(p=>[p.id,p]))).values()], [replays,mapName]);
+  const players = useMemo(() => queryPlayers ? queryPlayers.filter(p=>p.steam_id).map(p=>({id:`steam:${p.steam_id}`,name:p.name,steam_id:p.steam_id})) : [...new Map(replays.filter(r=>r.map===mapName).flatMap(r=>r.players.map(p=>[p.id,p]))).values()], [replays,mapName,queryPlayers]);
+  const mapPlayers = useMemo(()=>[...new Map(replays.flatMap(r=>r.players.map(p=>[p.id,p]))).values()],[replays]);
   const colors = useMemo(() => new Map(players.map((p,i)=>[p.id,PLAYER_COLORS[i%PLAYER_COLORS.length]])), [players]);
-  const rounds = useMemo(() => {
-    const selected = new Set(selectedRounds);
-    return replays.filter(r=>r.map===mapName).flatMap(r=>r.rounds.filter(round=>selected.has(`${r.match_uid}:${round.number}`)&&matchesRound(round,{...filters,players:selectedPlayers,side})));
-  }, [replays,mapName,selectedRounds,filters,selectedPlayers,side]);
-  const duration = rounds.reduce((max,r)=>Math.max(max,r.duration),0), map = Object.hasOwn(mapData.maps,mapName) ? mapData.maps[mapName] : null;
   const mapReplays = useMemo(()=>replays.filter(r=>r.map===mapName),[replays,mapName]);
-  useEffect(() => { setTime(0); setPlaying(false); }, [selectedRounds,mapName,filters,selectedPlayers,side]);
+  const remote=mapReplays.some(r=>r.capture);
+  const roundKeys=useMemo(()=>mode==='groups'?groupRoundKeys(mapReplays,groupRounds,{...filters,players:selectedPlayers,side}):
+    mapReplays.flatMap(r=>r.rounds.filter(round=>selectedRounds.includes(`${r.match_uid}:${round.number}`)&&matchesRound(round,{...filters,players:selectedPlayers,side})).map(round=>`${r.match_uid}:${round.number}`)),
+    [mapReplays,mode,groupRounds,filters,selectedPlayers,side,selectedRounds]);
+  useEffect(()=>{
+    setRemoteRounds([]);roundOperation.current?.abort();
+    if(!remote||!roundKeys.length||!selectedPlayers.length){setLoadingRounds(false);return;}
+    const controller=new AbortController();roundOperation.current=controller;setLoadingRounds(true);setError('');
+    loadSelectedRounds(mapReplays,roundKeys,selectedPlayers,{signal:controller.signal,onStatus:setStatus})
+      .then(rounds=>{controller.signal.throwIfAborted();setRemoteRounds(rounds);})
+      .catch(e=>{if(!controller.signal.aborted){controller.abort();setError(e.message);}})
+      .finally(()=>{if(roundOperation.current===controller){setLoadingRounds(false);setStatus('');roundOperation.current=null;}});
+    return()=>controller.abort();
+  },[remote,mapReplays,roundKeys,selectedPlayers,retry]);
+  const rounds=useMemo(()=>remote?remoteRounds:mapReplays.flatMap(r=>r.rounds.filter(round=>roundKeys.includes(`${r.match_uid}:${round.number}`))),[remote,remoteRounds,mapReplays,roundKeys]);
+  const duration = rounds.reduce((max,r)=>Math.max(max,r.duration),0), map = Object.hasOwn(mapData.maps,mapName) ? mapData.maps[mapName] : null;
+  useEffect(() => { setTime(0); setPlaying(false); }, [selectedRounds,groupRounds,mapName,filters,selectedPlayers,side]);
   useEffect(() => {
     if (!playing || !duration) return;
     let frame, previous = performance.now(), lastRender = previous;
@@ -50,17 +85,17 @@ export default function Analyzer() {
   }, [playing,speed,duration]);
   useEffect(() => { if (time >= duration) setPlaying(false); }, [time,duration]);
   async function openFiles(files) {
-    if (!files.length || busy) return;
+    if (!files.length || busy || loadingRounds) return;
+    clearSource();setMode('match');
     const controller = new AbortController(); operation.current = controller;
     setBusy(true); setError(''); setPlaying(false);
-    let loaded = [...replays], messages = [];
+    let loaded = remote?[]:[...replays], messages = [];
     try {
       for (const file of files) {
         controller.signal.throwIfAborted();
         try {
           const replay = await openReplayFile(file,{ signal:controller.signal, onStatus:setStatus });
           const remaining = loaded.filter(r=>r.map===replay.map&&r.match_uid!==replay.match_uid);
-          if (remaining.length>=8) throw new Error('Reload the viewer before opening more matches (8-match limit).');
           const count = [...remaining,replay].reduce((sum,r)=>sum+replaySampleCount(r),0);
           if (count > 2000000) throw new Error('Open replays exceed two million positions. Reload the viewer to free memory first.');
           loaded = [...remaining,replay]; setReplays(loaded); setMapName(replay.map);
@@ -72,16 +107,19 @@ export default function Analyzer() {
     finally { setBusy(false); setStatus(''); setError(messages.join(' ')); operation.current = null; }
   }
   return <section className="analyzer-view" aria-label="2D analyzer">
-    <MapWindow map={map} mapName={mapName} rounds={rounds} players={players} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities} combatLayers={combatLayers}
+    <SourcePicker mode={mode} onMode={setMode} entry={entry} onChoose={chooseSource} onClear={clearSource} />
+    <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities} combatLayers={combatLayers}
       actions={<div className="analyzer-import">
-        <label className={`button button-primary${busy?' disabled':''}`}>Open
-          <input aria-label="Open demos or replays" type="file" multiple accept=".dem,.zst,.json" disabled={busy} onChange={e=>{const files=Array.from(e.target.files);e.target.value='';openFiles(files);}} />
+        <label className={`button button-primary${busy||loadingRounds?' disabled':''}`}>Open
+          <input aria-label="Open demos or replays" type="file" multiple accept=".dem,.zst,.json" disabled={busy||loadingRounds} onChange={e=>{const files=Array.from(e.target.files);e.target.value='';openFiles(files);}} />
         </label>
-        {busy&&<Button className="button button-secondary" onClick={()=>operation.current?.abort()}>Cancel</Button>}
+        {(busy||loadingRounds)&&<Button className="button button-secondary" onClick={()=>{operation.current?.abort();roundOperation.current?.abort();}}>Cancel</Button>}
+        {remote&&!busy&&!loadingRounds&&<Button className="button button-secondary" onClick={()=>setRetry(v=>v+1)}>Reload selection</Button>}
       </div>}
       status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage></>}
       controls={<AnalyzerControls players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
         colors={colors} utilities={utilities} setUtilities={setUtilities} side={side} onSide={setSide} filters={filters} setFilters={setFilters} selectedCount={rounds.length} combatLayers={combatLayers} setCombatLayers={setCombatLayers}
+        groupRounds={mode==='groups'?{replays:mapReplays,value:groupRounds,onChange:setGroupRounds}:null}
         roundPicker={{replays:mapReplays,selected:selectedRounds,filters:{...filters,side,players:selectedPlayers},
           onClear:()=>setSelectedRounds([]),onToggleSet:keys=>setSelectedRounds(previous=>toggleRoundSet(previous,keys))}} />}
       playback={<PlaybackControls time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={setTime} speed={speed} setSpeed={setSpeed} />} />

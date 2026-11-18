@@ -66,7 +66,7 @@ test("match loading reserves page height and cancels obsolete requests", () => {
 test("match details use a stable, filter-independent React banner", () => {
   const banner = fs.readFileSync(path.join(__dirname, "../frontend/features/matches/MatchBanner.jsx"), "utf8");
   assert.match(html, /id="demoMatchBannerApp"/);
-  assert.match(demo, /ui\.banner\.update\(\{ result, accountSteamID: state\.accountPlayerSteamID \}\)/);
+  assert.match(demo, /ui\.banner\.update\(\{ result, accountSteamID: state\.accountPlayerSteamID, onAnalyze:/);
   assert.match(banner, /artworkFor\(map\)/);
   assert.match(banner, /provider_match_id/);
   assert.match(banner, /Date unavailable/);

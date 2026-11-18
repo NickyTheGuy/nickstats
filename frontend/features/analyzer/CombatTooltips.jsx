@@ -14,7 +14,7 @@ export default function CombatTooltips({map,level,rounds,selected,players,time,s
       if(x<0||y<0||x>size.width||y>size.height)continue;
       const key=`${mark.kind}:${Math.round(x/12)}:${Math.round(y/12)}`;
       if(!groups.has(key))groups.set(key,{x,y,kind:mark.kind,labels:[]});
-      groups.get(key).labels.push(`${mark.kind==='kill'?'Kill':'Death'} · Round ${round.number} · ${formatTime(event.time)} · ${deathLabel(event,names)} · ${event.weapon}${event.headshot?' · headshot':''}`);
+      groups.get(key).labels.push(`${mark.kind==='kill'?'Kill':'Death'} · ${round.match_id?`Match #${round.match_id} · `:''}Round ${round.number} · ${formatTime(event.time)} · ${deathLabel(event,names)} · ${event.weapon}${event.headshot?' · headshot':''}`);
     }
   }
   return <div ref={host} className="combat-tooltip-layer">{[...groups].map(([key,group])=><TooltipButton key={key}
