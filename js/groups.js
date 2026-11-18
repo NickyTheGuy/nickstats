@@ -34,10 +34,7 @@
   const savedRoster = readSavedRoster();
   const state = {
     selected: new Map(savedRoster.map(({ player }) => [String(player.id), player])), players: [],
-    rules: rules.sanitizeRules(savedQuery?.rules || rules.legacyRules(savedRoster), savedRoster.map(({ player }) => player.id)),
-    displayed: new Set((Array.isArray(savedQuery?.displayed) ? savedQuery.displayed.map(String)
-      : savedRoster.filter(row => row.choice !== "exclude").map(({ player }) => String(player.id)))
-      .filter(id => savedRoster.some(({ player }) => String(player.id) === id))),
+    rules: rules.normalizeEditorRules(savedQuery?.rules || rules.legacyRules(savedRoster), savedRoster.map(({ player }) => player.id)),
     groupController: null, groupStale: false, groupLoadedAt: 0,
     side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL",
     comboPlayerId: "", comboView: "overview", comboDisplay: "profile", graphPlayers: null, matchListKey: "", matchListOffset: 0
@@ -67,12 +64,12 @@
       match_count: num(player.match_count)
     }));
     try {
-      if (players.length) localStorage.setItem(GROUP_QUERY_KEY, JSON.stringify({ players, rules: state.rules, displayed: [...state.displayed] }));
+      if (players.length) localStorage.setItem(GROUP_QUERY_KEY, JSON.stringify({ players, rules: state.rules }));
       else { localStorage.removeItem(GROUP_QUERY_KEY); localStorage.removeItem(GROUP_SELECTION_KEY); }
     } catch (_) {}
   }
 
-  function canBuild() { return state.selected.size >= 1 && state.displayed.size >= 1; }
+  function canBuild() { return state.selected.size >= 1; }
 
   function playerRating(row) {
     const rounds = num(row.rounds);
@@ -200,11 +197,10 @@
       return;
     }
     state.selected.set(String(player.id), player);
-    state.displayed.add(String(player.id));
     state.rules = { ...state.rules, friendly: { ...state.rules.friendly,
       children: [...state.rules.friendly.children, rules.condition(player.id)] } };
-    state.rules = rules.sanitizeRules(state.rules, state.selected.keys());
-    playerSearch.reset("Search for another player, or build the current selection.");
+    state.rules = rules.normalizeEditorRules(state.rules, state.selected.keys());
+    playerSearch.reset();
     persistRoster();
     invalidateGroupResults();
     renderSelectedRoster();
@@ -212,8 +208,7 @@
 
   function removePlayer(id) {
     state.selected.delete(String(id));
-    state.displayed.delete(String(id));
-    state.rules = rules.sanitizeRules(state.rules, state.selected.keys());
+    state.rules = rules.normalizeEditorRules(state.rules, state.selected.keys());
     persistRoster();
     invalidateGroupResults();
     renderSelectedRoster();
@@ -229,14 +224,7 @@
   }
 
   function setRules(value) {
-    state.rules = rules.sanitizeRules(value, state.selected.keys());
-    persistRoster();
-    renderSelectedRoster();
-    if (state.players.length) runCombination();
-  }
-
-  function setDisplay(id, checked) {
-    checked ? state.displayed.add(String(id)) : state.displayed.delete(String(id));
+    state.rules = rules.normalizeEditorRules(value, state.selected.keys());
     persistRoster();
     renderSelectedRoster();
     if (state.players.length) runCombination();
@@ -244,13 +232,12 @@
 
   function renderSelectedRoster() {
     window.NickStatsGroupUI.render($("groupSelectedRoster"), {
-      players: [...state.selected.values()], rules: state.rules, displayed: [...state.displayed],
-      onRules: setRules, onDisplay: setDisplay, onRemove: removePlayer
+      players: [...state.selected.values()], rules: state.rules,
+      onRules: setRules, onRemove: removePlayer
     });
     ui.groupBuildButton.update({ disabled: !canBuild() });
     ui.groupClearButton.update({ disabled: state.selected.size === 0 });
-    setStatus(!state.selected.size ? "Search and add players." : !state.displayed.size
-      ? "Choose at least one player whose stats you want to show." : `${state.selected.size} players to search · ${state.displayed.size} profiles to show.`);
+    setStatus(state.selected.size ? `${state.selected.size} players` : "");
   }
 
   async function buildGroup({ refresh = false } = {}) {
@@ -344,7 +331,7 @@
   document.addEventListener("visibilitychange", () => ensureCurrentGroup());
 
   function displayedPlayers() {
-    return state.players.filter(player => state.displayed.has(player.profileId));
+    return state.players;
   }
 
   function findCombination() {
@@ -490,7 +477,6 @@
     state.groupController?.abort();
     state.selected.clear();
     state.rules = rules.emptyRules();
-    state.displayed.clear();
     persistRoster();
     state.result = "ALL";
     state.buy = "ALL";
@@ -511,7 +497,7 @@
   }
 
   const playerSearch = window.NickStatsPlayerSearchUI.create({ prefix: "group", limit: 20, onSelect: addPlayer,
-    excluded: id => state.selected.has(id), initialMessage: "Search and add players for your team rules or displayed stats." });
+    excluded: id => state.selected.has(id), initialMessage: "" });
   ui.comboMatchesPagination = window.NickStatsShellUI.pagination("comboMatchesPagination", () => { state.matchListOffset -= MATCH_LIST_LIMIT; runCombination(); }, () => { state.matchListOffset += MATCH_LIST_LIMIT; runCombination(); });
 
   ui.groupBuildButton = window.NickStatsShellUI.button("groupBuildButton", () => buildGroup());

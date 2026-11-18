@@ -12,7 +12,7 @@ export default function useRuleGestures({ rules, onRules, onMove }) {
     if (event.button !== 0 || event.isPrimary === false) return;
     if (!move && event.target.closest('button,summary,input,select,a,[data-no-gesture]')) return;
     const cell = event.target.closest('[data-movable-id]');
-    const moving = move || (cell ? { id: cell.dataset.movableId, playerId: cell.dataset.benchPlayer || null } : null);
+    const moving = move || (cell ? { id: cell.dataset.movableId } : null);
     const team = event.target.closest('[data-team-root]');
     if (!moving && (!team || event.pointerType === 'touch')) return;
     event.preventDefault(); event.stopPropagation();
@@ -53,8 +53,8 @@ export default function useRuleGestures({ rules, onRules, onMove }) {
       else if (!current.moved) select(current.moving.id, current.additive);
     } else if (current.moved) {
       const grouped = groupSelection(rules, current.ids || []);
-      if (grouped) { onRules(grouped.rules); setSelected([grouped.groupId]); setNotice('Created condition group.'); }
-      else setNotice('Select an ungrouped player, or separate cells/groups, to create a group.');
+      if (grouped) { onRules(grouped.rules); setSelected([grouped.groupId]); setNotice(''); }
+
     } else setSelected([]);
   }
   function cancel() {

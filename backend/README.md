@@ -464,3 +464,31 @@ Rule changes still reuse loaded histories and the saved query format is unchange
 Deploy `index.html`, `styles.css`, and `assets/` (including the committed rebuilt
 React bundle) along with your usual frontend files. No backend rebuild, database
 migration, or demo reparse is needed for this release.
+
+## Simplified Groups controls (Build 2026.11.17.7)
+
+Frontend-only update: instructional text, the Available players area, Show stats
+controls, and per-cell Include/Exclude switches are removed. Players are added to
+Friendly and all selected players get profile/comparison views automatically.
+Cell × removes that player from the selection and all conditions. Group × still
+ungroups its children. Dragging, marquee grouping, touch and keyboard actions
+remain available.
+
+The group selector now reads AND, OR, XOR, Exclude. Exclude retains the internal
+`none` Boolean meaning: none of that group's child conditions may match. It is
+scoped to that team and has a red outline, with cell colors reflecting negation.
+An optional-player outline can switch between AND and Exclude for with/without
+comparisons, including in separate browser tabs. No separate quick toggle is
+added.
+
+Saved per-player exclusions are upgraded to explicit Exclude outlines, including
+nested/double negations, preserving existing matching semantics. Formerly
+unassigned players are returned to Friendly; saved Show stats preferences no
+longer hide selected profiles. Empty nested outlines are removed. The editor's
+bounded capacity is now 200 nodes / six levels, allowing room to represent
+previously valid per-player exclusions as outlines. Grouping still cannot wrap a
+single existing group again or create cycles.
+
+Update the frontend copy of `index.html`, `styles.css`, `js/`, and `assets/`.
+The React bundle is already built and committed. No backend rebuild, database
+migration, cache change or demo reparse is required.

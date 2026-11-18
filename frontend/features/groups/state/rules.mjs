@@ -1,5 +1,5 @@
-export const MAX_RULE_NODES = 80;
-export const MAX_RULE_DEPTH = 5;
+export const MAX_RULE_NODES = 200;
+export const MAX_RULE_DEPTH = 6;
 let sequence = 0;
 const id = () => `rule-${globalThis.crypto?.randomUUID?.() || `${Date.now()}-${++sequence}`}`;
 export const group = (op = 'and', children = []) => ({ id: id(), op, children });

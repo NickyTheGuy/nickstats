@@ -7,9 +7,9 @@ export default function PlayerSearch({ store, prefix, onSelect, excluded }) {
   const group = prefix === 'group';
   return <>
     <div className={`section-head ${group ? 'group-builder' : 'player-search'}-heading`}>
-      <div><div className="eyebrow">{group ? 'Conditional groups' : 'Player profiles'}</div>
-        <h2>{group ? 'Build friendly and enemy team conditions.' : 'Search for anyone in any uploaded match.'}</h2>
-      </div>
+      {!group && <div><div className="eyebrow">Player profiles</div>
+        <h2>Search for anyone in any uploaded match.</h2>
+      </div>}
       <SearchForm prefix={prefix} query={query} onChange={store.input} onSubmit={store.submit}
         primary={!group} submitLabel={group ? 'Find player' : 'Search'} />
     </div>

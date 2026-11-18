@@ -50,7 +50,7 @@ The generated `assets/ui/nickstats-ui.js` is committed, so running the existing 
 ### Groups team rules
 
 `features/groups/` owns the nested Friendly/Enemy rule editor. `GroupBuilder`
-separates the player pool and Show stats choices from `RuleGroup`/`RuleCondition`.
+coordinates draggable player cells in `RuleGroup`/`RuleCondition`.
 It uses the shared button, option-field and checkbox components. Pure evaluation,
 bounds, migration, and team-orientation logic live in `state/rules.mjs` and are
 exposed through the feature adapter for `js/groups.js`. The controller retains
@@ -65,3 +65,13 @@ one atom; selecting that group's cells again cannot create another wrapper. A
 free single player can receive an outline once. Existing unary groups are kept
 when editing, including NONE negation. The same controls expose keyboard/touch
 selection plus Group selected and Move to actions.
+
+
+The simplified editor automatically shows all selected player profiles. There is
+no unassigned bench or per-player presence toggle. Cells' × removes the selected
+player; group × ungroups its children. The internal `none` operator is labeled
+Exclude, with red outlines/cells in negated groups. `normalizeEditorRules` upgrades
+legacy `exclude: true` leaves into explicit single-player Exclude outlines without
+changing their Boolean meaning, prunes empty groups and returns formerly unassigned
+players to Friendly. The node/depth budgets include headroom for those legacy
+negation outlines. Saved per-player display preferences are no longer used.

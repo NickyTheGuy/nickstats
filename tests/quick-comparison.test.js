@@ -197,7 +197,7 @@ test("groups migrate older selections and restore nested rules with independent 
   assert.match(compareSource, /GROUP_SELECTION_KEY = "nickstats\.groupSelection\.v1"/);
   assert.match(compareSource, /GROUP_QUERY_KEY = "nickstats\.groupQuery\.v2"/);
   assert.match(compareSource, /rules\.legacyRules\(savedRoster\)/);
-  assert.match(compareSource, /rules\.sanitizeRules/);
+  assert.match(compareSource, /rules\.normalizeEditorRules/);
   assert.match(compareSource, /localStorage\.setItem\(GROUP_QUERY_KEY/);
-  assert.match(compareSource, /displayed: \[\.\.\.state\.displayed\]/);
+  assert.doesNotMatch(compareSource, /state\.displayed/);
 });

@@ -1,4 +1,4 @@
-import { group, condition, countNodes, MAX_RULE_DEPTH, MAX_RULE_NODES } from './rules.mjs';
+import { group, condition, countNodes, MAX_RULE_DEPTH, MAX_RULE_NODES, sanitizeRules } from './rules.mjs';
 
 export function findRule(rules, id) {
   function walk(node, side, path = []) {
@@ -43,16 +43,14 @@ export function removeCondition(rules, id) {
   return compactRules({ ...rules, [found.side]: without(rules[found.side], id) });
 }
 
-export function moveCondition(rules, id, targetId, playerId = null, exclude = false) {
-  const found = id ? findRule(rules, id) : null;
-  if (id && !found?.path.length) return rules;
-  if (targetId === 'bench') return found ? removeCondition(rules, id) : rules;
+export function moveCondition(rules, id, targetId) {
+  const found = findRule(rules, id);
+  if (!found?.path.length) return rules;
   const target = findRule(rules, targetId);
   if (!target?.node.children || targetId === id || target.path.includes(id)) return rules;
   if (found?.path.at(-1) === targetId) return rules;
-  const moving = found?.node || (playerId != null ? condition(playerId, exclude) : null);
-  if (!moving) return rules;
-  let result = found ? { ...rules, [found.side]: without(rules[found.side], id) } : rules;
+  const moving = found.node;
+  let result = { ...rules, [found.side]: without(rules[found.side], id) };
   result = updateRule(result, targetId, { children: [...findRule(result, targetId).node.children, moving] });
   result = compactRules(result);
   return withinLimits(result) ? result : rules;
@@ -107,8 +105,26 @@ export function dropTargets(rules) {
   function walk(node, label) {
     if (!node.children) return;
     targets.push([node.id, label]);
-    node.children.filter(child => child.children).forEach((child, index) => walk(child, `${label} · ${child.op.toUpperCase()} ${index + 1}`));
+    node.children.filter(child => child.children).forEach((child, index) => walk(child, `${label} · ${child.op === 'none' ? 'Exclude' : child.op.toUpperCase()} ${index + 1}`));
   }
   walk(rules.friendly, 'Friendly'); walk(rules.enemy, 'Enemy');
-  return [...targets, ['bench', 'Available players']];
+  return targets;
+}
+
+
+// Older saves used a hidden per-player negation. Make each one an explicit
+// Exclude outline so removing the switches never silently changes its meaning.
+export function normalizeEditorRules(value, playerIds) {
+  const ids = [...playerIds].map(String);
+  const clean = sanitizeRules(value, ids);
+  function migrate(node, root = false) {
+    if (node.playerId != null) return node.exclude
+      ? group('none', [{ ...node, exclude: false }]) : node;
+    const children = node.children.map(child => migrate(child)).filter(Boolean);
+    return !root && !children.length ? null : { ...node, children };
+  }
+  const result = { friendly: migrate(clean.friendly, true), enemy: migrate(clean.enemy, true) };
+  const assigned = usedPlayers(result);
+  result.friendly.children.push(...ids.filter(id => !assigned.has(id)).map(id => condition(id)));
+  return result;
 }

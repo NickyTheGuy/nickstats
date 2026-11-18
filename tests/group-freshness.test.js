@@ -10,7 +10,6 @@ function setup() {
   let now = 100000;
   const nodes = {groupsPage:{hidden:false},groupResults:{hidden:false}};
   const state = {selected:new Map([['1',{id:'1'}],['2',{id:'2'}]]),
-    displayed:new Set(['1']),
     players:[{profileId:'1',rows:[{id:'old'}]}],groupController:null,groupStale:false,
     groupLoadedAt:now,side:'CT',buy:'full',comboDisplay:'graphs',graphPlayers:new Set(['1'])};
   const document = {hidden:false,addEventListener:(event,fn)=>listeners.set(event,fn)};
@@ -26,8 +25,8 @@ function setup() {
     populateMaps:options=>assert.equal(options.reset,false),
     persistRoster(){},renderSelectedRoster(){},
     runCombination:()=>rendered.push(Array.from(state.players).flatMap(player=>Array.from(player.rows,row=>row.id))),
-    displayedPlayers:()=>state.players.filter(player=>state.displayed.has(player.profileId)),
-    canBuild:()=>state.selected.size>=1 && state.displayed.size>=1,
+    displayedPlayers:()=>state.players,
+    canBuild:()=>state.selected.size>=1,
     setStatus:(...args)=>statuses.push(args)
   };
   const start=source.indexOf('  async function buildGroup('), end=source.indexOf('  function displayedPlayers(',start);
@@ -53,7 +52,7 @@ test('returning to Groups reloads matches without resetting its roster, roles, f
   assert.equal(app.measures.size,5);
   assert.ok(app.measures.has('NickStats Groups: total'));
   assert.equal(app.state.selected.get('1').match_count,2);
-  assert.deepEqual([...app.state.displayed],['1']);
+  assert.equal(app.state.players.length,2,'all selected players have a profile');
   assert.equal(app.state.side,'CT');
   assert.equal(app.state.buy,'full');
   assert.equal(app.state.comboDisplay,'graphs');
@@ -94,9 +93,8 @@ test('failed refreshes remain retryable and an aborted older request cannot repl
   assert.deepEqual(app.rendered,[['newest']]);
 });
 
-test('empty selections or selections without displayed profiles never auto-build',()=>{
+test('empty selections never auto-build',()=>{
   const app=setup();app.state.players=[];
-  app.state.displayed.clear();app.ensure();
-  app.state.displayed.add('1');app.state.selected.clear();app.ensure();
+  app.state.selected.clear();app.ensure();
   assert.equal(app.requests.length,0);
 });
