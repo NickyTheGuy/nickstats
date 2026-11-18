@@ -102,6 +102,10 @@ export function validateReplay(input) {
     replay.rules = {regulation_rounds:input.rules.regulation_rounds,overtime_rounds:input.rules.overtime_rounds};
     replay.projectile_hz = input.projectile_hz;
   }
+  if (input.demo_sha256 != null) {
+    if (typeof input.demo_sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(input.demo_sha256)) fail('invalid demo fingerprint.');
+    replay.demo_sha256 = input.demo_sha256;
+  }
   return replay;
 }
 

@@ -4,6 +4,7 @@ import ToggleChips from '../../shared/components/forms/ToggleChips.jsx';
 import ToggleGroup from '../../shared/components/forms/ToggleGroup.jsx';
 import MultiToggleGroup from '../../shared/components/forms/MultiToggleGroup.jsx';
 import RoundPicker from './RoundPicker.jsx';
+import GroupRoundPicker from './GroupRoundPicker.jsx';
 import { COMBAT_LAYERS } from './state/combat.mjs';
 import { UTILITY_TYPES } from './state/replay.mjs';
 import { UTILITY_ICONS } from './state/utility.mjs';
@@ -13,7 +14,7 @@ function RoundFilter({label,value,options,onChange,multiple=false}) {
   const Choices=multiple?MultiToggleGroup:ToggleGroup;
   return <div className="analyzer-round-filter"><span>{label}</span><Choices label={label} options={options} value={value} onChange={onChange} className="side-toggle" /></div>;
 }
-export default function AnalyzerControls({players,selectedPlayers,setSelectedPlayers,colors,utilities,setUtilities,side,onSide,roundPicker,selectedCount,combatLayers,setCombatLayers,filters,setFilters}) {
+export default function AnalyzerControls({players,selectedPlayers,setSelectedPlayers,colors,utilities,setUtilities,side,onSide,roundPicker,selectedCount,combatLayers,setCombatLayers,filters,setFilters,groupRounds}) {
   const [open,setOpen]=useState(false);
   const toggle=(setter,value,checked)=>setter(previous=>checked?[...new Set([...previous,value])]:previous.filter(v=>v!==value));
   return <div className={`analyzer-controls${open?' is-open':''}`}>
@@ -27,7 +28,7 @@ export default function AnalyzerControls({players,selectedPlayers,setSelectedPla
       <RoundFilter multiple label="Enemy buy" value={filters.enemyBuy} options={buys} onChange={value=>setFilters(f=>({...f,enemyBuy:value}))} />
       <strong>Utility</strong><ToggleChips label="Utility markers" options={UTILITY_TYPES.map(t=>[t,<><img src={`./assets/grenades/${UTILITY_ICONS[t]}.svg`} alt="" />{t}</>])} selected={utilities} onChange={(type,checked)=>toggle(setUtilities,type,checked)} />
       <strong>Combat</strong><ToggleChips label="Combat layers" options={COMBAT_LAYERS.map(layer=>[layer,layer])} selected={combatLayers} onChange={(layer,checked)=>toggle(setCombatLayers,layer,checked)} />
-      <strong>Rounds</strong><RoundPicker {...roundPicker} />
+      <strong>Rounds</strong>{groupRounds ? <GroupRoundPicker {...groupRounds} /> : <RoundPicker {...roundPicker} />}
     </aside>}
   </div>;
 }

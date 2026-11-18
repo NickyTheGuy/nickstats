@@ -10,6 +10,13 @@
   const ui = Object.fromEntries(["playerMatchesStatus", "playerGraphPlayerStatus", "playerProfileName", "playerProfileMeta", "playerProfileStatus", "playerDataStatus"].map(id => [id, window.NickStatsShellUI.text(id)]));
   const { number, integer, ratio, titleCase } = window.NickStatsProfile;
   const { matchResultMatches, resultFilterLabel, scoreBreakdown } = window.NickStatsFilters;
+  window.NickStatsShellUI.button("playerAnalyze", () => {
+    const profile = activeProfile(); if (!profile) return;
+    window.NickStatsAnalyzer.open({ mode: "groups", players: [profile.payload.player],
+      date: { from: dateFilter.from, through: dateFilter.through }, tags: [...manualFilter.selected],
+      map: mapFilter.values().length === 1 ? mapFilter.values()[0] : "" });
+  });
+
   const availability = window.NickStatsAvailability;
   const matchList = window.NickStatsMatchList;
 

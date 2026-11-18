@@ -210,3 +210,10 @@ Tags follow Dates in the Player and Groups toolbars. Reset filters restores all 
 Tag owners can share current definitions and match values read-only with another existing account by username. Recipients see the owner beside the tag name and can filter/graph it; only the owner can edit values, delete the tag, or manage its recipients. Sharing keeps one source of values, with updates and revocations reflected on reload/window focus. Apply migration 020 and rebuild the API to enable Share controls; no reparse is needed.
 
 The graph statistic label changes to Y-axis only in X vs. Y mode. X and Y sit together above Graph settings and use the same independent category/search picker, including keyboard navigation and private numeric tags. Outside this view, X is hidden and Y returns to the Statistic label. Axis selections persist when changing graph views.
+
+## 2D Analyzer
+
+The Analyzer now supports stored Match and conditional Groups views, with profile
+entry points and independent match/round filters. Existing matches need a movement
+capture from their original demo. See [setup, deployment and usage](docs/analyzer.md);
+this release needs backend migration 021 as well as the updated static frontend.

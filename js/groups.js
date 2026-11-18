@@ -16,6 +16,12 @@
   const $ = id => document.getElementById(id);
   const ui = Object.fromEntries(["groupStatus", "comboMatchesStatus", "comboGraphPlayerStatus", "comboProfileTitle", "comboProfileMeta"].map(id => [id, window.NickStatsShellUI.text(id)]));
   ui.warnings = window.NickStatsShellUI.warnings("comboWarnings");
+  window.NickStatsShellUI.button("groupAnalyze", () => {
+    window.NickStatsAnalyzer.open({ mode: "groups", players: [...state.selected.values()], rules: state.rules,
+      date: { from: dateFilter.from, through: dateFilter.through }, tags: [...manualFilter.selected],
+      map: mapFilter.values().length === 1 ? mapFilter.values()[0] : "" });
+  });
+
   const availability = window.NickStatsAvailability;
   function readSavedRoster() {
     try {

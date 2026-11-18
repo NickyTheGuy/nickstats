@@ -37,7 +37,7 @@ export function matchesBuy(choices,buy,hero=false) {
   return !selected.length||selected.includes('all')||selected.includes(buy)||selected.includes('hero')&&hero;
 }
 export function matchesRound(round,{players=[],side=0,result='all',buy='all',enemyBuy='all'}={}) {
-  const chosen=new Set(players),contexts=round.context?.length?round.context:round.tracks.map(track=>{const side=track.samples[0]?.[5];return {player:track.player,side,result:round.winner?((side===2?'T':'CT')===round.winner?'win':'loss'):null,buy:null,enemy_buy:null,hero:false};});
+  const chosen=new Set(players),contexts=round.context?.length?round.context:(round.tracks||[]).map(track=>{const side=track.samples[0]?.[5];return {player:track.player,side,result:round.winner?((side===2?'T':'CT')===round.winner?'win':'loss'):null,buy:null,enemy_buy:null,hero:false};});
   return contexts.some(c=>chosen.has(c.player)&&(!side||c.side===side)&&(result==='all'||c.result===result)&&
     matchesBuy(buy,c.buy,c.hero)&&matchesBuy(enemyBuy,c.enemy_buy));
 }

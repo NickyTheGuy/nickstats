@@ -21,6 +21,8 @@
     batchRunning: false,
     batchCurrent: null,
     parsedResult: null,
+    parsedReplay: null,
+    parsedReplayError: null,
     result: null,
     storedPayload: null,
     selectedMatchID: null,
@@ -448,6 +450,11 @@
       const responseBody = await postParsedMatch(result, replace);
       if (responseBody.created !== false || responseBody.replaced) window.NickStatsDataFreshness.changed();
 
+      let movementError = state.parsedReplayError ? ` Statistics saved, but analyzer movement was not captured: ${state.parsedReplayError}` : "";
+      if (responseBody.id != null && state.parsedReplay?.match_uid === result.match_uid) {
+        try { await window.NickStatsAnalyzer.saveReplay(responseBody.id, state.parsedReplay, { onStatus: setStatus }); }
+        catch (error) { movementError = ` Statistics saved, but analyzer movement was not saved: ${error.message}`; }
+      }
       const matchID = responseBody?.id == null ? "" : ` as match #${responseBody.id}`;
       state.duplicateMatchID = responseBody?.created === false && !responseBody?.replaced ? responseBody.id : null;
       uploadUI.update({ replace: state.duplicateMatchID != null });
@@ -455,7 +462,7 @@
         ? "Replaced the stored match"
         : responseBody?.created === false ? "It was already stored" : "Saved to the database";
       const nextStep = state.duplicateMatchID == null ? "" : " Choose Replace stored match to re-import it with the current parser.";
-      setStatus(`${parsedMatchDescription(result)} ${outcome}${matchID}.${nextStep}`);
+      setStatus(`${parsedMatchDescription(result)} ${outcome}${matchID}.${nextStep}${movementError}`, Boolean(movementError));
       showDiagnosticsDownload(false);
       await loadMatches(0);
     } catch (error) {
@@ -506,7 +513,7 @@
     state.workerReady = new Promise((resolve, reject) => {
       state.resolveReady = resolve;
       state.rejectReady = reject;
-      const worker = new Worker("./js/demo-worker.js?v=20261118-2");
+      const worker = new Worker("./js/demo-worker.js?v=20261118-6");
       state.worker = worker;
       const timeout = setTimeout(() => {
         const error = new Error("The demo parser took too long to start.");
@@ -522,6 +529,8 @@
           state.rejectReady = null;
         } else if (message.type === "result") {
           state.diagnostics = message.diagnostics || null;
+          state.parsedReplay = message.replay || null;
+          state.parsedReplayError = message.replayError || null;
           state.resolveParse?.(message.result);
           state.resolveParse = null;
           state.rejectParse = null;
@@ -585,6 +594,8 @@
     state.files = files;
     state.file = files[0];
     state.parsedResult = null;
+    state.parsedReplay = null;
+    state.parsedReplayError = null;
     state.uploadPending = false;
     state.duplicateMatchID = null;
     state.diagnostics = null;
@@ -1498,12 +1509,13 @@
     return new Promise((resolve, reject) => {
       state.resolveParse = resolve;
       state.rejectParse = reject;
-      state.worker.postMessage({ type: "parse", name, data, compression }, [data]);
+      state.parsedReplay = null;
+      state.worker.postMessage({ type: "parse", name, data, compression, captureReplay: true, includeStats: true }, [data]);
     });
   }
 
   function renderMatchBanner(result) {
-    ui.banner.update({ result, accountSteamID: state.accountPlayerSteamID });
+    ui.banner.update({ result, accountSteamID: state.accountPlayerSteamID, onAnalyze: state.selectedMatchID ? () => window.NickStatsAnalyzer.open({mode:"match",matchID:state.selectedMatchID}) : null });
   }
 
   function cell(row, value, className) {
@@ -2282,6 +2294,8 @@
   async function parseDemoFile(file) {
     state.file = file;
     state.parsedResult = null;
+    state.parsedReplay = null;
+    state.parsedReplayError = null;
     state.diagnostics = null;
     const demo = await readDemo(file);
     if (demo.data.byteLength > MAX_UNCOMPRESSED_DEMO_BYTES) throw demoSizeLimitError(demo.data.byteLength);
@@ -2297,6 +2311,11 @@
     let response = await postParsedMatch(result, false);
     if (response.created === false && !response.replaced) response = await postParsedMatch(result, true);
     if (response.created !== false || response.replaced) window.NickStatsDataFreshness.changed();
+    if (state.parsedReplayError) throw new Error(`Statistics saved as #${response.id}, but movement was not captured: ${state.parsedReplayError}`);
+    if (response.id != null && state.parsedReplay?.match_uid === result.match_uid) {
+      try { await window.NickStatsAnalyzer.saveReplay(response.id, state.parsedReplay, { onStatus: setStatus }); }
+      catch (error) { throw new Error(`Statistics saved as #${response.id}, but analyzer movement was not saved: ${error.message}`); }
+    }
     return response;
   }
 
@@ -2370,6 +2389,8 @@
     state.file = null;
     state.files = [];
     state.parsedResult = null;
+    state.parsedReplay = null;
+    state.parsedReplayError = null;
     state.uploadPending = false;
     state.parsePending = false;
     state.duplicateMatchID = null;

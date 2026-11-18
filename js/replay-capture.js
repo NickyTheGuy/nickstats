@@ -169,7 +169,7 @@
         rounds.push({number:timing.round,duration,winner:timing.winner_side,tracks,utility,projectiles,firing,deaths,context});
       }
       if (!rounds.length) throw new Error('No playable movement tracks were captured from this demo.');
-      return {format:'nickstats.replay',version:4,match_uid:result.match_uid,map:result.map,source_file:result.source_file,
+      return {format:'nickstats.replay',version:4,match_uid:result.match_uid,demo_sha256:result.demo_sha256,map:result.map,source_file:result.source_file,
         sample_hz:5,projectile_hz:20,coordinate_system:'source2-world',rules:{...this.rules},players:[...this.players.values()],rounds};
     }
   }

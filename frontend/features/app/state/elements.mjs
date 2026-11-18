@@ -1,4 +1,6 @@
 export const shellElements = {
+  "playerAnalyze": { "as": "button", "text": "Analyze", "className": "button button-secondary", "type": "button" },
+  "groupAnalyze": { "as": "button", "text": "Analyze", "className": "button button-secondary", "type": "button" },
   "matchListRefreshButton": {
     "as": "button",
     "text": "Refresh",

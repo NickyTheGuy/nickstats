@@ -178,11 +178,11 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-2");
-    const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay));
-    self.postMessage(event.data.captureReplay
+    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-6");
+    const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay), Boolean(event.data.includeStats));
+    self.postMessage(event.data.captureReplay && !event.data.includeStats
       ? { type: "result", replay: parsed.replay }
-      : { type: "result", result: parsed.result, diagnostics: parsed.diagnostics });
+      : { type: "result", result: parsed.result, diagnostics: parsed.diagnostics, ...(event.data.captureReplay ? { replay: parsed.replay, replayError: parsed.replayError } : {}) });
   } catch (error) {
     self.postMessage({
       type: "error",
@@ -192,8 +192,16 @@ self.addEventListener("message", async event => {
   }
 });
 
-async function parseDemo(fileName, buffer, captureReplay = false) {
-  const replayCapture = captureReplay ? new self.NickStatsReplayCapture() : null;
+async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnReplayFailure = false) {
+  let replayCapture = captureReplay ? new self.NickStatsReplayCapture() : null, replayError = null;
+  function collectReplay(action) {
+    if (!replayCapture) return;
+    try { action(); } catch (error) {
+      if (!keepStatsOnReplayFailure) throw error;
+      replayError = error.message || "Movement capture failed.";
+      replayCapture = null;
+    }
+  }
   const {
     InterceptorStage,
     MessagePacketType,
@@ -2416,8 +2424,10 @@ async function parseDemo(fileName, buffer, captureReplay = false) {
       samplePlayerMotion(demoPacket.tick);
       sampleClutchResources(demoPacket.tick);
       if (replayCapture && round.live && !round.finished) {
-        replayCapture.sample(demoPacket.tick, round.liveStartTick, tickInterval, readReplayPlayers);
-        replayCapture.observe(demoPacket.tick, round.liveStartTick, tickInterval, readReplayUtilities);
+        collectReplay(() => {
+          replayCapture.sample(demoPacket.tick, round.liveStartTick, tickInterval, readReplayPlayers);
+          replayCapture.observe(demoPacket.tick, round.liveStartTick, tickInterval, readReplayUtilities);
+        });
       }
       sampleGameRulesRoundEnd(demoPacket.tick);
     }
@@ -2460,7 +2470,7 @@ async function parseDemo(fileName, buffer, captureReplay = false) {
     if (!descriptor) return;
     eventCounts.set(descriptor.name, (eventCounts.get(descriptor.name) || 0) + 1);
     const gameEvent = zip(descriptor, messagePacket.data.keys || []);
-    if (replayCapture && round.live && !round.finished) {
+    if (replayCapture && round.live && !round.finished) collectReplay(() => {
       const owner = stats.get(integer(gameEvent.userid));
       replayCapture.utility(descriptor.name, demoPacket.tick, round.liveStartTick, tickInterval, gameEvent,
         owner ? replayPlayerId(owner) : null);
@@ -2470,7 +2480,7 @@ async function parseDemo(fileName, buffer, captureReplay = false) {
           {victim:owner?replayPlayerId(owner):null,shooter:owner?replayPlayerId(owner):null,killer:killer?replayPlayerId(killer):null},
           readReplayPlayers,gameEvent.weapon,gameEvent.headshot);
       }
-    }
+    });
 
     switch (descriptor.name) {
       case "begin_new_match":
@@ -2889,8 +2899,10 @@ async function parseDemo(fileName, buffer, captureReplay = false) {
       }))
     }))
   };
-  return { result, diagnostics, ...(replayCapture ? { replay: replayCapture.finish(result,playerRoundSlices.map(slice=>({round:slice.round,player:replayPlayerId(slice.row),side:slice.side,
-    result:slice.result,buy:slice.buy,enemy_buy:slice.opponentBuy,hero:slice.hero}))) } : {}) };
+  let replay;
+  collectReplay(() => { replay = replayCapture.finish(result,playerRoundSlices.map(slice=>({round:slice.round,player:replayPlayerId(slice.row),side:slice.side,
+    result:slice.result,buy:slice.buy,enemy_buy:slice.opponentBuy,hero:slice.hero}))); });
+  return { result, diagnostics, replay, replayError };
 }
 
 function faceitMatchId(fileName) {
