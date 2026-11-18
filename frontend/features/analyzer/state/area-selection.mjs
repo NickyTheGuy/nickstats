@@ -41,18 +41,19 @@ export function summarizeArea(rounds,{area,map,level,time,players,side=0}) {
       matched.add(round);
       const context=round.context?.find(c=>c.player===track.player),performance=round.performance?.find(p=>p.player===track.player);
       const result=context?.result||(round.winner?((point[5]===2?'T':'CT')===round.winner?'win':'loss'):null);
-      observations.push({round,player:track.player,result,performance});
+      observations.push({round,player:track.player,side:context?.side??point[5],result,performance});
     }
   }
-  const totals={kills:0,deaths:0,assists:0,damage:0,kast:0,played:observations.length};let wins=0,known=0,complete=true,combatComplete=true;
+  const totals={kills:0,deaths:0,assists:0,damage:0,kast:0,played:observations.length};let wins=0,known=0,complete=true,combatComplete=true;const teamResults=new Map();
   for(const row of observations) {
-    if(row.result){known++;wins+=Number(row.result==='win');}
+    if(row.result){if(!teamResults.has(row.round))teamResults.set(row.round,new Map());teamResults.get(row.round).set(row.side,row.result);}
     const p=row.performance;
     if(!p&&!Array.isArray(row.round.deaths))combatComplete=false;
     totals.kills+=p?.kills??killsFor(row.round,row.player);
     totals.deaths+=p?.deaths??(row.round.deaths||[]).filter(e=>e.victim===row.player).length;
     if(!p)complete=false;else{totals.assists+=p.assists;totals.damage+=p.damage;totals.kast+=p.kast;}
   }
+  for(const results of teamResults.values())for(const result of results.values()){known++;wins+=Number(result==='win');}
   return {matched,total:rounds.length,count:matched.size,percent:rounds.length?100*matched.size/rounds.length:0,
     observations:observations.length,winRate:known?100*wins/known:null,knownResults:known,
     ...totals,combatComplete,rating:complete?roundRating(totals):null};

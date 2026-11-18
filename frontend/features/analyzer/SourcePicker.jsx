@@ -61,7 +61,7 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFi
     window.addEventListener('nickstats:matches-changed',refresh);window.addEventListener('nickstats:replays-changed',refresh);
     return()=>{window.removeEventListener('nickstats:matches-changed',refresh);window.removeEventListener('nickstats:replays-changed',refresh);};
   },[mode,candidates,players,matchID]);
-  const available=scoped.filter(m=>m.capture).length;
+  const missing=scoped.filter(m=>!m.capture).length;
   return <section className="panel analyzer-source" aria-label="Analyzer source">
     <ToggleGroup label="Analyzer mode" className="side-toggle" value={mode} options={[["match","Match"],["groups","Groups"]]}
       onChange={value=>{invalidate();onMode(value);}} />
@@ -77,7 +77,7 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFi
       </div>
       {candidates!==null&&<div className="analyzer-query-result">
         {!!maps.length&&<OptionField label="Map" options={maps.map(name=>[name,`${name.replace(/^de_/,'')} · ${matching.filter(m=>m.map===name).length} matches`])} value={chosenMap} onChange={setMap} />}
-        {scoped.length>available&&<FormMessage>{scoped.length-available} matches need movement captures.</FormMessage>}
+        {missing>0&&<FormMessage>{missing} {missing===1?'match needs a movement capture.':'matches need movement captures.'}</FormMessage>}
       </div>}
     </>}
     {pending&&<div className="analyzer-query-progress"><FormMessage>Finding matches…</FormMessage><Button className="button button-secondary" onClick={()=>{operation.current?.abort();setPending(false);}}>Cancel</Button></div>}

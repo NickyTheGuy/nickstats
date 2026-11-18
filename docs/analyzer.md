@@ -139,12 +139,15 @@ player is alive inside the box at the current playback time, on the selected map
 level and side. Zoom/pan changes the view without moving the selected world area.
 Use Pan (available when zoomed), middle-drag or Shift-drag to pan. Click an empty
 map point, press Escape with the map focused, or use the panel's close button to
-clear the area. Playback/scrubbing reevaluates the same area at the new time.
+clear the area. Playback/scrubbing reevaluates the same area at the new time. While an area is
+selected, changing filters preserves the playback time (clamped to the available
+round duration), so the spatial condition keeps its timing context.
 
-Win rate, kills, deaths and rating pool the qualifying **player rounds**: only the
+Kills, deaths and rating pool the qualifying **player rounds**: only the
 selected players who were inside the box contribute. A shared match round counts
 once in the round percentage even if several selected players are inside. Win
-rate uses known round results; unknown results are excluded. K–D and K/D use the
+rate counts each qualifying team's result once per round, so several teammates
+in the same area do not multiply a round's weight. Unknown results are excluded. K–D and K/D use the
 whole round, including combat after the selected playback time. Rating uses the
 same pooled damage/assists/KAST formula as profiles, not an average of individual
 rounded ratings. Missing exact round data displays an unavailable rating, never a

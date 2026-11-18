@@ -86,7 +86,8 @@ export default function Analyzer({entryStore}) {
   const duration = rounds.reduce((max,r)=>Math.max(max,r.duration),0), map = Object.hasOwn(mapData.maps,mapName) ? mapData.maps[mapName] : null;
   const areaLevel=area?.map===mapName?map?.levels.find(level=>level.id===area.level):null;
   const areaSummary=useMemo(()=>areaLevel?summarizeArea(rounds,{area:area.bounds,map,level:areaLevel,time,players:selectedPlayers,side}):null,[rounds,area,areaLevel,map,time,selectedPlayers,side]);
-  useEffect(() => { setTime(0); setPlaying(false); }, [selectedRounds,groupRounds,mapName,filters,selectedPlayers,side]);
+  useEffect(() => { if(!area||mapName&&area.map!==mapName)setTime(0);setPlaying(false); }, [selectedRounds,groupRounds,mapName,filters,selectedPlayers,side]);
+  useEffect(()=>{if(rounds.length)setTime(value=>Math.min(value,duration));},[rounds,duration]);
   useEffect(() => {
     if (!playing || !duration) return;
     let frame, previous = performance.now(), lastRender = previous;

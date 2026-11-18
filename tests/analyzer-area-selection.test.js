@@ -41,3 +41,11 @@ test('Optional replay performance survives validation and the per-player movemen
   assert.deepEqual(cache.read(plan)[0].performance,r.rounds[0].performance);
   r.rounds[0].performance[0].kast=2;assert.throws(()=>validateReplay(r),/performance/);
 });
+
+test('Multiple teammates inside a box do not multiply a round’s win-rate weight',async()=>{
+  const {summarizeArea}=await api(),r=await fixture();r.rounds=r.rounds.slice(0,2);
+  r.rounds[1].context.forEach(c=>{if(c.player!=='steam:3')c.result='loss';});
+  r.rounds[1].tracks[1].samples.forEach(s=>s[1]=1000);
+  const result=summarizeArea(r.rounds,{area,map,level:upper,time:0,players:['steam:1','steam:2']});
+  assert.equal(result.observations,3);assert.equal(result.count,2);assert.equal(result.winRate,50);
+});

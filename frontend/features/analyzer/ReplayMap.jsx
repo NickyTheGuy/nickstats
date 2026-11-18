@@ -66,10 +66,10 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
   const bounds=preview?preview.bounds:area?.level===level.id?area.bounds:null;
   const rectangle=bounds?areaOnScreen(bounds,size,view):null;
   function pointerDown(event) {
-    if(![0,1].includes(event.button))return;
+    if(drag.current||event.isPrimary===false||![0,1].includes(event.button))return;
     const pan=gestureMode==='pan'||event.shiftKey||event.button===1;
     if(pan&&view.zoom===1)return;
-    event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();event.currentTarget.focus({preventScroll:true});event.currentTarget.setPointerCapture(event.pointerId);
     const rect=event.currentTarget.getBoundingClientRect(),start={x:event.clientX,y:event.clientY};
     drag.current={kind:pan?'pan':'select',start,radar:pointerToRadar(start,rect,view),rect,view};
     if(!pan){setPreview({bounds:null});onAreaStart();}
