@@ -51,7 +51,7 @@ The generated `assets/ui/nickstats-ui.js` is committed, so running the existing 
 
 `features/groups/` owns the nested Friendly/Enemy rule editor. `GroupBuilder`
 coordinates draggable player cells in `RuleGroup`/`RuleCondition`.
-It uses the shared button, option-field and checkbox components. Pure evaluation,
+It uses the shared button and option controls. Pure evaluation,
 bounds, migration, and team-orientation logic live in `state/rules.mjs` and are
 exposed through the feature adapter for `js/groups.js`. The controller retains
 history loading, filters, summaries and existing result views. Node tests cover
