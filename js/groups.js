@@ -230,9 +230,19 @@
     if (state.players.length) runCombination();
   }
 
+  function orderedRuleCells(node) {
+    if (!node.children) return node;
+    const children = node.children.map(orderedRuleCells);
+    return { ...node, children: [
+      ...children.filter(child => child.playerId != null),
+      ...children.filter(child => child.playerId == null)
+    ] };
+  }
+
   function renderSelectedRoster() {
     window.NickStatsGroupUI.render($("groupSelectedRoster"), {
-      players: [...state.selected.values()], rules: state.rules,
+      players: [...state.selected.values()],
+      rules: { friendly: orderedRuleCells(state.rules.friendly), enemy: orderedRuleCells(state.rules.enemy) },
       onRules: setRules, onRemove: removePlayer
     });
     ui.groupBuildButton.update({ disabled: !canBuild() });
