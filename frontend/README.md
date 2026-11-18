@@ -60,11 +60,12 @@ Boolean semantics and match qualification independently of React rendering.
 The compact rule editor uses `state/editing.mjs` for immutable cell/group moves,
 marquee grouping, ungrouping, cycle prevention and tree limits.
 `hooks/useRuleGestures.js` owns pointer capture, drag previews, hit testing and
-selection rectangles. A marquee treats each existing top-level condition group as
-one atom; selecting that group's cells again cannot create another wrapper. A
-free single player can receive an outline once. Existing unary groups are kept
-when editing, including NONE negation. The same controls expose keyboard/touch
-selection plus Group selected and Move to actions.
+selection rectangles. A marquee selects the direct children of the group where the drag starts.
+Proper subsets can form subgroups at any depth; selecting all children of an
+existing outline cannot add a redundant wrapper. A free single player can receive
+an outline once. Existing unary groups are kept
+when editing, including NONE negation. Pointer selection supports multi-item drags. Keyboard shortcuts provide grouping
+and movement without an on-screen action toolbar.
 
 
 The simplified editor automatically shows all selected player profiles. There is
@@ -75,3 +76,12 @@ legacy `exclude: true` leaves into explicit single-player Exclude outlines witho
 changing their Boolean meaning, prunes empty groups and returns formerly unassigned
 players to Friendly. The node/depth budgets include headroom for those legacy
 negation outlines. Saved per-player display preferences are no longer used.
+
+
+Dragging any selected cell/group moves the full selection as one validated edit.
+Selected ancestors own their descendants, so an item is never duplicated or moved
+twice. A drag started on a member of a selected whole group moves that group; a
+simple click can select the member alone. Grouping only combines siblings in the
+same immediate parent, never silently including unselected branch members.
+Ctrl/Cmd+G groups the selection; Ctrl/Cmd+Shift+G ungroups selected outlines.
+Ctrl/Cmd+Shift+Left/Right moves the selection to Friendly/Enemy; Escape clears it.

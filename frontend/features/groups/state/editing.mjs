@@ -43,49 +43,75 @@ export function removeCondition(rules, id) {
   return compactRules({ ...rules, [found.side]: without(rules[found.side], id) });
 }
 
-export function moveCondition(rules, id, targetId) {
-  const found = findRule(rules, id);
-  if (!found?.path.length) return rules;
+// Drop descendant selections when their ancestor is selected, and keep tree order.
+export function selectionRoots(rules, ids) {
+  const wanted = new Set(ids);
+  if ([...wanted].some(id => !findRule(rules, id)?.path.length)) return null;
+  const result = [];
+  function visit(node) {
+    for (const child of node.children || []) {
+      if (wanted.has(child.id)) result.push(child.id);
+      else visit(child);
+    }
+  }
+  visit(rules.friendly); visit(rules.enemy);
+  return result;
+}
+
+export function moveConditions(rules, ids, targetId) {
+  const roots = selectionRoots(rules, ids);
   const target = findRule(rules, targetId);
-  if (!target?.node.children || targetId === id || target.path.includes(id)) return rules;
-  if (found?.path.at(-1) === targetId) return rules;
-  const moving = found.node;
-  let result = { ...rules, [found.side]: without(rules[found.side], id) };
-  result = updateRule(result, targetId, { children: [...findRule(result, targetId).node.children, moving] });
+  if (!roots?.length || !target?.node.children) return rules;
+  // Validate the whole drop before changing anything: never partially move a
+  // selection when one item would contain itself or exceed the tree limits.
+  if (roots.some(id => id === targetId || target.path.includes(id))) return rules;
+  const moving = roots.map(id => findRule(rules, id))
+    .filter(found => found.path.at(-1) !== targetId);
+  if (!moving.length) return rules;
+  let result = rules;
+  for (const found of moving) {
+    result = { ...result, [found.side]: without(result[found.side], found.node.id) };
+  }
+  result = updateRule(result, targetId, {
+    children: [...findRule(result, targetId).node.children, ...moving.map(found => found.node)]
+  });
   result = compactRules(result);
   return withinLimits(result) ? result : rules;
 }
 
-// A marquee selects whole root-level atoms. A cell already inside a condition
-// group represents that group, so selecting it again cannot add a wrapper.
+export function moveCondition(rules, id, targetId) {
+  return moveConditions(rules, [id], targetId);
+}
+
+// Group direct siblings at any depth. Never promote a partial selection to an
+// ancestor group: that would silently group players the user did not select.
 export function atomicSelection(rules, ids) {
-  let side = null;
-  const atoms = new Set();
-  for (const id of ids) {
-    const found = findRule(rules, id);
-    if (!found?.path.length || (side && side !== found.side)) return null;
-    side = found.side;
-    atoms.add(found.path.length > 1 ? found.path[1] : id);
-  }
-  return side ? { side, ids: [...atoms] } : null;
+  const roots = selectionRoots(rules, ids);
+  if (!roots?.length) return null;
+  const found = roots.map(id => findRule(rules, id));
+  const first = found[0], parentId = first.path.at(-1);
+  if (found.some(item => item.side !== first.side || item.path.at(-1) !== parentId)) return null;
+  return { side: first.side, parentId, ids: roots };
 }
 export function groupSelection(rules, ids) {
   const selected = atomicSelection(rules, ids);
-  if (!selected || !selected.ids.length) return null;
-  const root = rules[selected.side], wanted = new Set(selected.ids);
-  // A free player may get one outline, but an already grouped atom cannot be
-  // wrapped again by selecting it (or any subset of its inner cells).
-  if (selected.ids.length === 1 && root.children.find(child => child.id === selected.ids[0])?.children) return null;
-  const children = root.children.filter(child => wanted.has(child.id));
-  const cluster = group('and', children);
+  if (!selected) return null;
+  const parent = findRule(rules, selected.parentId).node;
+  const wanted = new Set(selected.ids);
+  if (selected.ids.length === 1 && parent.children.find(child => wanted.has(child.id))?.children) return null;
+  // All children of an existing outline already have their own group. A proper
+  // subset may form a new subgroup, including a single ungrouped player.
+  const isTeam = selected.parentId === rules[selected.side].id;
+  if (!isTeam && selected.ids.length === parent.children.length) return null;
+  const cluster = group('and', parent.children.filter(child => wanted.has(child.id)));
   let inserted = false;
-  const next = root.children.flatMap(child => {
+  const children = parent.children.flatMap(child => {
     if (!wanted.has(child.id)) return [child];
     if (inserted) return [];
     inserted = true;
     return [cluster];
   });
-  const result = { ...rules, [selected.side]: { ...root, children: next } };
+  const result = updateRule(rules, parent.id, { children });
   return withinLimits(result) ? { rules: result, groupId: cluster.id } : null;
 }
 export function ungroupCondition(rules, id) {

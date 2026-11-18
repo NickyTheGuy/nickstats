@@ -492,3 +492,27 @@ single existing group again or create cycles.
 Update the frontend copy of `index.html`, `styles.css`, `js/`, and `assets/`.
 The React bundle is already built and committed. No backend rebuild, database
 migration, cache change or demo reparse is required.
+
+
+## Nested selection gestures (Build 2026.11.17.9)
+
+Frontend-only: the temporary Group selected / Move to / Clear selection toolbar
+has been removed. Marquee selection now starts inside any group and targets its
+direct child cells/groups. Proper subsets can form nested condition groups while
+whole-outline rewrapping, cross-parent grouping and cycles remain disallowed.
+
+Dragging one selected item carries the full selected set, including mixed player
+cells and subgroups. The destination is validated for every moved item before
+changing the tree; an invalid/cyclic/over-depth drop moves nothing. Selecting a
+group and its descendants does not duplicate them. Empty source groups are
+removed; remaining group operators and explicit unary outlines are preserved.
+The selection remains highlighted after a drop and the preview reports the count.
+
+Shift-click or touch-select handles for multiple selections, then drag one of
+those handles. Ctrl/Cmd+G groups, Ctrl/Cmd+Shift+G ungroups, and
+Ctrl/Cmd+Shift+Left/Right moves the selection to Friendly/Enemy. Escape clears or
+cancels. Existing colors, exclusions, player-first layout, query semantics and
+history caching are unchanged.
+
+Deploy updated `index.html` and `assets/`, including the rebuilt React bundle.
+No backend rebuild, migration or demo reparse is needed.

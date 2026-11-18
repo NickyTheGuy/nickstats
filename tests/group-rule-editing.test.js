@@ -14,7 +14,8 @@ test('marquee grouping wraps separate atoms once and cannot repeatedly nest an e
   const single = groupSelection(result.rules,[cells[0].id]);
   assert.ok(single, 'an ungrouped player can get its own condition outline once');
   assert.equal(groupSelection(single.rules,[single.groupId]),null);
-  assert.ok(groupSelection(result.rules,[cells[0].id,cells[1].id]),'a free cell and an existing group can form meaningful nesting');
+  assert.ok(groupSelection(result.rules,[cells[0].id,result.groupId]),'a free cell and a selected whole group can form meaningful nesting');
+  assert.equal(groupSelection(result.rules,[cells[0].id,cells[1].id]),null,'a partial branch cannot silently select its unselected siblings');
 });
 
 test('moving cells between teams preserves include/exclude and never duplicates a player condition',async()=>{
@@ -105,4 +106,51 @@ test('legacy exclusion migration has enough capacity for previously valid large 
   assert.equal(node.op,'none');
   assert.equal(node.children[0].playerId,'1');
   assert.equal(node.children[0].exclude,false);
+});
+
+
+test('proper subsets can form subgroups inside an existing group at any depth',async()=>{
+  const [{group,condition},{groupSelection,findRule}]=await loaded;
+  const [a,b,c,d]=['1','2','3','4'].map(id=>condition(id));
+  const inner=group('xor',[a,b,c]),outer=group('or',[inner,d]);
+  const rules={friendly:group('and',[outer]),enemy:group()};
+  const result=groupSelection(rules,[a.id,b.id]);
+  assert.ok(result);
+  assert.equal(findRule(result.rules,inner.id).node.children.length,2);
+  assert.deepEqual(findRule(result.rules,result.groupId).node.children.map(node=>node.id),[a.id,b.id]);
+  assert.equal(findRule(result.rules,c.id).path.at(-1),inner.id);
+  assert.equal(groupSelection(result.rules,[a.id,b.id]),null,'all children already have their own outline');
+});
+
+test('multiple selected people and groups move out together without copies or partial moves',async()=>{
+  const [{group,condition},{moveConditions,findRule}]=await loaded;
+  const [a,b,c,d]=['1','2','3','4'].map(id=>condition(id));
+  const selectedGroup=group('none',[c,d]),source=group('or',[a,b,selectedGroup]);
+  const rules={friendly:group('and',[source]),enemy:group()};
+  const result=moveConditions(rules,[a.id,selectedGroup.id],rules.enemy.id);
+  assert.deepEqual(findRule(result,source.id).node.children.map(node=>node.id),[b.id]);
+  assert.deepEqual(result.enemy.children.map(node=>node.id),[a.id,selectedGroup.id]);
+  assert.equal(findRule(result,selectedGroup.id).node.op,'none');
+  assert.equal(findRule(result,c.id).path.at(-1),selectedGroup.id);
+  assert.equal(moveConditions(rules,[a.id,selectedGroup.id],selectedGroup.id),rules,'one invalid member rejects the whole drop');
+  assert.equal(moveConditions(rules,[a.id,'missing'],rules.enemy.id),rules);
+});
+
+test('ancestor/descendant selections move once and empty sources are removed',async()=>{
+  const [{group,condition},{moveConditions,findRule}]=await loaded;
+  const a=condition('1'),b=condition('2'),subgroup=group('or',[a,b]);
+  const source=group('and',[subgroup]),rules={friendly:group('and',[source]),enemy:group()};
+  const moved=moveConditions(rules,[subgroup.id,a.id,b.id],rules.enemy.id);
+  assert.equal(moved.friendly.children.length,0);
+  assert.equal(moved.enemy.children.length,1);
+  assert.equal(findRule(moved,a.id).path.at(-1),subgroup.id);
+});
+
+test('moving a nested selection to its ancestor keeps untouched target children in place',async()=>{
+  const [{group,condition},{moveConditions,findRule}]=await loaded;
+  const [a,b,c]=['1','2','3'].map(id=>condition(id));
+  const source=group('or',[a,b]),rules={friendly:group('and',[source,c]),enemy:group()};
+  const moved=moveConditions(rules,[a.id,b.id,c.id],rules.friendly.id);
+  assert.deepEqual(moved.friendly.children.map(node=>node.id),[c.id,a.id,b.id]);
+  assert.equal(findRule(moved,source.id),null);
 });

@@ -1,14 +1,12 @@
 import { useEffect } from 'react';
-import Button from '../../shared/components/buttons/Button.jsx';
-import OptionDropdown from '../../shared/components/forms/OptionDropdown.jsx';
 import RuleGroup from './RuleGroup.jsx';
 import useRuleGestures from './hooks/useRuleGestures.js';
-import { findRule, moveCondition, updateRule, ungroupCondition, groupSelection, dropTargets } from './state/editing.mjs';
+import { findRule, moveConditions, updateRule, ungroupCondition } from './state/editing.mjs';
 
 export default function GroupBuilder({ players, rules, onRules, onRemove }) {
   const byId = new Map(players.map(player => [String(player.id), player]));
   function move(moving, target) {
-    const changed = moveCondition(rules, moving.id, target);
+    const changed = moveConditions(rules, moving.ids || [moving.id], target);
     if (changed !== rules) onRules(changed);
     else gestures.setNotice('Choose another destination. A group cannot contain itself.');
   }
@@ -17,17 +15,6 @@ export default function GroupBuilder({ players, rules, onRules, onRemove }) {
   useEffect(() => {
     if (selected.length !== gestures.selected.length) gestures.setSelected(selected);
   }, [rules]);
-  const grouped = selected.length ? groupSelection(rules, selected) : null;
-  function groupSelected() {
-    if (!grouped) return;
-    onRules(grouped.rules); gestures.setSelected([grouped.groupId]);
-  }
-  function moveSelected(target) {
-    let changed = rules;
-    const top = selected.filter(id => !findRule(rules, id)?.path.some(parent => selected.includes(parent)));
-    for (const id of top) changed = moveCondition(changed, id, target);
-    if (changed !== rules) { onRules(changed); gestures.setSelected([]); }
-  }
   const actions = {
     update: (id, patch) => onRules(updateRule(rules, id, patch)),
     remove: id => onRemove(findRule(rules, id).node.playerId),
@@ -44,15 +31,10 @@ export default function GroupBuilder({ players, rules, onRules, onRemove }) {
       {marquee && <div className="group-selection-rectangle" style={{ left: marquee.left, top: marquee.top,
         width: Math.max(0, marquee.right - marquee.left), height: Math.max(0, marquee.bottom - marquee.top) }} />}
       {ghost && <div className="group-drag-preview" style={{ left: ghost.x + 12, top: ghost.y + 12 }}>
-        {byId.get(findRule(rules, ghost.moving.id)?.node.playerId)?.name || 'Condition group'}
+        {ghost.moving.ids?.length > 1 ? `${ghost.moving.ids.length} selected items`
+          : byId.get(findRule(rules, ghost.moving.id)?.node.playerId)?.name || 'Condition group'}
       </div>}
     </div>
-    {selected.length > 0 && <div className="group-selection-tools" data-no-gesture>
-      <span>{selected.length} selected</span>
-      <Button className="button button-secondary" disabled={!grouped} onClick={groupSelected}>Group selected</Button>
-      <OptionDropdown label="Move selected conditions" options={[["", "Move to…", { disabled: true }], ...dropTargets(rules)]} value="" onChange={moveSelected} className="group-move-selector" />
-      <Button className="button button-secondary" onClick={() => gestures.setSelected([])}>Clear selection</Button>
-    </div>}
     {gestures.notice && <span className="group-rule-help" role="status">{gestures.notice}</span>}
   </div>;
 }
