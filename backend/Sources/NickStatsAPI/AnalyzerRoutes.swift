@@ -40,6 +40,7 @@ struct AnalyzerMatch: Content {
     var id: Int64; var map: String; var played_at: Int64?; var capture: String?; var players: [AnalyzerRosterPlayer]
 }
 struct AnalyzerMatchPage: Content { var matches: [AnalyzerMatch]; var limit: Int; var offset: Int }
+struct ReplayIndexQuery: Content { var captures: [String] }
 struct ReplaySelection: Content { var rounds: [Int]; var players: [String] }
 struct ReplayChunk: Content { var data: String }
 struct ReplayCaptureCreated: Content { var capture: String }
@@ -86,6 +87,25 @@ func analyzerRoutes(_ app: Application) throws {
                 capture:try row.decode(column:"capture",as:String?.self),players:rosters[id] ?? [])
         }
         return AnalyzerMatchPage(matches:matches,limit:limit,offset:offset)
+    }
+    // Group histories may span hundreds of matches. Fetch small indexes in
+    // batches instead of paying one network round trip per match before loading.
+    app.post("analyzer","indexes") { request async throws -> Response in
+        let query = try request.content.decode(ReplayIndexQuery.self), sql = try analyzerSQL(request.db)
+        guard !query.captures.isEmpty, query.captures.count <= 100,
+              Set(query.captures).count == query.captures.count,
+              query.captures.allSatisfy({ UUID(uuidString:$0) != nil }) else { throw Abort(.badRequest) }
+        let rows = try await sql.raw("""
+          SELECT c.id,c.header_json,c.manifest_json FROM replay_captures c JOIN matches m ON m.id=c.match_id
+          WHERE c.id IN (\(binds:query.captures)) AND c.complete=TRUE AND c.demo_sha256=m.demo_sha256
+          """).all()
+        guard rows.count == query.captures.count else { throw Abort(.conflict,reason:"Movement captures changed. Find matches again.") }
+        let indexes = try rows.map { row -> ReplayJSON in
+            let header = try replayDecode(row.decode(column:"header_json",as:String.self),as:ReplayJSON.self)
+            let rounds = try replayDecode(row.decode(column:"manifest_json",as:String.self),as:[ReplayRoundManifest].self)
+            return .object(["capture":.string(try row.decode(column:"id",as:String.self)),"header":header,"rounds":.array(rounds.map(\.summary))])
+        }
+        return replayResponse(try replayText(ReplayJSON.object(["captures":.array(indexes)])))
     }
     app.post("analyzer","matches",":id","captures") { request async throws -> ReplayCaptureCreated in
         try requireUploadAuthorization(request)
@@ -190,26 +210,5 @@ func analyzerRoutes(_ app: Application) throws {
             if !(projected["tracks"].array ?? []).isEmpty { rounds.append(projected) }
         }
         return replayResponse(try replayText(ReplayJSON.object(["header":header,"rounds":.array(rounds)])))
-    }
-    app.get("analyzer","captures",":capture","rounds",":round") { request async throws -> Response in
-        let capture = try captureID(request), sql = try analyzerSQL(request.db)
-        guard let number = request.parameters.get("round",as:Int.self), let row = try await sql.raw("""
-          SELECT c.manifest_json,c.header_json FROM replay_captures c JOIN matches m ON m.id=c.match_id
-          WHERE c.id=\(bind:capture) AND c.complete=TRUE AND c.demo_sha256=m.demo_sha256
-          """).first() else { throw Abort(.notFound,reason:"Movement capture is unavailable or changed. Reload the match selection.") }
-        let manifest = try replayDecode(row.decode(column:"manifest_json",as:String.self),as:[ReplayRoundManifest].self)
-        guard let item = manifest.first(where:{$0.number == number}) else { throw Abort(.notFound) }
-        var chosen: Set<String>?
-        if let raw = request.query[String.self,at:"players"] {
-            let ids = raw.split(separator:",").map(String.init)
-            guard !ids.isEmpty, ids.count <= 64 else { throw Abort(.badRequest) }
-            chosen = Set(ids)
-        }
-        let data = try await storedRound(sql,capture:capture,manifest:item)
-        if let chosen {
-            let round = try JSONDecoder().decode(ReplayJSON.self,from:data)
-            return replayResponse(try replayText(projectReplayRound(round,players:chosen)))
-        }
-        return replayResponse(String(decoding:data,as:UTF8.self))
     }
 }

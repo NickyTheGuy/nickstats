@@ -24,30 +24,35 @@ export function summarizeRound(round) {
   return {number:round.number,duration:round.duration,winner:round.winner,context:round.context,
     player_ids:round.tracks.map(t=>t.player).sort()};
 }
+function* replayChunks(text) {
+  for(let start=0;start<text.length;) {
+    let end=Math.min(start+160000,text.length);
+    if(end<text.length&&text.charCodeAt(end-1)>=0xd800&&text.charCodeAt(end-1)<=0xdbff)end--;
+    yield text.slice(start,end);start=end;
+  }
+}
 // Small independent requests fit the existing nginx 2 MB body limit, including
 // JSON escaping. An interrupted upload never replaces a usable capture.
 export async function saveReplay(matchID,input,{signal,onStatus=()=>{}}={},request=analyzerJSON) {
   const replay=validateReplay(input);
   if(replay.version!==4||!replay.demo_sha256)throw new Error('Capture this demo again with the current parser to save its movement.');
-  const {rounds,...header}=replay,serialized=rounds.map(round=>JSON.stringify(round));
-  const total=serialized.reduce((sum,text)=>sum+new TextEncoder().encode(text).length,0);
-  if(total>MAX_REPLAY_BYTES)throw new Error('Movement capture exceeds 128 MB. Statistics have still been saved.');
-  const pieces=serialized.map(text=>{
-    // UTF-16 slicing can split a surrogate pair; replay rounds contain bounded
-    // ASCII IDs and weapon names. Array.from also safely handles future Unicode.
-    const chars=Array.from(text),parts=[];
-    for(let start=0;start<chars.length;start+=64000)parts.push(chars.slice(start,start+64000).join(''));
-    return parts;
-  });
-  const manifest=await Promise.all(rounds.map(async(round,i)=>({number:round.number,parts:pieces[i].length,
-    bytes:new TextEncoder().encode(serialized[i]).length,sha256:await sha256(serialized[i]),summary:summarizeRound(round)})));
+  const {rounds,...header}=replay,manifest=[];
+  let total=0;
+  for(const round of rounds) {
+    signal?.throwIfAborted();
+    const text=JSON.stringify(round),bytes=new TextEncoder().encode(text).length;
+    total+=bytes;
+    if(total>MAX_REPLAY_BYTES)throw new Error('Movement capture exceeds 128 MB. Statistics have still been saved.');
+    manifest.push({number:round.number,parts:[...replayChunks(text)].length,bytes,sha256:await sha256(text),summary:summarizeRound(round)});
+  }
   signal?.throwIfAborted();onStatus('Saving analyzer movement…');
   const {capture}=await request(`/matches/${encodeURIComponent(matchID)}/captures`,{method:'POST',body:JSON.stringify({header,rounds:manifest}),signal});
   for(let i=0;i<rounds.length;i++) {
     onStatus(`Saving analyzer movement · round ${i+1}/${rounds.length}…`);
-    for(let part=0;part<pieces[i].length;part++) {
+    let part=0;
+    for(const data of replayChunks(JSON.stringify(rounds[i]))) {
       signal?.throwIfAborted();
-      await request(`/captures/${capture}/rounds/${rounds[i].number}/parts/${part}`,{method:'PUT',body:JSON.stringify({data:pieces[i][part]}),signal});
+      await request(`/captures/${capture}/rounds/${rounds[i].number}/parts/${part++}`,{method:'PUT',body:JSON.stringify({data}),signal});
     }
   }
   await request(`/captures/${capture}/complete`,{method:'POST',signal});
@@ -56,11 +61,16 @@ export async function saveReplay(matchID,input,{signal,onStatus=()=>{}}={},reque
 }
 export async function loadCaptureHeaders(matches,{signal,onStatus=()=>{}}={},request=analyzerJSON) {
   const replays=[];
-  for(const [index,match]of matches.entries()) {
-    signal?.throwIfAborted();onStatus(`Reading replay indexes · ${index+1}/${matches.length}…`);
-    const payload=await request(`/captures/${match.capture}`,{signal});
-    if(!payload?.header||!Array.isArray(payload.rounds))throw new Error('Invalid replay index.');
-    replays.push({...payload.header,rounds:payload.rounds,capture:match.capture,matchID:String(match.id)});
+  for(let offset=0;offset<matches.length;offset+=100) {
+    signal?.throwIfAborted();onStatus(`Reading replay indexes · ${Math.min(offset+100,matches.length)}/${matches.length}…`);
+    const batch=matches.slice(offset,offset+100),payload=await request('/indexes',{method:'POST',body:JSON.stringify({captures:batch.map(m=>m.capture)}),signal});
+    if(!Array.isArray(payload?.captures))throw new Error('Invalid replay index.');
+    const byID=new Map(payload.captures.map(index=>[index.capture,index]));
+    for(const match of batch) {
+      const index=byID.get(match.capture);
+      if(!index?.header||!Array.isArray(index.rounds))throw new Error('Movement captures changed. Find matches again.');
+      replays.push({...index.header,rounds:index.rounds,capture:match.capture,matchID:String(match.id)});
+    }
   }
   return replays;
 }

@@ -34,6 +34,8 @@ test('Analyzer handoff routes retain conditions, date/tag filters, map and match
   assert.deepEqual(parseAnalyzerRoute('#analyzer/match/123'),{mode:'match',matchID:'123'});
   assert.equal(parseAnalyzerRoute('#analyzer/groups?query=%7B'),null);
   assert.equal(parseAnalyzerRoute('#analyzer/match/-1'),null);
+  assert.deepEqual(normalizeAnalyzerEntry({...source,tags:[null,{},['x',{}]],date:{from:'2026-99-99'}}).tags,[]);
+  assert.equal(normalizeAnalyzerEntry({...source,date:{from:'2026-99-99'}}).date.from,'');
 });
 test('Roster lookup walks every page and does not stop at a local replay match-count cap',async()=>{
   const {candidateMatches}=await api();const paths=[];
@@ -42,10 +44,11 @@ test('Roster lookup walks every page and does not stop at a local replay match-c
 });
 test('Replay upload sends bounded chunks and checksummed manifests, publishing only after all rounds',async()=>{
   const {saveReplay}=await api(),{replayFixture}=await fixtures();const replay=replayFixture(),calls=[];
+  replay.rounds[0].duration=600000;for(const track of replay.rounds[0].tracks)track.samples=Array.from({length:3001},(_,i)=>[i*200,1,2,0,100,3,45]);
   const old=global.window;global.window={dispatchEvent(){}};
   try {
     await saveReplay(4,replay,{},async(path,options)=>{calls.push([path,options]);if(path.endsWith('/captures'))return {capture:'capture'};});
-    const manifest=JSON.parse(calls[0][1].body);assert.equal(manifest.header.demo_sha256,replay.demo_sha256);assert.equal(manifest.header.rounds,undefined);
+    const manifest=JSON.parse(calls[0][1].body);assert.ok(manifest.rounds[0].parts>1);assert.equal(manifest.header.demo_sha256,replay.demo_sha256);assert.equal(manifest.header.rounds,undefined);
     const crypto=require('node:crypto');
     for(const item of manifest.rounds){const chunks=calls.filter(([path])=>path.includes(`/rounds/${item.number}/parts/`)).map(([,o])=>JSON.parse(o.body).data).join('');assert.equal(crypto.createHash('sha256').update(chunks).digest('hex'),item.sha256);assert.equal(Buffer.byteLength(chunks),item.bytes);}
     assert.ok(calls.every(([,o])=>!o.body||Buffer.byteLength(o.body)<2*1024*1024));assert.equal(calls.at(-1)[0],'/captures/capture/complete');
@@ -69,4 +72,9 @@ test('Aborted and over-budget movement selections fail without returning a parti
   await assert.rejects(()=>loadSelectedRounds([index],keys,['steam:1'],{maxSamples:1},request),/memory budget/);
   const controller=new AbortController();
   await assert.rejects(()=>loadSelectedRounds([index],keys,['steam:1'],{signal:controller.signal},async()=>{controller.abort();return request();}),/abort/i);
+});
+test('Replay indexes batch large histories and restore requested order independently of SQL ordering',async()=>{
+  const {loadCaptureHeaders}=await api();const matches=Array.from({length:211},(_,i)=>({id:i,capture:String(i)}));let calls=0;
+  const headers=await loadCaptureHeaders(matches,{},async(path,o)=>{assert.equal(path,'/indexes');calls++;const {captures}=JSON.parse(o.body);return {captures:[...captures].reverse().map(capture=>({capture,header:{match_uid:capture},rounds:[]}))};});
+  assert.equal(calls,3);assert.deepEqual(headers.map(h=>h.matchID),matches.map(m=>String(m.id)));
 });

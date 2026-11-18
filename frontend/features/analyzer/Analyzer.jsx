@@ -26,20 +26,23 @@ export default function Analyzer({entryStore}) {
   const [busy,setBusy] = useState(false), [status,setStatus] = useState(''), [error,setError] = useState('');
   const [filters,setFilters]=useState({result:'all',buy:[],enemyBuy:[]});
   const [combatLayers,setCombatLayers]=useState(COMBAT_LAYERS);
-  const operation = useRef(null);
+  const operation = useRef(null),sourceIdentity=useRef('');
   useEffect(() => () => { operation.current?.abort();roundOperation.current?.abort(); }, []);
-  const clearSource=useCallback(()=>{operation.current?.abort();roundOperation.current?.abort();setReplays([]);setRemoteRounds([]);setMapName('');setQueryPlayers(null);setBusy(false);setLoadingRounds(false);setError('');setStatus('');setPlaying(false);},[]);
+  const clearSource=useCallback(()=>{operation.current?.abort();roundOperation.current?.abort();operation.current=null;roundOperation.current=null;setReplays([]);setRemoteRounds([]);setMapName('');setQueryPlayers(null);setBusy(false);setLoadingRounds(false);setError('');setStatus('');setPlaying(false);},[]);
   const chooseSource=useCallback(async source=>{
     clearSource();setMode(source.mode);setQueryPlayers(source.mode==='groups'?source.players:null);
-    setFilters({result:'all',buy:[],enemyBuy:[]});setSide(0);setGroupRounds({sections:[],numbers:[]});
+    const identity=source.mode==='groups'?`groups:${source.players.map(p=>p.id).join(',')}`:`match:${source.matches[0]?.id}`;
+    const reset=identity!==sourceIdentity.current;sourceIdentity.current=identity;
+    if(reset){setFilters({result:'all',buy:[],enemyBuy:[]});setSide(0);setGroupRounds({sections:[],numbers:[]});}
     const available=source.matches.filter(m=>m.capture);
     if(!available.length){if(source.matches.length)setError('No movement is stored for this selection. Reparse these demos from Match to capture it.');return;}
     const controller=new AbortController();operation.current=controller;setBusy(true);
     try {
       const loaded=await loadCaptureHeaders(available,{signal:controller.signal,onStatus:setStatus});controller.signal.throwIfAborted();
       setReplays(loaded);setMapName(loaded[0].map);
-      setSelectedPlayers(source.mode==='groups'?source.players.filter(p=>p.steam_id).map(p=>`steam:${p.steam_id}`):loaded[0].players.map(p=>p.id));
-      setSelectedRounds([`${loaded[0].match_uid}:${loaded[0].rounds[0].number}`]);
+      const availablePlayers=source.mode==='groups'?source.players.filter(p=>p.steam_id).map(p=>`steam:${p.steam_id}`):loaded[0].players.map(p=>p.id);
+      setSelectedPlayers(previous=>reset?availablePlayers:previous.filter(id=>availablePlayers.includes(id)));
+      if(reset)setSelectedRounds([`${loaded[0].match_uid}:${loaded[0].rounds[0].number}`]);
     }catch(e){if(!controller.signal.aborted)setError(e.message);}
     finally{if(operation.current===controller){setBusy(false);setStatus('');operation.current=null;}}
   },[clearSource]);
@@ -86,7 +89,7 @@ export default function Analyzer({entryStore}) {
   useEffect(() => { if (time >= duration) setPlaying(false); }, [time,duration]);
   async function openFiles(files) {
     if (!files.length || busy || loadingRounds) return;
-    clearSource();setMode('match');
+    clearSource();sourceIdentity.current='local';setMode('match');
     const controller = new AbortController(); operation.current = controller;
     setBusy(true); setError(''); setPlaying(false);
     let loaded = remote?[]:[...replays], messages = [];
@@ -110,9 +113,9 @@ export default function Analyzer({entryStore}) {
     <SourcePicker mode={mode} onMode={setMode} entry={entry} onChoose={chooseSource} onClear={clearSource} />
     <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities} combatLayers={combatLayers}
       actions={<div className="analyzer-import">
-        <label className={`button button-primary${busy||loadingRounds?' disabled':''}`}>Open
+        {mode==='match'&&<label className={`button button-primary${busy||loadingRounds?' disabled':''}`}>Open
           <input aria-label="Open demos or replays" type="file" multiple accept=".dem,.zst,.json" disabled={busy||loadingRounds} onChange={e=>{const files=Array.from(e.target.files);e.target.value='';openFiles(files);}} />
-        </label>
+        </label>}
         {(busy||loadingRounds)&&<Button className="button button-secondary" onClick={()=>{operation.current?.abort();roundOperation.current?.abort();}}>Cancel</Button>}
         {remote&&!busy&&!loadingRounds&&<Button className="button button-secondary" onClick={()=>setRetry(v=>v+1)}>Reload selection</Button>}
       </div>}

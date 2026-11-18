@@ -4003,3 +4003,4 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-source .group-search-results:empty, .analyzer-source .analyzer-search-status:empty { display: none; }
 .analyzer-source .group-query-builder { min-width: 0; }
 @media (max-width: 600px) { .analyzer-match-filters { align-items: stretch; } .analyzer-source { padding: 14px; } }
+.analyzer-file-actions .button-secondary { background: var(--panel); color: var(--text); }

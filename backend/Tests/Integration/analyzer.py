@@ -87,6 +87,7 @@ try:
     assert request('/analyzer/matches?players=1')['matches'][0]['capture'] == capture
     assert request('/analyzer/matches?match=1')['matches'][0]['players'][2]['team'] == 1
     assert len(request('/analyzer/captures/'+capture)['rounds']) == 2
+    assert len(request('/analyzer/indexes', {'captures':[capture]})['captures'][0]['rounds']) == 2
     selected = request('/analyzer/captures/'+capture+'/selection', {'rounds':[2], 'players':['steam:1']})
     assert len(selected['rounds']) == 1 and selected['rounds'][0]['number'] == 2
     assert len(selected['header']['players']) == 3 and len(selected['rounds'][0]['tracks']) == 1

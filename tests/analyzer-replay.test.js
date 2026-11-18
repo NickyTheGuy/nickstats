@@ -105,6 +105,8 @@ test('ordinary stats requests retain their result and never import the replay co
   assert.equal(imports.length,1);assert.equal(messages.at(-1).result.match_uid,'stats');assert.equal('replay' in messages.at(-1),false);
   await listener({data:{type:'parse',name:'test.dem',data:new ArrayBuffer(1),captureReplay:true}});
   assert.match(imports.at(-1),/replay-capture/);assert.equal(messages.at(-1).replay.version,1);assert.equal('result' in messages.at(-1),false);
+  await listener({data:{type:'parse',name:'test.dem',data:new ArrayBuffer(1),captureReplay:true,includeStats:true}});
+  assert.equal(messages.at(-1).replay.version,1);assert.equal(messages.at(-1).result.match_uid,'stats');
 });
 
 test('round presets combine regulation/overtime with recorded player sides through repeated overtime',async()=>{

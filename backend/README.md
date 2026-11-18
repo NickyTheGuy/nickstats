@@ -1,6 +1,6 @@
 # NickStats API
 
-The API imports compact `nickstats.match/27` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 through 26 remain readable for existing stored matches; the browser still parses demos locally and uploads only the compact result. Run database migrations through 020 before deploying this backend. Hero flags are stored in existing round statistics JSON, so this change needs no new database migration.
+The API imports compact `nickstats.match/27` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 through 26 remain readable for existing stored matches; the browser still parses demos locally and uploads compact statistics and a separate movement capture. Run database migrations through 021 before deploying this backend. Movement is isolated from the existing statistics, dates and tag tables; see [Analyzer deployment and backfill](../docs/analyzer.md).
 
 The compact format intentionally uses fixed-position arrays to keep uploads small. Inside the Swift service, those arrays decode into named domain types such as `TradeStats`, `KillContextStats`, `RoundTimingPayload`, and `DeathEventPayload`; database and validation code never rely on unexplained numeric indexes. Encoding those types reconstructs the same versioned wire format.
 
@@ -516,3 +516,25 @@ history caching are unchanged.
 
 Deploy updated `index.html` and `assets/`, including the rebuilt React bundle.
 No backend rebuild, migration or demo reparse is needed.
+
+## Analyzer replay API
+
+Apply migration 021 before using these routes. All paths below are relative to
+`/nickstats/api` at nginx, like the existing API.
+
+| Method | Route | Authentication | Purpose |
+|---|---|---|---|
+| GET | `/analyzer/matches?players=1,2&limit=100&offset=0` | Public | Lightweight candidate rosters, dates, maps and available capture IDs |
+| GET | `/analyzer/matches?match=123` | Public | Resolve a single stored match |
+| POST | `/analyzer/matches/<id>/captures` | Existing upload authorization | Begin an immutable capture with header and checksummed round manifest |
+| PUT | `/analyzer/captures/<uuid>/rounds/<number>/parts/<index>` | Existing upload authorization | Save one bounded UTF-8 chunk |
+| POST | `/analyzer/captures/<uuid>/complete` | Existing upload authorization | Verify all chunks, samples and round indexes, then publish atomically |
+| GET | `/analyzer/captures/<uuid>` | Public | Read lightweight replay header and round indexes |
+| POST | `/analyzer/indexes` | Public, read-only | Batch lightweight replay indexes for up to 100 capture IDs |
+| POST | `/analyzer/captures/<uuid>/selection` | Public, read-only | Read selected round numbers and player tracks in one response per match |
+
+A selection body is `{ "rounds": [1, 3], "players": ["steam:765..."] }`.
+Private tag filtering uses the existing authenticated tag API in the browser;
+these public replay endpoints never return private tags. No replay work is added
+to the existing statistical read routes. Storage, backfill and memory limits are
+explained in [the Analyzer guide](../docs/analyzer.md).

@@ -4,7 +4,6 @@ import FormMessage from '../../shared/components/feedback/FormMessage.jsx';
 import OptionField from '../../shared/components/forms/OptionField.jsx';
 import ToggleGroup from '../../shared/components/forms/ToggleGroup.jsx';
 import GroupBuilder from '../groups/GroupBuilder.jsx';
-import { condition, sanitizeRules } from '../groups/state/rules.mjs';
 import { normalizeEditorRules } from '../groups/state/editing.mjs';
 import PlayerSearch from '../players/search/PlayerSearch.jsx';
 import { createPlayerSearch } from '../players/state/player-search.mjs';
@@ -53,7 +52,7 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear}) {
     if(entry.mode==='match'){setMatchID(entry.matchID);lookup([],entry.matchID);return;}
     const nextRules=normalizeEditorRules(entry.rules,entry.players.map(p=>p.id));
     setPlayers(entry.players);setRules(nextRules);setMap(entry.map||'');
-    dates.from=entry.date?.from||'';dates.through=entry.date?.through||'';dates.render();
+    dates.from=entry.date?.from||'';dates.through=entry.date?.through||'';dates.closeMenus();
     tags.reset();for(const [id,condition]of entry.tags||[])tags.select(id,condition);
     lookup(entry.players);
   },[entry]);

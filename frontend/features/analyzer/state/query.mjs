@@ -1,3 +1,4 @@
+import { localDay } from '../../filters/state/date-range.mjs';
 import { evaluate, sanitizeRules, emptyRules, condition } from '../../groups/state/rules.mjs';
 import { usedPlayers } from '../../groups/state/editing.mjs';
 import { matchesRound, roundSection, roundKey } from './round-selection.mjs';
@@ -31,8 +32,8 @@ export function normalizeAnalyzerEntry(input) {
   if(!players.length)return null;
   const rules=sanitizeRules(input.rules||rulesForPlayers(players),players.map(p=>p.id));
   return {mode:'groups',players,rules,
-    date:{from:/^\d{4}-\d{2}-\d{2}$/.test(input.date?.from)?input.date.from:'',through:/^\d{4}-\d{2}-\d{2}$/.test(input.date?.through)?input.date.through:''},
-    tags:Array.isArray(input.tags)?input.tags.slice(0,100):[],map:typeof input.map==='string'?input.map.slice(0,64):''};
+    date:{from:localDay(input.date?.from)?input.date.from:'',through:localDay(input.date?.through)?input.date.through:''},
+    tags:Array.isArray(input.tags)?input.tags.slice(0,100).filter(row=>Array.isArray(row)&&row.length===2&&typeof row[0]==='string'&&row[0].length<=200&&(['true','false','unknown'].includes(row[1])||row[1]&&['gt','gte','lt','lte','eq','between'].includes(row[1].op)&&(row[1].value===null||Number.isFinite(row[1].value))&&(row[1].max==null||Number.isFinite(row[1].max)))):[],map:typeof input.map==='string'?input.map.slice(0,64):''};
 }
 export function analyzerRoute(input) {
   const source=normalizeAnalyzerEntry(input);
