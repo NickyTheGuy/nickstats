@@ -11,3 +11,4 @@ import './features/filters/mount.jsx';
 import './features/sessions/mount.jsx';
 import './features/comparisons/mount.jsx';
 import './features/groups/mount.jsx';
+import './features/analyzer/mount.jsx';

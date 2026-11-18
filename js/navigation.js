@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const pages = new Set(["match", "players", "groups"]);
+  const pages = new Set(["match", "players", "groups", "analyzer"]);
   const routePage = route => String(route || "").split("/")[0];
 
   function showPage(page, updateHash = true) {
@@ -22,7 +22,8 @@
     label: "NickStats sections", className: "data-tabs app-tabs", tabClassName: "data-tab", value: "match",
     options: [["match", "Match", { tabProps: { id: "matchPageTab", "aria-controls": "matchPage", "data-app-page": "match" } }],
       ["players", "Player", { tabProps: { id: "playersPageTab", "aria-controls": "playersPage", "data-app-page": "players" } }],
-      ["groups", "Groups", { tabProps: { id: "groupsPageTab", "aria-controls": "groupsPage", "data-app-page": "groups" } }]],
+      ["groups", "Groups", { tabProps: { id: "groupsPageTab", "aria-controls": "groupsPage", "data-app-page": "groups" } }],
+      ["analyzer", "Analyzer", { tabProps: { id: "analyzerPageTab", "aria-controls": "analyzerPage", "data-app-page": "analyzer" } }]],
     onChange: page => showPage(page)
   });
   window.addEventListener("hashchange", () => showPage(location.hash.slice(1), false));

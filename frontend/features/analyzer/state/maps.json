@@ -1,0 +1,191 @@
+{
+  "source": "MurkyYT/cs2-map-icons@6dcfb3a770afc08a16c4e843c51b873cac7fc4d5",
+  "maps": {
+    "de_mirage": {
+      "pos_x": -3230,
+      "pos_y": 1713,
+      "scale": 5,
+      "rotate": 0,
+      "zoom": 0,
+      "levels": [
+        {
+          "id": "default",
+          "image": "./assets/radars/de_mirage.png",
+          "min": -20000,
+          "max": 20000
+        }
+      ]
+    },
+    "de_dust2": {
+      "pos_x": -2476,
+      "pos_y": 3239,
+      "scale": 4.4,
+      "rotate": 1,
+      "zoom": 1.1,
+      "levels": [
+        {
+          "id": "default",
+          "image": "./assets/radars/de_dust2.png",
+          "min": -20000,
+          "max": 20000
+        }
+      ]
+    },
+    "de_inferno": {
+      "pos_x": -2087,
+      "pos_y": 3870,
+      "scale": 4.9,
+      "levels": [
+        {
+          "id": "default",
+          "image": "./assets/radars/de_inferno.png",
+          "min": -20000,
+          "max": 20000
+        }
+      ]
+    },
+    "de_nuke": {
+      "pos_x": -3453,
+      "pos_y": 2887,
+      "scale": 7,
+      "verticalsections": {
+        "default": {
+          "AltitudeMax": 10000,
+          "AltitudeMin": -495
+        },
+        "lower": {
+          "AltitudeMax": -495,
+          "AltitudeMin": -10000
+        }
+      },
+      "levels": [
+        {
+          "id": "default",
+          "image": "./assets/radars/de_nuke.png",
+          "min": -495,
+          "max": 10000
+        },
+        {
+          "id": "lower",
+          "image": "./assets/radars/de_nuke_lower.png",
+          "min": -10000,
+          "max": -495
+        }
+      ]
+    },
+    "de_ancient": {
+      "pos_x": -2953,
+      "pos_y": 2164,
+      "scale": 5,
+      "rotate": 0,
+      "zoom": 0,
+      "levels": [
+        {
+          "id": "default",
+          "image": "./assets/radars/de_ancient.png",
+          "min": -20000,
+          "max": 20000
+        }
+      ]
+    },
+    "de_anubis": {
+      "pos_x": -2796,
+      "pos_y": 3328,
+      "scale": 5.22,
+      "levels": [
+        {
+          "id": "default",
+          "image": "./assets/radars/de_anubis.png",
+          "min": -20000,
+          "max": 20000
+        }
+      ]
+    },
+    "de_overpass": {
+      "pos_x": -4831,
+      "pos_y": 1781,
+      "scale": 5.2,
+      "rotate": 0,
+      "zoom": 0,
+      "levels": [
+        {
+          "id": "default",
+          "image": "./assets/radars/de_overpass.png",
+          "min": -20000,
+          "max": 20000
+        }
+      ]
+    },
+    "de_train": {
+      "pos_x": -2308,
+      "pos_y": 2078,
+      "scale": 4.082077,
+      "verticalsections": {
+        "default": {
+          "AltitudeMax": 20000,
+          "AltitudeMin": -50
+        },
+        "lower": {
+          "AltitudeMax": -50,
+          "AltitudeMin": -5000
+        }
+      },
+      "levels": [
+        {
+          "id": "default",
+          "image": "./assets/radars/de_train.png",
+          "min": -50,
+          "max": 20000
+        },
+        {
+          "id": "lower",
+          "image": "./assets/radars/de_train_lower.png",
+          "min": -5000,
+          "max": -50
+        }
+      ]
+    },
+    "de_vertigo": {
+      "pos_x": -3168,
+      "pos_y": 1762,
+      "scale": 4,
+      "verticalsections": {
+        "default": {
+          "AltitudeMax": 20000,
+          "AltitudeMin": 11700
+        },
+        "lower": {
+          "AltitudeMax": 11700,
+          "AltitudeMin": -10000
+        }
+      },
+      "levels": [
+        {
+          "id": "default",
+          "image": "./assets/radars/de_vertigo.png",
+          "min": 11700,
+          "max": 20000
+        },
+        {
+          "id": "lower",
+          "image": "./assets/radars/de_vertigo_lower.png",
+          "min": -10000,
+          "max": 11700
+        }
+      ]
+    },
+    "de_cache": {
+      "pos_x": -2000,
+      "pos_y": 3250,
+      "scale": 5.5,
+      "levels": [
+        {
+          "id": "default",
+          "image": "./assets/radars/de_cache.png",
+          "min": -20000,
+          "max": 20000
+        }
+      ]
+    }
+  }
+}

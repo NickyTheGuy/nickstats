@@ -85,7 +85,7 @@ test("Groups is its own page with no old Compare or Matrix workspace", () => {
   assert.match(html, /id="appNavigationApp"/);
   assert.doesNotMatch(html, /data-app-page="(?:compare|matrix)"|id="(?:compare|matrix)PageTab"/);
   const navigation = fs.readFileSync(path.join(__dirname, "..", "js", "navigation.js"), "utf8");
-  assert.match(navigation, /new Set\(\["match", "players", "groups"\]\)/);
+  assert.match(navigation, /new Set\(\["match", "players", "groups", "analyzer"\]\)/);
   assert.doesNotMatch(navigation, /matrix|requestedPage === "compare"/);
   assert.doesNotMatch(compareSource, /workspace|buildAnalysis|renderMatrix|setCompareMode|setWorkspace/);
   assert.match(compareSource, /GROUP_DATA_ENDPOINT = "\/nickstats\/api\/groups"/);

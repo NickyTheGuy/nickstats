@@ -178,8 +178,11 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    const parsed = await parseDemo(event.data.name, buffer);
-    self.postMessage({ type: "result", result: parsed.result, diagnostics: parsed.diagnostics });
+    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261117-10");
+    const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay));
+    self.postMessage(event.data.captureReplay
+      ? { type: "result", replay: parsed.replay }
+      : { type: "result", result: parsed.result, diagnostics: parsed.diagnostics });
   } catch (error) {
     self.postMessage({
       type: "error",
@@ -189,7 +192,8 @@ self.addEventListener("message", async event => {
   }
 });
 
-async function parseDemo(fileName, buffer) {
+async function parseDemo(fileName, buffer, captureReplay = false) {
+  const replayCapture = captureReplay ? new self.NickStatsReplayCapture() : null;
   const {
     InterceptorStage,
     MessagePacketType,
@@ -573,6 +577,7 @@ async function parseDemo(fileName, buffer) {
   }
 
   function resetMatchCounters() {
+    replayCapture?.reset();
     clutchLossLevels = { 2: clutchCashRules.mp_starting_losses, 3: clutchCashRules.mp_starting_losses };
     completedRounds = 0;
     pendingClutchEconomics = null;
@@ -1371,6 +1376,37 @@ async function parseDemo(fileName, buffer) {
       if (row && position) positions.set(row.userId, position);
     }
     return positions;
+  }
+
+  function replayPlayerId(row) {
+    return row.steamId ? `steam:${row.steamId}` : `local:${demoSha256}:${row.userId}`;
+  }
+
+  function readReplayPlayers() {
+    const demo = parser.getDemo(), rows = [...new Set(stats.values())];
+    const bySteam = new Map(rows.filter(row => row.steamId).map(row => [String(row.steamId), row]));
+    const byName = new Map();
+    for (const row of rows) {
+      const key = normalizeName(row.name);
+      byName.set(key, byName.has(key) ? null : row);
+    }
+    const players = [];
+    for (const pawn of demo.getEntitiesByClassNameIterator("CCSPlayerPawn")) {
+      const handle = safePawnField(pawn, "m_hController");
+      if (handle == null) continue;
+      const controller = demo.getEntityByHandle(handle);
+      if (!controller) continue;
+      const steam = safePawnField(controller, "m_steamID");
+      const named = byName.get(normalizeName(safePawnField(controller, "m_iszPlayerName")));
+      const row = bySteam.get(String(steam)) || (steam && String(steam) !== "0" && named?.steamId ? null : named);
+      const position = replayWorldPosition(pawn);
+      if (!row || !position) continue;
+      const side = integer(safePawnField(pawn, "m_iTeamNum")) ?? teamNow.get(row.userId);
+      const health = round.deaths.has(row.userId) ? 0 : numberOrNull(safePawnField(pawn, "m_iHealth")) ?? round.healthByUser.get(row.userId);
+      players.push({ id: replayPlayerId(row), name: row.name, steam_id: row.steamId || null,
+        x: position.x, y: position.y, z: position.z, health, side });
+    }
+    return players;
   }
 
   function currentPlayerMotion(userId, tick, deathEvent) {
@@ -2340,6 +2376,9 @@ async function parseDemo(fileName, buffer) {
       samplePlayerInventories(demoPacket.tick);
       samplePlayerMotion(demoPacket.tick);
       sampleClutchResources(demoPacket.tick);
+      if (replayCapture && round.live && !round.finished) {
+        replayCapture.sample(demoPacket.tick, round.liveStartTick, tickInterval, readReplayPlayers);
+      }
       sampleGameRulesRoundEnd(demoPacket.tick);
     }
   });
@@ -2380,6 +2419,11 @@ async function parseDemo(fileName, buffer) {
     if (!descriptor) return;
     eventCounts.set(descriptor.name, (eventCounts.get(descriptor.name) || 0) + 1);
     const gameEvent = zip(descriptor, messagePacket.data.keys || []);
+    if (replayCapture && round.live && !round.finished) {
+      const owner = stats.get(integer(gameEvent.userid));
+      replayCapture.utility(descriptor.name, demoPacket.tick, round.liveStartTick, tickInterval, gameEvent,
+        owner ? replayPlayerId(owner) : null);
+    }
 
     switch (descriptor.name) {
       case "begin_new_match":
@@ -2798,7 +2842,7 @@ async function parseDemo(fileName, buffer) {
       }))
     }))
   };
-  return { result, diagnostics };
+  return { result, diagnostics, ...(replayCapture ? { replay: replayCapture.finish(result) } : {}) };
 }
 
 function faceitMatchId(fileName) {
@@ -3346,6 +3390,21 @@ function pawnHorizontalSpeed(pawn) {
       }
       if (componentX !== null && componentY !== null) return Math.hypot(componentX, componentY);
     }
+  }
+  return null;
+}
+
+// Replay positions use Source 2 world coordinates (512-unit cells, 16384 bias).
+// Keep this independent of the legacy distance-only stats helper.
+function replayWorldPosition(pawn) {
+  for (const prefix of ["CBodyComponent.m_skeletonInstance.m_vecOrigin", "CBodyComponent"]) {
+    const coords = ["X", "Y", "Z"].map((axis, index) => {
+      const cell = numberOrNull(safePawnField(pawn, `${prefix}.m_cell${axis}`));
+      const vector = safePawnField(pawn, `${prefix}.m_vecOrigin`);
+      const offset = numberOrNull(safePawnField(pawn, `${prefix}.m_vec${axis}`)) ?? numberOrNull(vector?.[index]);
+      return cell !== null && offset !== null ? cell * 512 - 16384 + offset : null;
+    });
+    if (coords.every(value => value !== null)) return { x: coords[0], y: coords[1], z: coords[2] };
   }
   return null;
 }

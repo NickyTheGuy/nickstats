@@ -8,7 +8,6 @@ export default function GroupBuilder({ players, rules, onRules, onRemove }) {
   function move(moving, target) {
     const changed = moveConditions(rules, moving.ids || [moving.id], target);
     if (changed !== rules) onRules(changed);
-    else gestures.setNotice('Choose another destination. A group cannot contain itself.');
   }
   const gestures = useRuleGestures({ rules, onRules, onMove: move });
   const selected = gestures.selected.filter(id => findRule(rules, id));

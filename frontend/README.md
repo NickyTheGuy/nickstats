@@ -85,3 +85,49 @@ simple click can select the member alone. Grouping only combines siblings in the
 same immediate parent, never silently including unselected branch members.
 Ctrl/Cmd+G groups the selection; Ctrl/Cmd+Shift+G ungroups selected outlines.
 Ctrl/Cmd+Shift+Left/Right moves the selection to Friendly/Enemy; Escape clears it.
+
+### 2D analyzer — first usable slice
+
+`#analyzer` is a separate, standalone React screen. Open `.dem` / `.dem.zst`
+files locally, or import previously exported `.replay.json` files. It works on
+an ordinary static host without login or a backend. The parser/optional Zstandard
+library still download from the same pinned CDNs as normal demo parsing.
+The file contents are not uploaded. Navigation away pauses playback; removing a
+replay releases its state. Replays are held in memory until removed/reloaded;
+use **Save replay** to keep a copy.
+
+Features: 5 Hz movement capture, time scrub/playback speeds, five-second trails,
+player/side/utility filters, map-level selection, zoom/pan, and up to 24 selected
+rounds overlaid from up to eight local matches on the same map. Round time starts
+at freeze end. Only completed rounds with canonical timing and position data are
+retained. Player matching across demos uses Steam IDs; local/bot identities are
+scoped to the demo fingerprint. Missing positions and long gaps are not invented;
+interpolation stops at deaths, side changes and teleports. Utility markers show
+detonation/start events briefly (1.5 seconds), **not** projectile trajectories,
+smoke lifetimes, fire geometry or visibility. Events with no resolved owner show
+only when every player is selected and side is Both.
+
+`js/replay-capture.js` is loaded only when the worker receives
+`captureReplay: true`. Replay tracks are a separate worker result and never
+enter existing match uploads, stats APIs, profile/group histories or caches.
+Ordinary parsing has no replay collector. Positions use Source 2's 512-unit cells
+and 16384 coordinate bias independently of the legacy stats-distance helper.
+The first slice deliberately does not add database tables, stored-match replay
+fetching, or profile/Groups handoff; existing stats have no movement tracks.
+Those require a separate replay import/storage path and capturing old demos.
+
+Replay schema `nickstats.replay`, version 1: match identity/map/source, stable
+player roster, then completed rounds with duration in milliseconds, tracks of
+`[elapsed_ms, world_x, world_y, world_z, health, numeric_side]`, and utility events.
+Import validates version, identity, finite coordinates, ordering and ownership.
+Limits: 128 MiB JSON, 768 MiB demos, 256 rounds/64 players, one million position
+samples per replay/two million across open replays. Capture fails explicitly at
+limits instead of silently truncating. Real demo capture is still subject to
+upstream parser support for that demo/game version.
+
+Radar sources/calibration are pinned and bundled under `assets/radars/`; see its
+README for attribution and map-version limits. Unknown maps report missing
+calibration rather than drawing onto an unrelated radar. The production bundle
+is committed: deploying this slice updates `index.html`, `styles.css`, `js/` and
+`assets/` together, including the new collector and radars. No backend rebuild or
+database migration is required.
