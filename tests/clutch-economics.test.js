@@ -159,7 +159,7 @@ test("recorded server cash rules override defaults without accepting unknown or 
   const end = worker.indexOf("    if (messagePacket.type === MessagePacketType.SVC_SERVER_INFO)", start);
   const rules = { ...cashRules };
   const ctx = vm.createContext({ MessagePacketType: { NET_SET_CON_VAR: 6 },
-    CLUTCH_CASH_RULES: cashRules, clutchCashRules: rules, clutchResourceNumber: context.clutchResourceNumber });
+    replayCapture: null, CLUTCH_CASH_RULES: cashRules, clutchCashRules: rules, clutchResourceNumber: context.clutchResourceNumber });
   const accept = vm.runInContext(`(function(messagePacket) { ${worker.slice(start, end)} })`, ctx);
   accept({ type: 6, data: { convars: { cvars: [
     { name: "cash_team_planted_bomb_but_defused", value: "800" },

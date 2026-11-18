@@ -178,7 +178,7 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261117-10");
+    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261117-11");
     const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay));
     self.postMessage(event.data.captureReplay
       ? { type: "result", replay: parsed.replay }
@@ -203,7 +203,8 @@ async function parseDemo(fileName, buffer, captureReplay = false) {
   } = self.deadem?.cs2;
 
   const parser = new Parser(new ParserConfiguration({
-    entityClasses: ["CCSTeam", "CCSGameRulesProxy", "CCSPlayerController", "CCSPlayerPawn", ...WEAPON_ENTITY_CLASSES],
+    entityClasses: ["CCSTeam", "CCSGameRulesProxy", "CCSPlayerController", "CCSPlayerPawn", ...WEAPON_ENTITY_CLASSES,
+      ...(captureReplay ? ["CHEGrenadeProjectile", "CFlashbangProjectile", "CSmokeGrenadeProjectile", "CMolotovProjectile", "CDecoyProjectile", "CInferno"] : [])],
     messagePacketTypes: [
       MessagePacketType.NET_SET_CON_VAR,
       MessagePacketType.SVC_SERVER_INFO,
@@ -1409,6 +1410,44 @@ async function parseDemo(fileName, buffer, captureReplay = false) {
     return players;
   }
 
+  function readReplayUtilities() {
+    const demo = parser.getDemo(), entities = [];
+    const rows = [...new Set(stats.values())];
+    function thrower(entity) {
+      const pawn = [safePawnField(entity,"m_hThrower"),safePawnField(entity,"m_hOwnerEntity")]
+        .filter(Number.isInteger).map(handle=>demo.getEntityByHandle(handle)).find(Boolean);
+      const controllerHandle = pawn && safePawnField(pawn, "m_hController");
+      const controller = controllerHandle == null ? null : demo.getEntityByHandle(controllerHandle);
+      const steam = controller && safePawnField(controller, "m_steamID");
+      const name = controller && normalizeName(safePawnField(controller, "m_iszPlayerName"));
+      const named = rows.filter(row => normalizeName(row.name) === name);
+      const row = rows.find(row => row.steamId && String(row.steamId) === String(steam)) ||
+        ((!steam || String(steam) === "0") && named.length === 1 ? named[0] : null);
+      return { player:row ? replayPlayerId(row) : null, side:integer(pawn && safePawnField(pawn, "m_iTeamNum")) || 0 };
+    }
+    const classes = { CHEGrenadeProjectile:["HE","hegrenade"], CFlashbangProjectile:["Flash","flashbang"],
+      CSmokeGrenadeProjectile:["Smoke","smokegrenade"], CMolotovProjectile:["Fire","molotov"], CDecoyProjectile:["Decoy","decoy"], CInferno:["Fire","molotov"] };
+    for (const [className,[type,defaultIcon]] of Object.entries(classes)) {
+      for (const entity of demo.getEntitiesByClassNameIterator(className)) {
+        const position = replayWorldPosition(entity);
+        if (!position) continue;
+        const owner = thrower(entity), info = { ...position,...owner,id:entity.handle,entity:entity.index,type,icon:defaultIcon };
+        if (className === "CInferno") {
+          const fire = replayInfernoState(entity,position);
+          entities.push({...info,...fire,effect:true,beginTick:numberOrNull(safePawnField(entity,"m_nFireEffectTickBegin")),
+            icon:integer(safePawnField(entity,"m_nInfernoType"))===1 ? "incgrenade" : "molotov"});
+        } else if (className === "CSmokeGrenadeProjectile" &&
+            (numberOrNull(safePawnField(entity,"m_nSmokeEffectTickBegin")) > 0 || safePawnField(entity,"m_bDidSmokeEffect") === true)) {
+          entities.push({...info,effect:true,active:true,beginTick:numberOrNull(safePawnField(entity,"m_nSmokeEffectTickBegin")),radius:144});
+        } else if (!(numberOrNull(safePawnField(entity,"m_nExplodeEffectTickBegin")) > 0)) {
+          if (className === "CMolotovProjectile" && safePawnField(entity,"m_bIsIncGrenade")) info.icon = "incgrenade";
+          entities.push(info);
+        }
+      }
+    }
+    return entities;
+  }
+
   function currentPlayerMotion(userId, tick, deathEvent) {
     let demo;
     try {
@@ -2378,6 +2417,7 @@ async function parseDemo(fileName, buffer, captureReplay = false) {
       sampleClutchResources(demoPacket.tick);
       if (replayCapture && round.live && !round.finished) {
         replayCapture.sample(demoPacket.tick, round.liveStartTick, tickInterval, readReplayPlayers);
+        replayCapture.observe(demoPacket.tick, round.liveStartTick, tickInterval, readReplayUtilities);
       }
       sampleGameRulesRoundEnd(demoPacket.tick);
     }
@@ -2386,6 +2426,7 @@ async function parseDemo(fileName, buffer, captureReplay = false) {
   parser.registerPostInterceptor(InterceptorStage.MESSAGE_PACKET, (demoPacket, messagePacket) => {
     if (messagePacket.type === MessagePacketType.NET_SET_CON_VAR) {
       for (const variable of messagePacket.data.convars?.cvars || []) {
+        replayCapture?.configure(variable.name, variable.value);
         if (!Object.hasOwn(CLUTCH_CASH_RULES, variable.name)) continue;
         const value = clutchResourceNumber(variable.value);
         if (Number.isFinite(value) && value >= 0) clutchCashRules[variable.name] = value;
@@ -3396,6 +3437,22 @@ function pawnHorizontalSpeed(pawn) {
 
 // Replay positions use Source 2 world coordinates (512-unit cells, 16384 bias).
 // Keep this independent of the legacy distance-only stats helper.
+function replayInfernoState(entity, origin) {
+  const count = Math.min(64,Math.max(0,integer(safePawnField(entity,"m_fireCount"))||0));
+  let burning = 0, known = false, radius = 0;
+  for (let i=0; i<count; i++) {
+    const key = String(i).padStart(4,"0"), active = safePawnField(entity,`m_bFireIsBurning.${key}`);
+    if (active != null) known = true;
+    if (!active) continue;
+    burning++;
+    const point = safePawnField(entity,`m_firePositions.${key}`);
+    const x = numberOrNull(point?.[0]) ?? (origin.x+(numberOrNull(safePawnField(entity,`m_fireXDelta.${key}`))||0));
+    const y = numberOrNull(point?.[1]) ?? (origin.y+(numberOrNull(safePawnField(entity,`m_fireYDelta.${key}`))||0));
+    radius = Math.max(radius,Math.hypot(x-origin.x,y-origin.y)+30);
+  }
+  return {active:known ? burning>0 : null,radius:radius ? Math.min(512,radius) : 0};
+}
+
 function replayWorldPosition(pawn) {
   for (const prefix of ["CBodyComponent.m_skeletonInstance.m_vecOrigin", "CBodyComponent"]) {
     const coords = ["X", "Y", "Z"].map((axis, index) => {

@@ -86,48 +86,61 @@ same immediate parent, never silently including unselected branch members.
 Ctrl/Cmd+G groups the selection; Ctrl/Cmd+Shift+G ungroups selected outlines.
 Ctrl/Cmd+Shift+Left/Right moves the selection to Friendly/Enemy; Escape clears it.
 
-### 2D analyzer — first usable slice
+### 2D analyzer
 
-`#analyzer` is a separate, standalone React screen. Open `.dem` / `.dem.zst`
-files locally, or import previously exported `.replay.json` files. It works on
-an ordinary static host without login or a backend. The parser/optional Zstandard
-library still download from the same pinned CDNs as normal demo parsing.
-The file contents are not uploaded. Navigation away pauses playback; removing a
-replay releases its state. Replays are held in memory until removed/reloaded;
-use **Save replay** to keep a copy.
+`#analyzer` is an independent React screen. Open `.dem` / `.dem.zst` locally,
+or import an exported `.replay.json`. No login/backend is needed; file contents
+are not uploaded. The same pinned parser/Zstandard CDNs are used as normal demo
+parsing. **Save replay** retains a copy; otherwise data lives in memory until
+removed or the page reloads. Reopening a match replaces its existing replay, so
+old captures can be upgraded without removing them first.
 
-Features: 5 Hz movement capture, time scrub/playback speeds, five-second trails,
-player/side/utility filters, map-level selection, zoom/pan, and up to 24 selected
-rounds overlaid from up to eight local matches on the same map. Round time starts
-at freeze end. Only completed rounds with canonical timing and position data are
-retained. Player matching across demos uses Steam IDs; local/bot identities are
-scoped to the demo fingerprint. Missing positions and long gaps are not invented;
-interpolation stops at deaths, side changes and teleports. Utility markers show
-detonation/start events briefly (1.5 seconds), **not** projectile trajectories,
-smoke lifetimes, fire geometry or visibility. Events with no resolved owner show
-only when every player is selected and side is Both.
+The map workspace resizes from its bottom-right corner. All levels are visible
+at once; Auto switches between columns and rows with available width. Stacked
+and Side by side override that choice. Each map retains its own zoom/pan.
+Players/rounds/utility controls expand over the map and scroll vertically.
+There is no round-selection or round-count ceiling. Regulation/overtime presets
+combine with Both/T/CT player-side filters; half buttons select individual
+regulation or overtime halves. Side matching uses the selected players' recorded
+sides, not assumptions about who began T. With opposing players selected, Both
+shows both. Match rules come from `mp_maxrounds` and `mp_overtime_maxrounds`,
+with 24/6 defaults for legacy captures. Overtime half groups repeat as far as the
+match goes. Only completed rounds with canonical timing/position data survive.
+Time starts at freeze end. Player positions target 5 Hz with interpolation and
+no player trails; deaths, long gaps and teleports stop interpolation.
 
-`js/replay-capture.js` is loaded only when the worker receives
-`captureReplay: true`. Replay tracks are a separate worker result and never
-enter existing match uploads, stats APIs, profile/group histories or caches.
-Ordinary parsing has no replay collector. Positions use Source 2's 512-unit cells
-and 16384 coordinate bias independently of the legacy stats-distance helper.
-The first slice deliberately does not add database tables, stored-match replay
-fetching, or profile/Groups handoff; existing stats have no movement tracks.
-Those require a separate replay import/storage path and capturing old demos.
+Capture v2 also requests projectile and inferno entities, only in Analyzer mode.
+Projectiles target up to 20 Hz and draw actual sampled flight paths with a
+one-second trailing segment, including briefly after detonation. Grenade icons
+are local Valve equipment silhouettes (see `assets/grenades/README.md`). Smoke
+and fire replace their icon with an approximate area. Smoke expiry and
+inferno expire/extinguish events provide endpoints; active fire flags catch
+extinguishing even when the legacy start event is absent. Inferno ownership is
+resolved through the owner pawn/controller; fire-cell positions estimate spread.
+Fire-entity destruction alone can occur after flame-out, so observed burning
+flags and actual expiry events take priority. Where no expiry is available,
+recorded lifetime convars/defaults provide an explicitly estimated endpoint.
+Areas are approximate circles, not smoke voxels or collision-tested flame
+geometry. Round ends clip playback. Unknown owners appear only with every
+player selected and Both sides. Saved v1 replays remain readable with estimated
+utility duration but cannot gain flight/ownership data without recapturing the
+original demo; the UI indicates this.
 
-Replay schema `nickstats.replay`, version 1: match identity/map/source, stable
-player roster, then completed rounds with duration in milliseconds, tracks of
-`[elapsed_ms, world_x, world_y, world_z, health, numeric_side]`, and utility events.
-Import validates version, identity, finite coordinates, ordering and ownership.
-Limits: 128 MiB JSON, 768 MiB demos, 256 rounds/64 players, one million position
-samples per replay/two million across open replays. Capture fails explicitly at
-limits instead of silently truncating. Real demo capture is still subject to
-upstream parser support for that demo/game version.
+`js/replay-capture.js` is lazy-loaded only for `captureReplay:true`. Its separate
+worker result never enters normal match uploads, profiles/Groups responses or
+caches. The backend/schema are unchanged. Source 2 position decoding uses
+512-unit cells and the 16384 bias independently of the stats-distance helper.
+Profile/Groups handoff and replay persistence remain future work.
 
-Radar sources/calibration are pinned and bundled under `assets/radars/`; see its
-README for attribution and map-version limits. Unknown maps report missing
-calibration rather than drawing onto an unrelated radar. The production bundle
-is committed: deploying this slice updates `index.html`, `styles.css`, `js/` and
-`assets/` together, including the new collector and radars. No backend rebuild or
-database migration is required.
+The `nickstats.replay` format accepts v1/v2. V2 adds recorded match rules,
+projectile rate, per-round projectiles (`[elapsed_ms,x,y,z]`, owner, side, icon,
+end), and utility end/radius/owner/side/icon/estimated fields. Import validates
+identity, version, ordering, ownership, coordinates, lifetimes and aggregate
+sample budgets. Limits remain 128 MiB replay JSON, 768 MiB demo, 64 players,
+one million combined position samples per replay/two million across up to eight
+open matches. These memory/file limits are independent of overtime count.
+
+Radars/calibration are bundled under `assets/radars/`; see its README for source
+and map-version caveats. Unknown maps report missing calibration. Deploy
+`index.html`, `styles.css`, `js/` and `assets/` together. The React bundle is
+committed; no backend rebuild or database migration is required.

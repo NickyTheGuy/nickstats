@@ -49,7 +49,7 @@ test('capture samples at 5Hz, isolates rounds, excludes incomplete rounds and no
 });
 test('capture limits fail explicitly rather than silently returning partial tracks',()=>{
   const c=collector();c.samples=1000000;
-  assert.throws(()=>c.sample(1,1,1/64,()=>[{id:'1'}]),/capture limit/);
+  assert.throws(()=>c.sample(1,1,1/64,()=>[{id:'1',name:'Player',steam_id:null,x:0,y:0,z:0,health:100,side:2}]),/capture limit/);
 });
 test('replay coordinate decoder handles signed world space and missing fields',()=>{
   const context=vm.createContext({self:{deadem:{cs2:{}},addEventListener(){},postMessage(){}},importScripts(){}});
@@ -105,4 +105,79 @@ test('ordinary stats requests retain their result and never import the replay co
   assert.equal(imports.length,1);assert.equal(messages.at(-1).result.match_uid,'stats');assert.equal('replay' in messages.at(-1),false);
   await listener({data:{type:'parse',name:'test.dem',data:new ArrayBuffer(1),captureReplay:true}});
   assert.match(imports.at(-1),/replay-capture/);assert.equal(messages.at(-1).replay.version,1);assert.equal('result' in messages.at(-1),false);
+});
+
+test('round presets combine regulation/overtime with recorded player sides through repeated overtime',async()=>{
+  const {presetRounds,roundSections}=await import('../frontend/features/analyzer/state/round-selection.mjs');
+  const replay=fixture();replay.rules={regulation_rounds:24,overtime_rounds:6};
+  replay.rounds=Array.from({length:60},(_,i)=>({number:i+1,tracks:[{player:'steam:1',samples:[[0,0,0,0,100,(i<24?Math.floor(i/12):Math.floor((i-24)/3))%2?3:2]]}]}));
+  assert.equal(presetRounds([replay]).length,60);
+  assert.equal(presetRounds([replay],{phase:'regulation',side:2,players:['steam:1']}).length,12);
+  assert.equal(presetRounds([replay],{phase:'overtime',side:3,players:['steam:1']}).length,18);
+  assert.equal(roundSections(replay).at(-1).label,'OT 6 · half 2');
+  replay.rules={regulation_rounds:30,overtime_rounds:10};
+  assert.equal(presetRounds([replay],{phase:'regulation'}).length,30);
+  assert.equal(roundSections(replay).find(s=>s.key==='ot-1-1').rounds.length,5);
+  const long=fixture();long.rounds=Array.from({length:300},(_,i)=>({...long.rounds[0],number:i+1}));
+  assert.equal((await load()).validateReplay(long).rounds.length,300);
+});
+test('inferno entities recover missing legacy starts and ownership, then stop when extinguished',async()=>{
+  const c=collector(),player={id:'steam:1',name:'Player',steam_id:'1',x:0,y:0,z:0,health:100,side:2};
+  c.sample(64,64,1/64,()=>[player]);
+  c.utility('inferno_startburn',70,64,1/64,{entityid:20,x:10,y:20,z:0},null);
+  const fire={id:16404,entity:20,effect:true,type:'Fire',icon:'molotov',x:10,y:20,z:0,player:'steam:1',side:2,radius:140,active:true};
+  c.observe(72,64,1/64,()=>[fire]);c.observe(128,64,1/64,()=>[fire]);
+  c.observe(256,64,1/64,()=>[{...fire,active:false}]);
+  const result={...fixture(),round_timing:[{round:1,live_start_tick:64,duration_ms:10000,winner_side:'CT'}]};
+  const replay=JSON.parse(JSON.stringify(c.finish(result))),effect=replay.rounds[0].utility[0];
+  assert.equal(replay.rounds[0].utility.length,1);assert.equal(effect.player,'steam:1');assert.equal(effect.end,3000);assert.equal(effect.estimated,false);
+  assert.equal(effect.radius,140);(await load()).validateReplay(replay);
+  const missing=collector();missing.sample(64,64,1/64,()=>[player]);missing.observe(72,64,1/64,()=>[fire]);
+  assert.equal(missing.finish(result).rounds[0].utility.length,1);
+});
+test('smoke expiry and projectile identity survive entity reuse and validate on export/import',async()=>{
+  const c=collector(),player={id:'steam:1',name:'Player',steam_id:'1',x:0,y:0,z:0,health:100,side:2};
+  c.sample(64,64,1/64,()=>[player]);c.configure('mp_overtime_maxrounds','10');
+  const flight={id:100,entity:20,type:'Smoke',icon:'smokegrenade',x:10,y:20,z:0,player:'steam:1',side:2};
+  c.observe(64,64,1/64,()=>[flight]);c.observe(68,64,1/64,()=>[{...flight,x:20}]);
+  c.utility('smokegrenade_detonate',72,64,1/64,{entityid:20,x:30,y:20,z:0},'steam:1');
+  c.observe(72,64,1/64,()=>[{...flight,effect:true,active:true,x:30}]);
+  c.utility('smokegrenade_expired',256,64,1/64,{entityid:20},'steam:1');
+  c.observe(260,64,1/64,()=>[{...flight,id:200,x:100}]);
+  const replay=JSON.parse(JSON.stringify(c.finish({...fixture(),round_timing:[{round:1,live_start_tick:64,duration_ms:10000,winner_side:'CT'}]})));
+  assert.equal(replay.rules.overtime_rounds,10);assert.equal(replay.rounds[0].utility[0].end,3000);
+  assert.equal(replay.rounds[0].projectiles.length,2);assert.equal(replay.rounds[0].projectiles[0].end,125);
+  (await load()).validateReplay(replay);
+  const {validateReplay}=await load();
+  const malformed=structuredClone(replay);malformed.rounds[0].projectiles[0].samples[0][1]=Infinity;
+  assert.throws(()=>(validateReplay(malformed)),/invalid projectile sample/);
+});
+test('projectile interpolation and effects obey recorded lifetime instead of the old 1.5-second window',async()=>{
+  const {effectEnd,projectilePosition,utilityVisible}=await import('../frontend/features/analyzer/state/utility.mjs');
+  const p={player:'steam:1',side:2,end:300,samples:[[0,0,0,0],[100,10,20,0],[200,20,40,-600]]};
+  assert.deepEqual(projectilePosition(p,50),[50,5,10,0]);assert.equal(projectilePosition(p,300),null);
+  assert.equal(effectEnd({type:'Smoke',time:1000,end:18000},20000),18000);
+  assert.equal(utilityVisible(p,{},new Set(['steam:1']),2),true);assert.equal(utilityVisible(p,{},new Set(['steam:1']),3),false);
+  assert.equal(utilityVisible(p,{},new Set(['steam:2']),0),false);
+});
+test('inferno geometry reads active fire cells and detects extinguished fires',()=>{
+  const context=vm.createContext({self:{deadem:{cs2:{}},addEventListener(){},postMessage(){}},importScripts(){}});
+  vm.runInContext(fs.readFileSync('js/demo-worker.js','utf8'),context);
+  const state=vm.runInContext(`replayInfernoState({getField(path){return ({m_fireCount:2,'m_bFireIsBurning.0000':true,'m_bFireIsBurning.0001':false,'m_firePositions.0000':[100,0,0]})[path]}},{x:0,y:0,z:0})`,context);
+  assert.equal(state.active,true);assert.equal(state.radius,130);
+  assert.equal(vm.runInContext(`replayInfernoState({getField(p){return p==='m_fireCount'?1:false}},{x:0,y:0,z:0}).active`,context),false);
+});
+test('utility drawing keeps smoke/fire areas through their endpoints and leaves only a one-second grenade trail',async()=>{
+  const {drawUtility}=await import('../frontend/features/analyzer/state/draw-utility.mjs');
+  let arcs=0,lines=0,icons=0;
+  const ctx={globalAlpha:1,beginPath(){},arc(){arcs++;},fill(){},stroke(){},moveTo(){},lineTo(){lines++;},drawImage(){icons++;}};
+  const round={duration:20000,tracks:[],utility:[{type:'Fire',player:'steam:1',side:2,time:0,end:7000,x:0,y:0,z:0,radius:120},
+    {type:'Smoke',player:'steam:1',side:2,time:0,end:18000,x:0,y:0,z:0,radius:144}],
+    projectiles:[{id:'1',type:'HE',icon:'hegrenade',player:'steam:1',side:2,end:300,samples:[[0,0,0,0],[100,10,10,0],[200,20,20,0]]}]};
+  const options={time:5000,map:{pos_x:0,pos_y:0,scale:5},level:{min:-100,max:100},selected:new Set(['steam:1']),side:0,utilities:['Fire','Smoke','HE'],icons:{hegrenade:{naturalWidth:20,naturalHeight:30}},allSelected:true};
+  drawUtility(ctx,round,options);assert.equal(arcs,2);assert.equal(lines,0);
+  arcs=0;drawUtility(ctx,round,{...options,time:8000});assert.equal(arcs,1);
+  arcs=0;drawUtility(ctx,round,{...options,time:19000});assert.equal(arcs,0);
+  drawUtility(ctx,round,{...options,time:250});assert.equal(icons,1);assert.ok(lines>0);
+  lines=0;drawUtility(ctx,round,{...options,time:1400});assert.equal(lines,0);
 });

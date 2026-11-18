@@ -4,11 +4,12 @@ export const UTILITY_TYPES = ['Smoke', 'Flash', 'HE', 'Fire', 'Decoy'];
 export const PLAYER_COLORS = ['#63d2ff', '#ffca62', '#c4a1ff', '#ff859e', '#7fe0b1', '#b0c7ff', '#faaf74', '#e4a6ec', '#b9dd68', '#64d5d3'];
 const fail = message => { throw new Error(`Invalid replay: ${message}`); };
 const finite = (n, max = 100000) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= max;
+export const GRENADE_ICONS = ['hegrenade','flashbang','smokegrenade','molotov','incgrenade','decoy'];
 const text = (s, max = 200) => typeof s === 'string' && s.length > 0 && s.length <= max;
 
 // Validate imported files before any drawing or interpolation. Unknown metadata never becomes markup/URLs.
 export function validateReplay(input) {
-  if (!input || input.format !== 'nickstats.replay' || input.version !== 1 || input.coordinate_system !== 'source2-world') fail('unsupported format or version.');
+  if (!input || input.format !== 'nickstats.replay' || ![1,2].includes(input.version) || input.coordinate_system !== 'source2-world') fail('unsupported format or version.');
   if (!text(input.match_uid) || !text(input.map, 100) || !text(input.source_file, 500)) fail('missing match identity.');
   if (!finite(input.sample_hz, 64) || input.sample_hz <= 0) fail('invalid sample rate.');
   if (!Array.isArray(input.players) || !input.players.length || input.players.length > 64) fail('invalid roster.');
@@ -18,7 +19,7 @@ export function validateReplay(input) {
   });
   const ids = new Set(players.map(p => p.id));
   if (ids.size !== players.length) fail('duplicate player.');
-  if (!Array.isArray(input.rounds) || !input.rounds.length || input.rounds.length > 256) fail('invalid rounds.');
+  if (!Array.isArray(input.rounds) || !input.rounds.length) fail('invalid rounds.');
   const numbers = new Set(); let sampleCount = 0, eventCount = 0;
   const rounds = input.rounds.map(round => {
     if (!round || !Number.isInteger(round.number) || round.number < 1 || numbers.has(round.number)) fail('duplicate or invalid round number.');
@@ -42,12 +43,38 @@ export function validateReplay(input) {
     const utility = round.utility.map(e => {
       if (++eventCount > 100000 || !e || !UTILITY_TYPES.includes(e.type) || !(e.player === null || ids.has(e.player)) || !finite(e.time, round.duration) || e.time < previous || e.time < 0 || ![e.x,e.y,e.z].every(n => finite(n, 32768))) fail('invalid utility event.');
       previous = e.time;
-      return { type: e.type, player: e.player, time: e.time, x: e.x, y: e.y, z: e.z };
+      const effect = { type:e.type,player:e.player,time:e.time,x:e.x,y:e.y,z:e.z };
+      if (input.version === 2) {
+        if (!finite(e.end,round.duration) || e.end<e.time || !finite(e.radius,512) || e.radius<0 || ![0,2,3].includes(e.side) || !GRENADE_ICONS.includes(e.icon) || typeof e.estimated!=='boolean') fail('invalid utility lifetime or geometry.');
+        Object.assign(effect,{end:e.end,radius:e.radius,side:e.side,icon:e.icon,estimated:e.estimated});
+      }
+      return effect;
     });
-    return { number: round.number, duration: round.duration, winner: round.winner, tracks, utility };
+    const output = {number:round.number,duration:round.duration,winner:round.winner,tracks,utility};
+    if (input.version === 2) {
+      if (!Array.isArray(round.projectiles) || round.projectiles.length>100000) fail('invalid projectiles.');
+      const projectileIds = new Set();
+      output.projectiles = round.projectiles.map(p => {
+        if (!p || !text(p.id) || projectileIds.has(p.id) || !UTILITY_TYPES.includes(p.type) || !GRENADE_ICONS.includes(p.icon) || !(p.player===null || ids.has(p.player)) || ![0,2,3].includes(p.side) || !finite(p.end,round.duration) || p.end<0 || !Array.isArray(p.samples) || !p.samples.length) fail('invalid projectile.');
+        projectileIds.add(p.id); let previous = -1;
+        for (const sample of p.samples) {
+          if (++sampleCount>MAX_SAMPLES) fail('too many position samples.');
+          if (!Array.isArray(sample) || sample.length!==4 || !sample.every(n=>finite(n,600000)) || sample[0]<0 || sample[0]<=previous || sample[0]>p.end || sample.slice(1).some(n=>Math.abs(n)>32768)) fail('invalid projectile sample.');
+          previous = sample[0];
+        }
+        return {id:p.id,type:p.type,icon:p.icon,player:p.player,side:p.side,end:p.end,samples:p.samples};
+      });
+    }
+    return output;
   }).sort((a,b) => a.number - b.number);
-  return { format: input.format, version: 1, coordinate_system: input.coordinate_system, sample_hz: input.sample_hz,
+  const replay = { format: input.format, version: input.version, coordinate_system: input.coordinate_system, sample_hz: input.sample_hz,
     match_uid: input.match_uid, map: input.map, source_file: input.source_file, players, rounds };
+  if (input.version === 2) {
+    if (!input.rules || ![input.rules.regulation_rounds,input.rules.overtime_rounds].every(n=>Number.isSafeInteger(n)&&n>0) || !finite(input.projectile_hz,64) || input.projectile_hz<=0) fail('invalid match rules.');
+    replay.rules = {regulation_rounds:input.rules.regulation_rounds,overtime_rounds:input.rules.overtime_rounds};
+    replay.projectile_hz = input.projectile_hz;
+  }
+  return replay;
 }
 
 // Binary search avoids rescanning the entire round at every animation frame.
