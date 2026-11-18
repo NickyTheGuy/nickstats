@@ -9,7 +9,7 @@ export function measureReplaySize(input) {
   if(baseline.version>=3) {
     baseline.version=2;
     for(const round of baseline.rounds) {
-      delete round.firing;delete round.deaths;
+      delete round.firing;delete round.deaths;delete round.context;
       for(const track of round.tracks)track.samples=track.samples.map(s=>s.slice(0,6));
     }
   }
@@ -22,7 +22,7 @@ export function measureReplaySize(input) {
     combat_added_percent:Number(((actual.length/prior.length-1)*100).toFixed(2)),
     gzip_bytes:gzipSync(actual).length,without_combat_gzip_bytes:gzipSync(prior).length,
     server_replay_storage_bytes:0,
-    note:'Canonical local replay JSON, compared with the same replay without aim/firing/deaths. Gzip is illustrative; exports are plain JSON. Replay files are not stored by the API.'};
+    note:'Canonical local replay JSON, compared with the same replay without aim/firing/deaths/round context. Gzip is illustrative; exports are plain JSON. Replay files are not stored by the API.'};
 }
 if(process.argv[1]&&new URL(import.meta.url).pathname===process.argv[1]) {
   try {

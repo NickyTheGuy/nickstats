@@ -9,7 +9,7 @@ const text = (s, max = 200) => typeof s === 'string' && s.length > 0 && s.length
 
 // Validate imported files before any drawing or interpolation. Unknown metadata never becomes markup/URLs.
 export function validateReplay(input) {
-  if (!input || input.format !== 'nickstats.replay' || ![1,2,3].includes(input.version) || input.coordinate_system !== 'source2-world') fail('unsupported format or version.');
+  if (!input || input.format !== 'nickstats.replay' || ![1,2,3,4].includes(input.version) || input.coordinate_system !== 'source2-world') fail('unsupported format or version.');
   if (!text(input.match_uid) || !text(input.map, 100) || !text(input.source_file, 500)) fail('missing match identity.');
   if (!finite(input.sample_hz, 64) || input.sample_hz <= 0) fail('invalid sample rate.');
   if (!Array.isArray(input.players) || !input.players.length || input.players.length > 64) fail('invalid roster.');
@@ -33,7 +33,7 @@ export function validateReplay(input) {
       let previous = -1;
       for (const s of track.samples) {
         if (++sampleCount > MAX_SAMPLES) fail('too many position samples.');
-        if (!Array.isArray(s) || s.length !== (input.version===3?7:6) || !s.slice(0,6).every(n => finite(n, 600000)) || input.version===3 && !(s[6]===null || finite(s[6],180)) || s[0] < 0 || s[0] <= previous || s[0] > round.duration || s.slice(1,4).some(n => Math.abs(n) > 32768) || s[4] < 0 || s[4] > 100 || ![2,3].includes(s[5])) fail('invalid or unordered position sample.');
+        if (!Array.isArray(s) || s.length !== (input.version>=3?7:6) || !s.slice(0,6).every(n => finite(n, 600000)) || input.version>=3 && !(s[6]===null || finite(s[6],180)) || s[0] < 0 || s[0] <= previous || s[0] > round.duration || s.slice(1,4).some(n => Math.abs(n) > 32768) || s[4] < 0 || s[4] > 100 || ![2,3].includes(s[5])) fail('invalid or unordered position sample.');
         previous = s[0];
       }
       return { player: track.player, samples: track.samples };
@@ -65,7 +65,7 @@ export function validateReplay(input) {
         return {id:p.id,type:p.type,icon:p.icon,player:p.player,side:p.side,end:p.end,samples:p.samples};
       });
     }
-    if(input.version===3) {
+    if(input.version>=3) {
       if(!Array.isArray(round.firing)||round.firing.length>players.length||!Array.isArray(round.deaths))fail('invalid combat data.');
       const shooters=new Set();
       output.firing=round.firing.map(track=>{
@@ -83,6 +83,14 @@ export function validateReplay(input) {
         if(++eventCount>100000||!e||!ids.has(e.victim)||!(e.killer===null||ids.has(e.killer))||!finite(e.time,round.duration)||e.time<0||e.time<previous||![2,3].includes(e.victim_side)||![0,2,3].includes(e.killer_side)||![e.x,e.y,e.z].every(n=>finite(n,32768))||!(e.from===null||Array.isArray(e.from)&&e.from.length===3&&e.from.every(n=>finite(n,32768)))||!text(e.weapon,100)||typeof e.headshot!=='boolean')fail('invalid death event.');
         previous=e.time;
         return {time:e.time,victim:e.victim,killer:e.killer,victim_side:e.victim_side,killer_side:e.killer_side,x:e.x,y:e.y,z:e.z,from:e.from,weapon:e.weapon,headshot:e.headshot};
+      });
+    }
+    if(input.version>=4) {
+      if(!Array.isArray(round.context)||round.context.length>players.length)fail('invalid round context.');
+      const seen=new Set();
+      output.context=round.context.map(c=>{
+        if(!c||!ids.has(c.player)||seen.has(c.player)||![2,3].includes(c.side)||![null,'win','loss'].includes(c.result)||![null,'full','force','eco','pistol'].includes(c.buy)||![null,'full','force','eco','pistol'].includes(c.enemy_buy)||typeof c.hero!=='boolean')fail('invalid player round context.');
+        seen.add(c.player);return {player:c.player,side:c.side,result:c.result,buy:c.buy,enemy_buy:c.enemy_buy,hero:c.hero};
       });
     }
     return output;

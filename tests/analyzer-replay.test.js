@@ -182,7 +182,7 @@ test('utility drawing keeps smoke/fire areas through their endpoints and leaves 
   lines=0;drawUtility(ctx,round,{...options,time:1400});assert.equal(lines,0);
 });
 
-test('v3 capture keeps exact event positions, coalesces firing, and round-trips combat data',async()=>{
+test('combat capture keeps exact event positions, coalesces firing, and round-trips combat data',async()=>{
   const c=collector(),a={id:'steam:1',name:'Attacker',steam_id:'1',x:100,y:0,z:0,health:100,side:2,yaw:90},b={id:'steam:2',name:'Victim',steam_id:'2',x:120,y:30,z:0,health:100,side:3,yaw:null};
   const read=()=>[a,b];c.sample(64,64,1/64,read);
   c.combat('weapon_fire',72,64,1/64,{shooter:a.id},read,'ak47');
@@ -190,7 +190,7 @@ test('v3 capture keeps exact event positions, coalesces firing, and round-trips 
   c.combat('weapon_fire',80,64,1/64,{shooter:a.id},read,'ak47');
   c.combat('player_death',90,64,1/64,{killer:a.id,victim:b.id},read,'ak47',true);
   const replay=JSON.parse(JSON.stringify(c.finish({...fixture(),round_timing:[{round:1,live_start_tick:64,duration_ms:1000,winner_side:'T'}]})));
-  assert.equal(replay.version,3);assert.equal(replay.rounds[0].tracks[0].samples[0][6],90);
+  assert.equal(replay.version,4);assert.equal(replay.rounds[0].tracks[0].samples[0][6],90);
   assert.equal(replay.rounds[0].firing[0].samples.length,2);
   assert.deepEqual(replay.rounds[0].deaths[0].from,[100,0,0]);assert.equal(replay.rounds[0].deaths[0].victim,'steam:2');
   const {validateReplay}=await load();validateReplay(replay);
@@ -214,7 +214,8 @@ test('skulls remain after round end and filters include selected killers or vict
   assert.equal(deathVisible({...event,killer:null},new Set(['b']),0),true);
   let skulls=0,labels=[];const ctx={globalAlpha:1,beginPath(){},arc(){skulls++;},moveTo(){},lineTo(){},closePath(){},fill(){},stroke(){},setLineDash(){},strokeText(){},fillText(s){labels.push(s);}};
   const options={time:2000,map:{pos_x:0,pos_y:0,scale:5},level:{min:-100,max:100},selected:new Set(['a']),side:0,colors:new Map([['a','red'],['b','blue']]),names:new Map([['a','Attacker'],['b','Victim']]),layers:['Deaths']};
-  drawCombat(ctx,{duration:1000,deaths:[event]},options);assert.ok(skulls>0);assert.deepEqual(labels,['Attacker → Victim']);
+  drawCombat(ctx,{duration:1000,deaths:[event]},options);assert.ok(skulls>0);assert.deepEqual(labels,[]);
+  const {deathLabel}=await import('../frontend/features/analyzer/state/combat.mjs');assert.equal(deathLabel(event,options.names),'Attacker → Victim');
   skulls=0;drawCombat(ctx,{deaths:[event]},{...options,time:0});assert.equal(skulls,0);
 });
 test('missing aim stays unavailable and source yaw wraps into a stable signed angle',()=>{
@@ -222,4 +223,32 @@ test('missing aim stays unavailable and source yaw wraps into a stable signed an
   vm.runInContext(fs.readFileSync('js/demo-worker.js','utf8'),context);
   assert.equal(vm.runInContext('replayAimYaw({getField(){return undefined}})',context),null);
   assert.equal(vm.runInContext('replayAimYaw({getField(){return [0,270,0]}})',context),-90);
+});
+
+test('half and preset toggles add/remove independently without destroying other groups',async()=>{
+  const {toggleRoundSet,combinedSections}=await import('../frontend/features/analyzer/state/round-selection.mjs');
+  let selected=toggleRoundSet([],['ot1a','ot1b']);selected=toggleRoundSet(selected,['ot2a','ot2b']);
+  assert.deepEqual(selected,['ot1a','ot1b','ot2a','ot2b']);
+  selected=toggleRoundSet(selected,['ot1a','ot1b']);assert.deepEqual(selected,['ot2a','ot2b']);
+  assert.deepEqual(toggleRoundSet(['a'],['a','b']),['a','b']);
+  const a=fixture(),b=fixture();b.match_uid='demo:two';
+  const sections=combinedSections([a,b],{players:['steam:1']});
+  assert.equal(sections.length,1);assert.equal(sections[0].numbers.length,1);assert.equal(sections[0].numbers[0][1].length,2);
+});
+test('result and buy filters use one selected player context instead of mixing opposing players',async()=>{
+  const {matchesRound}=await import('../frontend/features/analyzer/state/round-selection.mjs');
+  const round={...fixture().rounds[0],context:[{player:'a',side:2,result:'win',buy:'eco',enemy_buy:'full',hero:false},{player:'b',side:3,result:'loss',buy:'full',enemy_buy:'eco',hero:true}]};
+  assert.equal(matchesRound(round,{players:['a','b'],result:'win',buy:'full'}),false);
+  assert.equal(matchesRound(round,{players:['a','b'],side:2,result:'win',buy:'eco',enemyBuy:'full'}),true);
+  assert.equal(matchesRound(round,{players:['a','b'],side:2,buy:'hero'}),false);
+  assert.equal(matchesRound(round,{players:['b'],buy:'hero'}),true);
+  const legacy=fixture().rounds[0];assert.equal(matchesRound(legacy,{players:['steam:1'],result:'loss'}),true);
+  assert.equal(matchesRound(legacy,{players:['steam:1'],buy:'full'}),false);
+});
+test('capture exports compact round contexts with validation and preserves unknown buy classifications',async()=>{
+  const c=collector(),p={id:'steam:1',name:'Player',steam_id:'1',x:0,y:0,z:0,health:100,side:2};c.sample(64,64,1/64,()=>[p]);
+  const replay=JSON.parse(JSON.stringify(c.finish({...fixture(),round_timing:[{round:1,live_start_tick:64,duration_ms:1000,winner_side:'T'}]},
+    [{round:1,player:p.id,side:2,result:'win',buy:null,enemy_buy:'eco',hero:false}])));
+  const {validateReplay}=await load();assert.equal(validateReplay(replay).rounds[0].context[0].buy,null);
+  const invalid=structuredClone(replay);invalid.rounds[0].context[0].player='missing';assert.throws(()=>validateReplay(invalid),/Invalid replay/);
 });

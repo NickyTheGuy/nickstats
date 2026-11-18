@@ -5,6 +5,7 @@ import { onLevel, positionAt, worldToRadar } from './state/replay.mjs';
 import { drawUtility } from './state/draw-utility.mjs';
 import { drawAim,drawCombat } from './state/combat.mjs';
 import { useGrenadeIcons } from './hooks.js';
+import SkullTooltips from './SkullTooltips.jsx';
 
 export default function ReplayMap({ map, level, rounds, players, selected, colors, time, side, utilities, combatLayers }) {
   const icons = useGrenadeIcons();
@@ -65,6 +66,7 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
       onPointerMove={e=>{ if (!drag.current) return; const ratio=1024/Math.min(e.currentTarget.getBoundingClientRect().width,e.currentTarget.getBoundingClientRect().height),max=(view.zoom-1)*512;
         setView({...view,x:Math.max(-max,Math.min(max,drag.current.view.x+(e.clientX-drag.current.x)*ratio)),y:Math.max(-max,Math.min(max,drag.current.view.y+(e.clientY-drag.current.y)*ratio))}); }}
       onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}} onLostPointerCapture={()=>{drag.current=null;}} width="1024" height="1024" role="img" aria-label={`2D round playback, ${level.id} level. Player positions, combat markers, grenade flight and approximate utility areas are drawn on the radar.`} />
+    <SkullTooltips map={map} level={level} rounds={rounds} selected={selected} players={players} time={time} side={side} view={view} enabled={combatLayers.includes('Deaths')} />
     {!image && <span className="analyzer-map-status" role="status">{imageError ? 'Radar image could not load.' : 'Loading radar…'}</span>}
   </div>;
 }

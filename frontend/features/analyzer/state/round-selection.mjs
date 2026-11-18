@@ -31,3 +31,27 @@ export function presetRounds(replays,{phase='all',side=0,players=[]}={}) {
 export function replaySampleCount(replay) {
   return replay.rounds.reduce((sum,round)=>sum+round.tracks.reduce((n,t)=>n+t.samples.length,0)+(round.projectiles||[]).reduce((n,p)=>n+p.samples.length,0)+(round.firing||[]).reduce((n,t)=>n+t.samples.length,0),0);
 }
+
+export function matchesRound(round,{players=[],side=0,result='all',buy='all',enemyBuy='all'}={}) {
+  const chosen=new Set(players),contexts=round.context?.length?round.context:round.tracks.map(track=>{const side=track.samples[0]?.[5];return {player:track.player,side,result:round.winner?((side===2?'T':'CT')===round.winner?'win':'loss'):null,buy:null,enemy_buy:null,hero:false};});
+  return contexts.some(c=>chosen.has(c.player)&&(!side||c.side===side)&&(result==='all'||c.result===result)&&
+    (buy==='all'||(buy==='hero'?c.hero:c.buy===buy))&&(enemyBuy==='all'||c.enemy_buy===enemyBuy));
+}
+export function toggleRoundSet(selected,keys) {
+  if(!keys.length)return selected;
+  const set=new Set(selected),remove=keys.every(key=>set.has(key));
+  for(const key of keys)remove?set.delete(key):set.add(key);
+  return [...set];
+}
+export function combinedSections(replays,filters) {
+  const sections=new Map();
+  for(const replay of replays)for(const section of roundSections(replay)) {
+    if(!sections.has(section.key))sections.set(section.key,{key:section.key,label:section.label,phase:section.phase,numbers:new Map()});
+    const combined=sections.get(section.key);
+    for(const round of section.rounds) {
+      if(!combined.numbers.has(round.number))combined.numbers.set(round.number,[]);
+      if(matchesRound(round,filters))combined.numbers.get(round.number).push(roundKey(replay,round));
+    }
+  }
+  return [...sections.values()].map(section=>({...section,numbers:[...section.numbers].sort(([a],[b])=>a-b),keys:[...section.numbers.values()].flat()}));
+}

@@ -146,7 +146,12 @@
       }
       for (const [key,projectile] of round.projectiles) if (!active.has(key) && projectile.end === null) projectile.end = time;
     }
-    finish(result) {
+    finish(result,contexts=[]) {
+      const byRound=new Map();
+      for(const context of contexts) {
+        if(!byRound.has(context.round))byRound.set(context.round,[]);
+        byRound.get(context.round).push(context);
+      }
       const rounds = [], owner = id => this.players.has(id)?id:null;
       for (const timing of result.round_timing) {
         const data = this.rounds.get(timing.live_start_tick);
@@ -160,10 +165,11 @@
           end:Math.min(duration,p.end??duration)})).filter(p=>p.samples.length);
         const firing=[...data.firing].map(([player,samples])=>({player:owner(player),samples:samples.filter(s=>s[0]<=duration)})).filter(t=>t.player&&t.samples.length);
         const deaths=data.deaths.filter(e=>e.time<=duration&&owner(e.victim)).map(e=>({...e,killer:owner(e.killer)}));
-        rounds.push({number:timing.round,duration,winner:timing.winner_side,tracks,utility,projectiles,firing,deaths});
+        const context=(byRound.get(timing.round)||[]).filter(c=>owner(c.player)).map(c=>({player:c.player,side:c.side,result:c.result,buy:c.buy,enemy_buy:c.enemy_buy,hero:Boolean(c.hero)}));
+        rounds.push({number:timing.round,duration,winner:timing.winner_side,tracks,utility,projectiles,firing,deaths,context});
       }
       if (!rounds.length) throw new Error('No playable movement tracks were captured from this demo.');
-      return {format:'nickstats.replay',version:3,match_uid:result.match_uid,map:result.map,source_file:result.source_file,
+      return {format:'nickstats.replay',version:4,match_uid:result.match_uid,map:result.map,source_file:result.source_file,
         sample_hz:5,projectile_hz:20,coordinate_system:'source2-world',rules:{...this.rules},players:[...this.players.values()],rounds};
     }
   }

@@ -178,7 +178,7 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-1");
+    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-2");
     const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay));
     self.postMessage(event.data.captureReplay
       ? { type: "result", replay: parsed.replay }
@@ -2889,7 +2889,8 @@ async function parseDemo(fileName, buffer, captureReplay = false) {
       }))
     }))
   };
-  return { result, diagnostics, ...(replayCapture ? { replay: replayCapture.finish(result) } : {}) };
+  return { result, diagnostics, ...(replayCapture ? { replay: replayCapture.finish(result,playerRoundSlices.map(slice=>({round:slice.round,player:replayPlayerId(slice.row),side:slice.side,
+    result:slice.result,buy:slice.buy,enemy_buy:slice.opponentBuy,hero:slice.hero}))) } : {}) };
 }
 
 function faceitMatchId(fileName) {

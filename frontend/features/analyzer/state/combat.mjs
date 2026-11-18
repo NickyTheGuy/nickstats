@@ -6,6 +6,10 @@ export function aimVector(yaw,length=32) {
 export function deathVisible(event,selected,side) {
   return selected.has(event.victim)&&(!side||event.victim_side===side)||selected.has(event.killer)&&(!side||event.killer_side===side);
 }
+export function deathLabel(event,names) {
+  const victim=names.get(event.victim)||'Unknown',killer=names.get(event.killer);
+  return event.killer===event.victim?`${victim} · suicide`:killer?`${killer} → ${victim}`:`${victim} · ${event.weapon==='world'?'world':event.weapon}`;
+}
 export function drawAim(ctx,point,x,y,color) {
   if(!Number.isFinite(point[6]))return;
   const [dx,dy]=aimVector(point[6]);
@@ -38,8 +42,6 @@ export function drawCombat(ctx,round,{time,map,level,selected,side,colors,names,
       ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(...from);ctx.lineTo(x,y);ctx.stroke();ctx.setLineDash([]);
     }
     skull(ctx,x,y,victim,killer);
-    const victimName=names.get(e.victim)||'Unknown',killerName=names.get(e.killer);
-    const label=e.killer===e.victim?`${victimName} · suicide`:killerName?`${killerName} → ${victimName}`:`${victimName} · ${e.weapon==='world'?'world':e.weapon}`;
-    ctx.font='bold 11px system-ui';ctx.strokeStyle='#101620';ctx.lineWidth=3;ctx.strokeText(label,x+12,y+3);ctx.fillStyle='#eef3fa';ctx.fillText(label,x+12,y+3);
+
   }
 }

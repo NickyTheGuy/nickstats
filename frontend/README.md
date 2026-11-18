@@ -91,18 +91,26 @@ Ctrl/Cmd+Shift+Left/Right moves the selection to Friendly/Enemy; Escape clears i
 `#analyzer` is an independent React screen. Open `.dem` / `.dem.zst` locally,
 or import an exported `.replay.json`. No login/backend is needed; file contents
 are not uploaded. The same pinned parser/Zstandard CDNs are used as normal demo
-parsing. **Save replay** retains a copy; otherwise data lives in memory until
-removed or the page reloads. Reopening a match replaces its existing replay, so
+parsing. Replay data lives in memory until the page reloads; per-file save/remove controls
+are intentionally absent from the selection panel. Reopening a match replaces its existing replay, so
 old captures can be upgraded without removing them first.
 
 The map workspace resizes from its bottom-right corner. All levels are visible
-at once; Auto switches between columns and rows with available width. Stacked
-and Side by side override that choice. The divider changes the two levels' share
+at once; Auto switches between columns and rows with available width. Layout is always automatic. The divider changes the two levels' share
 of that one viewer, using pointer drag or arrow keys (Home/End: 10/90%; Enter or
 double-click: 50/50). Each map retains its own zoom/pan. This manual split avoids
 guessing how much of Nuke's dimmed upper-map background to crop from its lower
 radar; no map calibration or image cropping is changed.
 Players/rounds/utility controls expand over the map and scroll vertically.
+Playback is an overlay pinned inside the visible part of the viewer while the
+page scrolls. Zoom controls sit at the top of each map. Its speed menu opens
+upward to avoid being clipped by the viewer. All/CT/T uses the shared profile
+segmented-control styling. Compact pressed-state chips replace checkboxes for
+players, utility, combat and numbered rounds; the same chip style is used for
+All/Regulation/Overtime/Clear and half toggles. Toggling one half adds/removes its
+rounds without replacing other halves. Round numbers and sections are combined
+across loaded matches (a numeric round choice affects that number in all matching
+loaded matches); file names and per-file action rows do not fragment the panel.
 There is no round-selection or round-count ceiling. Regulation/overtime presets
 combine with Both/T/CT player-side filters; half buttons select individual
 regulation or overtime halves. Side matching uses the selected players' recorded
@@ -142,8 +150,10 @@ Yaw comes from the pawn's `m_angEyeAngles` vector Y, using the shortest arc for
 interpolation. Missing angles remain unavailable. Firearm events trigger brief
 stylized muzzle/aim lines; knife/grenade events do not become gunfire. These
 lines show firing direction, not bullet collision, spread or confirmed hits.
-Death skull fill identifies the victim and its outline the killer; labels name
-both. A brief dashed link joins recorded killer/victim positions on the same
+Death skull fill identifies the victim and its outline the killer. Kill text is
+only in hover/focus/tap tooltips on skull hit targets, with round, event time,
+weapon and headshot context. Hit targets follow letterboxing, pan, zoom and
+resizing; overlapping targets combine their event details. A brief dashed link joins recorded killer/victim positions on the same
 level. Skulls remain after death, including when a shorter selected round has
 ended, and clear when rewinding before the event or changing selected rounds.
 Side/player filtering includes kills by selected players and deaths of selected
@@ -152,12 +162,25 @@ be toggled independently. Old v1/v2 captures still load but need recapturing for
 these combat fields. This is still a local replay feature; no backend table,
 normal stats response or profile/Groups cache contains the new data.
 
-The `nickstats.replay` format accepts v1/v2/v3. V2 adds recorded match rules,
+Capture v4 adds compact per-player round contexts from the exact same
+`playerRoundSlices` classifications used by profiles: side, win/loss, own buy,
+enemy buy and hero status. Result/buy/side conditions must match one selected
+player context together; they cannot mix one person's win with another person's
+full buy. A round qualifies if any selected player satisfies every condition.
+Filters narrow the chosen rounds without destroying the underlying manual
+selection; resetting filters restores that selection. Half/preset operations
+apply to currently eligible rounds. Missing buy data stays unknown and cannot
+match a specific buy filter. Legacy captures can derive win/loss from their
+winner/recorded side, but require recapturing for buy classifications. No new
+API/database data is fetched or stored by these filters.
+
+The `nickstats.replay` format accepts v1/v2/v3/v4. V2 adds recorded match rules,
 projectile rate, per-round projectiles (`[elapsed_ms,x,y,z]`, owner, side, icon,
 end), and utility end/radius/owner/side/icon/estimated fields. V3 player samples append
 yaw; per-round `firing` tracks store `[time,x,y,z,yaw,side]`, and `deaths` store
 the actors, sides, victim location, optional killer location, weapon and headshot.
-Firing samples share the existing aggregate position-sample memory budget.
+V4 adds per-round `context` entries with player, side, result, buy, enemy_buy and
+hero fields. Firing samples share the existing aggregate position-sample memory budget.
 Import validates
 identity, version, ordering, ownership, coordinates, lifetimes and aggregate
 sample budgets. Limits remain 128 MiB replay JSON, 768 MiB demo, 64 players,
