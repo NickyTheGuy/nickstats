@@ -56,3 +56,9 @@ test('A specific combat selection keeps its marker at the geographic point and o
   const marks=combatMarkers(event,{selected:new Set(['k','v']),side:0,layers:['Kills','Deaths'],map,level,unit:1,preferredRole:'death'});
   assert.equal(marks.at(-1).kind,'death');assert.equal(marks.at(-1).x,marks.at(-1).baseX);
 });
+
+test('A visible unowned grenade can focus its round without inventing a player outcome',async()=>{
+  const {summarizeArea}=await import('../frontend/features/analyzer/state/area-selection.mjs'),r=await fixture();r.rounds=r.rounds.slice(0,1);r.rounds[0].utility=[{...flash(),player:null}];
+  const options={area,map,level,time:800,players:['steam:1','steam:2','steam:3'],target:'Flash'};
+  assert.equal(summarizeArea(r.rounds,options).count,0);const result=summarizeArea(r.rounds,{...options,allSelected:true});assert.equal(result.count,1);assert.equal(result.combatComplete,false);assert.equal(result.rating,null);assert.equal(result.winRate,null);
+});

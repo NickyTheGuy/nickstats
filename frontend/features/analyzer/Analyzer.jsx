@@ -89,7 +89,7 @@ export default function Analyzer({entryStore}) {
   const rounds=useMemo(()=>remote?(cachedRounds??[]):mapReplays.flatMap(r=>r.rounds.filter(round=>roundKeys.includes(`${r.match_uid}:${round.number}`)).map(round=>({...round,match_uid:r.match_uid}))),[remote,cachedRounds,mapReplays,roundKeys]);
   const duration = rounds.reduce((max,r)=>Math.max(max,r.duration),0), map = Object.hasOwn(mapData.maps,mapName) ? mapData.maps[mapName] : null;
   const areaLevel=area?.map===mapName?map?.levels.find(level=>level.id===area.level):null;
-  const areaSummary=useMemo(()=>areaLevel?summarizeArea(rounds,{area:area.bounds,map,level:areaLevel,time,players:selectedPlayers,side,target:selectionTarget,utilities,layers:combatLayers}):null,[rounds,area,areaLevel,map,time,selectedPlayers,side,selectionTarget,utilities,combatLayers]);
+  const areaSummary=useMemo(()=>areaLevel?summarizeArea(rounds,{area:area.bounds,map,level:areaLevel,time,players:selectedPlayers,side,target:selectionTarget,allSelected:selectedPlayers.length===mapPlayers.length,utilities,layers:combatLayers}):null,[rounds,area,areaLevel,map,time,selectedPlayers,side,selectionTarget,utilities,combatLayers,mapPlayers]);
   useEffect(() => { if(!area||mapName&&area.map!==mapName)setTime(0);setPlaying(false); }, [selectedRounds,groupRounds,mapName,filters,selectedPlayers,side]);
   useEffect(()=>{if(rounds.length)setTime(value=>Math.min(value,duration));},[rounds,duration]);
   useEffect(() => {

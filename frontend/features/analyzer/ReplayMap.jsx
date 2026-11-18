@@ -62,22 +62,25 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
     ctx.globalAlpha = rounds.length > 1 ? 0.85 : 1;
     for(const round of rounds){ctx.globalAlpha=areaSummary?(areaSummary.matched.has(round)?.9:.12):rounds.length>1?.85:1;
       drawCombat(ctx,round,{time,map,level,selected:selectedSet,side,colors,layers:combatLayers,icons:combatIcons,unit:markerUnit,preferredRole:selectionTarget==='Kills'?'kill':selectionTarget==='Deaths'?'death':null});
-      drawUtilityHistory(ctx,round,{time,map,level,selected:selectedSet,side,utilities,icons,target:selectionTarget});}
+      drawUtilityHistory(ctx,round,{time,map,level,selected:selectedSet,side,utilities,icons,target:selectionTarget,allSelected:selected.length===players.length});}
     ctx.globalAlpha = 1;
   }, [image,map,level,rounds,players,selected,colors,time,side,utilities,view,icons,combatLayers,combatIcons,markerUnit,nameTags,areaSummary,selectionTarget]);
   const bounds=preview?preview.bounds:area?.level===level.id?area.bounds:null;
   const rectangle=bounds?areaOnScreen(bounds,size,view):null;
   function pointerDown(event) {
     if(drag.current||event.isPrimary===false||![0,1].includes(event.button))return;
+    const fromMarker=Boolean(event.target.closest?.('.combat-hit-target'));
+    if(event.target!==canvas.current&&!fromMarker)return;
     const pan=gestureMode==='pan'||event.shiftKey||event.button===1;
     if(pan&&view.zoom===1)return;
-    event.preventDefault();event.currentTarget.focus({preventScroll:true});event.currentTarget.setPointerCapture(event.pointerId);
-    const rect=event.currentTarget.getBoundingClientRect(),start={x:event.clientX,y:event.clientY};
-    drag.current={kind:pan?'pan':'select',start,radar:pointerToRadar(start,rect,view),rect,view};
+    if(!fromMarker||pan){event.preventDefault();canvas.current.focus({preventScroll:true});event.currentTarget.setPointerCapture(event.pointerId);}
+    const rect=canvas.current.getBoundingClientRect(),start={x:event.clientX,y:event.clientY};
+    drag.current={kind:pan?'pan':'select',start,radar:pointerToRadar(start,rect,view),rect,view,fromMarker,captured:!fromMarker||pan};
     if(!pan){setPreview({bounds:null});onAreaStart();}
   }
   function pointerMove(event) {
     const current=drag.current;if(!current)return;
+    if(current.kind==='select'&&Math.hypot(event.clientX-current.start.x,event.clientY-current.start.y)>=4&&!current.captured){event.preventDefault();event.currentTarget.setPointerCapture(event.pointerId);canvas.current.focus({preventScroll:true});current.captured=true;}
     if(current.kind==='select')setPreview({bounds:areaBounds(current.radar,pointerToRadar({x:event.clientX,y:event.clientY},current.rect,current.view))});
     else {
       const ratio=1024/Math.min(current.rect.width,current.rect.height),max=(current.view.zoom-1)*512;
@@ -88,7 +91,8 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
     const current=drag.current;if(!current)return;
     if(current.kind==='select') {
       const bounds=areaBounds(current.radar,pointerToRadar({x:event.clientX,y:event.clientY},current.rect,current.view));
-      onArea(bounds&&Math.hypot(event.clientX-current.start.x,event.clientY-current.start.y)>=4?{level:level.id,bounds}:null);
+      const moved=Math.hypot(event.clientX-current.start.x,event.clientY-current.start.y)>=4;
+      if(moved||!current.fromMarker)onArea(bounds&&moved?{level:level.id,bounds}:null);
     }
     drag.current=null;setPreview(null);if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
   }
@@ -97,7 +101,7 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
     const radius=12*markerUnit,bounds=areaBounds({x:x-radius,y:y-radius},{x:x+radius,y:y+radius});if(!bounds)return;
     onAreaStart();onSelectionTarget(target);onArea({level:level.id,bounds});
   }
-  return <div className="analyzer-map">
+  return <div className="analyzer-map" onPointerDownCapture={pointerDown} onPointerMoveCapture={pointerMove} onPointerUpCapture={pointerUp} onPointerCancelCapture={cancel} onLostPointerCapture={event=>{if(event.target===event.currentTarget)cancel();}}>
     <div className="analyzer-map-zoom" role="group" aria-label="Map zoom">
       <ToggleButton selected={gestureMode==='select'} aria-label="Select map area" onClick={()=>setGestureMode('select')}>{selectionTarget==='Players'?'Select':`Select ${selectionTarget}`}</ToggleButton>
       <ToggleButton selected={gestureMode==='pan'} aria-label="Pan map" disabled={view.zoom===1} onClick={()=>setGestureMode('pan')}>Pan</ToggleButton>
@@ -106,7 +110,6 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
       <Button aria-label="Zoom in" disabled={view.zoom===4} onClick={()=>zoom(0.5)}>+</Button>
     </div>
     <canvas ref={canvas} data-name-tags={nameTags?'on':'off'} style={{touchAction:'none',cursor:gestureMode==='pan'?'grab':'crosshair'}}
-      onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={cancel} onLostPointerCapture={cancel}
       tabIndex={0} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();cancel();onArea(null);}}}
       width="1024" height="1024" role="img" aria-label={`2D round playback, ${level.id} level. Drag to select a map area. Shift-drag or choose Pan to move a zoomed map. Escape clears selection.`} />
     <CombatTooltips map={map} level={level} rounds={rounds} selected={selected} players={players} time={time} side={side} view={view} layers={combatLayers} unit={markerUnit} onSelectMarker={selectMarker} preferredRole={selectionTarget==='Kills'?'kill':selectionTarget==='Deaths'?'death':null} />

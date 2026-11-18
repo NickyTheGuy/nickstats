@@ -29,8 +29,8 @@ export function roundRating({kills,deaths,assists,damage,kast,played}) {
   const kpr=kills/played,dpr=deaths/played,apr=assists/played,adr=damage/played;
   return Math.max(0,.0073*100*kast/played+.3591*kpr-.5329*dpr+.2372*(2.13*kpr+.42*apr-.41)+.0032*adr+.1587);
 }
-export function summarizeArea(rounds,{area,map,level,time,players,side=0,target='Players',utilities=['Smoke','Flash','HE','Fire','Decoy'],layers=['Kills','Deaths','Aim','Gunfire']}) {
-  const selected=new Set(players),matched=new Set(),observations=[],effects=[];
+export function summarizeArea(rounds,{area,map,level,time,players,side=0,target='Players',allSelected=false,utilities=['Smoke','Flash','HE','Fire','Decoy'],layers=['Kills','Deaths','Aim','Gunfire']}) {
+  const selected=new Set(players),matched=new Set(),observations=[],effects=[];let unknownActors=false;
   for(const round of rounds) {
     const actors=new Map();
     if(target==='Players'&&time<=round.duration)for(const track of round.tracks) {
@@ -40,8 +40,8 @@ export function summarizeArea(rounds,{area,map,level,time,players,side=0,target=
       actors.set(track.player,point[5]);
     }
     for(const event of combatSelectionEvents(round,{target,time,selected,side,layers,level}))if(insideArea(area,map,event.x,event.y))actors.set(event.player,event.side);
-    for(const effect of utilitySelectionEvents(round,{target,time,selected,side,utilities,level}))if(insideArea(area,map,effect.x,effect.y)) {
-      actors.set(effect.player,effect.side);effects.push({effect,round});
+    for(const effect of utilitySelectionEvents(round,{target,time,selected,side,utilities,level,allSelected}))if(insideArea(area,map,effect.x,effect.y)) {
+      if(effect.player)actors.set(effect.player,effect.side);else{unknownActors=true;matched.add(round);}effects.push({effect,round});
     }
     if(actors.size)matched.add(round);
     for(const [player,actorSide]of actors) {
@@ -50,7 +50,7 @@ export function summarizeArea(rounds,{area,map,level,time,players,side=0,target=
       observations.push({round,player,side:perspective,result,performance});
     }
   }
-  const totals={kills:0,deaths:0,assists:0,damage:0,kast:0,played:observations.length};let wins=0,known=0,complete=true,combatComplete=true;const teamResults=new Map();
+  const totals={kills:0,deaths:0,assists:0,damage:0,kast:0,played:observations.length};let wins=0,known=0,complete=!unknownActors,combatComplete=!unknownActors;const teamResults=new Map();
   for(const row of observations) {
     if(row.result){if(!teamResults.has(row.round))teamResults.set(row.round,new Map());teamResults.get(row.round).set(row.side,row.result);}
     const p=row.performance;
@@ -61,6 +61,6 @@ export function summarizeArea(rounds,{area,map,level,time,players,side=0,target=
   }
   for(const results of teamResults.values())for(const result of results.values()){known++;wins+=Number(result==='win');}
   return {matched,total:rounds.length,count:matched.size,percent:rounds.length?100*matched.size/rounds.length:0,
-    observations:observations.length,winRate:known?100*wins/known:null,knownResults:known,
+    observations:observations.length,winRate:!unknownActors&&known?100*wins/known:null,knownResults:known,
     utility:summarizeGrenades(effects),target,...totals,combatComplete,rating:complete?roundRating(totals):null};
 }

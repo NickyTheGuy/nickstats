@@ -6,9 +6,9 @@ export function selectionRoundKey(round){return round.match_uid?`${round.match_u
 
 // Detonation markers remain selectable after their active area expires. This
 // history is shown only for the currently selected grenade target type.
-export function utilitySelectionEvents(round,{target,time,selected,side,utilities,level}) {
+export function utilitySelectionEvents(round,{target,time,selected,side,utilities,level,allSelected=false}) {
   if(!isUtilityTarget(target)||!utilities.includes(target))return [];
-  return round.utility.filter(e=>e.type===target&&e.time<=time&&e.player&&utilityVisible(e,round,selected,side)&&onLevel(level,e.z));
+  return round.utility.filter(e=>e.type===target&&e.time<=time&&(e.player||allSelected)&&utilityVisible(e,round,selected,side)&&onLevel(level,e.z));
 }
 export function combatSelectionEvents(round,{target,time,selected,side,layers,level}) {
   if(!layers.includes(target))return [];

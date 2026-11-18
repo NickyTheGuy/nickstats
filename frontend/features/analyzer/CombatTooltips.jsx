@@ -10,7 +10,6 @@ export default function CombatTooltips({map,level,rounds,selected,players,time,s
   if(scale)for(const round of rounds)for(const event of round.deaths||[]) {
     if(event.time>time)break;
     for(const mark of combatMarkers(event,{selected:selectedSet,side,layers,map,level,unit,preferredRole})) {
-      if(preferredRole&&mark.kind!==preferredRole)continue;
       const x=size.width/2+((mark.x-512)*view.zoom+view.x)*scale,y=size.height/2+((mark.y-512)*view.zoom+view.y)*scale;
       if(x<0||y<0||x>size.width||y>size.height)continue;
       const key=`${mark.kind}:${Math.round(x/12)}:${Math.round(y/12)}`;
