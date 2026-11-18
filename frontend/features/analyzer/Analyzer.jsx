@@ -32,14 +32,14 @@ export default function Analyzer({entryStore}) {
   const chooseSource=useCallback(async source=>{
     clearSource();setMode(source.mode);setQueryPlayers(source.mode==='groups'?source.players:null);
     const identity=source.mode==='groups'?`groups:${source.players.map(p=>p.id).join(',')}`:`match:${source.matches[0]?.id}`;
-    const reset=identity!==sourceIdentity.current;sourceIdentity.current=identity;
+    const reset=identity!==sourceIdentity.current;
     if(reset){setFilters({result:'all',buy:[],enemyBuy:[]});setSide(0);setGroupRounds({sections:[],numbers:[]});}
     const available=source.matches.filter(m=>m.capture);
     if(!available.length){if(source.matches.length)setError('No movement is stored for this selection. Reparse these demos from Match to capture it.');return;}
     const controller=new AbortController();operation.current=controller;setBusy(true);
     try {
       const loaded=await loadCaptureHeaders(available,{signal:controller.signal,onStatus:setStatus});controller.signal.throwIfAborted();
-      setReplays(loaded);setMapName(loaded[0].map);
+      sourceIdentity.current=identity;setReplays(loaded);setMapName(loaded[0].map);
       const availablePlayers=source.mode==='groups'?source.players.filter(p=>p.steam_id).map(p=>`steam:${p.steam_id}`):loaded[0].players.map(p=>p.id);
       setSelectedPlayers(previous=>reset?availablePlayers:previous.filter(id=>availablePlayers.includes(id)));
       if(reset)setSelectedRounds([`${loaded[0].match_uid}:${loaded[0].rounds[0].number}`]);

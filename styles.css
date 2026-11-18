@@ -3994,7 +3994,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-playback .playback-fullscreen { grid-column: 5; grid-row: 1; }
 @container (max-width: 500px) { .analyzer-playback .playback-fullscreen { grid-column: 4; } }
 
-.analyzer-source { display: grid; gap: 14px; margin-bottom: 16px; }
+.analyzer-source { display: grid; padding: 18px; gap: 14px; margin-bottom: 16px; }
 .analyzer-source > .side-toggle { justify-self: start; }
 .analyzer-match-search, .analyzer-match-filters, .analyzer-query-result, .analyzer-query-progress { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .analyzer-match-search input { min-width: 0; width: 140px; }

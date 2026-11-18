@@ -28,12 +28,12 @@ export function normalizeAnalyzerEntry(input) {
   if(input?.mode==='match'&&/^\d+$/.test(String(input.matchID))&&Number(input.matchID)>0)return {mode:'match',matchID:String(input.matchID)};
   if(input?.mode!=='groups'||!Array.isArray(input.players))return null;
   const ids=new Set(),players=input.players.slice(0,20).filter(p=>p&&/^\d+$/.test(String(p.id))&&Number(p.id)>0&&!ids.has(String(p.id))&&ids.add(String(p.id)))
-    .map(p=>({id:String(p.id),name:String(p.name||'Player').slice(0,200),steam_id:/^\d{1,20}$/.test(p.steam_id)?p.steam_id:''}));
+    .map(p=>({id:String(p.id),name:String(p.name||'Player').slice(0,200),steam_id:/^\d{1,20}$/.test(p.steam_id)?p.steam_id:'',...(Number.isFinite(p.match_count)&&p.match_count>=0?{match_count:p.match_count}:{})}));
   if(!players.length)return null;
   const rules=sanitizeRules(input.rules||rulesForPlayers(players),players.map(p=>p.id));
   return {mode:'groups',players,rules,
     date:{from:localDay(input.date?.from)?input.date.from:'',through:localDay(input.date?.through)?input.date.through:''},
-    tags:Array.isArray(input.tags)?input.tags.slice(0,100).filter(row=>Array.isArray(row)&&row.length===2&&typeof row[0]==='string'&&row[0].length<=200&&(['true','false','unknown'].includes(row[1])||row[1]&&['gt','gte','lt','lte','eq','between'].includes(row[1].op)&&(row[1].value===null||Number.isFinite(row[1].value))&&(row[1].max==null||Number.isFinite(row[1].max)))):[],map:typeof input.map==='string'?input.map.slice(0,64):''};
+    tags:Array.isArray(input.tags)?input.tags.slice(0,100).filter(row=>Array.isArray(row)&&row.length===2&&typeof row[0]==='string'&&row[0].length>0&&row[0].length<=200&&(['true','false','unknown'].includes(row[1])||row[1]&&['gt','gte','lt','lte','eq','between'].includes(row[1].op)&&(row[1].value===null||Number.isFinite(row[1].value))&&(row[1].max==null||Number.isFinite(row[1].max)))):[],map:typeof input.map==='string'?input.map.slice(0,64):''};
 }
 export function analyzerRoute(input) {
   const source=normalizeAnalyzerEntry(input);

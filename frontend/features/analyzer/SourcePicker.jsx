@@ -17,7 +17,7 @@ import { candidateMatches } from './state/server.mjs';
 export default function SourcePicker({mode,onMode,entry,onChoose,onClear}) {
   const [players,setPlayers]=useState([]),[rules,setRules]=useState(()=>rulesForPlayers([]));
   const [matchID,setMatchID]=useState(''),[candidates,setCandidates]=useState(null),[map,setMap]=useState('');
-  const [pending,setPending]=useState(false),[error,setError]=useState(''),[revision,bump]=useState(0);
+  const [pending,setPending]=useState(false),[error,setError]=useState(''),[revision,bump]=useState(0),[pendingTags,setPendingTags]=useState([]);
   const [search]=useState(()=>createPlayerSearch());
   const [dates]=useState(()=>new DateRangeStore({onChange:()=>bump(v=>v+1)}));
   const [tags]=useState(()=>createTagFilterStore(window.NickStatsManualFilters,{onChange:()=>bump(v=>v+1)}));
@@ -38,7 +38,12 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear}) {
     }catch(e){if(!controller.signal.aborted)setError(e.message);}
     finally{if(operation.current===controller){setPending(false);operation.current=null;}}
   }
-  const matching=useMemo(()=>candidates===null?[]:analyzerMatches(candidates,rules,m=>dates.matches(m.played_at)&&tags.matches(m)),[candidates,rules,revision]);
+  useEffect(()=>{
+    const store=window.NickStatsManualFilters.store;
+    if(!pendingTags.length||!store.account||!store.ready||pendingTags.some(([id])=>!store.filters.some(tag=>tag.id===id)))return;
+    tags.reset();for(const [id,condition]of pendingTags)tags.select(id,condition);setPendingTags([]);
+  },[pendingTags,revision]);
+  const matching=useMemo(()=>candidates===null||pendingTags.length?[]:analyzerMatches(candidates,rules,m=>dates.matches(m.played_at)&&tags.matches(m)),[candidates,rules,revision,pendingTags]);
   const maps=useMemo(()=>[...new Set(matching.map(m=>m.map))].sort(),[matching]);
   const chosenMap=maps.includes(map)?map:([...maps].sort((a,b)=>matching.filter(m=>m.map===b&&m.capture).length-matching.filter(m=>m.map===a&&m.capture).length)[0]||'');
   const scoped=useMemo(()=>matching.filter(m=>m.map===chosenMap),[matching,chosenMap]);
@@ -49,11 +54,11 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear}) {
   useEffect(()=>{
     if(!entry)return;
     operation.current?.abort();search.reset();setError('');setCandidates(null);onMode(entry.mode);
-    if(entry.mode==='match'){setMatchID(entry.matchID);lookup([],entry.matchID);return;}
+    if(entry.mode==='match'){setPendingTags([]);setMatchID(entry.matchID);lookup([],entry.matchID);return;}
     const nextRules=normalizeEditorRules(entry.rules,entry.players.map(p=>p.id));
     setPlayers(entry.players);setRules(nextRules);setMap(entry.map||'');
     dates.from=entry.date?.from||'';dates.through=entry.date?.through||'';dates.closeMenus();
-    tags.reset();for(const [id,condition]of entry.tags||[])tags.select(id,condition);
+    tags.reset();setPendingTags(entry.tags||[]);
     lookup(entry.players);
   },[entry]);
   useEffect(()=>{
@@ -83,6 +88,8 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear}) {
       </div>}
     </>}
     {pending&&<div className="analyzer-query-progress"><FormMessage>Finding matches…</FormMessage><Button className="button button-secondary" onClick={()=>{operation.current?.abort();setPending(false);}}>Cancel</Button></div>}
+    {mode==='groups'&&!!pendingTags.length&&<div className="analyzer-query-progress"><FormMessage>{!window.NickStatsManualFilters.store.account?'Log in to apply the saved tag filters.':window.NickStatsManualFilters.store.ready?'Some saved tags are unavailable to this account.':'Loading saved tag filters…'}</FormMessage>
+      <Button className="button button-secondary" onClick={()=>setPendingTags([])}>Clear saved tags</Button></div>}
     <FormMessage error>{error}</FormMessage>
   </section>;
 }
