@@ -216,7 +216,11 @@ func analyzerRoutes(_ app: Application) throws {
           SELECT r.round_number,CONCAT('steam:',CAST(p.steam_id AS CHAR)) AS player,
             CAST(JSON_OBJECT('kills',JSON_EXTRACT(r.stats_json,'$.kda[0]'),
               'deaths',JSON_EXTRACT(r.stats_json,'$.kda[1]'),'assists',JSON_EXTRACT(r.stats_json,'$.kda[2]'),
-              'damage',JSON_EXTRACT(r.stats_json,'$.kda[4]'),'kast',JSON_EXTRACT(r.stats_json,'$.kast_rounds')) AS CHAR) AS performance
+              'damage',JSON_EXTRACT(r.stats_json,'$.kda[4]'),'kast',JSON_EXTRACT(r.stats_json,'$.kast_rounds'),
+              'grenades',JSON_OBJECT('he_thrown',JSON_EXTRACT(r.stats_json,'$.utility_thrown[0]'),
+                'flash_thrown',JSON_EXTRACT(r.stats_json,'$.utility_thrown[1]'),'fire_thrown',JSON_EXTRACT(r.stats_json,'$.utility_thrown[3]'),
+                'he_damage',JSON_EXTRACT(r.stats_json,'$.utility[0]'),'fire_damage',JSON_EXTRACT(r.stats_json,'$.utility[1]'),
+                'enemies_flashed',JSON_EXTRACT(r.stats_json,'$.profile[13]'),'blind_ms',JSON_EXTRACT(r.stats_json,'$.profile[14]'))) AS CHAR) AS performance
           FROM player_round_phase_stats r JOIN match_players mp ON mp.id=r.match_player_id
           JOIN players p ON p.id=mp.player_id WHERE r.match_id=\(bind:matchID)
           AND r.round_number IN (\(binds:selection.rounds))
@@ -226,6 +230,7 @@ func analyzerRoutes(_ app: Application) throws {
         for row in performanceRows {
             var value = try replayDecode(row.decode(column:"performance",as:String.self),as:ReplayJSON.self).object ?? [:]
             value["player"] = .string(try row.decode(column:"player",as:String.self))
+            if let grenades = value["grenades"]?.object,grenades.values.allSatisfy({ $0 == .null }) { value.removeValue(forKey:"grenades") }
             guard ["kills","deaths","assists","damage","kast"].allSatisfy({ value[$0]?.integer != nil }) else { continue }
             performance[try row.decode(column:"round_number",as:Int.self),default:[]].append(.object(value))
         }

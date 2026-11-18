@@ -20,7 +20,7 @@
       if (key) this.lifetimes[key] = n*1000;
     }
     getRound(start) {
-      if (!this.rounds.has(start)) this.rounds.set(start, { tracks:new Map(), firing:new Map(), deaths:[], utility:[], projectiles:new Map(), observed:new Map(), lastTick:-Infinity, lastUtilityTick:-Infinity });
+      if (!this.rounds.has(start)) this.rounds.set(start, { tracks:new Map(), firing:new Map(), deaths:[], utility:[], outcomes:[], projectiles:new Map(), observed:new Map(), lastTick:-Infinity, lastUtilityTick:-Infinity });
       return this.rounds.get(start);
     }
     countSample() { if (++this.samples > 1000000) throw new Error('Replay exceeds the one-million-position capture limit.'); }
@@ -69,6 +69,39 @@
           from:killer?[Math.round(killer.x),Math.round(killer.y),Math.round(killer.z)]:null,
           weapon:String(weapon||'world'),headshot:Boolean(headshot)});
       }
+    }
+    outcome(kind,tick,start,interval,details) {
+      if(!Number.isFinite(start)||tick<start||!details.player||!details.victim||!['flash','damage'].includes(kind)||!['Flash','HE','Fire'].includes(details.type)||kind==='flash'&&details.type!=='Flash'||kind==='damage'&&details.type==='Flash')return;
+      if(kind==='flash'&&(!Number.isFinite(details.duration)||details.duration<0)||kind==='damage'&&(!Number.isFinite(details.damage)||details.damage<0))return;
+      if(++this.events>100000)throw new Error('Replay exceeds the combat/utility-event capture limit.');
+      this.getRound(start).outcomes.push({...details,kind,time:Math.round((tick-start)*interval*1000)});
+    }
+    effectiveness(round,duration) {
+      const values=new Map(),victims=new Map();
+      for(const effect of round.utility)if(['Flash','HE','Fire'].includes(effect.type)) {
+        values.set(effect,{enemies_flashed:effect.type==='Flash'&&effect.player?0:null,
+          enemy_blind_ms:effect.type==='Flash'&&effect.player?0:null,enemy_damage:effect.type!=='Flash'&&effect.player?0:null});
+        victims.set(effect,new Map());
+      }
+      for(const hit of round.outcomes) {
+        if(hit.time>duration)continue;
+        const nearby=round.utility.filter(e=>e.player===hit.player&&e.type===hit.type&&hit.time>=e.time-250&&hit.time<=e.time+(e.type==='Fire'?20000:1000));
+        const active=nearby.filter(e=>e.type==='Fire'?hit.time<=(e.end??e.time+this.lifetimes[e.icon==='incgrenade'?'Incendiary':'Fire'])+250:Math.abs(hit.time-e.time)<=250);
+        const candidates=Number.isInteger(hit.entity)?active.filter(e=>e._entity===hit.entity):active;
+        if(candidates.length!==1) {
+          // Never assign the same damage to both overlapping fires, or choose
+          // the nearest grenade when the event identity is missing/ambiguous.
+          for(const effect of candidates.length?candidates:nearby){const value=values.get(effect);if(!value)continue;
+            if(hit.kind==='flash'){value.enemies_flashed=null;value.enemy_blind_ms=null;}else value.enemy_damage=null;}
+          continue;
+        }
+        const effect=candidates[0],value=values.get(effect);if(!value)continue;
+        if(hit.kind==='flash') {
+          const seen=victims.get(effect);seen.set(hit.victim,Math.max(seen.get(hit.victim)||0,hit.duration||0));
+          if(value.enemies_flashed!==null){value.enemies_flashed=seen.size;value.enemy_blind_ms=[...seen.values()].reduce((sum,n)=>sum+n,0);}
+        } else if(value.enemy_damage!==null)value.enemy_damage+=hit.damage;
+      }
+      return values;
     }
     effect(round,time,info) {
       let effect = round.utility.find(e => e.type === info.type && e._entity === info.entity && e.end === null);
@@ -159,8 +192,12 @@
         const duration = timing.duration_ms;
         const tracks = [...data.tracks].map(([player,samples])=>({player,samples:samples.filter(s=>s[0]<=duration)})).filter(t=>t.samples.length);
         if (!tracks.length) continue;
-        const utility = data.utility.filter(e=>e.time<=duration).map(({_entity,...e})=>({ ...e,player:owner(e.player),
-          end:Math.min(duration,e.end??e.time+(this.lifetimes[e.icon==='incgrenade'?'Incendiary':e.type]||1000)) })).sort((a,b)=>a.time-b.time);
+        const effectiveness=this.effectiveness(data,duration);
+        const utility = data.utility.filter(e=>e.time<=duration).map(original=>{
+          const {_entity,...e}=original;
+          return {...e,player:owner(e.player),end:Math.min(duration,e.end??e.time+(this.lifetimes[e.icon==='incgrenade'?'Incendiary':e.type]||1000)),
+            ...(effectiveness.has(original)?{effectiveness:effectiveness.get(original)}:{})};
+        }).sort((a,b)=>a.time-b.time);
         const projectiles = [...data.projectiles.values()].map(p=>({...p,player:owner(p.player),samples:p.samples.filter(s=>s[0]<=duration),
           end:Math.min(duration,p.end??duration)})).filter(p=>p.samples.length);
         const firing=[...data.firing].map(([player,samples])=>({player:owner(player),samples:samples.filter(s=>s[0]<=duration)})).filter(t=>t.player&&t.samples.length);

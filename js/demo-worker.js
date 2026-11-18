@@ -178,7 +178,7 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-8");
+    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-9");
     const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay), Boolean(event.data.includeStats));
     self.postMessage(event.data.captureReplay && !event.data.includeStats
       ? { type: "result", replay: parsed.replay }
@@ -2251,6 +2251,8 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
     if ((attackerTeam === 2 || attackerTeam === 3) &&
         (victimTeam === 2 || victimTeam === 3) && attackerTeam !== victimTeam) {
       attacker.enemiesFlashed += 1;
+      if(replayCapture&&round.live&&!round.finished)collectReplay(()=>replayCapture.outcome('flash',tick,round.liveStartTick,tickInterval,
+        {player:replayPlayerId(attacker),victim:`user:${victimId}`,type:'Flash',entity:Number.isInteger(event.entityid)&&event.entityid>0?event.entityid:null,duration:Math.round(duration*1000)}));
     }
   }
 
@@ -2316,6 +2318,8 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
       }
     }
     const weapon = String(event.weapon || "").toLocaleLowerCase();
+    if(replayCapture&&round.live&&!round.finished&&damage>0&&['hegrenade','inferno','molotov','incgrenade'].includes(weapon))collectReplay(()=>replayCapture.outcome('damage',tick,round.liveStartTick,tickInterval,
+      {player:replayPlayerId(row),victim:`user:${victimId}`,type:weapon==='hegrenade'?'HE':'Fire',entity:null,damage:Math.round(damage)}));
     if (weapon === "hegrenade") row.heDamage += damage;
     if (weapon === "inferno" || weapon === "molotov" || weapon === "incgrenade") row.fireDamage += damage;
   }
@@ -2901,7 +2905,9 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
   };
   let replay;
   collectReplay(() => { replay = replayCapture.finish(result,playerRoundSlices.map(slice=>({round:slice.round,player:replayPlayerId(slice.row),side:slice.side,
-    result:slice.result,buy:slice.buy,enemy_buy:slice.opponentBuy,hero:slice.hero,performance:{kills:slice.stats.kills,deaths:slice.stats.deaths,assists:slice.stats.assists,damage:slice.stats.damage,kast:slice.stats.kastRounds}}))); });
+    result:slice.result,buy:slice.buy,enemy_buy:slice.opponentBuy,hero:slice.hero,performance:{kills:slice.stats.kills,deaths:slice.stats.deaths,assists:slice.stats.assists,damage:slice.stats.damage,kast:slice.stats.kastRounds,
+      grenades:{he_thrown:slice.stats.heGrenadesThrown,flash_thrown:slice.stats.flashbangsThrown,fire_thrown:slice.stats.fireGrenadesThrown,
+        he_damage:slice.stats.heDamage,fire_damage:slice.stats.fireDamage,enemies_flashed:slice.stats.enemiesFlashed,blind_ms:null}}}))); });
   return { result, diagnostics, replay, replayError };
 }
 

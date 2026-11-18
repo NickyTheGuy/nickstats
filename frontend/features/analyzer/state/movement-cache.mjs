@@ -64,7 +64,7 @@ export function createMovementCache({maxSamples=2000000,maxBytes=MAX_REPLAY_BYTE
       const result=[];let activeSamples=0,activeBytes=0;
       for(const job of plan)for(const round of job.rounds) {
         const cached=slices(job,round);if(cached.some(entry=>!entry))return null;
-        const output={number:round.number,duration:round.duration,winner:round.winner,match_id:job.replay.matchID};
+        const output={number:round.number,duration:round.duration,winner:round.winner,match_id:job.replay.matchID,match_uid:job.replay.match_uid};
         for(const field of fields)output[field]=cached.flatMap(entry=>entry.slice[field]);
         output.utility.sort((a,b)=>a.time-b.time);
         const deaths=new Map();for(const entry of cached)for(const event of entry.slice.deaths)deaths.set(JSON.stringify(event),event);

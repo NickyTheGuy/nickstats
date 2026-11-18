@@ -48,6 +48,11 @@ export function validateReplay(input) {
         if (!finite(e.end,round.duration) || e.end<e.time || !finite(e.radius,512) || e.radius<0 || ![0,2,3].includes(e.side) || !GRENADE_ICONS.includes(e.icon) || typeof e.estimated!=='boolean') fail('invalid utility lifetime or geometry.');
         Object.assign(effect,{end:e.end,radius:e.radius,side:e.side,icon:e.icon,estimated:e.estimated});
       }
+      if(e.effectiveness!=null) {
+        const keys=['enemies_flashed','enemy_damage','enemy_blind_ms'];
+        if(typeof e.effectiveness!=='object'||Array.isArray(e.effectiveness)||!keys.every(key=>e.effectiveness[key]===null||Number.isSafeInteger(e.effectiveness[key])&&e.effectiveness[key]>=0&&e.effectiveness[key]<1000000000))fail('invalid grenade effectiveness.');
+        effect.effectiveness=Object.fromEntries(keys.map(key=>[key,e.effectiveness[key]]));
+      }
       return effect;
     });
     const output = {number:round.number,duration:round.duration,winner:round.winner,tracks,utility};
@@ -98,7 +103,13 @@ export function validateReplay(input) {
       const seen=new Set();
       output.performance=round.performance.map(p=>{
         if(!p||!ids.has(p.player)||seen.has(p.player)||!['kills','deaths','assists','damage','kast'].every(key=>Number.isSafeInteger(p[key])&&p[key]>=0&&p[key]<1000000000)||p.kast>1)fail('invalid player round performance.');
-        seen.add(p.player);return {player:p.player,kills:p.kills,deaths:p.deaths,assists:p.assists,damage:p.damage,kast:p.kast};
+        seen.add(p.player);const performance={player:p.player,kills:p.kills,deaths:p.deaths,assists:p.assists,damage:p.damage,kast:p.kast};
+        if(p.grenades!=null) {
+          const keys=['he_thrown','flash_thrown','fire_thrown','he_damage','fire_damage','enemies_flashed','blind_ms'];
+          if(typeof p.grenades!=='object'||Array.isArray(p.grenades)||!keys.every(key=>p.grenades[key]==null||Number.isSafeInteger(p.grenades[key])&&p.grenades[key]>=0&&p.grenades[key]<1000000000))fail('invalid grenade round totals.');
+          performance.grenades=Object.fromEntries(keys.map(key=>[key,p.grenades[key]??null]));
+        }
+        return performance;
       });
     }
     return output;

@@ -4,13 +4,14 @@ import ToggleButton from '../../shared/components/buttons/ToggleButton.jsx';
 import { pointerToRadar,areaBounds,areaOnScreen } from './state/area-selection.mjs';
 import { onLevel, positionAt, worldToRadar } from './state/replay.mjs';
 
-import { drawUtility } from './state/draw-utility.mjs';
+import { drawUtility,drawUtilityHistory } from './state/draw-utility.mjs';
 import { drawAim,drawCombat } from './state/combat.mjs';
 import { useGrenadeIcons,useCombatIcons } from './hooks.js';
 import useElementSize from '../../shared/hooks/useElementSize.js';
 import CombatTooltips from './CombatTooltips.jsx';
+import UtilityTooltips from './UtilityTooltips.jsx';
 
-export default function ReplayMap({ map, level, rounds, players, selected, colors, time, side, utilities, combatLayers, nameTags=false, area, areaSummary, onArea=()=>{}, onAreaStart=()=>{} }) {
+export default function ReplayMap({ map, level, rounds, players, selected, colors, time, side, utilities, combatLayers, nameTags=false, selectionTarget='Players', onSelectionTarget=()=>{}, area, areaSummary, onArea=()=>{}, onAreaStart=()=>{} }) {
   const icons=useGrenadeIcons(),combatIcons=useCombatIcons(rounds);
   const canvas = useRef(null), drag = useRef(null);
   const size=useElementSize(canvas);
@@ -60,9 +61,10 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
     // Combat markers sit above every overlaid round's living-player markers.
     ctx.globalAlpha = rounds.length > 1 ? 0.85 : 1;
     for(const round of rounds){ctx.globalAlpha=areaSummary?(areaSummary.matched.has(round)?.9:.12):rounds.length>1?.85:1;
-      drawCombat(ctx,round,{time,map,level,selected:selectedSet,side,colors,layers:combatLayers,icons:combatIcons,unit:markerUnit});}
+      drawCombat(ctx,round,{time,map,level,selected:selectedSet,side,colors,layers:combatLayers,icons:combatIcons,unit:markerUnit,preferredRole:selectionTarget==='Kills'?'kill':selectionTarget==='Deaths'?'death':null});
+      drawUtilityHistory(ctx,round,{time,map,level,selected:selectedSet,side,utilities,icons,target:selectionTarget});}
     ctx.globalAlpha = 1;
-  }, [image,map,level,rounds,players,selected,colors,time,side,utilities,view,icons,combatLayers,combatIcons,markerUnit,nameTags,areaSummary]);
+  }, [image,map,level,rounds,players,selected,colors,time,side,utilities,view,icons,combatLayers,combatIcons,markerUnit,nameTags,areaSummary,selectionTarget]);
   const bounds=preview?preview.bounds:area?.level===level.id?area.bounds:null;
   const rectangle=bounds?areaOnScreen(bounds,size,view):null;
   function pointerDown(event) {
@@ -91,9 +93,13 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
     drag.current=null;setPreview(null);if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
   }
   function cancel(){drag.current=null;setPreview(null);}
+  function selectMarker({target,x,y}) {
+    const radius=12*markerUnit,bounds=areaBounds({x:x-radius,y:y-radius},{x:x+radius,y:y+radius});if(!bounds)return;
+    onAreaStart();onSelectionTarget(target);onArea({level:level.id,bounds});
+  }
   return <div className="analyzer-map">
     <div className="analyzer-map-zoom" role="group" aria-label="Map zoom">
-      <ToggleButton selected={gestureMode==='select'} aria-label="Select map area" onClick={()=>setGestureMode('select')}>Select</ToggleButton>
+      <ToggleButton selected={gestureMode==='select'} aria-label="Select map area" onClick={()=>setGestureMode('select')}>{selectionTarget==='Players'?'Select':`Select ${selectionTarget}`}</ToggleButton>
       <ToggleButton selected={gestureMode==='pan'} aria-label="Pan map" disabled={view.zoom===1} onClick={()=>setGestureMode('pan')}>Pan</ToggleButton>
       <Button aria-label="Zoom out" disabled={view.zoom===1} onClick={()=>zoom(-0.5)}>−</Button>
       <Button aria-label="Reset map view" onClick={()=>{setView({zoom:1,x:0,y:0});setGestureMode('select');}}>{view.zoom}×</Button>
@@ -103,7 +109,8 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
       onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={cancel} onLostPointerCapture={cancel}
       tabIndex={0} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();cancel();onArea(null);}}}
       width="1024" height="1024" role="img" aria-label={`2D round playback, ${level.id} level. Drag to select a map area. Shift-drag or choose Pan to move a zoomed map. Escape clears selection.`} />
-    <CombatTooltips map={map} level={level} rounds={rounds} selected={selected} players={players} time={time} side={side} view={view} layers={combatLayers} unit={markerUnit} />
+    <CombatTooltips map={map} level={level} rounds={rounds} selected={selected} players={players} time={time} side={side} view={view} layers={combatLayers} unit={markerUnit} onSelectMarker={selectMarker} preferredRole={selectionTarget==='Kills'?'kill':selectionTarget==='Deaths'?'death':null} />
+    <UtilityTooltips map={map} level={level} rounds={rounds} selected={selected} players={players} time={time} side={side} view={view} utilities={utilities} target={selectionTarget} onSelectMarker={selectMarker} />
     {rectangle&&<div className="analyzer-area-rectangle" style={rectangle} />}
     {!image && <span className="analyzer-map-status" role="status">{imageError ? 'Radar image could not load.' : 'Loading radar…'}</span>}
   </div>;

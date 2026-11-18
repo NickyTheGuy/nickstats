@@ -14,7 +14,7 @@ export async function openReplayFile(file, { signal, onStatus = () => {} }) {
   const data = await file.arrayBuffer();
   signal.throwIfAborted();
   return new Promise((resolve, reject) => {
-    const worker = new Worker('./js/demo-worker.js?v=20261118-8');
+    const worker = new Worker('./js/demo-worker.js?v=20261118-9');
     const finish = (error, replay) => { worker.terminate(); signal.removeEventListener('abort', abort); error ? reject(error) : resolve(replay); };
     const abort = () => finish(new DOMException('Cancelled', 'AbortError'));
     signal.addEventListener('abort', abort, { once: true });

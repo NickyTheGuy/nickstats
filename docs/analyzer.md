@@ -168,3 +168,45 @@ filters. They continue selecting matches before round filtering and reuse cached
 movement. Name tags, immediately after player selection, default to Off. The new
 UI and server performance records need the updated frontend and backend; no new
 database migration is required.
+
+## Event and grenade cohorts
+
+Selection target in Players & rounds chooses Players, Kills, Deaths, Smokes,
+Flashbangs, HE grenades, Fire grenades or Decoys. This target controls what a box
+selects independently of passing players. Choosing a target enables its marker
+layer if needed. Clicking a visible kill/death or grenade marker also chooses its
+target type and selects a small geographic area around that event. Hover details
+remain available.
+
+Kills select the killer's recorded position; deaths select the victim's death
+position. Grenades select their detonation/landing point and the thrower's round
+outcome. Only events that have happened by the playback time and belong to the
+selected players/side participate. Choosing a grenade type keeps its expired
+markers visible as grenade icons; active smoke/fire ranges retain their actual
+lifetimes. Other utility still follows the existing visibility controls. Whole
+round outcomes count each actor once even if they had multiple matching events;
+matching grenades count individually for per-grenade averages.
+
+The outcome card reports grenade count, enemies flashed and enemy blind seconds
+per flashbang, or enemy damage per HE/fire grenade. New demo captures correlate
+flash events by grenade entity where present, otherwise by an unambiguous
+thrower/type/time match. Damage uses the parser's corrected enemy health damage;
+self/team damage is excluded. Overlapping fires from the same thrower and other
+ambiguous matches remain unavailable instead of being assigned to an arbitrary
+grenade. Repeated blind updates for the same victim/flash use one enemy and the
+longest recorded duration. True zero-effect grenades remain zero.
+
+Older captures can use existing round utility totals **only** when the saved throw
+count and captured effect count both prove there was a single grenade of that
+type from that player. Other old effectiveness values display —. Event selection
+and focusing work with existing captures; complete per-grenade effectiveness for
+multiple throws needs a new movement capture. No database migration is required.
+
+Focus rounds freezes the selected distinct match/round IDs, clears the geographic
+box and rewinds playback to view that cohort in full. The other match/round/player
+filters remain in effect. Clear Round Focus in Players & rounds removes that
+restriction; Match mode also restores its prior explicit round selection. Manual
+Match round edits replace the focused selection. Focus uses already cached
+movement and does not re-download a subset.
+
+Find Matches is left-justified and vertically aligned within its action row.

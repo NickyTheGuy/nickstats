@@ -98,6 +98,10 @@ try:
     both = request('/analyzer/captures/'+capture+'/selection', {'rounds':[1,2], 'players':['steam:1','steam:3']})
     assert [r['number'] for r in both['rounds']] == [1,2]
     assert all(len(r['tracks']) == 2 for r in both['rounds'])
+    sql("UPDATE player_round_phase_stats SET stats_json=JSON_SET(stats_json,'$.utility_thrown',JSON_ARRAY(0,1,0,1,0),'$.utility',JSON_ARRAY(0,80),'$.profile',JSON_ARRAY(0,0,0,0,0,0,0,0,0,0,0,0,0,2,1500,0)) WHERE match_player_id=1 AND round_number=1")
+    enriched = request('/analyzer/captures/'+capture+'/selection', {'rounds':[1], 'players':['steam:1']})
+    grenade = enriched['rounds'][0]['performance'][0]['grenades']
+    assert grenade['flash_thrown'] == 1 and grenade['enemies_flashed'] == 2 and grenade['fire_damage'] == 80 and grenade['blind_ms'] == 1500
     request(f'/analyzer/captures/{capture}/rounds/1/parts/0', {'data':'bad'},method='PUT',expected=409)
     assert sql("SELECT CONCAT(played_at,'|',played_at_source) FROM matches WHERE id=1") == '2026-11-01 12:00:00|faceit_history'
     assert sql("SELECT state FROM account_manual_filter_states WHERE filter_id='tag' AND match_id=1") == 'true'

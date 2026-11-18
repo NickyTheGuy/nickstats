@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Button from '../buttons/Button.jsx';
 
-export default function TooltipButton({label,content,children,...props}) {
+export default function TooltipButton({label,content,children,onClick,...props}) {
   const trigger=useRef(null),id=useId(),[open,setOpen]=useState(false),[position,setPosition]=useState({});
   function locate() {
     const box=trigger.current.getBoundingClientRect(),left=Math.max(10,Math.min(innerWidth-270,box.left));
@@ -19,6 +19,6 @@ export default function TooltipButton({label,content,children,...props}) {
   },[open]);
   return <><Button {...props} ref={trigger} aria-label={label} aria-describedby={open?id:undefined}
     onPointerEnter={event=>{if(event.pointerType!=='touch')show();}} onPointerLeave={()=>{if(document.activeElement!==trigger.current)setOpen(false);}}
-    onFocus={show} onBlur={()=>setOpen(false)} onClick={show} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();setOpen(false);}}}>{children}</Button>
+    onFocus={show} onBlur={()=>setOpen(false)} onClick={event=>{onClick?.(event);show();}} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();setOpen(false);}}}>{children}</Button>
     {open&&createPortal(<div id={id} role="tooltip" className="hover-tooltip" style={position}>{content}</div>,document.fullscreenElement||document.webkitFullscreenElement||document.body)}</>;
 }

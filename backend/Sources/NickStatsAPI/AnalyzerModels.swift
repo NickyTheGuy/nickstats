@@ -148,6 +148,9 @@ func replayRoundSummary(_ round: ReplayJSON, players: Set<String>) throws -> (Re
                       [.bool(true),.bool(false)].contains(e["headshot"]),
                       e["from"] == .null || (e["from"].array?.count == 3 && e["from"].array!.allSatisfy({ finite($0) })) else { throw replayBad("invalid death.") }
             } else {
+                if e["effectiveness"] != .null {
+                    guard let metrics = e["effectiveness"].object,["enemies_flashed","enemy_damage","enemy_blind_ms"].allSatisfy({ metrics[$0] != nil && (e["effectiveness"][$0] == .null || e["effectiveness"][$0].integer.map { $0 >= 0 } == true) }) else { throw replayBad("invalid grenade effectiveness.") }
+                }
                 guard owner(e["player"],optional:true), types.contains(e["type"].string ?? ""), icons.contains(e["icon"].string ?? ""),
                       [0,2,3].contains(e["side"].integer ?? -1), let end = e["end"].number, (time...duration).contains(end),
                       let radius = e["radius"].number, (0...512).contains(radius),
@@ -166,6 +169,9 @@ func replayRoundSummary(_ round: ReplayJSON, players: Set<String>) throws -> (Re
         guard let values = round["performance"].array, values.count <= players.count else { throw replayBad("invalid round performance.") }
         var seen = Set<String>()
         for p in values {
+            if p["grenades"] != .null {
+                guard p["grenades"].object != nil,["he_thrown","flash_thrown","fire_thrown","he_damage","fire_damage","enemies_flashed","blind_ms"].allSatisfy({ p["grenades"][$0] == .null || p["grenades"][$0].integer.map { $0 >= 0 } == true }) else { throw replayBad("invalid grenade round totals.") }
+            }
             guard owner(p["player"]),let id = p["player"].string,seen.insert(id).inserted,
                   ["kills","deaths","assists","damage","kast"].allSatisfy({ p[$0].integer.map { $0 >= 0 } == true }),
                   (p["kast"].integer ?? 2) <= 1 else { throw replayBad("invalid player round performance.") }

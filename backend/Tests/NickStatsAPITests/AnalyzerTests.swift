@@ -74,3 +74,17 @@ private func analyzerRound() throws -> ReplayJSON {
     var invalid = stats.object!;invalid["kast"] = .number(2);object["performance"] = .array([.object(invalid)])
     #expect(throws:(any Error).self) { try replayRoundSummary(.object(object),players:["steam:1","steam:2"]) }
 }
+
+
+@Test func grenadeEffectivenessAndNullableRoundTotalsValidateWithoutLosingZero() throws {
+    let round = try analyzerRound()
+    let utility = try replayDecode("""
+    {"type":"Flash","player":"steam:1","side":3,"time":0,"end":1000,"x":0,"y":0,"z":0,"icon":"flashbang","radius":0,"estimated":false,
+     "effectiveness":{"enemies_flashed":0,"enemy_damage":null,"enemy_blind_ms":0}}
+    """,as:ReplayJSON.self)
+    var object = round.object!;object["utility"] = .array([utility])
+    _ = try replayRoundSummary(.object(object),players:["steam:1","steam:2"])
+    #expect(projectReplayRound(.object(object),players:["steam:1"])["utility"].array?.first?["effectiveness"]["enemies_flashed"].integer == 0)
+    var invalid = utility.object!;invalid["effectiveness"] = .object([:]);object["utility"] = .array([.object(invalid)])
+    #expect(throws:(any Error).self) { try replayRoundSummary(.object(object),players:["steam:1","steam:2"]) }
+}

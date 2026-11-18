@@ -1,3 +1,4 @@
+import { utilitySelectionEvents } from './selection-targets.mjs';
 import { onLevel, sampleIndex, worldToRadar } from './replay.mjs';
 import { effectEnd, projectilePosition, utilityVisible, UTILITY_COLORS, UTILITY_ICONS } from './utility.mjs';
 
@@ -35,5 +36,13 @@ export function drawUtility(ctx,round,{time,map,level,selected,side,utilities,ic
       ctx.fillStyle=color;ctx.strokeStyle=color;ctx.lineWidth=1.5;
       ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.globalAlpha=alpha*0.22;ctx.fill();ctx.globalAlpha=alpha;ctx.stroke();
     } else drawIcon(ctx,icons[effect.icon||UTILITY_ICONS[effect.type]],x,y,color);
+  }
+}
+
+export function drawUtilityHistory(ctx,round,{time,map,level,selected,side,utilities,icons,target}) {
+  for(const effect of utilitySelectionEvents(round,{time,level,selected,side,utilities,target})) {
+    if(time<effectEnd(effect,round.duration))continue;
+    const [x,y]=worldToRadar(map,effect.x,effect.y);
+    drawIcon(ctx,icons[effect.icon||UTILITY_ICONS[effect.type]],x,y,UTILITY_COLORS[effect.type]);
   }
 }
