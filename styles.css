@@ -3939,7 +3939,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-round-filter .side-toggle button { font-size: 12px; min-width: 34px; padding: 4px 8px; }
 .analyzer-half .selection-chip { min-width: 27px; }
 .analyzer-control-panel { max-height: min(65vh,calc(100cqh - 150px)); }
-.analyzer-playback { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 3; margin: 0; display: grid; grid-template-columns: 32px 56px minmax(60px,1fr) auto 72px; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: rgba(250,250,255,.95); box-shadow: var(--shadow); }
+.analyzer-playback { position: absolute; left: 10px; right: 10px; bottom: 10px; z-index: 3; margin: 0; display: grid; grid-template-columns: 56px minmax(60px,1fr) auto 72px 42px; align-items: center; gap: 8px; padding: 8px; border: 1px solid var(--line); border-radius: 9px; background: rgba(250,250,255,.95); box-shadow: var(--shadow); }
 .analyzer-playback .button { padding: 6px 4px; font-size: 12px; }
 .analyzer-playback input[type=range] { min-width: 0; width: 100%; margin: 0; accent-color: var(--accent); }
 .analyzer-playback .graph-option-field { min-width: 0; }
@@ -3947,9 +3947,9 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-playback output { font-variant-numeric: tabular-nums; font-size: 12px; white-space: nowrap; }
 .analyzer-playback .stats-dropdown-menu { top: auto; bottom: calc(100% + 6px); min-width: 65px; }
 @container (max-width: 500px) {
-  .analyzer-playback { grid-template-columns: 32px 50px minmax(0,1fr) 72px; gap: 6px; }
+  .analyzer-playback { grid-template-columns: 50px minmax(0,1fr) 72px 42px; gap: 6px; }
   .analyzer-playback output { grid-column: 1 / -1; grid-row: 2; font-size: 11px; }
-  .analyzer-playback .graph-option-field { grid-column: 4; grid-row: 1; }
+  .analyzer-playback .graph-option-field { grid-column: 3; grid-row: 1; }
 }
 .combat-tooltip-layer { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
 .combat-hit-target { position: absolute; pointer-events: auto; border: 0; padding: 0; background: transparent; cursor: help; border-radius: 50%; }
@@ -3984,3 +3984,12 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .ui-fullscreen-target { width: 100vw !important; height: 100dvh !important; max-width: none !important; max-height: none !important; min-height: 0 !important; margin: 0 !important; border-radius: 0 !important; resize: none !important; }
 .ui-fullscreen-fallback { position: fixed !important; inset: 0 !important; z-index: 9000; }
+
+/* Icon-only controls center geometry in their own grid cell, independent of
+   text line boxes and feature-specific button padding. Size the control and
+   glyph separately through IconButton's controlSize and size props. */
+.ui-button.ui-icon-button { display: inline-grid; place-items: center; gap: 0; line-height: 0; padding: var(--icon-button-padding,6px); }
+.ui-icon-button > svg { grid-area: 1 / 1; align-self: center; justify-self: center; }
+.ui-button.ui-icon-button[data-control-size] { inline-size: var(--icon-button-size); block-size: var(--icon-button-size); min-inline-size: var(--icon-button-size); min-block-size: var(--icon-button-size); padding: 0; }
+.analyzer-playback .playback-fullscreen { grid-column: 5; grid-row: 1; }
+@container (max-width: 500px) { .analyzer-playback .playback-fullscreen { grid-column: 4; } }

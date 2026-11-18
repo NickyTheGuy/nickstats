@@ -108,7 +108,7 @@ guessing how much of Nuke's dimmed upper-map background to crop from its lower
 radar; no map calibration or image cropping is changed.
 Players/rounds/utility controls expand over the map and scroll vertically.
 Playback is an overlay pinned inside the visible part of the viewer while the
-page scrolls. Its first button enters/exits fullscreen instead of restarting.
+page scrolls. Fullscreen is the last playback control, to the right of speed.
 `FullscreenButton` / `useFullscreen` share a native/prefixed fullscreen controller;
 unsupported or rejected requests use a fixed viewport-sized viewer with Escape
 exit. Native exit events, route changes, visibility changes and unmount clean up
@@ -195,7 +195,13 @@ player context together; they cannot mix one person's win with another person's
 full buy. A round qualifies if any selected player satisfies every condition.
 Filters narrow the chosen rounds without destroying the underlying manual
 selection; resetting filters restores that selection. Half/preset operations
-apply to currently eligible rounds. Missing buy data stays unknown and cannot
+apply to currently eligible rounds. Own and enemy buy filters use the shared
+`MultiToggleGroup`: Full + Force includes either category, while the own/enemy
+filters and side/result conditions still combine with AND for one player context.
+Hero can be combined with normal buy classes. All clears specific selections;
+deselecting the final specific choice returns to All. Side and result remain
+single-choice controls because All already covers their only combination.
+Missing buy data stays unknown and cannot
 match a specific buy filter. Legacy captures can derive win/loss from their
 winner/recorded side, but require recapturing for buy classifications. No new
 API/database data is fetched or stored by these filters.
@@ -242,7 +248,13 @@ default; start/end where appropriate). The shared low-specificity CSS establishe
 flex centering and a consistent line box, while intentional feature layouts such
 as table headers can still override it. `IconButton` uses centered SVG geometry;
 `CloseButton` and `FullscreenButton` both reuse it instead of positioning text
-symbols with asymmetric padding.
+symbols with asymmetric padding. Icon-only controls own a grid-centered cell and
+symmetric padding, independently of text-button line metrics. `size` sets the SVG
+glyph size; optional `controlSize` sets a square control in pixels or a CSS length.
+Fullscreen uses a 42px square with an independently centered glyph. Both its SVG
+viewport and the drawn path bounds are checked for centering, in normal and exit
+states, on desktop and mobile. Playback grid placement is separate from icon
+alignment, so moving the control cannot change its internal geometry.
 
 `Dropdown` owns the shared summary trigger alignment. `OptionDropdown` centers
 its label/caret group by default, with the caret in flow as SVG rather than an

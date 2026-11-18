@@ -2,14 +2,16 @@ import { useState } from 'react';
 import Button from '../../shared/components/buttons/Button.jsx';
 import ToggleChips from '../../shared/components/forms/ToggleChips.jsx';
 import ToggleGroup from '../../shared/components/forms/ToggleGroup.jsx';
+import MultiToggleGroup from '../../shared/components/forms/MultiToggleGroup.jsx';
 import RoundPicker from './RoundPicker.jsx';
 import { COMBAT_LAYERS } from './state/combat.mjs';
 import { UTILITY_TYPES } from './state/replay.mjs';
 import { UTILITY_ICONS } from './state/utility.mjs';
 
 const buys=[['all','All'],['full','Full'],['force','Force'],['eco','Eco'],['pistol','Pistol']];
-function RoundFilter({label,value,options,onChange}) {
-  return <div className="analyzer-round-filter"><span>{label}</span><ToggleGroup label={label} options={options} value={value} onChange={onChange} className="side-toggle" /></div>;
+function RoundFilter({label,value,options,onChange,multiple=false}) {
+  const Choices=multiple?MultiToggleGroup:ToggleGroup;
+  return <div className="analyzer-round-filter"><span>{label}</span><Choices label={label} options={options} value={value} onChange={onChange} className="side-toggle" /></div>;
 }
 export default function AnalyzerControls({players,selectedPlayers,setSelectedPlayers,colors,utilities,setUtilities,side,onSide,roundPicker,selectedCount,combatLayers,setCombatLayers,filters,setFilters}) {
   const [open,setOpen]=useState(false);
@@ -21,8 +23,8 @@ export default function AnalyzerControls({players,selectedPlayers,setSelectedPla
       <ToggleChips label="Analyzer players" className="analyzer-players" options={players.map(p=>[p.id,p.name,{style:{'--player-color':colors.get(p.id)},className:'analyzer-player',title:p.name}])} selected={selectedPlayers} onChange={(id,checked)=>toggle(setSelectedPlayers,id,checked)} />
       <RoundFilter label="Player side" value={String(side)} options={[["0","All"],["3","CT"],["2","T"]]} onChange={v=>onSide(Number(v))} />
       <RoundFilter label="Round result" value={filters.result} options={[["all","All"],["win","Won"],["loss","Lost"]]} onChange={value=>setFilters(f=>({...f,result:value}))} />
-      <RoundFilter label="Your buy" value={filters.buy} options={[...buys,['hero','Hero']]} onChange={value=>setFilters(f=>({...f,buy:value}))} />
-      <RoundFilter label="Enemy buy" value={filters.enemyBuy} options={buys} onChange={value=>setFilters(f=>({...f,enemyBuy:value}))} />
+      <RoundFilter multiple label="Your buy" value={filters.buy} options={[...buys,['hero','Hero']]} onChange={value=>setFilters(f=>({...f,buy:value}))} />
+      <RoundFilter multiple label="Enemy buy" value={filters.enemyBuy} options={buys} onChange={value=>setFilters(f=>({...f,enemyBuy:value}))} />
       <strong>Utility</strong><ToggleChips label="Utility markers" options={UTILITY_TYPES.map(t=>[t,<><img src={`./assets/grenades/${UTILITY_ICONS[t]}.svg`} alt="" />{t}</>])} selected={utilities} onChange={(type,checked)=>toggle(setUtilities,type,checked)} />
       <strong>Combat</strong><ToggleChips label="Combat layers" options={COMBAT_LAYERS.map(layer=>[layer,layer])} selected={combatLayers} onChange={(layer,checked)=>toggle(setCombatLayers,layer,checked)} />
       <strong>Rounds</strong><RoundPicker {...roundPicker} />

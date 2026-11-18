@@ -3,8 +3,8 @@ import useFullscreen from '../../hooks/useFullscreen.js';
 
 export default function FullscreenButton({getTarget,className=''}) {
   const {active,busy,toggle}=useFullscreen(getTarget);
-  return <IconButton label={active?'Exit fullscreen':'Enter fullscreen'} className={className}
+  return <IconButton controlSize={42} label={active?'Exit fullscreen':'Enter fullscreen'} className={className}
     aria-pressed={active} disabled={busy} onClick={toggle}>
-    <path d={active?'M9 3v6H3m18 0h-6V3M3 15h6v6m6 0v-6h6':'M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6'} />
+    <path d={active?'M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5':'M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5'} />
   </IconButton>;
 }

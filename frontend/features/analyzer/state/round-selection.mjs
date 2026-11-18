@@ -32,10 +32,14 @@ export function replaySampleCount(replay) {
   return replay.rounds.reduce((sum,round)=>sum+round.tracks.reduce((n,t)=>n+t.samples.length,0)+(round.projectiles||[]).reduce((n,p)=>n+p.samples.length,0)+(round.firing||[]).reduce((n,t)=>n+t.samples.length,0),0);
 }
 
+export function matchesBuy(choices,buy,hero=false) {
+  const selected=Array.isArray(choices)?choices:choices==='all'?[]:[choices];
+  return !selected.length||selected.includes('all')||selected.includes(buy)||selected.includes('hero')&&hero;
+}
 export function matchesRound(round,{players=[],side=0,result='all',buy='all',enemyBuy='all'}={}) {
   const chosen=new Set(players),contexts=round.context?.length?round.context:round.tracks.map(track=>{const side=track.samples[0]?.[5];return {player:track.player,side,result:round.winner?((side===2?'T':'CT')===round.winner?'win':'loss'):null,buy:null,enemy_buy:null,hero:false};});
   return contexts.some(c=>chosen.has(c.player)&&(!side||c.side===side)&&(result==='all'||c.result===result)&&
-    (buy==='all'||(buy==='hero'?c.hero:c.buy===buy))&&(enemyBuy==='all'||c.enemy_buy===enemyBuy));
+    matchesBuy(buy,c.buy,c.hero)&&matchesBuy(enemyBuy,c.enemy_buy));
 }
 export function toggleRoundSet(selected,keys) {
   if(!keys.length)return selected;

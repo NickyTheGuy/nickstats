@@ -16,7 +16,7 @@ export default function Analyzer() {
   const [utilities,setUtilities] = useState(UTILITY_TYPES), [side,setSide] = useState(0);
   const [time,setTime] = useState(0), [playing,setPlaying] = useState(false), [speed,setSpeed] = useState(1);
   const [busy,setBusy] = useState(false), [status,setStatus] = useState(''), [error,setError] = useState('');
-  const [filters,setFilters]=useState({result:'all',buy:'all',enemyBuy:'all'});
+  const [filters,setFilters]=useState({result:'all',buy:[],enemyBuy:[]});
   const [combatLayers,setCombatLayers]=useState(COMBAT_LAYERS);
   const operation = useRef(null);
   useEffect(() => () => operation.current?.abort(), []);

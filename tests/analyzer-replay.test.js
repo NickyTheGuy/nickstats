@@ -281,3 +281,18 @@ test('weapon markers use bundled allowlisted silhouettes and safe fallbacks for 
   assert.equal(weaponIconKey('weapon_ak47'),'ak47');assert.equal(weaponIconKey('knife_butterfly'),'knife');
   assert.equal(weaponIconKey('inferno'),'molotov');assert.equal(weaponIconKey('../../x.svg'),null);assert.equal(weaponIconPath('../../x'),null);
 });
+
+test('buy selections form a union within each filter and an intersection across player/enemy filters',async()=>{
+  const {matchesRound,matchesBuy}=await import('../frontend/features/analyzer/state/round-selection.mjs');
+  const context={player:'a',side:2,result:'win',buy:'force',enemy_buy:'eco',hero:false};
+  const round={tracks:[],context:[context]};
+  assert.equal(matchesRound(round,{players:['a'],buy:['full','force'],enemyBuy:['eco','pistol']}),true);
+  assert.equal(matchesRound({...round,context:[{...context,buy:'full'}]},{players:['a'],buy:['full','force']}),true);
+  assert.equal(matchesRound({...round,context:[{...context,buy:'eco'}]},{players:['a'],buy:['full','force']}),false);
+  assert.equal(matchesRound(round,{players:['a'],buy:['full','force'],enemyBuy:['full','force']}),false);
+  assert.equal(matchesBuy([],null),true);assert.equal(matchesBuy(['full','force'],null),false);
+  assert.equal(matchesBuy(['hero','full'],'eco',true),true);assert.equal(matchesBuy(['hero','full'],'eco',false),false);
+  assert.equal(matchesBuy('full','full'),true);
+  const opposing={...context,player:'b',side:3,result:'loss',buy:'full',enemy_buy:'force'};
+  assert.equal(matchesRound({...round,context:[context,opposing]},{players:['a','b'],result:'win',buy:['full']}),false);
+});
