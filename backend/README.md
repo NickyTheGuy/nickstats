@@ -434,3 +434,33 @@ copy `index.html`, `styles.css`, `js/`, and `assets/` to the nginx static direct
 The updated React bundle is committed; no npm build is needed on the server.
 Reload nginx after recreating the backend. Check Build 2026.11.17.5; Groups keeps
 using `wire=4` with the existing `encoded_hit` and `assembly` timings.
+
+## Compact Groups editor (Build 2026.11.17.6)
+
+This is a **frontend-only** update to the rule builder. The green/red player cells
+return with Include/Exclude toggles and ×. Drag a cell or whole outlined condition
+group by its handle into Friendly, Enemy, another condition group, or Available
+players. The destination highlights and the item snaps there on release. Moving
+preserves conditions; it does not copy or duplicate them. A cell's × returns it to
+Available; × there removes that player from the selection. Show stats remains a
+separate compact checkbox row and is unchanged by moving/unassigning conditions.
+
+Drag a rectangle from blank team space across cells to create an AND group on
+release, then use its compact operator selector to choose AND, OR, XOR, or NONE.
+Existing groups are selected as whole units. Selecting one existing group (or its
+inner cells) again cannot add another wrapper. An ungrouped single player can get
+one outline; meaningful nesting requires selecting separate cells/groups. Group
+creation cannot cross teams, create empty groups, exceed the existing limits or
+move a group into itself/its descendants. An outlined group's × ungroups its
+children without deleting their cells. Only empty groups are pruned during moves;
+explicit single-player groups and NONE negation are preserved.
+
+Touch users can drag using handles, or tap handles to select and use Group
+selected / Move to. Keyboard users can focus handles and press Space/Enter to
+select multiple items, then use those actions. Shift-click adds mouse selections;
+Escape cancels dragging/selection. Touch scrolling is preserved outside handles.
+Rule changes still reuse loaded histories and the saved query format is unchanged.
+
+Deploy `index.html`, `styles.css`, and `assets/` (including the committed rebuilt
+React bundle) along with your usual frontend files. No backend rebuild, database
+migration, or demo reparse is needed for this release.

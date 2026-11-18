@@ -56,3 +56,12 @@ bounds, migration, and team-orientation logic live in `state/rules.mjs` and are
 exposed through the feature adapter for `js/groups.js`. The controller retains
 history loading, filters, summaries and existing result views. Node tests cover
 Boolean semantics and match qualification independently of React rendering.
+
+The compact rule editor uses `state/editing.mjs` for immutable cell/group moves,
+marquee grouping, ungrouping, cycle prevention and tree limits.
+`hooks/useRuleGestures.js` owns pointer capture, drag previews, hit testing and
+selection rectangles. A marquee treats each existing top-level condition group as
+one atom; selecting that group's cells again cannot create another wrapper. A
+free single player can receive an outline once. Existing unary groups are kept
+when editing, including NONE negation. The same controls expose keyboard/touch
+selection plus Group selected and Move to actions.

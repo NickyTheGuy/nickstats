@@ -3800,29 +3800,56 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 
 .graph-note-mount { display: contents; }
 
-/* Nested friendly/enemy Groups rules. */
-.group-query-builder { display: grid; gap: 1rem; min-width: 0; }
+/* Compact, spatial friendly/enemy rule editor. */
+.group-query-builder { display: grid; grid-template-columns: minmax(0, 1fr); gap: .65rem; min-width: 0; }
 .group-query-builder p { margin: 0; }
-.group-query-players { display: flex; flex-wrap: wrap; gap: .65rem; }
-.group-query-players .group-selected-player { display: flex; align-items: center; gap: .7rem; }
-.group-rule-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
-.group-rule-group { display: grid; gap: .8rem; min-width: 0; margin: 0; padding: .8rem; border: 1px solid var(--line-strong); border-radius: .65rem; }
-.group-rule-group legend { padding: 0 .4rem; font-weight: 650; }
-.group-rule-heading, .group-rule-actions, .group-rule-condition { display: flex; flex-wrap: wrap; align-items: end; gap: .6rem; }
-.group-rule-condition { padding: .65rem 0; border-bottom: 1px solid var(--line-strong); }
-.group-rule-condition .graph-option-field { flex: 1 1 8rem; min-width: 0; }
-.group-rule-help { color: var(--muted); font-size: .88rem; line-height: 1.5; }
-.group-rule-group .stats-dropdown { max-width: 100%; }
-@media (max-width: 800px) {
-  .group-rule-teams { grid-template-columns: minmax(0, 1fr); }
-  .group-rule-group { padding: .6rem; }
-  .group-rule-group .group-rule-group { border-left-width: 2px; }
-}
-
+.group-rule-help { color: var(--muted); font-size: .8rem; line-height: 1.5; }
+.group-stats-choice, .group-stats-players, .group-selection-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; }
+.group-stats-choice > strong { font-size: .8rem; }
+.group-stats-players label { display: flex; align-items: center; gap: .25rem; font-size: .8rem; }
+.group-rule-board { min-width: 0; user-select: none; }
+.group-rule-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; margin-top: .6rem; align-items: start; }
+.group-rule-cluster { min-width: 0; max-width: 100%; border: 1px solid var(--line-strong); border-radius: 9px; padding: 6px; background: var(--panel-2); }
+.group-rule-cluster.is-team { padding: 9px; background: transparent; }
+.group-cluster-heading { display: flex; align-items: center; gap: .3rem; margin-bottom: 5px; }
+.group-cluster-heading > strong { font-size: .85rem; margin-right: auto; }
+.group-cluster-heading > .group-player-remove { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 18px; padding: 0 4px; }
+.group-cluster-cells { display: flex; flex-wrap: wrap; align-items: start; gap: 6px; min-width: 0; }
+.group-rule-cluster.is-team > .group-cluster-cells { min-height: 75px; padding: 8px 2px 28px; }
+.group-rule-player.group-selected-player { display: grid; grid-template-columns: 17px minmax(54px, 1fr) auto 23px; gap: 6px; padding: 6px; max-width: 100%; cursor: grab; }
+.group-rule-player > span { min-width: 0; font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+.group-rule-player small { font-size: 10px; }
+.group-rule-player .group-roster-role { gap: 1px; padding: 2px; }
+.group-rule-player .group-roster-role button { font-size: 10px; padding: 4px 6px; }
+.group-rule-player > .group-player-remove { width: 23px; height: 23px; }
+.group-drag-handle { border: 0; padding: 1px; color: var(--muted); background: transparent; cursor: grab; touch-action: none; font-size: 20px; line-height: 1; }
+.group-drag-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+.group-rule-operator .stats-dropdown summary { min-width: 0; min-height: 26px; padding: 4px 23px 4px 8px; font-size: 11px; line-height: 1.5; }
+.group-rule-operator .stats-dropdown { min-width: 0; }
+.group-rule-operator .stats-dropdown-menu { min-width: 105px; left: auto; right: 0; }
+.group-rule-operator .stats-dropdown summary::after { right: 7px; }
+.group-player-bench { border: 1px dashed var(--line-strong); border-radius: 9px; padding: 7px 9px; min-width: 0; }
+.group-player-bench > strong { display: block; margin-bottom: 5px; font-size: .75rem; color: var(--muted); }
+.group-drop-help { color: var(--muted); font-size: .75rem; padding: 5px; }
+.group-rule-cluster.is-selected, .group-rule-player.is-selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+.group-rule-cluster.is-drop-target, .group-player-bench.is-drop-target { outline: 2px dashed var(--accent); outline-offset: 2px; }
+.group-selection-rectangle { position: fixed; z-index: 100; pointer-events: none; border: 1px solid var(--accent); background: rgba(233, 86, 49, .13); }
+.group-drag-preview { position: fixed; z-index: 101; pointer-events: none; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--accent); background: var(--panel); box-shadow: 0 4px 14px #0002; font-size: 12px; }
+.group-selection-tools { font-size: .8rem; }
+.group-selection-tools .button { min-height: 30px; padding: 5px 9px; font-size: 11px; }
+.group-move-selector .stats-dropdown summary { font-size: 11px; min-height: 30px; padding: 5px 28px 5px 9px; }
 #groupSelectedRoster { margin-top: 1rem; min-width: 0; }
-.group-page-stack, .group-results, .group-query-builder { grid-template-columns: minmax(0, 1fr); }
-.group-builder-panel, .group-rule-heading > *, .group-rule-group > * { min-width: 0; }
-.group-query-players .group-selected-player { max-width: 100%; flex-wrap: wrap; }
+.group-page-stack, .group-results { grid-template-columns: minmax(0, 1fr); }
+.group-builder-panel { min-width: 0; }
 .group-results .combo-results { grid-template-columns: minmax(0, 1fr); min-width: 0; }
 .group-results .combo-display-panel[data-combo-display-panel="profile"] { grid-template-columns: minmax(0, 1fr); }
 .group-results .combo-player-profile { min-width: 0; }
+@media (max-width: 800px) {
+  .group-rule-teams { grid-template-columns: minmax(0, 1fr); }
+  .group-rule-player.group-selected-player { width: 100%; }
+  .group-rule-cluster:not(.is-team) { width: 100%; }
+}
+.group-selection-tools { position: relative; }
+.group-move-selector .stats-dropdown { position: static; }
+.group-move-selector .stats-dropdown-menu { left: 0; right: auto; top: calc(100% + 5px); width: max-content; min-width: 180px; max-width: 100%; }
+.group-move-selector .stats-dropdown-menu button { white-space: normal; overflow-wrap: anywhere; }
