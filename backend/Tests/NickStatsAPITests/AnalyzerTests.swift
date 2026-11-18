@@ -62,3 +62,15 @@ private func analyzerRound() throws -> ReplayJSON {
     #expect(value == .array([.number(0),.number(1),.number(-42),.number(12.5),.bool(true),.bool(false),.string("1"),.null,.array([.number(2),.number(3)])]))
     #expect(try replayDecode(replayText(value),as:ReplayJSON.self) == value)
 }
+
+
+@Test func optionalRoundPerformanceIsValidatedAndProjectedByPlayer() throws {
+    let round = try analyzerRound()
+    let stats: ReplayJSON = .object(["player":.string("steam:1"),"kills":.number(2),"deaths":.number(1),"assists":.number(1),"damage":.number(150),"kast":.number(1)])
+    var object = round.object!;object["performance"] = .array([stats])
+    _ = try replayRoundSummary(.object(object),players:["steam:1","steam:2"])
+    #expect(projectReplayRound(.object(object),players:["steam:1"])["performance"] == .array([stats]))
+    #expect(projectReplayRound(.object(object),players:["steam:2"])["performance"] == .array([]))
+    var invalid = stats.object!;invalid["kast"] = .number(2);object["performance"] = .array([.object(invalid)])
+    #expect(throws:(any Error).self) { try replayRoundSummary(.object(object),players:["steam:1","steam:2"]) }
+}

@@ -190,7 +190,7 @@ func analyzerRoutes(_ app: Application) throws {
               !selection.players.isEmpty, selection.players.count <= 64,
               selection.players.allSatisfy({ !$0.isEmpty && $0.count <= 200 }) else { throw Abort(.badRequest) }
         guard let row = try await sql.raw("""
-          SELECT c.manifest_json,c.header_json FROM replay_captures c JOIN matches m ON m.id=c.match_id
+          SELECT c.match_id,c.manifest_json,c.header_json FROM replay_captures c JOIN matches m ON m.id=c.match_id
           WHERE c.id=\(bind:capture) AND c.complete=TRUE AND c.demo_sha256=m.demo_sha256
           """).first() else { throw Abort(.notFound,reason:"Movement capture is unavailable or changed. Reload the match selection.") }
         let header = try replayDecode(row.decode(column:"header_json",as:String.self),as:ReplayJSON.self)
@@ -210,6 +210,26 @@ func analyzerRoutes(_ app: Application) throws {
             chunks[number,default:[]].append(ReplayStoredChunk(part:try chunk.decode(column:"part_number",as:Int.self),body:try chunk.decode(column:"body",as:String.self)))
         }
         timing.record("chunks",since:chunksStart)
+        let performanceStart = timing.start()
+        let matchID = try row.decode(column:"match_id",as:Int64.self)
+        let performanceRows = try await sql.raw("""
+          SELECT r.round_number,CONCAT('steam:',CAST(p.steam_id AS CHAR)) AS player,
+            CAST(JSON_OBJECT('kills',JSON_EXTRACT(r.stats_json,'$.kda[0]'),
+              'deaths',JSON_EXTRACT(r.stats_json,'$.kda[1]'),'assists',JSON_EXTRACT(r.stats_json,'$.kda[2]'),
+              'damage',JSON_EXTRACT(r.stats_json,'$.kda[4]'),'kast',JSON_EXTRACT(r.stats_json,'$.kast_rounds')) AS CHAR) AS performance
+          FROM player_round_phase_stats r JOIN match_players mp ON mp.id=r.match_player_id
+          JOIN players p ON p.id=mp.player_id WHERE r.match_id=\(bind:matchID)
+          AND r.round_number IN (\(binds:selection.rounds))
+          AND CONCAT('steam:',CAST(p.steam_id AS CHAR)) IN (\(binds:selection.players))
+          """).all()
+        var performance: [Int:[ReplayJSON]] = [:]
+        for row in performanceRows {
+            var value = try replayDecode(row.decode(column:"performance",as:String.self),as:ReplayJSON.self).object ?? [:]
+            value["player"] = .string(try row.decode(column:"player",as:String.self))
+            guard ["kills","deaths","assists","damage","kast"].allSatisfy({ value[$0]?.integer != nil }) else { continue }
+            performance[try row.decode(column:"round_number",as:Int.self),default:[]].append(.object(value))
+        }
+        timing.record("performance",since:performanceStart)
         var rounds: [ReplayJSON] = []
         for item in items {
             let assembleStart = timing.start()
@@ -221,7 +241,13 @@ func analyzerRoutes(_ app: Application) throws {
             let round = try JSONDecoder().decode(ReplayJSON.self,from:data)
             timing.record("decode",since:decodeStart)
             let projectStart = timing.start()
-            let projected = projectReplayRound(round,players:players)
+            var projected = projectReplayRound(round,players:players)
+            if var object = projected.object {
+                var byPlayer: [String:ReplayJSON] = [:]
+                for value in projected["performance"].array ?? [] { if let id = value["player"].string { byPlayer[id] = value } }
+                for value in performance[item.number] ?? [] { if let id = value["player"].string { byPlayer[id] = value } }
+                object["performance"] = .array(byPlayer.keys.sorted().compactMap { byPlayer[$0] });projected = .object(object)
+            }
             if !(projected["tracks"].array ?? []).isEmpty { rounds.append(projected) }
             timing.record("project",since:projectStart)
         }

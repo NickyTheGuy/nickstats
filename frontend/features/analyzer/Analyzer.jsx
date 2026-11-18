@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import SourcePicker from './SourcePicker.jsx';
+import useMatchFilters from './hooks/useMatchFilters.js';
+import AreaSummary from './AreaSummary.jsx';
+import { summarizeArea } from './state/area-selection.mjs';
 import { createMovementCache, movementSelection } from './state/movement-cache.mjs';
 import { groupRoundKeys } from './state/query.mjs';
 import { loadCaptureHeaders, loadSelectedRounds } from './state/server.mjs';
@@ -16,6 +19,8 @@ import { openReplayFile } from './state/files.mjs';
 
 export default function Analyzer({entryStore}) {
   const entry=useSyncExternalStore(entryStore.subscribe,entryStore.getSnapshot);
+  const matchFilters=useMatchFilters();
+  const [nameTags,setNameTags]=useState(false),[area,setArea]=useState(null);
   const [mode,setMode]=useState('match'),[queryPlayers,setQueryPlayers]=useState(null);
   const [groupRounds,setGroupRounds]=useState({sections:[],numbers:[]}),[cacheRevision,setCacheRevision]=useState(0);
   const [loadingRounds,setLoadingRounds]=useState(false),[retry,setRetry]=useState(0);
@@ -79,6 +84,8 @@ export default function Analyzer({entryStore}) {
   },[remote,mapReplays,roundKeys,selectedPlayers,retry]);
   const rounds=useMemo(()=>remote?(cachedRounds??[]):mapReplays.flatMap(r=>r.rounds.filter(round=>roundKeys.includes(`${r.match_uid}:${round.number}`))),[remote,cachedRounds,mapReplays,roundKeys]);
   const duration = rounds.reduce((max,r)=>Math.max(max,r.duration),0), map = Object.hasOwn(mapData.maps,mapName) ? mapData.maps[mapName] : null;
+  const areaLevel=area?.map===mapName?map?.levels.find(level=>level.id===area.level):null;
+  const areaSummary=useMemo(()=>areaLevel?summarizeArea(rounds,{area:area.bounds,map,level:areaLevel,time,players:selectedPlayers,side}):null,[rounds,area,areaLevel,map,time,selectedPlayers,side]);
   useEffect(() => { setTime(0); setPlaying(false); }, [selectedRounds,groupRounds,mapName,filters,selectedPlayers,side]);
   useEffect(() => {
     if (!playing || !duration) return;
@@ -117,8 +124,10 @@ export default function Analyzer({entryStore}) {
     finally { setBusy(false); setStatus(''); setError(messages.join(' ')); operation.current = null; }
   }
   return <section className="analyzer-view" aria-label="2D analyzer">
-    <SourcePicker mode={mode} onMode={setMode} entry={entry} onChoose={chooseSource} onClear={clearSource} />
-    <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities} combatLayers={combatLayers}
+    <SourcePicker mode={mode} onMode={setMode} entry={entry} matchFilters={matchFilters} onChoose={chooseSource} onClear={clearSource} />
+    <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities} combatLayers={combatLayers} nameTags={nameTags}
+      area={area?.map===mapName?area:null} areaSummary={areaSummary} onArea={value=>setArea(value?{...value,map:mapName}:null)} onAreaStart={()=>setPlaying(false)}
+      areaOverlay={areaSummary&&<AreaSummary summary={areaSummary} loading={busy||loadingRounds} onClear={()=>setArea(null)} />}
       actions={<div className="analyzer-import">
         {mode==='match'&&<label className={`button button-primary${busy||loadingRounds?' disabled':''}`}>Open
           <input aria-label="Open demos or replays" type="file" multiple accept=".dem,.zst,.json" disabled={busy||loadingRounds} onChange={e=>{const files=Array.from(e.target.files);e.target.value='';openFiles(files);}} />
@@ -129,6 +138,7 @@ export default function Analyzer({entryStore}) {
       status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage></>}
       controls={<AnalyzerControls players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
         colors={colors} utilities={utilities} setUtilities={setUtilities} side={side} onSide={setSide} filters={filters} setFilters={setFilters} selectedCount={rounds.length} combatLayers={combatLayers} setCombatLayers={setCombatLayers}
+        nameTags={nameTags} onNameTags={setNameTags} matchFilters={mode==='groups'?matchFilters:null}
         groupRounds={mode==='groups'?{replays:mapReplays,value:groupRounds,onChange:setGroupRounds}:null}
         roundPicker={{replays:mapReplays,selected:selectedRounds,filters:{...filters,side,players:selectedPlayers},
           onClear:()=>setSelectedRounds([]),onToggleSet:keys=>setSelectedRounds(previous=>toggleRoundSet(previous,keys))}} />}

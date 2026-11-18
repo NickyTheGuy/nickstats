@@ -162,12 +162,21 @@ func replayRoundSummary(_ round: ReplayJSON, players: Set<String>) throws -> (Re
               ["buy","enemy_buy"].allSatisfy({ [.null,.string("full"),.string("force"),.string("eco"),.string("pistol")].contains(c[$0]) }),
               [.bool(true),.bool(false)].contains(c["hero"]) else { throw replayBad("invalid round context.") }
     }
+    if round["performance"] != .null {
+        guard let values = round["performance"].array, values.count <= players.count else { throw replayBad("invalid round performance.") }
+        var seen = Set<String>()
+        for p in values {
+            guard owner(p["player"]),let id = p["player"].string,seen.insert(id).inserted,
+                  ["kills","deaths","assists","damage","kast"].allSatisfy({ p[$0].integer.map { $0 >= 0 } == true }),
+                  (p["kast"].integer ?? 2) <= 1 else { throw replayBad("invalid player round performance.") }
+        }
+    }
     return (.object(["number":.number(Double(number)),"duration":.number(duration),"winner":round["winner"],
                      "context":.array(context),"player_ids":.array(trackIDs.sorted().map(ReplayJSON.string))]),sampleCount)
 }
 func projectReplayRound(_ round: ReplayJSON, players: Set<String>?) -> ReplayJSON {
     guard let players, var output = round.object else { return round }
-    for key in ["tracks","firing","utility","projectiles","context"] {
+    for key in ["tracks","firing","utility","projectiles","context","performance"] {
         output[key] = .array((round[key].array ?? []).filter { players.contains($0["player"].string ?? "") })
     }
     output["deaths"] = .array((round["deaths"].array ?? []).filter { players.contains($0["victim"].string ?? "") || players.contains($0["killer"].string ?? "") })

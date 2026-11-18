@@ -7,22 +7,17 @@ import GroupBuilder from '../groups/GroupBuilder.jsx';
 import { normalizeEditorRules } from '../groups/state/editing.mjs';
 import PlayerSearch from '../players/search/PlayerSearch.jsx';
 import { createPlayerSearch } from '../players/state/player-search.mjs';
-import DateRangeFilter from '../filters/DateRangeFilter.jsx';
-import TagFilter from '../filters/TagFilter.jsx';
-import { DateRangeStore } from '../filters/state/date-range.mjs';
-import { createTagFilterStore } from '../filters/state/tag-filter.mjs';
 import { analyzerMatches, conditionPlayers, rulesForPlayers } from './state/query.mjs';
 import { candidateMatches } from './state/server.mjs';
 
-export default function SourcePicker({mode,onMode,entry,onChoose,onClear}) {
+export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFilters}) {
   const [players,setPlayers]=useState([]),[rules,setRules]=useState(()=>rulesForPlayers([]));
   const [matchID,setMatchID]=useState(''),[candidates,setCandidates]=useState(null),[map,setMap]=useState('');
-  const [pending,setPending]=useState(false),[error,setError]=useState(''),[revision,bump]=useState(0),[pendingTags,setPendingTags]=useState([]);
+  const [pending,setPending]=useState(false),[error,setError]=useState(''),[pendingTags,setPendingTags]=useState([]);
   const [search]=useState(()=>createPlayerSearch());
-  const [dates]=useState(()=>new DateRangeStore({onChange:()=>bump(v=>v+1)}));
-  const [tags]=useState(()=>createTagFilterStore(window.NickStatsManualFilters,{onChange:()=>bump(v=>v+1)}));
+  const {dates,tags,revision}=matchFilters;
   const operation=useRef(null);
-  useEffect(()=>()=>{operation.current?.abort();search.destroy();dates.destroy();tags.destroy();},[]);
+  useEffect(()=>()=>{operation.current?.abort();search.destroy();},[]);
   function invalidate() {operation.current?.abort();setPending(false);setCandidates(null);setError('');onClear();}
   function editPlayers(next) {invalidate();setPlayers(next);setRules(normalizeEditorRules(rules,next.map(p=>String(p.id))));}
   async function lookup(nextPlayers=players,nextMatchID=null) {
@@ -77,14 +72,12 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear}) {
       <PlayerSearch store={search} prefix="analyzer" variant="group" onSelect={player=>{if(players.length<20&&!players.some(p=>String(p.id)===String(player.id))){editPlayers([...players,{...player,id:String(player.id)}]);search.reset();}}} excluded={id=>players.some(p=>String(p.id)===id)||players.length>=20} />
       <GroupBuilder players={players} rules={rules} onRules={next=>{invalidate();setRules(next);}}
         onRemove={id=>editPlayers(players.filter(p=>String(p.id)!==String(id)))} />
-      <div className="analyzer-match-filters">
-        <div className="date-range-filter"><DateRangeFilter store={dates} target="analyzer" /></div>
-        <div className="manual-filter-control"><TagFilter control={tags} api={window.NickStatsManualFilters} /></div>
+      <div className="analyzer-source-actions">
         <Button className="button button-primary" disabled={pending||!players.length} onClick={()=>lookup()}>Find matches</Button>
       </div>
       {candidates!==null&&<div className="analyzer-query-result">
         {!!maps.length&&<OptionField label="Map" options={maps.map(name=>[name,`${name.replace(/^de_/,'')} · ${matching.filter(m=>m.map===name).length} matches`])} value={chosenMap} onChange={setMap} />}
-        <span role="status">{scoped.length} matching {scoped.length===1?'match':'matches'}{chosenMap?` · ${available} with movement`:''}{scoped.length>available?` · ${scoped.length-available} need demo capture`:''}</span>
+        {scoped.length>available&&<FormMessage>{scoped.length-available} matches need movement captures.</FormMessage>}
       </div>}
     </>}
     {pending&&<div className="analyzer-query-progress"><FormMessage>Finding matches…</FormMessage><Button className="button button-secondary" onClick={()=>{operation.current?.abort();setPending(false);}}>Cancel</Button></div>}

@@ -4004,3 +4004,18 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-source .group-query-builder { min-width: 0; }
 @media (max-width: 600px) { .analyzer-match-filters { align-items: stretch; } .analyzer-source { padding: 14px; } }
 .analyzer-file-actions .button-secondary { background: var(--panel); color: var(--text); }
+
+.analyzer-source-actions { display: flex; justify-content: center; align-items: center; }
+.analyzer-control-panel .analyzer-match-filters { display: grid; grid-template-columns: minmax(0,1fr); align-items: start; gap: 12px; }
+.analyzer-control-panel .stats-filter > span { font: inherit; font-size: 13px; font-weight: 600; letter-spacing: normal; line-height: 1.4; text-transform: none; color: inherit; }
+.analyzer-control-panel .date-range-panel, .analyzer-control-panel .manual-filter-options { position: static; width: 100%; min-width: 0; max-width: 100%; margin-top: 8px; box-shadow: none; }
+.analyzer-control-panel .date-range-calendars { grid-template-columns: minmax(0,1fr); }
+.analyzer-control-panel .date-range-menu > summary, .analyzer-control-panel .manual-filter-menu > summary { font-family: inherit; font-size: 13px; font-weight: 600; }
+.analyzer-area-rectangle { position: absolute; pointer-events: none; border: 2px solid #63d2ff; background: #63d2ff22; z-index: 2; }
+.analyzer-map-zoom button[aria-pressed=true] { background: #36576d; border-color: #63d2ff; }
+.analyzer-area-summary { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); z-index: 3; width: min(240px,calc(100% - 24px)); padding: 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-size: 13px; }
+.analyzer-area-summary header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.analyzer-area-summary .player-metric-row { padding: 7px 0; }
+.analyzer-area-count { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 8px 0; }
+.analyzer-area-count > strong { font-size: 16px; }
+.analyzer-area-count > span { font-size: 12px; color: var(--muted); }

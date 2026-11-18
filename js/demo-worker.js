@@ -178,7 +178,7 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-6");
+    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-8");
     const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay), Boolean(event.data.includeStats));
     self.postMessage(event.data.captureReplay && !event.data.includeStats
       ? { type: "result", replay: parsed.replay }
@@ -2901,7 +2901,7 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
   };
   let replay;
   collectReplay(() => { replay = replayCapture.finish(result,playerRoundSlices.map(slice=>({round:slice.round,player:replayPlayerId(slice.row),side:slice.side,
-    result:slice.result,buy:slice.buy,enemy_buy:slice.opponentBuy,hero:slice.hero}))); });
+    result:slice.result,buy:slice.buy,enemy_buy:slice.opponentBuy,hero:slice.hero,performance:{kills:slice.stats.kills,deaths:slice.stats.deaths,assists:slice.stats.assists,damage:slice.stats.damage,kast:slice.stats.kastRounds}}))); });
   return { result, diagnostics, replay, replayError };
 }
 

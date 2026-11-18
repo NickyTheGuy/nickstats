@@ -93,6 +93,14 @@ export function validateReplay(input) {
         seen.add(c.player);return {player:c.player,side:c.side,result:c.result,buy:c.buy,enemy_buy:c.enemy_buy,hero:c.hero};
       });
     }
+    if(round.performance!=null) {
+      if(!Array.isArray(round.performance)||round.performance.length>players.length)fail('invalid round performance.');
+      const seen=new Set();
+      output.performance=round.performance.map(p=>{
+        if(!p||!ids.has(p.player)||seen.has(p.player)||!['kills','deaths','assists','damage','kast'].every(key=>Number.isSafeInteger(p[key])&&p[key]>=0&&p[key]<1000000000)||p.kast>1)fail('invalid player round performance.');
+        seen.add(p.player);return {player:p.player,kills:p.kills,deaths:p.deaths,assists:p.assists,damage:p.damage,kast:p.kast};
+      });
+    }
     return output;
   }).sort((a,b) => a.number - b.number);
   const replay = { format: input.format, version: input.version, coordinate_system: input.coordinate_system, sample_hz: input.sample_hz,

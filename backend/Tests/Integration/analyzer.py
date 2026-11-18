@@ -29,6 +29,8 @@ VALUES(1,UNHEX(REPEAT('a',64)),'nickstats.match/27','integration','test','1',1,'
 INSERT INTO players(id,steam_id,current_name) VALUES(1,1,'One'),(2,2,'Two'),(3,3,'Three');
 INSERT INTO match_teams(id,match_id,team_slot,source_team_id,display_name) VALUES(1,1,0,'a','A'),(2,1,1,'b','B');
 INSERT INTO match_players(match_id,match_team_id,player_slot,player_id,display_name) VALUES(1,1,0,1,'One'),(1,1,1,2,'Two'),(1,2,2,3,'Three');
+INSERT INTO player_round_phase_stats(match_id,match_player_id,round_number,side,round_result,stats_json)
+VALUES(1,1,1,'CT','win','{"kda":[2,0,1,0,150],"kast_rounds":1}'),(1,1,2,'CT','win','{"kda":[0,1,0,0,25],"kast_rounds":0}');
 INSERT INTO auth_users(username,password_salt,password_hash,password_iterations) VALUES('test',UNHEX(REPEAT('a',64)),UNHEX(REPEAT('b',64)),210000);
 INSERT INTO account_manual_filters(id,username,name,cutoff_match_id) VALUES('tag','test','Preserve me',1);
 INSERT INTO account_manual_filter_states(filter_id,match_id,state) VALUES('tag',1,'true');
@@ -90,6 +92,7 @@ try:
     assert len(request('/analyzer/indexes', {'captures':[capture]})['captures'][0]['rounds']) == 2
     selected = request('/analyzer/captures/'+capture+'/selection', {'rounds':[2], 'players':['steam:1']})
     assert len(selected['rounds']) == 1 and selected['rounds'][0]['number'] == 2
+    assert selected['rounds'][0]['performance'] == [{'player':'steam:1','kills':0,'deaths':1,'assists':0,'damage':25,'kast':0}]
     assert len(selected['header']['players']) == 3 and len(selected['rounds'][0]['tracks']) == 1
     assert selected['rounds'][0]['deaths'][0]['victim'] == 'steam:3'
     both = request('/analyzer/captures/'+capture+'/selection', {'rounds':[1,2], 'players':['steam:1','steam:3']})

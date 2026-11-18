@@ -2,7 +2,7 @@ import { MAX_REPLAY_BYTES } from './replay.mjs';
 import { replaySampleCount } from './round-selection.mjs';
 
 export const movementBudgetError=()=>new Error('This selection exceeds the viewer’s memory budget. Narrow the map, dates, tags or rounds.');
-const fields=['tracks','firing','utility','projectiles','context'];
+const fields=['tracks','firing','utility','projectiles','context','performance'];
 const key=(capture,number,player)=>JSON.stringify([capture,number,player]);
 const rosterPlayers=(replay,players)=>players.filter(id=>replay.players.some(p=>p.id===id));
 export function movementSelection(replays,keys,players) {

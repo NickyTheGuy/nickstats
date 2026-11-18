@@ -129,3 +129,39 @@ rehashing the upload. Each selection response supplies `Server-Timing` phases
 first loads can be measured separately from transfer/browser work. This update
 requires the new frontend bundle and a backend rebuild, with no new migration or
 demo reparse.
+
+## Area selection
+
+Drag on the map to select a rectangular radar area. Selection pauses playback.
+The outcome panel counts distinct qualifying rounds out of all currently filtered
+rounds and shows their percentage. A round qualifies when at least one selected
+player is alive inside the box at the current playback time, on the selected map
+level and side. Zoom/pan changes the view without moving the selected world area.
+Use Pan (available when zoomed), middle-drag or Shift-drag to pan. Click an empty
+map point, press Escape with the map focused, or use the panel's close button to
+clear the area. Playback/scrubbing reevaluates the same area at the new time.
+
+Win rate, kills, deaths and rating pool the qualifying **player rounds**: only the
+selected players who were inside the box contribute. A shared match round counts
+once in the round percentage even if several selected players are inside. Win
+rate uses known round results; unknown results are excluded. K–D and K/D use the
+whole round, including combat after the selected playback time. Rating uses the
+same pooled damage/assists/KAST formula as profiles, not an average of individual
+rounded ratings. Missing exact round data displays an unavailable rating, never a
+zero or an estimate. With an older replay that has no combat data, K–D/K/D are
+also unavailable.
+
+The backend attaches small performance records from existing
+`player_round_phase_stats` rows to movement selection responses. New local demo
+captures include the same counters. The optional replay field remains compatible
+with version 4 and is cached with player movement, so changing the area or time
+requires no network request. Existing captures can use their saved database round
+statistics without being recaptured. Matches imported before per-round statistics
+were stored may need their statistics reparsed for a rating; positions and
+available win/K–D information still work.
+
+Dates and Tags now live in the Players & rounds panel alongside the other
+filters. They continue selecting matches before round filtering and reuse cached
+movement. Name tags, immediately after player selection, default to Off. The new
+UI and server performance records need the updated frontend and backend; no new
+database migration is required.

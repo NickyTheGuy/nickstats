@@ -1,7 +1,7 @@
 import ReplayMap from './ReplayMap.jsx';
 import ResizableSplit from '../../shared/components/layout/ResizableSplit.jsx';
 
-export default function MapWindow({map,mapName,controls,actions,status,playback:playbackControls,...playback}) {
+export default function MapWindow({map,mapName,controls,actions,status,areaOverlay,playback:playbackControls,...playback}) {
   return <div className="analyzer-map-window">
     <ResizableSplit key={mapName} className="analyzer-levels" orientation="auto" label="Map level split">
       {map?.levels.map(level=><section className="analyzer-level" key={level.id}>
@@ -13,6 +13,7 @@ export default function MapWindow({map,mapName,controls,actions,status,playback:
     {controls}
     <div className="analyzer-file-actions">{actions}</div>
     <div className="analyzer-messages">{status}</div>
+    {areaOverlay}
     {playbackControls}
   </div>;
 }

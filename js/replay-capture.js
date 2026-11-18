@@ -166,7 +166,8 @@
         const firing=[...data.firing].map(([player,samples])=>({player:owner(player),samples:samples.filter(s=>s[0]<=duration)})).filter(t=>t.player&&t.samples.length);
         const deaths=data.deaths.filter(e=>e.time<=duration&&owner(e.victim)).map(e=>({...e,killer:owner(e.killer)}));
         const context=(byRound.get(timing.round)||[]).filter(c=>owner(c.player)).map(c=>({player:c.player,side:c.side,result:c.result,buy:c.buy,enemy_buy:c.enemy_buy,hero:Boolean(c.hero)}));
-        rounds.push({number:timing.round,duration,winner:timing.winner_side,tracks,utility,projectiles,firing,deaths,context});
+        const performance=(byRound.get(timing.round)||[]).filter(c=>owner(c.player)&&c.performance).map(c=>({player:c.player,...c.performance}));
+        rounds.push({number:timing.round,duration,winner:timing.winner_side,tracks,utility,projectiles,firing,deaths,context,...(performance.length?{performance}:{})});
       }
       if (!rounds.length) throw new Error('No playable movement tracks were captured from this demo.');
       return {format:'nickstats.replay',version:4,match_uid:result.match_uid,demo_sha256:result.demo_sha256,map:result.map,source_file:result.source_file,
