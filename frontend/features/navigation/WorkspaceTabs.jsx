@@ -31,6 +31,6 @@ export function GroupWorkspaceTabs({ profiles, display, activeId, onSelect, onDi
     ['graphs', 'Graphs', { tabProps: { 'data-combo-display': 'graphs', 'aria-controls': 'comboGraphs' } }],
     ...profiles.map(profile => [`profile:${profile.id}`, profile.name, { tabProps: { 'data-combo-player-id': profile.id, 'aria-controls': 'comboProfileBody' } }])
   ];
-  return <TabList {...classes} id="comboProfilePlayers" label="Included player profiles, quick comparison and graphs" options={options}
+  return <TabList {...classes} id="comboProfilePlayers" label="Selected player profiles, quick comparison and graphs" options={options}
     value={display === 'profile' ? `profile:${activeId}` : display} onChange={key => key.startsWith('profile:') ? onSelect(key.slice(8)) : onDisplay(key)} />;
 }

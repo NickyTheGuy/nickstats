@@ -7,7 +7,7 @@ const source = fs.readFileSync(require("node:path").join(__dirname, "../js/group
 
 function fixture() {
   const nodes = new Map(), calls = [], location = {};
-  const state = { comboCondition: "without", result: "ALL", roundPhase: "ALL", heroOnly: false, matchListOffset: 0, matchListKey: "" };
+  const state = { result: "ALL", roundPhase: "ALL", heroOnly: false, matchListOffset: 0, matchListKey: "" };
   const ui = new Proxy({}, { get(_, id) { if (!nodes.has(id)) nodes.set(id, { update(patch) { Object.assign(this, patch); } }); return nodes.get(id); } });
   const context = { state, location, ui, MATCH_LIST_LIMIT: 50,
     $: id => { if (!nodes.has(id)) nodes.set(id, {}); return nodes.get(id); },
@@ -19,12 +19,12 @@ function fixture() {
       render: (target, matches, onOpen, options) => calls.push({ target, matches, onOpen, options })
     } }
   };
-  const start = source.indexOf("  function comboMatchesForCondition("), end = source.indexOf("  const { integer, decimal", start);
+  const start = source.indexOf("  function comboProfileRows("), end = source.indexOf("  const { integer, decimal", start);
   const api = vm.runInNewContext(`${source.slice(start, end)}\n({comboProfileRows,renderComboMatches})`, context);
   return { state, nodes, calls, location, api };
 }
 
-test("Groups match list shows the selected player's current condition and result with tag actions", () => {
+test("Groups match list shows the selected player's team rules and result with tag actions", () => {
   const { state, nodes, calls, location, api } = fixture();
   const player = { profileId: "1", label: "Nick" }, other = { profileId: "2", label: "Friend" };
   const row = (id, result, date) => ({ id, result, date, map: "de_mirage", score: [13, 8], rounds: 21, kills: 20 });
@@ -42,11 +42,11 @@ test("Groups match list shows the selected player's current condition and result
   state.result = "w";
   api.renderComboMatches(api.comboProfileRows(current, player), player);
   assert.deepEqual(Array.from(calls.at(-1).matches, item => item.id), ["10"]);
-  state.comboCondition = "with";
+  // Team rules produce one cohort, shared by every displayed profile.
   api.renderComboMatches(api.comboProfileRows(current, other), other);
-  assert.deepEqual(Array.from(calls.at(-1).matches, item => item.id), ["12"]);
+  assert.deepEqual(Array.from(calls.at(-1).matches, item => item.id), ["10"]);
   assert.equal(calls.at(-1).matches[0].viewer_stats.kills, 8);
-  current.comparisonMatches = [];
+  current.matches = [];
   api.renderComboMatches(api.comboProfileRows(current, other), other);
   assert.equal(calls.at(-1).matches.length, 0);
   assert.equal(nodes.get("comboMatchesPagination").text, "");

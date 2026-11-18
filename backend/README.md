@@ -383,3 +383,54 @@ and `build` totals. `build` for wire-4 means obtaining all fragments, including 
 needed history building and encoding. Assembly still copies bytes into a combined
 response; compression, transfer, JSON parsing and browser rendering are additional
 costs. Use the existing browser measurements to assess those stages.
+
+## Friendly/enemy Groups rules (Build 2026.11.17.5)
+
+Groups now has two nested expression trees, Friendly and Enemy. Each group can
+require All (AND), Any (OR), Exactly one (XOR), or None of its child conditions.
+Player conditions Include or Exclude that player on that side. Excluding a player
+from Friendly does not exclude them from Enemy or from the match as a whole.
+XOR means exactly one true child condition, not odd parity. Empty branches impose
+no restriction and are ignored inside other groups. Expressions are bounded to
+80 nodes and five nesting levels; up to 20 players can be selected.
+
+For example, Friendly can be Me AND (Alex OR Sam), while Enemy can be John OR Tim.
+Both team orientations are tested independently for every match, without a fixed
+anchor player. The union of loaded players' histories defines the search universe;
+a match must involve at least one selected player. Matches satisfying multiple
+alternatives or both orientations are counted once. Existing date, map, tag and
+statistic filters still apply. Result filters remain relative to each displayed
+player's own result.
+
+Show stats is separate from rule membership. A player can be used only in a rule,
+only as a displayed profile, or both. Only actual match rows contribute statistics;
+matching a player's roster presence does not fabricate zero rows when their stats
+are absent. Matching profiles, Quick Comparison, graphs and the match list share
+one qualifying cohort. The old With/Without split is replaced by explicit rules.
+
+Rules run in the browser against the existing per-player cached histories.
+Editing conditions or changing displayed profiles recomputes the results without
+fetching those histories again. Adding/removing selected players still requires
+building the new selection. Wire-4 Groups now permits one selected player;
+legacy comparison endpoints retain their minimum of two. Scoped wire-4 requests
+also permit one player and still bypass unfiltered history caches.
+
+Profile match metadata now includes optional `opponent_ids`, populated from
+`match_players` independently of opponent stat rows. Together with `teammate_ids`
+this identifies both teams reliably even if an opponent has no usable profile row.
+Older responses without this field fall back to the selected players' observed
+team rows. No demo reparse or database migration is required. Normal import/date
+cache invalidation and cache budgets are unchanged.
+
+The browser saves the roster, expressions, and displayed players in
+`nickstats.groupQuery.v2`. Existing `nickstats.groupSelection.v1` Include/Exclude
+selections migrate to friendly AND rules; only formerly included players are
+shown by default. New players start as friendly Include conditions with Show stats
+selected, and can then be changed or used only for display. Clear removes both
+saved formats. Rules do not create per-combination backend caches.
+
+This release changes **backend and the React UI**. Deploy the rebuilt backend and
+copy `index.html`, `styles.css`, `js/`, and `assets/` to the nginx static directory.
+The updated React bundle is committed; no npm build is needed on the server.
+Reload nginx after recreating the backend. Check Build 2026.11.17.5; Groups keeps
+using `wire=4` with the existing `encoded_hit` and `assembly` timings.

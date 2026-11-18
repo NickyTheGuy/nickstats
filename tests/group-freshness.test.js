@@ -10,7 +10,7 @@ function setup() {
   let now = 100000;
   const nodes = {groupsPage:{hidden:false},groupResults:{hidden:false}};
   const state = {selected:new Map([['1',{id:'1'}],['2',{id:'2'}]]),
-    choices:new Map([['1','include'],['2','exclude']]),
+    displayed:new Set(['1']),
     players:[{profileId:'1',rows:[{id:'old'}]}],groupController:null,groupStale:false,
     groupLoadedAt:now,side:'CT',buy:'full',comboDisplay:'graphs',graphPlayers:new Set(['1'])};
   const document = {hidden:false,addEventListener:(event,fn)=>listeners.set(event,fn)};
@@ -26,10 +26,11 @@ function setup() {
     populateMaps:options=>assert.equal(options.reset,false),
     persistRoster(){},renderSelectedRoster(){},
     runCombination:()=>rendered.push(Array.from(state.players).flatMap(player=>Array.from(player.rows,row=>row.id))),
-    selectedPlayers:choice=>state.players.filter(player=>state.choices.get(player.profileId)===choice),
+    displayedPlayers:()=>state.players.filter(player=>state.displayed.has(player.profileId)),
+    canBuild:()=>state.selected.size>=1 && state.displayed.size>=1,
     setStatus:(...args)=>statuses.push(args)
   };
-  const start=source.indexOf('  async function buildGroup('), end=source.indexOf('  function choiceFor(',start);
+  const start=source.indexOf('  async function buildGroup('), end=source.indexOf('  function displayedPlayers(',start);
   vm.runInNewContext(`${source.slice(start,end)} globalThis.ensure = ensureCurrentGroup;`,sandbox);
   const finish = (index,ids) => requests[index].resolve({json:async()=>({players:[
     {id:1,name:'Current name',matches:ids.map(id=>({id}))},
@@ -52,7 +53,7 @@ test('returning to Groups reloads matches without resetting its roster, roles, f
   assert.equal(app.measures.size,5);
   assert.ok(app.measures.has('NickStats Groups: total'));
   assert.equal(app.state.selected.get('1').match_count,2);
-  assert.equal(app.state.choices.get('2'),'exclude');
+  assert.deepEqual([...app.state.displayed],['1']);
   assert.equal(app.state.side,'CT');
   assert.equal(app.state.buy,'full');
   assert.equal(app.state.comboDisplay,'graphs');
@@ -93,9 +94,9 @@ test('failed refreshes remain retryable and an aborted older request cannot repl
   assert.deepEqual(app.rendered,[['newest']]);
 });
 
-test('invalid or wholly excluded saved selections never auto-build',()=>{
+test('empty selections or selections without displayed profiles never auto-build',()=>{
   const app=setup();app.state.players=[];
-  app.state.choices.set('1','exclude');app.ensure();
-  app.state.choices.set('1','include');app.state.selected.delete('2');app.ensure();
+  app.state.displayed.clear();app.ensure();
+  app.state.displayed.add('1');app.state.selected.clear();app.ensure();
   assert.equal(app.requests.length,0);
 });

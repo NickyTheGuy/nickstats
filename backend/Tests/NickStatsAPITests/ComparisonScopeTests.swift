@@ -28,3 +28,8 @@ import Vapor
         try comparisonPlayerIDs((1...21).map { String($0) }.joined(separator: ","))
     }
 }
+
+@Test func wireFourSupportsOnePlayerWhileLegacyComparisonsKeepTheirMinimum() throws {
+    #expect(try comparisonPlayerIDs("1", minimum: 1) == [1])
+    #expect(throws: Abort.self) { try comparisonPlayerIDs("1") }
+}

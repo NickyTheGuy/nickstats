@@ -46,3 +46,13 @@ npm test
 ```
 
 The generated `assets/ui/nickstats-ui.js` is committed, so running the existing site or local mock does not require building React first.
+
+### Groups team rules
+
+`features/groups/` owns the nested Friendly/Enemy rule editor. `GroupBuilder`
+separates the player pool and Show stats choices from `RuleGroup`/`RuleCondition`.
+It uses the shared button, option-field and checkbox components. Pure evaluation,
+bounds, migration, and team-orientation logic live in `state/rules.mjs` and are
+exposed through the feature adapter for `js/groups.js`. The controller retains
+history loading, filters, summaries and existing result views. Node tests cover
+Boolean semantics and match qualification independently of React rendering.

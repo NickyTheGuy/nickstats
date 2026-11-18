@@ -1169,6 +1169,13 @@ private func comparisonMatches(
                      WHERE teammate.match_team_id = mp.match_team_id
                        AND teammate.player_id IS NOT NULL AND teammate.player_id <> mp.player_id
                    ) AS teammate_ids,
+                   (
+                     SELECT GROUP_CONCAT(CAST(opponent.player_id AS CHAR) ORDER BY opponent.player_id)
+                     FROM match_players opponent
+                     WHERE opponent.match_id = m.id
+                       AND opponent.match_team_id <> mp.match_team_id
+                       AND opponent.player_id IS NOT NULL
+                   ) AS opponent_ids,
                    CAST(SUM(s.rounds_played) AS SIGNED) AS rounds,
                    CAST(SUM(s.kills) AS SIGNED) AS kills,
                    CAST(SUM(s.deaths) AS SIGNED) AS deaths,
@@ -1199,12 +1206,14 @@ private func comparisonMatches(
             }
             let teammateIDs = try optionalString(row, "teammate_ids")?
                 .split(separator: ",").compactMap { Int64($0) } ?? []
+            let opponentIDs = try optionalString(row, "opponent_ids")?
+                .split(separator: ",").compactMap { Int64($0) } ?? []
             let matchID = try int64(row, "id")
             return ComparisonMatch(
                 id: matchID, schema: try row.decode(column: "payload_schema", as: String.self),
                 playedAt: unix(try optionalDate(row, "played_at")),
                 map: try row.decode(column: "map_name", as: String.self), result: result,
-                scoreFor: scoreFor, scoreAgainst: scoreAgainst, teammateIDs: teammateIDs,
+                scoreFor: scoreFor, scoreAgainst: scoreAgainst, teammateIDs: teammateIDs, opponentIDs: opponentIDs,
                 rounds: try integer(row, "rounds"), kills: try integer(row, "kills"),
                 deaths: try integer(row, "deaths"), assists: try integer(row, "assists"),
                 headshots: try integer(row, "headshots"), damage: try integer(row, "damage"),
@@ -1226,24 +1235,24 @@ func comparisonMatchIDs(_ raw: String?) throws -> [Int64]? {
     return ids
 }
 
-func comparisonPlayerIDs(_ raw: String) throws -> [Int64] {
+func comparisonPlayerIDs(_ raw: String, minimum: Int = 2) throws -> [Int64] {
     let tokens = raw.split(separator: ",")
     let requestedIDs = tokens.compactMap { Int64($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
     let playerIDs = requestedIDs.reduce(into: [Int64]()) { result, id in
         if id > 0 && !result.contains(id) { result.append(id) }
     }
     guard requestedIDs.count == tokens.count, playerIDs.count == requestedIDs.count,
-          (2...20).contains(playerIDs.count) else {
-        throw Abort(.badRequest, reason: "players must contain 2-20 unique positive player IDs.")
+          (minimum...20).contains(playerIDs.count) else {
+        throw Abort(.badRequest, reason: "players must contain \(minimum)-20 unique positive player IDs.")
     }
     return playerIDs
 }
 
-func comparisonData(_ request: Request, timing: ProfileTimingRecorder? = nil, useHistoryCache: Bool = false) async throws -> ComparisonResponse {
+func comparisonData(_ request: Request, timing: ProfileTimingRecorder? = nil, useHistoryCache: Bool = false, minimumPlayers: Int = 2) async throws -> ComparisonResponse {
     guard let sql = request.db as? any SQLDatabase else { throw Abort(.internalServerError) }
     let query = try request.query.decode(ComparisonQuery.self)
     let matchIDs = try comparisonMatchIDs(query.matches)
-    let playerIDs = try comparisonPlayerIDs(query.players)
+    let playerIDs = try comparisonPlayerIDs(query.players, minimum: minimumPlayers)
     var players: [ComparisonPlayer] = []
     for (index, playerID) in playerIDs.enumerated() {
         let playerStart = timing?.start()

@@ -18,6 +18,7 @@ struct LayoutComparisonResponse: Content {
         var score_for: Int?
         var score_against: Int?
         var teammate_ids: [Int64]
+        var opponent_ids: [Int64]?
         var rounds: Int
         var kills: Int
         var deaths: Int
@@ -77,7 +78,7 @@ struct LayoutComparisonResponse: Content {
                     }
                     return Match(id: match.id, schema: match.schema, played_at: match.playedAt,
                         map: match.map, result: match.result, score_for: match.scoreFor,
-                        score_against: match.scoreAgainst, teammate_ids: match.teammateIDs,
+                        score_against: match.scoreAgainst, teammate_ids: match.teammateIDs, opponent_ids: match.opponentIDs,
                         rounds: match.rounds, kills: match.kills, deaths: match.deaths,
                         assists: match.assists, headshots: match.headshots, damage: match.damage,
                         kast_rounds: match.kastRounds, sides: sides, round_kills: match.roundKills)

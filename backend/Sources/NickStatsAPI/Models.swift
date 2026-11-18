@@ -376,6 +376,7 @@ struct DenseComparisonMatch: Content, Sendable {
     var scoreFor: Int?
     var scoreAgainst: Int?
     var teammateIDs: [Int64]
+    var opponentIDs: [Int64]? = nil
     var rounds: Int
     var kills: Int
     var deaths: Int
@@ -392,6 +393,7 @@ struct DenseComparisonMatch: Content, Sendable {
         case scoreFor = "score_for"
         case scoreAgainst = "score_against"
         case teammateIDs = "teammate_ids"
+        case opponentIDs = "opponent_ids"
         case kastRounds = "kast_rounds"
         case roundKills = "round_kills"
     }
@@ -405,6 +407,7 @@ struct DenseComparisonMatch: Content, Sendable {
         scoreFor = value.scoreFor
         scoreAgainst = value.scoreAgainst
         teammateIDs = value.teammateIDs
+        opponentIDs = value.opponentIDs
         rounds = value.rounds
         kills = value.kills
         deaths = value.deaths
@@ -724,6 +727,7 @@ struct ComparisonMatch: Content, Sendable {
     var scoreFor: Int?
     var scoreAgainst: Int?
     var teammateIDs: [Int64]
+    var opponentIDs: [Int64]? = nil
     var rounds: Int
     var kills: Int
     var deaths: Int
@@ -740,6 +744,7 @@ struct ComparisonMatch: Content, Sendable {
         case scoreFor = "score_for"
         case scoreAgainst = "score_against"
         case teammateIDs = "teammate_ids"
+        case opponentIDs = "opponent_ids"
         case kastRounds = "kast_rounds"
         case sides
         case roundKills = "round_kills"

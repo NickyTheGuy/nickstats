@@ -15,7 +15,7 @@ private func benchmarkFixture() -> ComparisonResponse {
     ]
     let match = ComparisonMatch(id: 10, schema: "nickstats.match/27", playedAt: 123,
         map: "de_mirage", result: "w", scoreFor: 13, scoreAgainst: 7,
-        teammateIDs: [2], rounds: 20, kills: 3, deaths: 3, assists: 0, headshots: 0,
+        teammateIDs: [2], opponentIDs: [3, 4], rounds: 20, kills: 3, deaths: 3, assists: 0, headshots: 0,
         damage: 80, kastRounds: 0, sides: sides, roundKills: [])
     return ComparisonResponse(players: [ComparisonPlayer(id: 1, steamID: "1", name: "One", matches: [match])])
 }

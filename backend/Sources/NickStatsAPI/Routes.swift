@@ -309,7 +309,7 @@ func routes(_ app: Application) throws {
         let totalStart = timing.start()
         if !benchmark && request.query[Int.self, at: "wire"] == 4 {
             let query = try request.query.decode(ComparisonQuery.self)
-            let playerIDs = try comparisonPlayerIDs(query.players)
+            let playerIDs = try comparisonPlayerIDs(query.players, minimum: 1)
             let matchIDs = try comparisonMatchIDs(query.matches)
             var fragments: [Data] = []
             let buildStart = timing.start()
@@ -321,7 +321,7 @@ func routes(_ app: Application) throws {
                 }
             } else {
                 // Scoped comparisons must never reuse an unfiltered full history.
-                let scoped = try await comparisonData(request, timing: timing)
+                let scoped = try await comparisonData(request, timing: timing, minimumPlayers: 1)
                 for player in scoped.players {
                     let identity = PlayerProfileIdentity(id: player.id, steamID: player.steamID,
                         name: player.name, firstSeenAt: nil, lastSeenAt: nil)

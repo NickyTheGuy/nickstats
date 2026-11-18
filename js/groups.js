@@ -2,26 +2,29 @@
   "use strict";
 
   const GROUP_DATA_ENDPOINT = "/nickstats/api/groups";
-  const MAX_GROUP = 10;
+  const MAX_GROUP = 20;
   const MATCH_LIST_LIMIT = 50;
-  const MAX_INCLUDED = 5;
   const GROUP_REFRESH_AGE_MS = 60_000;
   const GROUP_SELECTION_KEY = "nickstats.groupSelection.v1";
+  const GROUP_QUERY_KEY = "nickstats.groupQuery.v2";
+  const rules = window.NickStatsGroupRules;
+  function readSavedQuery() {
+    try { return JSON.parse(localStorage.getItem(GROUP_QUERY_KEY) || "null"); }
+    catch (_) { return null; }
+  }
+  const savedQuery = readSavedQuery();
   const $ = id => document.getElementById(id);
   const ui = Object.fromEntries(["groupStatus", "comboMatchesStatus", "comboGraphPlayerStatus", "comboProfileTitle", "comboProfileMeta"].map(id => [id, window.NickStatsShellUI.text(id)]));
   ui.warnings = window.NickStatsShellUI.warnings("comboWarnings");
   const availability = window.NickStatsAvailability;
   function readSavedRoster() {
     try {
-      const rows = JSON.parse(localStorage.getItem(GROUP_SELECTION_KEY) || "[]");
+      const rows = Array.isArray(savedQuery?.players) ? savedQuery.players : JSON.parse(localStorage.getItem(GROUP_SELECTION_KEY) || "[]");
       if (!Array.isArray(rows)) return [];
       const roster = [], seen = new Set();
-      let included = 0;
       for (const row of rows) {
         if (!row || row.id == null || seen.has(String(row.id)) || roster.length >= MAX_GROUP) continue;
-        const id = String(row.id), requestedChoice = row.choice === "exclude" ? "exclude" : "include";
-        const choice = requestedChoice === "include" && included >= MAX_INCLUDED ? "exclude" : requestedChoice;
-        if (choice === "include") included += 1;
+        const id = String(row.id), choice = row.choice === "exclude" ? "exclude" : "include";
         seen.add(id);
         roster.push({ player: { id, name: row.name || "Unknown player", steam_id: row.steam_id || "", match_count: Number(row.match_count) || 0 }, choice });
       }
@@ -31,10 +34,13 @@
   const savedRoster = readSavedRoster();
   const state = {
     selected: new Map(savedRoster.map(({ player }) => [String(player.id), player])), players: [],
-    choices: new Map(savedRoster.map(({ player, choice }) => [String(player.id), choice])),
+    rules: rules.sanitizeRules(savedQuery?.rules || rules.legacyRules(savedRoster), savedRoster.map(({ player }) => player.id)),
+    displayed: new Set((Array.isArray(savedQuery?.displayed) ? savedQuery.displayed.map(String)
+      : savedRoster.filter(row => row.choice !== "exclude").map(({ player }) => String(player.id)))
+      .filter(id => savedRoster.some(({ player }) => String(player.id) === id))),
     groupController: null, groupStale: false, groupLoadedAt: 0,
     side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL",
-    comboPlayerId: "", comboCondition: "without", comboView: "overview", comboDisplay: "profile", graphPlayers: null, matchListKey: "", matchListOffset: 0
+    comboPlayerId: "", comboView: "overview", comboDisplay: "profile", graphPlayers: null, matchListKey: "", matchListOffset: 0
   };
 
   function num(value) {
@@ -56,15 +62,17 @@
   function setSearchStatus(message, error = false) { playerSearch.status(message, error); }
 
   function persistRoster() {
-    const rows = [...state.selected.values()].map(player => ({
+    const players = [...state.selected.values()].map(player => ({
       id: String(player.id), name: player.name || "Unknown player", steam_id: player.steam_id || "",
-      match_count: num(player.match_count), choice: state.choices.get(String(player.id)) === "exclude" ? "exclude" : "include"
+      match_count: num(player.match_count)
     }));
     try {
-      if (rows.length) localStorage.setItem(GROUP_SELECTION_KEY, JSON.stringify(rows));
-      else localStorage.removeItem(GROUP_SELECTION_KEY);
+      if (players.length) localStorage.setItem(GROUP_QUERY_KEY, JSON.stringify({ players, rules: state.rules, displayed: [...state.displayed] }));
+      else { localStorage.removeItem(GROUP_QUERY_KEY); localStorage.removeItem(GROUP_SELECTION_KEY); }
     } catch (_) {}
   }
+
+  function canBuild() { return state.selected.size >= 1 && state.displayed.size >= 1; }
 
   function playerRating(row) {
     const rounds = num(row.rounds);
@@ -116,6 +124,7 @@
         result: ["w", "l", "n"].includes(match.result) ? match.result : "n",
         score: [match.score_for, match.score_against],
         teammateIds: (match.teammate_ids || []).map(String),
+        opponentIds: Array.isArray(match.opponent_ids) ? match.opponent_ids.map(String) : null,
         sideRows: Array.isArray(match.sides) ? match.sides : [],
         round_kills: Array.isArray(match.round_kills) ? match.round_kills : [],
         legacy: { rounds: num(match.rounds), kills: num(match.kills), deaths: num(match.deaths), assists: num(match.assists), headshots: num(match.headshots), damage: num(match.damage), kast_rounds: num(match.kast_rounds) }
@@ -191,10 +200,10 @@
       return;
     }
     state.selected.set(String(player.id), player);
-    if (!state.choices.has(String(player.id))) {
-      const included = [...state.choices.values()].filter(choice => choice === "include").length;
-      state.choices.set(String(player.id), included < MAX_INCLUDED ? "include" : "exclude");
-    }
+    state.displayed.add(String(player.id));
+    state.rules = { ...state.rules, friendly: { ...state.rules.friendly,
+      children: [...state.rules.friendly.children, rules.condition(player.id)] } };
+    state.rules = rules.sanitizeRules(state.rules, state.selected.keys());
     playerSearch.reset("Search for another player, or build the current selection.");
     persistRoster();
     invalidateGroupResults();
@@ -203,7 +212,8 @@
 
   function removePlayer(id) {
     state.selected.delete(String(id));
-    state.choices.delete(String(id));
+    state.displayed.delete(String(id));
+    state.rules = rules.sanitizeRules(state.rules, state.selected.keys());
     persistRoster();
     invalidateGroupResults();
     renderSelectedRoster();
@@ -218,33 +228,33 @@
     $("groupResults").hidden = true;
   }
 
-  function setRosterChoice(id, choice) {
-    const current = state.choices.get(String(id));
-    const included = [...state.choices.values()].filter(value => value === "include").length;
-    if (choice === "include" && current !== "include" && included >= MAX_INCLUDED) {
-      setStatus(`A team can have at most ${MAX_INCLUDED} Included players.`, true);
-      return;
-    }
-    state.choices.set(String(id), choice);
+  function setRules(value) {
+    state.rules = rules.sanitizeRules(value, state.selected.keys());
     persistRoster();
-    invalidateGroupResults();
     renderSelectedRoster();
+    if (state.players.length) runCombination();
+  }
+
+  function setDisplay(id, checked) {
+    checked ? state.displayed.add(String(id)) : state.displayed.delete(String(id));
+    persistRoster();
+    renderSelectedRoster();
+    if (state.players.length) runCombination();
   }
 
   function renderSelectedRoster() {
-    window.NickStatsPlayerSelectionUI.roster($("groupSelectedRoster"), {
-      players: [...state.selected.values()].map(player => ({ player, choice: state.choices.get(String(player.id)) || "include" })),
-      onChoice: setRosterChoice, onRemove: removePlayer
+    window.NickStatsGroupUI.render($("groupSelectedRoster"), {
+      players: [...state.selected.values()], rules: state.rules, displayed: [...state.displayed],
+      onRules: setRules, onDisplay: setDisplay, onRemove: removePlayer
     });
-    const count = state.selected.size;
-    const included = [...state.choices.entries()].filter(([id, choice]) => state.selected.has(id) && choice === "include").length;
-    ui.groupBuildButton.update({ disabled: count < 2 || included === 0 });
-    ui.groupClearButton.update({ disabled: count === 0 });
-    setStatus(count < 2 ? "Choose at least two players." : !included ? "Choose at least one Included player." : `${included} included · ${count - included} excluded. Ready to build.`);
+    ui.groupBuildButton.update({ disabled: !canBuild() });
+    ui.groupClearButton.update({ disabled: state.selected.size === 0 });
+    setStatus(!state.selected.size ? "Search and add players." : !state.displayed.size
+      ? "Choose at least one player whose stats you want to show." : `${state.selected.size} players to search · ${state.displayed.size} profiles to show.`);
   }
 
   async function buildGroup({ refresh = false } = {}) {
-    if (state.selected.size < 2) return;
+    if (!canBuild()) return;
     const perf = window.performance;
     const now = () => perf?.now() ?? Date.now();
     const started = now();
@@ -287,7 +297,6 @@
       state.players = players.sort((a, b) => a.label.localeCompare(b.label));
       populateMaps({ reset: !refresh });
       if (!refresh) state.graphPlayers = null;
-      state.players.forEach(player => { if (!state.choices.has(player.profileId)) state.choices.set(player.profileId, "include"); });
       state.players.forEach(player => {
         const selected = state.selected.get(player.profileId);
         if (selected) state.selected.set(player.profileId, { ...selected, name: player.label, match_count: player.rows.length });
@@ -298,7 +307,7 @@
       state.groupLoadedAt = Date.now();
       $("groupResults").hidden = false;
       runCombination();
-      setStatus(`Built ${selectedPlayers("include").length} conditional player profile${selectedPlayers("include").length === 1 ? "" : "s"}.`);
+      setStatus(`Built ${displayedPlayers().length} conditional player profile${displayedPlayers().length === 1 ? "" : "s"}.`);
       measure("prepare and render", renderStart);
       measure("total", started);
     } catch (error) {
@@ -307,8 +316,7 @@
     } finally {
       if (state.groupController === controller) {
         state.groupController = null;
-        const included = [...state.choices.entries()].filter(([id, choice]) => state.selected.has(id) && choice === "include").length;
-        ui.groupBuildButton.update({ disabled: state.selected.size < 2 || included === 0 });
+        ui.groupBuildButton.update({ disabled: !canBuild() });
       }
     }
   }
@@ -323,8 +331,7 @@
 
   window.addEventListener("nickstats:matches-changed", markGroupStale);
   function ensureCurrentGroup({ force = false } = {}) {
-    if ($("groupsPage").hidden || document.hidden || state.groupController || state.selected.size < 2 ||
-        ![...state.selected.keys()].some(id => state.choices.get(id) !== "exclude")) return;
+    if ($("groupsPage").hidden || document.hidden || state.groupController || !canBuild()) return;
     if (force || state.groupStale || !state.players.length || Date.now() - state.groupLoadedAt >= GROUP_REFRESH_AGE_MS) {
       buildGroup({ refresh: true });
     }
@@ -336,58 +343,24 @@
   window.addEventListener("focus", () => ensureCurrentGroup());
   document.addEventListener("visibilitychange", () => ensureCurrentGroup());
 
-  function choiceFor(player) {
-    return state.choices.get(player.profileId) || "include";
-  }
-
-  function selectedPlayers(choice) {
-    return state.players.filter(player => choiceFor(player) === choice);
+  function displayedPlayers() {
+    return state.players.filter(player => state.displayed.has(player.profileId));
   }
 
   function findCombination() {
-    const included = selectedPlayers("include");
-    const excluded = selectedPlayers("exclude");
-    if (!included.length) return null;
-    const first = included[0];
-    const eligible = player => player.rows.filter(row => mapFilter.matches(row.map) && dateFilter.matches(row.date) && manualFilter.matches(row));
-    const rowMaps = new Map(included.map(player => [player.profileId, new Map(eligible(player).map(row => [row.id, row]))]));
-    const baseMatches = eligible(first).filter(row => included.every(player =>
-      player.profileId === first.profileId || row.teammateIds.includes(player.profileId)
-    )).map(firstRow => ({
-      id: firstRow.id,
-      rows: included.map(player => ({ player, row: rowMaps.get(player.profileId).get(firstRow.id) })).filter(item => item.row)
-    })).filter(match => match.rows.length === included.length);
-    const isPresent = (match, player) => match.rows[0].row.teammateIds.includes(player.profileId);
-    const fullTeam = included.length === MAX_INCLUDED;
-    const comparisonPossible = excluded.length > 0 && included.length + excluded.length <= MAX_INCLUDED;
-    const matches = (fullTeam ? baseMatches : baseMatches.filter(match => excluded.every(player => !isPresent(match, player))))
-      .sort((a, b) => b.rows[0].row.date - a.rows[0].row.date || num(b.id) - num(a.id));
-    const comparisonMatches = comparisonPossible
-      ? baseMatches.filter(match => excluded.every(player => isPresent(match, player)))
-          .sort((a, b) => b.rows[0].row.date - a.rows[0].row.date || num(b.id) - num(a.id))
-      : [];
-    const partialMatches = !fullTeam && excluded.length > 1 ? baseMatches.filter(match => {
-      const present = excluded.filter(player => isPresent(match, player)).length;
-      return present > 0 && present < excluded.length;
-    }) : [];
-    return { included, excluded, baseMatches, matches, comparisonMatches, partialMatches, fullTeam, comparisonPossible };
+    const profiles = displayedPlayers();
+    if (!profiles.length) return null;
+    const matches = rules.qualifyingMatches(state.players, state.rules,
+      row => mapFilter.matches(row.map) && dateFilter.matches(row.date) && manualFilter.matches(row));
+    return { profiles, matches };
   }
 
   function renderComboWarnings(current) {
-    const messages = [];
-    const add = message => messages.push(message);
-    if (current.fullTeam && current.excluded.length) add("Five Included players already fill the team, so Excluded players cannot be added.");
-    else if (current.excluded.length && !current.comparisonPossible) add(`The ${current.included.length + current.excluded.length}-player “With” roster cannot fit on one team.`);
-    if (current.partialMatches.length) add(`${current.partialMatches.length} match${current.partialMatches.length === 1 ? " contains" : "es contain"} only some Excluded players and ${current.partialMatches.length === 1 ? "is" : "are"} omitted from both groups.`);
-    ui.warnings.update({ messages });
-  }
-
-  function comboMatchesForCondition(current) {
-    return state.comboCondition === "with" ? current.comparisonMatches : current.matches;
+    ui.warnings.update({ messages: current.matches.length ? [] : ["No stored matches satisfy these team conditions and filters."] });
   }
 
   function comboProfileRows(current, player) {
-    return comboMatchesForCondition(current)
+    return current.matches
       .map(match => match.rows.find(item => item.player.profileId === player.profileId)?.row)
       .filter(row => row && matchResultMatches(row.result, state.result));
   }
@@ -395,7 +368,7 @@
   function renderComboMatches(rows, player) {
     const matches = rows.filter(row => (state.roundPhase === "ALL" && !state.heroOnly) || num(selectedView(row).stats.rounds) > 0)
       .slice().sort((a, b) => b.date - a.date || String(b.id).localeCompare(String(a.id), undefined, { numeric: true }));
-    const key = JSON.stringify([player.profileId, state.comboCondition, matches.map(row => row.id)]);
+    const key = JSON.stringify([player.profileId, matches.map(row => row.id)]);
     if (state.matchListKey !== key) { state.matchListKey = key; state.matchListOffset = 0; }
     const offset = state.matchListOffset = Math.max(0, Math.min(state.matchListOffset,
       Math.max(0, Math.ceil(matches.length / MATCH_LIST_LIMIT) - 1) * MATCH_LIST_LIMIT));
@@ -425,7 +398,7 @@
   const mapFilter = window.NickStatsMapFilterUI.create("groupMapFilter", { onChange: () => runCombination(), formatLabel: value => titleCase(value.replace(/^de_/, "")) });
   const dateFilter = window.NickStatsDateFilterUI.create("groupDateFilter", { onChange: () => runCombination() });
   const quickComparison = window.NickStatsComparisonUI.create({ prefix: "combo", title: "Group scoreboard",
-    description: "Compare the included players at a glance.", mapsLabel: "Group quick comparison maps" });
+    description: "Compare selected players in matches satisfying the team rules.", mapsLabel: "Group quick comparison maps" });
   const manualFilter = window.NickStatsTagFilterUI.create("groupManualFilter", { onChange: () => { if (state.players.length) runCombination(); } });
 
   function setComboProfileView(view) {
@@ -446,21 +419,16 @@
   function renderComboTabs(current) {
     if (!current) return;
     window.NickStatsNavigationUI.group({
-      profiles: current.included.map(player => ({ id: player.profileId, name: player.label })),
+      profiles: current.profiles.map(player => ({ id: player.profileId, name: player.label })),
       display: state.comboDisplay, activeId: state.comboPlayerId, onDisplay: setComboDisplay,
       onSelect: id => { state.comboPlayerId = id; state.comboDisplay = "profile"; renderComboProfile(current); setComboDisplay("profile"); }
     });
   }
 
   function renderComboProfile(current) {
-    if (!current.included.some(player => player.profileId === state.comboPlayerId)) state.comboPlayerId = current.included[0].profileId;
-    const canCompare = current.excluded.length > 0 && current.comparisonPossible;
-    if (state.comboCondition === "with" && !canCompare) state.comboCondition = "without";
-    comboConditionFilter.set(state.comboCondition, { notify: false });
-    comboConditionFilter.setDisabled(canCompare ? [] : ["with"]);
-
+    if (!current.profiles.some(player => player.profileId === state.comboPlayerId)) state.comboPlayerId = current.profiles[0].profileId;
     renderComboTabs(current);
-    const player = current.included.find(item => item.profileId === state.comboPlayerId);
+    const player = current.profiles.find(item => item.profileId === state.comboPlayerId);
     const rows = comboProfileRows(current, player), stats = summarize(rows);
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     ui.comboProfileTitle.update({ text: player.label });
@@ -479,11 +447,11 @@
   function renderComboGraphs(current) {
     if (!current) return;
     const idFor = player => String(player.profileId);
-    if (state.graphPlayers == null) state.graphPlayers = new Set(current.included.slice(0, 5).map(idFor));
-    const selectedCount = current.included.filter(player => state.graphPlayers.has(idFor(player))).length;
+    if (state.graphPlayers == null) state.graphPlayers = new Set(current.profiles.slice(0, 5).map(idFor));
+    const selectedCount = current.profiles.filter(player => state.graphPlayers.has(idFor(player))).length;
     window.NickStatsPlayerSelectionUI.graphs($("comboGraphPlayers"), {
-      players: current.included.map(player => ({ id: idFor(player), name: player.label })),
-      selected: current.included.filter(player => state.graphPlayers.has(idFor(player))).map(idFor),
+      players: current.profiles.map(player => ({ id: idFor(player), name: player.label })),
+      selected: current.profiles.filter(player => state.graphPlayers.has(idFor(player))).map(idFor),
       descriptionId: "comboGraphPlayerStatus",
       onChange: (id, checked) => {
         if (checked && selectedCount >= 5) return;
@@ -491,8 +459,8 @@
         renderComboGraphs(current);
       }
     });
-    ui.comboGraphPlayerStatus.update({ text: `${selectedCount} of ${current.included.length} players selected` });
-    const series = current.included.map((candidate, colorIndex) => {
+    ui.comboGraphPlayerStatus.update({ text: `${selectedCount} of ${current.profiles.length} players selected` });
+    const series = current.profiles.map((candidate, colorIndex) => {
       const matches = comboProfileRows(current, candidate);
       return { id: idFor(candidate), colorIndex, label: candidate.label, sessionMatches: candidate.rows,
         samples: window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly, candidate.teammateRatings),
@@ -505,13 +473,13 @@
 
   function runCombination() {
     const current = findCombination();
-    if (!current) return;
+    if (!current) { $("comboResults").hidden = true; return; }
     renderComboWarnings(current);
     renderComboProfile(current);
     quickComparison.render({
-      players: current.included.map(player => ({ ...player, rows: comboProfileRows(current, player) })),
+      players: current.profiles.map(player => ({ ...player, rows: comboProfileRows(current, player) })),
       summarize,
-      metaSuffix: state.comboCondition === "with" ? "With excluded players" : "Without excluded players"
+      metaSuffix: "Matching friendly/enemy team rules"
     });
     $("comboResults").hidden = false;
     setComboDisplay(state.comboDisplay);
@@ -521,7 +489,8 @@
     dateFilter.reset();
     state.groupController?.abort();
     state.selected.clear();
-    state.choices.clear();
+    state.rules = rules.emptyRules();
+    state.displayed.clear();
     persistRoster();
     state.result = "ALL";
     state.buy = "ALL";
@@ -542,16 +511,13 @@
   }
 
   const playerSearch = window.NickStatsPlayerSearchUI.create({ prefix: "group", limit: 20, onSelect: addPlayer,
-    excluded: id => state.selected.has(id), initialMessage: "Search and add at least two players." });
+    excluded: id => state.selected.has(id), initialMessage: "Search and add players for your team rules or displayed stats." });
   ui.comboMatchesPagination = window.NickStatsShellUI.pagination("comboMatchesPagination", () => { state.matchListOffset -= MATCH_LIST_LIMIT; runCombination(); }, () => { state.matchListOffset += MATCH_LIST_LIMIT; runCombination(); });
 
   ui.groupBuildButton = window.NickStatsShellUI.button("groupBuildButton", () => buildGroup());
   ui.groupClearButton = window.NickStatsShellUI.button("groupClearButton", clear);
   const profileSectionTabs = window.NickStatsSectionTabsUI.create("comboDetailTabsApp", { kind: "combo", onChange: setComboProfileView });
   const comboResultFilter = window.NickStatsSegmentedUI.create("comboResultFilter", { onChange: result => { state.result = result; runCombination(); } });
-  const comboConditionFilter = window.NickStatsSegmentedUI.create("comboConditionFilter", {
-    onChange: value => { state.comboCondition = value; runCombination(); }
-  });
   const groupSideFilter = window.NickStatsSegmentedUI.create("groupSideFilter", { onChange: side => { state.side = side; runCombination(); } });
   const groupBuyFilter = window.NickStatsSegmentedUI.create("groupBuyFilter", { onChange: buy => { state.buy = buy; state.heroOnly = buy === "hero"; runCombination(); } });
   const groupEnemyBuyFilter = window.NickStatsSegmentedUI.create("groupEnemyBuyFilter", { onChange: opponentBuy => { state.opponentBuy = opponentBuy; runCombination(); } });

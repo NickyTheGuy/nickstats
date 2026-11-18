@@ -52,7 +52,7 @@ test("Graphs selection preserves the active profile and hides profile and quick 
 
 test("standalone group graphs preserve player selection across redraws and cap it at five", () => {
   let choices;
-  const nodes = new Map(), calls = [], current = { included: Array.from({ length: 6 }, (_, i) => ({ profileId: String(i), label: `Player ${i}`, teammateRatings: {3:1.2} })) };
+  const nodes = new Map(), calls = [], current = { profiles: Array.from({ length: 6 }, (_, i) => ({ profileId: String(i), label: `Player ${i}`, teammateRatings: {3:1.2} })) };
   const state = { graphPlayers: null, side: "CT", buy: "full", roundResult: "win", opponentBuy: "eco", roundPhase: "REGULATION", heroOnly: false };
   const sandbox = { state, ui: { comboGraphPlayerStatus: { update() {} } }, $: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); }, el: (_, text) => new Node(text),
     comboProfileRows: (_, player) => [{ id: player.profileId, round_kills: [] }],
@@ -64,7 +64,7 @@ test("standalone group graphs preserve player selection across redraws and cap i
   render(current);
   assert.equal(calls.at(-1).prefix, "combo"); assert.equal(calls.at(-1).series.length, 5); assert.equal(calls.at(-1).domainSeries.length, 6);
   assert.deepEqual(Array.from(calls.at(-1).series[0].samples).slice(1,7), ["CT", "full", "win", "eco", "REGULATION", false]);
-  assert.equal(calls.at(-1).series[0].samples[7],current.included[0].teammateRatings);
+  assert.equal(calls.at(-1).series[0].samples[7],current.profiles[0].teammateRatings);
   assert.equal(choices.selected.length, 5);
   choices.onChange("5", true); assert.equal(state.graphPlayers.has("5"), false, "a sixth selection is rejected");
   choices.onChange("0", false);

@@ -3799,3 +3799,30 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .react-graph-settings { display: contents; }
 
 .graph-note-mount { display: contents; }
+
+/* Nested friendly/enemy Groups rules. */
+.group-query-builder { display: grid; gap: 1rem; min-width: 0; }
+.group-query-builder p { margin: 0; }
+.group-query-players { display: flex; flex-wrap: wrap; gap: .65rem; }
+.group-query-players .group-selected-player { display: flex; align-items: center; gap: .7rem; }
+.group-rule-teams { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+.group-rule-group { display: grid; gap: .8rem; min-width: 0; margin: 0; padding: .8rem; border: 1px solid var(--line-strong); border-radius: .65rem; }
+.group-rule-group legend { padding: 0 .4rem; font-weight: 650; }
+.group-rule-heading, .group-rule-actions, .group-rule-condition { display: flex; flex-wrap: wrap; align-items: end; gap: .6rem; }
+.group-rule-condition { padding: .65rem 0; border-bottom: 1px solid var(--line-strong); }
+.group-rule-condition .graph-option-field { flex: 1 1 8rem; min-width: 0; }
+.group-rule-help { color: var(--muted); font-size: .88rem; line-height: 1.5; }
+.group-rule-group .stats-dropdown { max-width: 100%; }
+@media (max-width: 800px) {
+  .group-rule-teams { grid-template-columns: minmax(0, 1fr); }
+  .group-rule-group { padding: .6rem; }
+  .group-rule-group .group-rule-group { border-left-width: 2px; }
+}
+
+#groupSelectedRoster { margin-top: 1rem; min-width: 0; }
+.group-page-stack, .group-results, .group-query-builder { grid-template-columns: minmax(0, 1fr); }
+.group-builder-panel, .group-rule-heading > *, .group-rule-group > * { min-width: 0; }
+.group-query-players .group-selected-player { max-width: 100%; flex-wrap: wrap; }
+.group-results .combo-results { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.group-results .combo-display-panel[data-combo-display-panel="profile"] { grid-template-columns: minmax(0, 1fr); }
+.group-results .combo-player-profile { min-width: 0; }
