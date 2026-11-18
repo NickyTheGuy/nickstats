@@ -42,3 +42,23 @@ private func analyzerRound() throws -> ReplayJSON {
     #expect(projectReplayRound(round,players:["steam:3"])["deaths"].array?.isEmpty == true)
     #expect(projectReplayRound(round,players:nil) == round)
 }
+
+
+@Test func replayChunkAssemblyVerifiesUploadsAndBoundsPublishedReads() throws {
+    let chunks = [ReplayStoredChunk(part:0,body:"abc"),ReplayStoredChunk(part:1,body:"def")]
+    let manifest = ReplayRoundManifest(number:1,parts:2,bytes:6,sha256:replayDigest(Data("abcdef".utf8)),summary:.null)
+    #expect(try assembleReplayRound(chunks,manifest:manifest,verifyChecksum:true) == Data("abcdef".utf8))
+    #expect(try assembleReplayRound(chunks,manifest:manifest,verifyChecksum:false) == Data("abcdef".utf8))
+    let corrupt = [ReplayStoredChunk(part:0,body:"abx"),chunks[1]]
+    #expect(throws:(any Error).self) { try assembleReplayRound(corrupt,manifest:manifest,verifyChecksum:true) }
+    for bad in [[chunks[0]],[chunks[1],chunks[0]],[ReplayStoredChunk(part:0,body:"toolong"),chunks[1]]] {
+        #expect(throws:(any Error).self) { try assembleReplayRound(bad,manifest:manifest,verifyChecksum:false) }
+    }
+}
+
+
+@Test func numericFirstReplayDecodingKeepsNumbersBooleansStringsAndNullDistinct() throws {
+    let value = try replayDecode("[0,1,-42,12.5,true,false,\"1\",null,[2,3]]",as:ReplayJSON.self)
+    #expect(value == .array([.number(0),.number(1),.number(-42),.number(12.5),.bool(true),.bool(false),.string("1"),.null,.array([.number(2),.number(3)])]))
+    #expect(try replayDecode(replayText(value),as:ReplayJSON.self) == value)
+}

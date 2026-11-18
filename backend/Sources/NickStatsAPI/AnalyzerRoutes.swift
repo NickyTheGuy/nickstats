@@ -23,15 +23,8 @@ private func storedRound(_ sql: any SQLDatabase, capture: String, manifest: Repl
       SELECT part_number, body FROM replay_chunks WHERE capture_id = \(bind: capture)
       AND round_number = \(bind: manifest.number) ORDER BY part_number
       """).all()
-    guard rows.count == manifest.parts else { throw Abort(.conflict, reason: "Replay upload is incomplete. Retry the upload.") }
-    var data = Data()
-    for (index,row) in rows.enumerated() {
-        guard try row.decode(column:"part_number",as:Int.self) == index else { throw replayBad("missing chunk.") }
-        data.append(contentsOf: try row.decode(column:"body",as:String.self).utf8)
-        guard data.count <= manifest.bytes else { throw replayBad("round exceeds declared size.") }
-    }
-    guard data.count == manifest.bytes, replayDigest(data) == manifest.sha256 else { throw replayBad("round checksum mismatch.") }
-    return data
+    let chunks = try rows.map { ReplayStoredChunk(part:try $0.decode(column:"part_number",as:Int.self),body:try $0.decode(column:"body",as:String.self)) }
+    return try assembleReplayRound(chunks,manifest:manifest,verifyChecksum:true)
 }
 
 struct AnalyzerQuery: Content { var players: String?; var match: Int64?; var offset: Int?; var limit: Int? }
@@ -187,7 +180,10 @@ func analyzerRoutes(_ app: Application) throws {
     }
     // One bounded read per match, rather than a network request for every round.
     app.post("analyzer","captures",":capture","selection") { request async throws -> Response in
+        let timing = ProfileTimingRecorder()
+        let totalStart = timing.start()
         let capture = try captureID(request), sql = try analyzerSQL(request.db)
+        let indexStart = timing.start()
         let selection = try request.content.decode(ReplaySelection.self)
         guard !selection.rounds.isEmpty, selection.rounds.count <= 65535,
               Set(selection.rounds).count == selection.rounds.count,
@@ -202,13 +198,37 @@ func analyzerRoutes(_ app: Application) throws {
         let numbers = Set(selection.rounds), players = Set(selection.players)
         let items = manifest.filter { numbers.contains($0.number) }
         guard items.count == numbers.count else { throw Abort(.badRequest,reason:"Unknown replay round.") }
+        timing.record("index",since:indexStart)
+        let chunksStart = timing.start()
+        let chunkRows = try await sql.raw("""
+          SELECT round_number,part_number,body FROM replay_chunks WHERE capture_id=\(bind:capture)
+          AND round_number IN (\(binds:selection.rounds)) ORDER BY round_number,part_number
+          """).all()
+        var chunks: [Int:[ReplayStoredChunk]] = [:]
+        for chunk in chunkRows {
+            let number = try chunk.decode(column:"round_number",as:Int.self)
+            chunks[number,default:[]].append(ReplayStoredChunk(part:try chunk.decode(column:"part_number",as:Int.self),body:try chunk.decode(column:"body",as:String.self)))
+        }
+        timing.record("chunks",since:chunksStart)
         var rounds: [ReplayJSON] = []
         for item in items {
-            let data = try await storedRound(sql,capture:capture,manifest:item)
+            let assembleStart = timing.start()
+            // Completion already verified every checksum and sample. Published
+            // captures are immutable; retain size/order checks on each read.
+            let data = try assembleReplayRound(chunks.removeValue(forKey:item.number) ?? [],manifest:item,verifyChecksum:false)
+            timing.record("assemble",since:assembleStart)
+            let decodeStart = timing.start()
             let round = try JSONDecoder().decode(ReplayJSON.self,from:data)
+            timing.record("decode",since:decodeStart)
+            let projectStart = timing.start()
             let projected = projectReplayRound(round,players:players)
             if !(projected["tracks"].array ?? []).isEmpty { rounds.append(projected) }
+            timing.record("project",since:projectStart)
         }
-        return replayResponse(try replayText(ReplayJSON.object(["header":header,"rounds":.array(rounds)])))
+        let encodeStart = timing.start()
+        let response = replayResponse(try replayText(ReplayJSON.object(["header":header,"rounds":.array(rounds)])))
+        timing.record("encode",since:encodeStart);timing.record("total",since:totalStart)
+        response.headers.replaceOrAdd(name:"Server-Timing",value:timing.serverTimingHeader())
+        return response
     }
 }

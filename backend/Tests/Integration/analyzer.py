@@ -92,6 +92,9 @@ try:
     assert len(selected['rounds']) == 1 and selected['rounds'][0]['number'] == 2
     assert len(selected['header']['players']) == 3 and len(selected['rounds'][0]['tracks']) == 1
     assert selected['rounds'][0]['deaths'][0]['victim'] == 'steam:3'
+    both = request('/analyzer/captures/'+capture+'/selection', {'rounds':[1,2], 'players':['steam:1','steam:3']})
+    assert [r['number'] for r in both['rounds']] == [1,2]
+    assert all(len(r['tracks']) == 2 for r in both['rounds'])
     request(f'/analyzer/captures/{capture}/rounds/1/parts/0', {'data':'bad'},method='PUT',expected=409)
     assert sql("SELECT CONCAT(played_at,'|',played_at_source) FROM matches WHERE id=1") == '2026-11-01 12:00:00|faceit_history'
     assert sql("SELECT state FROM account_manual_filter_states WHERE filter_id='tag' AND match_id=1") == 'true'

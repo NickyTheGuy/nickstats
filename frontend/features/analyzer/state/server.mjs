@@ -1,5 +1,5 @@
 import { validateReplay, MAX_REPLAY_BYTES } from './replay.mjs';
-import { replaySampleCount } from './round-selection.mjs';
+import { createMovementCache, movementSelection } from './movement-cache.mjs';
 const endpoint='/nickstats/api/analyzer';
 export async function analyzerJSON(path,{signal,...options}={}) {
   const response=await fetch(`${endpoint}${path}`,{credentials:'same-origin',cache:'no-store',signal,...options,
@@ -74,30 +74,30 @@ export async function loadCaptureHeaders(matches,{signal,onStatus=()=>{}}={},req
   }
   return replays;
 }
-// One selection read per match, with two in flight. Old data is released and
-// aborted/late selections never replace the current view.
-export async function loadSelectedRounds(replays,keys,players,{signal,onStatus=()=>{},maxSamples=2000000}={},request=analyzerJSON) {
-  const wanted=new Set(keys),chosen=new Set(players),jobs=[];
-  for(const replay of replays) {
-    const rounds=replay.rounds.filter(round=>wanted.has(`${replay.match_uid}:${round.number}`)&&round.player_ids.some(id=>chosen.has(id)));
-    if(rounds.length)jobs.push({replay,rounds});
-  }
-  const result=new Array(jobs.length);let next=0,samples=0,bytes=0,done=0,failed=false;
+// Reuse immutable player/round slices; a match request contains only missing
+// rounds and players. Two concurrent match reads bound transfer pressure.
+export async function loadSelectedRounds(replays,keys,players,{signal,onStatus=()=>{},maxSamples=2000000,cache=createMovementCache({maxSamples})}={},request=analyzerJSON) {
+  const plan=movementSelection(replays,keys,players);cache.pin(plan);
+  signal?.throwIfAborted();
+  const existing=cache.read(plan,{sampleLimit:maxSamples});if(existing!==null)return existing;
+  const jobs=plan.map(job=>cache.missing(job)).filter(job=>job.rounds.length);
+  let next=0,done=0,failed=false;
   async function worker() {
     while(!failed&&next<jobs.length) {
-      const index=next++,{replay,rounds}=jobs[index];signal?.throwIfAborted();
+      const {replay,rounds,players:missingPlayers}=jobs[next++];signal?.throwIfAborted();
       try {
-        const data=await request(`/captures/${replay.capture}/selection`,{method:'POST',body:JSON.stringify({rounds:rounds.map(r=>r.number),players}),signal});
+        const data=await request(`/captures/${replay.capture}/selection`,{method:'POST',body:JSON.stringify({rounds:rounds.map(r=>r.number),players:missingPlayers}),signal});
         signal?.throwIfAborted();
         const validated=validateReplay({...data.header,rounds:data.rounds});
         const received=validated.rounds.map(r=>r.number);
         if(validated.match_uid!==replay.match_uid||validated.map!==replay.map||received.length!==rounds.length||rounds.some(r=>!received.includes(r.number)))throw new Error('Replay selection changed. Find matches again.');
-        samples+=replaySampleCount(validated);bytes+=JSON.stringify(data).length;
-        if(samples>maxSamples||bytes>MAX_REPLAY_BYTES)throw new Error('This selection exceeds the viewer’s memory budget. Narrow the map, dates, tags or rounds.');
-        result[index]=validated.rounds.map(round=>({...round,match_id:replay.matchID}));onStatus(`Loading movement · ${++done}/${jobs.length} matches…`);
+        cache.put(replay,validated.rounds,missingPlayers);
+        onStatus(`Loading movement · ${++done}/${jobs.length} matches…`);
       }catch(error){failed=true;throw error;}
     }
   }
-  await Promise.all([worker(),worker()]);
-  return result.flat();
+  await Promise.all([worker(),worker()]);signal?.throwIfAborted();
+  const result=cache.read(plan,{sampleLimit:maxSamples});
+  if(result===null)throw new Error('Movement selection changed. Try loading the selection again.');
+  return result;
 }

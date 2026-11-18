@@ -9,9 +9,11 @@ indirect enum ReplayJSON: Codable, Sendable, Equatable {
     init(from decoder: any Decoder) throws {
         let c = try decoder.singleValueContainer()
         if c.decodeNil() { self = .null }
+        // Position arrays dominate these files. Decode numbers first rather
+        // than throwing two type mismatches for every coordinate and timestamp.
+        else if let v = try? c.decode(Double.self) { self = .number(v) }
         else if let v = try? c.decode(Bool.self) { self = .bool(v) }
         else if let v = try? c.decode(String.self) { self = .string(v) }
-        else if let v = try? c.decode(Double.self) { self = .number(v) }
         else if let v = try? c.decode([ReplayJSON].self) { self = .array(v) }
         else { self = .object(try c.decode([String: ReplayJSON].self)) }
     }
@@ -170,4 +172,20 @@ func projectReplayRound(_ round: ReplayJSON, players: Set<String>?) -> ReplayJSO
     }
     output["deaths"] = .array((round["deaths"].array ?? []).filter { players.contains($0["victim"].string ?? "") || players.contains($0["killer"].string ?? "") })
     return .object(output)
+}
+
+
+struct ReplayStoredChunk: Sendable { var part: Int; var body: String }
+func assembleReplayRound(_ chunks: [ReplayStoredChunk], manifest: ReplayRoundManifest, verifyChecksum: Bool) throws -> Data {
+    guard chunks.count == manifest.parts else { throw Abort(.conflict,reason:"Replay upload is incomplete. Retry the upload.") }
+    var data = Data()
+    data.reserveCapacity(manifest.bytes)
+    for (index,chunk) in chunks.enumerated() {
+        guard chunk.part == index else { throw replayBad("missing chunk.") }
+        data.append(contentsOf:chunk.body.utf8)
+        guard data.count <= manifest.bytes else { throw replayBad("round exceeds declared size.") }
+    }
+    guard data.count == manifest.bytes else { throw replayBad("round size mismatch.") }
+    if verifyChecksum, replayDigest(data) != manifest.sha256 { throw replayBad("round checksum mismatch.") }
+    return data
 }

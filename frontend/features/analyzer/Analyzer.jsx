@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import SourcePicker from './SourcePicker.jsx';
+import { createMovementCache, movementSelection } from './state/movement-cache.mjs';
 import { groupRoundKeys } from './state/query.mjs';
 import { loadCaptureHeaders, loadSelectedRounds } from './state/server.mjs';
 import Button from '../../shared/components/buttons/Button.jsx';
@@ -16,9 +17,10 @@ import { openReplayFile } from './state/files.mjs';
 export default function Analyzer({entryStore}) {
   const entry=useSyncExternalStore(entryStore.subscribe,entryStore.getSnapshot);
   const [mode,setMode]=useState('match'),[queryPlayers,setQueryPlayers]=useState(null);
-  const [groupRounds,setGroupRounds]=useState({sections:[],numbers:[]}),[remoteRounds,setRemoteRounds]=useState([]);
+  const [groupRounds,setGroupRounds]=useState({sections:[],numbers:[]}),[cacheRevision,setCacheRevision]=useState(0);
   const [loadingRounds,setLoadingRounds]=useState(false),[retry,setRetry]=useState(0);
-  const roundOperation=useRef(null);
+  const roundOperation=useRef(null),movementCache=useRef(null);
+  if(!movementCache.current)movementCache.current=createMovementCache();
   const [replays,setReplays] = useState([]), [mapName,setMapName] = useState('');
   const [selectedRounds,setSelectedRounds] = useState([]), [selectedPlayers,setSelectedPlayers] = useState([]);
   const [utilities,setUtilities] = useState(UTILITY_TYPES), [side,setSide] = useState(0);
@@ -28,7 +30,7 @@ export default function Analyzer({entryStore}) {
   const [combatLayers,setCombatLayers]=useState(COMBAT_LAYERS);
   const operation = useRef(null),sourceIdentity=useRef('');
   useEffect(() => () => { operation.current?.abort();roundOperation.current?.abort(); }, []);
-  const clearSource=useCallback(()=>{operation.current?.abort();roundOperation.current?.abort();operation.current=null;roundOperation.current=null;setReplays([]);setRemoteRounds([]);setMapName('');setQueryPlayers(null);setBusy(false);setLoadingRounds(false);setError('');setStatus('');setPlaying(false);},[]);
+  const clearSource=useCallback(()=>{operation.current?.abort();roundOperation.current?.abort();operation.current=null;roundOperation.current=null;setReplays([]);setMapName('');setQueryPlayers(null);setBusy(false);setLoadingRounds(false);setError('');setStatus('');setPlaying(false);},[]);
   const chooseSource=useCallback(async source=>{
     clearSource();setMode(source.mode);setQueryPlayers(source.mode==='groups'?source.players:null);
     const identity=source.mode==='groups'?`groups:${source.players.map(p=>p.id).join(',')}`:`match:${source.matches[0]?.id}`;
@@ -60,17 +62,22 @@ export default function Analyzer({entryStore}) {
   const roundKeys=useMemo(()=>mode==='groups'?groupRoundKeys(mapReplays,groupRounds,{...filters,players:selectedPlayers,side}):
     mapReplays.flatMap(r=>r.rounds.filter(round=>selectedRounds.includes(`${r.match_uid}:${round.number}`)&&matchesRound(round,{...filters,players:selectedPlayers,side})).map(round=>`${r.match_uid}:${round.number}`)),
     [mapReplays,mode,groupRounds,filters,selectedPlayers,side,selectedRounds]);
+  const cachedRounds=useMemo(()=>{
+    if(!remote)return null;
+    try{return movementCache.current.read(movementSelection(mapReplays,roundKeys,selectedPlayers));}catch{return null;}
+  },[remote,mapReplays,roundKeys,selectedPlayers,retry,cacheRevision]);
   useEffect(()=>{
-    setRemoteRounds([]);roundOperation.current?.abort();
-    if(!remote||!roundKeys.length||!selectedPlayers.length){setLoadingRounds(false);return;}
+    roundOperation.current?.abort();roundOperation.current=null;
+
+    if(!remote||cachedRounds!==null||!roundKeys.length||!selectedPlayers.length){setLoadingRounds(false);setStatus('');if(cachedRounds!==null)setError('');return;}
     const controller=new AbortController();roundOperation.current=controller;setLoadingRounds(true);setError('');
-    loadSelectedRounds(mapReplays,roundKeys,selectedPlayers,{signal:controller.signal,onStatus:setStatus})
-      .then(rounds=>{controller.signal.throwIfAborted();setRemoteRounds(rounds);})
+    loadSelectedRounds(mapReplays,roundKeys,selectedPlayers,{signal:controller.signal,onStatus:setStatus,cache:movementCache.current})
+      .then(rounds=>{controller.signal.throwIfAborted();setCacheRevision(v=>v+1);})
       .catch(e=>{if(!controller.signal.aborted){controller.abort();setError(e.message);}})
       .finally(()=>{if(roundOperation.current===controller){setLoadingRounds(false);setStatus('');roundOperation.current=null;}});
     return()=>controller.abort();
   },[remote,mapReplays,roundKeys,selectedPlayers,retry]);
-  const rounds=useMemo(()=>remote?remoteRounds:mapReplays.flatMap(r=>r.rounds.filter(round=>roundKeys.includes(`${r.match_uid}:${round.number}`))),[remote,remoteRounds,mapReplays,roundKeys]);
+  const rounds=useMemo(()=>remote?(cachedRounds??[]):mapReplays.flatMap(r=>r.rounds.filter(round=>roundKeys.includes(`${r.match_uid}:${round.number}`))),[remote,cachedRounds,mapReplays,roundKeys]);
   const duration = rounds.reduce((max,r)=>Math.max(max,r.duration),0), map = Object.hasOwn(mapData.maps,mapName) ? mapData.maps[mapName] : null;
   useEffect(() => { setTime(0); setPlaying(false); }, [selectedRounds,groupRounds,mapName,filters,selectedPlayers,side]);
   useEffect(() => {
@@ -89,7 +96,7 @@ export default function Analyzer({entryStore}) {
   useEffect(() => { if (time >= duration) setPlaying(false); }, [time,duration]);
   async function openFiles(files) {
     if (!files.length || busy || loadingRounds) return;
-    clearSource();sourceIdentity.current='local';setMode('match');
+    clearSource();movementCache.current.clear();sourceIdentity.current='local';setMode('match');
     const controller = new AbortController(); operation.current = controller;
     setBusy(true); setError(''); setPlaying(false);
     let loaded = remote?[]:[...replays], messages = [];
@@ -117,7 +124,7 @@ export default function Analyzer({entryStore}) {
           <input aria-label="Open demos or replays" type="file" multiple accept=".dem,.zst,.json" disabled={busy||loadingRounds} onChange={e=>{const files=Array.from(e.target.files);e.target.value='';openFiles(files);}} />
         </label>}
         {(busy||loadingRounds)&&<Button className="button button-secondary" onClick={()=>{operation.current?.abort();roundOperation.current?.abort();}}>Cancel</Button>}
-        {remote&&!busy&&!loadingRounds&&<Button className="button button-secondary" onClick={()=>setRetry(v=>v+1)}>Reload selection</Button>}
+        {remote&&!busy&&!loadingRounds&&<Button className="button button-secondary" onClick={()=>{movementCache.current.invalidateCaptures(mapReplays.map(r=>r.capture));setRetry(v=>v+1);}}>Reload selection</Button>}
       </div>}
       status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage></>}
       controls={<AnalyzerControls players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}

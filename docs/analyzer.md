@@ -97,8 +97,14 @@ GROUP BY c.match_id,c.id ORDER BY c.match_id DESC;
 The Groups lookup fetches only lightweight match rosters, not career statistics.
 Movement is fetched only for the current map, selected rounds and selected
 players, with two matches in flight at a time. All roster names remain available
-for kill/death tooltips. A changed selection cancels obsolete work and releases
-its data. There is no eight-match cap; the active selection retains the existing
+for kill/death tooltips. A changed selection cancels obsolete work. Already downloaded player/round slices
+are retained in a bounded in-memory LRU cache keyed by immutable capture UUID.
+Narrowing side, buy, result, round, date, tag or player selections reuses those
+slices locally; widening a selection fetches only missing rounds/players. Changing
+map or returning to earlier matches can reuse retained slices too. Old inactive
+slices are evicted first when space is needed. Reload selection explicitly
+invalidates movement for the current captures; opening local files clears the
+remote movement cache. Browser refresh starts with an empty cache. There is no eight-match cap; the active selection retains the existing
 two-million-sample/128 MiB browser memory budget. Exceeding it produces an explicit
 error to narrow dates, tags, players or rounds; no partial selection is displayed.
 
@@ -111,3 +117,15 @@ and projection. Backend CI also runs the real HTTP routes against an isolated
 MySQL service, including authentication, atomic publication, exact fingerprints
 and preservation of dates/tag assignments. The integration script refuses to run
 outside the explicitly named test database.
+
+### Movement read timing
+
+Movement reads now fetch all requested round chunks in one database query per
+match. The JSON decoder tries numbers first, avoiding repeated failed type
+decodes for each coordinate. Upload completion still verifies checksums and every sample before
+publication; immutable published reads check chunk order and sizes without
+rehashing the upload. Each selection response supplies `Server-Timing` phases
+`index`, `chunks`, `assemble`, `decode`, `project`, `encode` and `total`, so slow
+first loads can be measured separately from transfer/browser work. This update
+requires the new frontend bundle and a backend rebuild, with no new migration or
+demo reparse.
