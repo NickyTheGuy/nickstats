@@ -206,14 +206,14 @@ test('aim interpolates the shortest yaw arc and radar direction reverses world Y
   assert.equal(positionAt([[0,0,0,0,100,2,null],[200,0,0,0,100,2,90]],100)[6],null);
   const east=aimVector(0),north=aimVector(90);assert.equal(east[0],32);assert.ok(Math.abs(north[0])<0.0001);assert.equal(north[1],-32);
 });
-test('skulls remain after round end and filters include selected killers or victims, including world/self deaths',async()=>{
+test('skulls remain after round end for selected victims, including world/self deaths',async()=>{
   const {drawCombat,deathVisible}=await import('../frontend/features/analyzer/state/combat.mjs');
   const event={time:100,victim:'b',killer:'a',victim_side:3,killer_side:2,x:0,y:0,z:0,from:[100,0,0],weapon:'ak47',headshot:false};
-  assert.equal(deathVisible(event,new Set(['a']),2),true);assert.equal(deathVisible(event,new Set(['b']),3),true);
+  assert.equal(deathVisible(event,new Set(['a']),2),false);assert.equal(deathVisible(event,new Set(['b']),3),true);
   assert.equal(deathVisible(event,new Set(['a']),3),false);
   assert.equal(deathVisible({...event,killer:null},new Set(['b']),0),true);
-  let skulls=0,labels=[];const ctx={globalAlpha:1,beginPath(){},arc(){skulls++;},moveTo(){},lineTo(){},closePath(){},fill(){},stroke(){},setLineDash(){},strokeText(){},fillText(s){labels.push(s);}};
-  const options={time:2000,map:{pos_x:0,pos_y:0,scale:5},level:{min:-100,max:100},selected:new Set(['a']),side:0,colors:new Map([['a','red'],['b','blue']]),names:new Map([['a','Attacker'],['b','Victim']]),layers:['Deaths']};
+  let skulls=0,labels=[];const ctx={globalAlpha:1,beginPath(){},arc(){skulls++;},moveTo(){},lineTo(){},closePath(){},save(){},restore(){},translate(){},scale(){},fill(){},stroke(){},setLineDash(){},strokeText(){},fillText(s){labels.push(s);}};
+  const options={time:2000,map:{pos_x:0,pos_y:0,scale:5},level:{min:-100,max:100},selected:new Set(['b']),side:0,colors:new Map([['a','red'],['b','blue']]),names:new Map([['a','Attacker'],['b','Victim']]),layers:['Deaths']};
   drawCombat(ctx,{duration:1000,deaths:[event]},options);assert.ok(skulls>0);assert.deepEqual(labels,[]);
   const {deathLabel}=await import('../frontend/features/analyzer/state/combat.mjs');assert.equal(deathLabel(event,options.names),'Attacker → Victim');
   skulls=0;drawCombat(ctx,{deaths:[event]},{...options,time:0});assert.equal(skulls,0);
@@ -251,4 +251,33 @@ test('capture exports compact round contexts with validation and preserves unkno
     [{round:1,player:p.id,side:2,result:'win',buy:null,enemy_buy:'eco',hero:false}])));
   const {validateReplay}=await load();assert.equal(validateReplay(replay).rounds[0].context[0].buy,null);
   const invalid=structuredClone(replay);invalid.rounds[0].context[0].player='missing';assert.throws(()=>validateReplay(invalid),/Invalid replay/);
+});
+
+test('combat symbols use the selected perspective and recorded role positions, independently of colors',async()=>{
+  const {combatMarkers}=await import('../frontend/features/analyzer/state/combat.mjs');
+  const event={time:100,victim:'b',killer:'a',victim_side:3,killer_side:2,x:500,y:0,z:0,from:[0,0,0],weapon:'ak47'};
+  const opts={selected:new Set(['a']),side:0,layers:['Kills','Deaths'],map:{pos_x:0,pos_y:0,scale:5},level:{min:-100,max:100}};
+  const kills=combatMarkers(event,opts);assert.deepEqual(kills.map(m=>m.kind),['kill']);assert.equal(kills[0].baseX,0);
+  const deaths=combatMarkers(event,{...opts,selected:new Set(['b'])});assert.deepEqual(deaths.map(m=>m.kind),['death']);assert.equal(deaths[0].baseX,100);
+  assert.deepEqual(combatMarkers(event,{...opts,selected:new Set(['a','b'])}).map(m=>m.kind),['kill','death']);
+  assert.equal(combatMarkers(event,{...opts,layers:['Deaths']}).length,0);
+  assert.equal(combatMarkers(event,{...opts,selected:new Set(['a','b']),side:3})[0].kind,'death');
+  assert.equal(combatMarkers({...event,from:null},opts).length,0);
+});
+test('cross-level kills and close encounters keep the two perspectives distinct',async()=>{
+  const {combatMarkers}=await import('../frontend/features/analyzer/state/combat.mjs');
+  const event={victim:'b',killer:'a',victim_side:3,killer_side:2,x:0,y:0,z:-600,from:[0,0,-400]};
+  const opts={selected:new Set(['a','b']),side:0,layers:['Kills','Deaths'],map:{pos_x:0,pos_y:0,scale:5},level:{min:-495,max:10000}};
+  assert.deepEqual(combatMarkers(event,opts).map(m=>m.kind),['kill']);
+  assert.deepEqual(combatMarkers(event,{...opts,level:{min:-10000,max:-495}}).map(m=>m.kind),['death']);
+  const nearby={...event,z:-400};const marks=combatMarkers(nearby,{...opts,unit:3});assert.ok(marks[1].x-marks[0].x>=100);
+  for(const nonKill of [{...nearby,killer:'b'},{...nearby,killer:null},{...nearby,killer_side:3}]) {
+    assert.deepEqual(combatMarkers(nonKill,opts).map(m=>m.kind),['death']);
+  }
+});
+test('weapon markers use bundled allowlisted silhouettes and safe fallbacks for unknown weapons',async()=>{
+  const {WEAPON_ICONS,weaponIconKey,weaponIconPath}=await import('../frontend/features/analyzer/state/weapon-icons.mjs');
+  for(const name of WEAPON_ICONS)assert.ok(fs.existsSync(weaponIconPath(name).replace('./','')));
+  assert.equal(weaponIconKey('weapon_ak47'),'ak47');assert.equal(weaponIconKey('knife_butterfly'),'knife');
+  assert.equal(weaponIconKey('inferno'),'molotov');assert.equal(weaponIconKey('../../x.svg'),null);assert.equal(weaponIconPath('../../x'),null);
 });

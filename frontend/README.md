@@ -95,7 +95,12 @@ parsing. Replay data lives in memory until the page reloads; per-file save/remov
 are intentionally absent from the selection panel. Reopening a match replaces its existing replay, so
 old captures can be upgraded without removing them first.
 
-The map workspace resizes from its bottom-right corner. All levels are visible
+The viewer is the screen's only main surface: no enclosing white panel, heading,
+map picker, or persistent footer hints. Local demo opening is a compact overlay
+button; parsing progress/errors are transient overlays. One map is analyzed at
+a time. Opening a replay on another map replaces the in-memory cohort rather
+than retaining inaccessible maps without a picker. The map workspace resizes
+from its bottom-right corner. All levels are visible
 at once; Auto switches between columns and rows with available width. Layout is always automatic. The divider changes the two levels' share
 of that one viewer, using pointer drag or arrow keys (Home/End: 10/90%; Enter or
 double-click: 50/50). Each map retains its own zoom/pan. This manual split avoids
@@ -136,7 +141,7 @@ Areas are approximate circles, not smoke voxels or collision-tested flame
 geometry. Round ends clip playback. Unknown owners appear only with every
 player selected and Both sides. Saved v1 replays remain readable with estimated
 utility duration but cannot gain flight/ownership data without recapturing the
-original demo; the UI indicates this.
+original demo. Missing data is kept unavailable.
 
 `js/replay-capture.js` is lazy-loaded only for `captureReplay:true`. Its separate
 worker result never enters normal match uploads, profiles/Groups responses or
@@ -150,11 +155,24 @@ Yaw comes from the pawn's `m_angEyeAngles` vector Y, using the shortest arc for
 interpolation. Missing angles remain unavailable. Firearm events trigger brief
 stylized muzzle/aim lines; knife/grenade events do not become gunfire. These
 lines show firing direction, not bullet collision, spread or confirmed hits.
-Death skull fill identifies the victim and its outline the killer. Kill text is
-only in hover/focus/tap tooltips on skull hit targets, with round, event time,
-weapon and headshot context. Hit targets follow letterboxing, pan, zoom and
-resizing; overlapping targets combine their event details. A brief dashed link joins recorded killer/victim positions on the same
-level. Skulls remain after death, including when a shorter selected round has
+Combat outcomes use explicit selected-player perspectives, independent of color:
+**Kills** are weapon-silhouette badges at the selected killer's recorded position
+at the kill; **Deaths** are skulls at the selected victim's death position. Each
+layer has its own toggle. Missing killer positions do not become fabricated kill
+locations. Color identifies the selected actor, not the event type. Selecting both
+players displays both perspectives on their respective floors; nearby paired
+markers separate slightly with leader lines back to their actual positions.
+World deaths, suicides and same-side team kills never become positive kill badges.
+
+Weapon silhouettes are local allowlisted Valve assets (see `assets/weapons/README.md`),
+loaded only for weapons present in the selected rounds. Grenade kills reuse the
+existing grenade artwork; unsupported weapons use a generic kill badge. Ordinary
+kills do not borrow headshot artwork. Headshots remain accurate tooltip metadata.
+Marker sizes remain readable in CSS pixels through zoom and resizing. Details are
+only in hover/focus/tap tooltips, explicitly labeled Kill or Death with round,
+time, actor names, weapon and headshot context. Hit targets follow letterboxing,
+pan, zoom and resizing; overlapping same-role targets combine their details. A brief dashed link joins recorded killer/victim positions on the same
+level. Both outcome markers remain after their event, including when a shorter selected round has
 ended, and clear when rewinding before the event or changing selected rounds.
 Side/player filtering includes kills by selected players and deaths of selected
 players. World deaths and suicides retain their own labels. Combat layers can

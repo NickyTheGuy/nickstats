@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../../shared/components/buttons/Button.jsx';
-import OptionField from '../../shared/components/forms/OptionField.jsx';
 import FormMessage from '../../shared/components/feedback/FormMessage.jsx';
 import MapWindow from './MapWindow.jsx';
 import AnalyzerControls from './AnalyzerControls.jsx';
@@ -60,7 +59,7 @@ export default function Analyzer() {
         controller.signal.throwIfAborted();
         try {
           const replay = await openReplayFile(file,{ signal:controller.signal, onStatus:setStatus });
-          const remaining = loaded.filter(r=>r.match_uid!==replay.match_uid);
+          const remaining = loaded.filter(r=>r.map===replay.map&&r.match_uid!==replay.match_uid);
           if (remaining.length>=8) throw new Error('Reload the viewer before opening more matches (8-match limit).');
           const count = [...remaining,replay].reduce((sum,r)=>sum+replaySampleCount(r),0);
           if (count > 2000000) throw new Error('Open replays exceed two million positions. Reload the viewer to free memory first.');
@@ -72,40 +71,19 @@ export default function Analyzer() {
     } catch (failure) { if (!controller.signal.aborted) messages.push(failure.message); }
     finally { setBusy(false); setStatus(''); setError(messages.join(' ')); operation.current = null; }
   }
-  function changeMap(value) {
-    setMapName(value);
-    const replay = replays.find(r=>r.map===value);
-    setSelectedRounds(replay ? [`${replay.match_uid}:${replay.rounds[0].number}`] : []);
-    setSelectedPlayers([...new Set(replays.filter(r=>r.map===value).flatMap(r=>r.players.map(p=>p.id)))]);
-  }
-  return <section className="panel analyzer-panel">
-    <header className="section-head"><div><div className="eyebrow">2D analyzer</div><h2>Round explorer</h2></div>
-      <div className="analyzer-import">
-        <label className={`button button-primary${busy?' disabled':''}`}>Open demos / replays
-          <input type="file" multiple accept=".dem,.zst,.json" disabled={busy} onChange={e=>{ const files = Array.from(e.target.files); e.target.value=''; openFiles(files); }} />
+  return <section className="analyzer-view" aria-label="2D analyzer">
+    <MapWindow map={map} mapName={mapName} rounds={rounds} players={players} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities} combatLayers={combatLayers}
+      actions={<div className="analyzer-import">
+        <label className={`button button-primary${busy?' disabled':''}`}>Open
+          <input aria-label="Open demos or replays" type="file" multiple accept=".dem,.zst,.json" disabled={busy} onChange={e=>{const files=Array.from(e.target.files);e.target.value='';openFiles(files);}} />
         </label>
-        {busy && <Button className="button button-secondary" onClick={()=>operation.current?.abort()}>Cancel</Button>}
-      </div>
-    </header>
-    <FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage>
-    {!replays.length && <p className="analyzer-empty">Open a .dem, .dem.zst or previously captured replay to explore rounds locally.</p>}
-    {!!replays.length && <>
-      <div className="analyzer-options">
-        <OptionField label="Map" value={mapName} options={[...new Set(replays.map(r=>r.map))].map(m=>[m,m.replace(/^de_/, '')])} onChange={changeMap} />
-
-      </div>
-      <div className="analyzer-workspace">
-        <div className="analyzer-stage">
-          <MapWindow map={map} mapName={mapName} rounds={rounds} players={players} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities} combatLayers={combatLayers}
-            controls={<AnalyzerControls players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
-              colors={colors} utilities={utilities} setUtilities={setUtilities} side={side} onSide={setSide} filters={filters} setFilters={setFilters} selectedCount={rounds.length} combatLayers={combatLayers} setCombatLayers={setCombatLayers}
-              roundPicker={{replays:mapReplays,selected:selectedRounds,filters:{...filters,side,players:selectedPlayers},
-                onClear:()=>setSelectedRounds([]),onToggleSet:keys=>setSelectedRounds(previous=>toggleRoundSet(previous,keys))}} />}
-            playback={<PlaybackControls time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={setTime} speed={speed} setSpeed={setSpeed} />} />
-          {map && <div className="analyzer-caption">Time from freeze end · {rounds.length} selected {rounds.length===1?'round':'rounds'} · Skull: victim fill, killer outline · Areas approximate</div>}
-          {mapReplays.some(r=>r.version<4) && <p className="analyzer-caption">Reopen the original demo to add recorded buy filters to older replays.</p>}
-        </div>
-      </div>
-    </>}
+        {busy&&<Button className="button button-secondary" onClick={()=>operation.current?.abort()}>Cancel</Button>}
+      </div>}
+      status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage></>}
+      controls={<AnalyzerControls players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
+        colors={colors} utilities={utilities} setUtilities={setUtilities} side={side} onSide={setSide} filters={filters} setFilters={setFilters} selectedCount={rounds.length} combatLayers={combatLayers} setCombatLayers={setCombatLayers}
+        roundPicker={{replays:mapReplays,selected:selectedRounds,filters:{...filters,side,players:selectedPlayers},
+          onClear:()=>setSelectedRounds([]),onToggleSet:keys=>setSelectedRounds(previous=>toggleRoundSet(previous,keys))}} />}
+      playback={<PlaybackControls time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={setTime} speed={speed} setSpeed={setSpeed} />} />
   </section>;
 }

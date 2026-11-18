@@ -4,13 +4,16 @@ import { onLevel, positionAt, worldToRadar } from './state/replay.mjs';
 
 import { drawUtility } from './state/draw-utility.mjs';
 import { drawAim,drawCombat } from './state/combat.mjs';
-import { useGrenadeIcons } from './hooks.js';
-import SkullTooltips from './SkullTooltips.jsx';
+import { useGrenadeIcons,useCombatIcons } from './hooks.js';
+import useElementSize from '../../shared/hooks/useElementSize.js';
+import CombatTooltips from './CombatTooltips.jsx';
 
 export default function ReplayMap({ map, level, rounds, players, selected, colors, time, side, utilities, combatLayers }) {
-  const icons = useGrenadeIcons();
+  const icons=useGrenadeIcons(),combatIcons=useCombatIcons(rounds);
   const canvas = useRef(null), drag = useRef(null);
+  const size=useElementSize(canvas);
   const [view, setView] = useState({ zoom: 1, x: 0, y: 0 });
+  const markerUnit=1024/Math.max(1,Math.min(size.width,size.height)*view.zoom);
   useEffect(() => { setView({ zoom: 1, x: 0, y: 0 }); }, [map]);
   const zoom = delta => setView(v => {
     const next = Math.max(1, Math.min(4, v.zoom + delta)), max = (next - 1) * 512;
@@ -52,9 +55,9 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
     }
     // Combat markers sit above every overlaid round's living-player markers.
     ctx.globalAlpha = rounds.length > 1 ? 0.85 : 1;
-    for(const round of rounds)drawCombat(ctx,round,{time,map,level,selected:selectedSet,side,colors,names,layers:combatLayers});
+    for(const round of rounds)drawCombat(ctx,round,{time,map,level,selected:selectedSet,side,colors,layers:combatLayers,icons:combatIcons,unit:markerUnit});
     ctx.globalAlpha = 1;
-  }, [image,map,level,rounds,players,selected,colors,time,side,utilities,view,icons,combatLayers]);
+  }, [image,map,level,rounds,players,selected,colors,time,side,utilities,view,icons,combatLayers,combatIcons,markerUnit]);
   return <div className="analyzer-map">
     <div className="analyzer-map-zoom" role="group" aria-label="Map zoom">
       <Button aria-label="Zoom out" disabled={view.zoom===1} onClick={()=>zoom(-0.5)}>−</Button>
@@ -66,7 +69,7 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
       onPointerMove={e=>{ if (!drag.current) return; const ratio=1024/Math.min(e.currentTarget.getBoundingClientRect().width,e.currentTarget.getBoundingClientRect().height),max=(view.zoom-1)*512;
         setView({...view,x:Math.max(-max,Math.min(max,drag.current.view.x+(e.clientX-drag.current.x)*ratio)),y:Math.max(-max,Math.min(max,drag.current.view.y+(e.clientY-drag.current.y)*ratio))}); }}
       onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}} onLostPointerCapture={()=>{drag.current=null;}} width="1024" height="1024" role="img" aria-label={`2D round playback, ${level.id} level. Player positions, combat markers, grenade flight and approximate utility areas are drawn on the radar.`} />
-    <SkullTooltips map={map} level={level} rounds={rounds} selected={selected} players={players} time={time} side={side} view={view} enabled={combatLayers.includes('Deaths')} />
+    <CombatTooltips map={map} level={level} rounds={rounds} selected={selected} players={players} time={time} side={side} view={view} layers={combatLayers} unit={markerUnit} />
     {!image && <span className="analyzer-map-status" role="status">{imageError ? 'Radar image could not load.' : 'Loading radar…'}</span>}
   </div>;
 }
