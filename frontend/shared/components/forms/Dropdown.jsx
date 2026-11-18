@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-export default function Dropdown({ summary, className, closeKey, children, open: controlledOpen, onOpenChange, summaryLabel, onKeyDown }) {
+export default function Dropdown({ summary, className, closeKey, children, open: controlledOpen, onOpenChange, summaryLabel, onKeyDown, align='start' }) {
   const menu = useRef(null);
   const [localOpen, setLocalOpen] = useState(false);
   const open = controlledOpen ?? localOpen;
@@ -24,7 +24,7 @@ export default function Dropdown({ summary, className, closeKey, children, open:
     menu.current.querySelector('summary').focus();
   }
   return <details ref={menu} className={className} open={open} onToggle={event => { if (event.currentTarget.open !== open) setOpen(event.currentTarget.open); }} onKeyDown={escape}>
-    <summary aria-label={summaryLabel}>{summary}</summary>
+    <summary className="ui-dropdown-trigger" data-align={align} aria-label={summaryLabel}>{summary}</summary>
     {children}
   </details>;
 }

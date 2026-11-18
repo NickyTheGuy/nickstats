@@ -108,7 +108,15 @@ guessing how much of Nuke's dimmed upper-map background to crop from its lower
 radar; no map calibration or image cropping is changed.
 Players/rounds/utility controls expand over the map and scroll vertically.
 Playback is an overlay pinned inside the visible part of the viewer while the
-page scrolls. Zoom controls sit at the top of each map. Its speed menu opens
+page scrolls. Its first button enters/exits fullscreen instead of restarting.
+`FullscreenButton` / `useFullscreen` share a native/prefixed fullscreen controller;
+unsupported or rejected requests use a fixed viewport-sized viewer with Escape
+exit. Native exit events, route changes, visibility changes and unmount clean up
+viewer classes and scroll locks; normal resized dimensions remain intact.
+Combat tooltips portal inside the native fullscreen element so they remain
+visible in the browser's top layer. The timer uses the shared `Readout`; its
+mobile row is centered across the full playback bar, while speed and playback
+buttons are vertically centered in the first row. Zoom controls sit at the top of each map. Its speed menu opens
 upward to avoid being clipped by the viewer. All/CT/T uses the shared profile
 segmented-control styling. Compact pressed-state chips replace checkboxes for
 players, utility, combat and numbered rounds; the same chip style is used for
@@ -226,3 +234,22 @@ varies with match length, surviving players and firing activity. Server replay
 storage remains zero; the site does not persist these replay files. The shared
 frontend gains a small amount of code, while normal API loads do not request,
 build or decode replay data.
+
+### Shared control alignment
+
+`Button` owns the `ui-button` class and an explicit `align` contract (center by
+default; start/end where appropriate). The shared low-specificity CSS establishes
+flex centering and a consistent line box, while intentional feature layouts such
+as table headers can still override it. `IconButton` uses centered SVG geometry;
+`CloseButton` and `FullscreenButton` both reuse it instead of positioning text
+symbols with asymmetric padding.
+
+`Dropdown` owns the shared summary trigger alignment. `OptionDropdown` centers
+its label/caret group by default, with the caret in flow as SVG rather than an
+absolute pseudo-element plus unbalanced padding. Compact group operators and
+ordinary option fields use the same structure. Menu choices explicitly request
+start alignment for readability and retain shared vertical centering. Callers
+can set `align` through `OptionField` or `OptionDropdown` instead of adding
+per-screen spacing workarounds. Date/map triggers keep intentional start alignment
+and symmetric vertical padding. Hidden buttons remain hidden under the shared
+layout rule.
