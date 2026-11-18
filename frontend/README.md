@@ -97,7 +97,11 @@ old captures can be upgraded without removing them first.
 
 The map workspace resizes from its bottom-right corner. All levels are visible
 at once; Auto switches between columns and rows with available width. Stacked
-and Side by side override that choice. Each map retains its own zoom/pan.
+and Side by side override that choice. The divider changes the two levels' share
+of that one viewer, using pointer drag or arrow keys (Home/End: 10/90%; Enter or
+double-click: 50/50). Each map retains its own zoom/pan. This manual split avoids
+guessing how much of Nuke's dimmed upper-map background to crop from its lower
+radar; no map calibration or image cropping is changed.
 Players/rounds/utility controls expand over the map and scroll vertically.
 There is no round-selection or round-count ceiling. Regulation/overtime presets
 combine with Both/T/CT player-side filters; half buttons select individual
@@ -109,7 +113,7 @@ match goes. Only completed rounds with canonical timing/position data survive.
 Time starts at freeze end. Player positions target 5 Hz with interpolation and
 no player trails; deaths, long gaps and teleports stop interpolation.
 
-Capture v2 also requests projectile and inferno entities, only in Analyzer mode.
+Capture v2 and later also request projectile and inferno entities, only in Analyzer mode.
 Projectiles target up to 20 Hz and draw actual sampled flight paths with a
 one-second trailing segment, including briefly after detonation. Grenade icons
 are local Valve equipment silhouettes (see `assets/grenades/README.md`). Smoke
@@ -132,9 +136,29 @@ caches. The backend/schema are unchanged. Source 2 position decoding uses
 512-unit cells and the 16384 bias independently of the stats-distance helper.
 Profile/Groups handoff and replay persistence remain future work.
 
-The `nickstats.replay` format accepts v1/v2. V2 adds recorded match rules,
+Capture v3 adds sampled eye yaw (one nullable integer per player-position sample),
+short coalesced firing samples, and one exact-time event per recorded death.
+Yaw comes from the pawn's `m_angEyeAngles` vector Y, using the shortest arc for
+interpolation. Missing angles remain unavailable. Firearm events trigger brief
+stylized muzzle/aim lines; knife/grenade events do not become gunfire. These
+lines show firing direction, not bullet collision, spread or confirmed hits.
+Death skull fill identifies the victim and its outline the killer; labels name
+both. A brief dashed link joins recorded killer/victim positions on the same
+level. Skulls remain after death, including when a shorter selected round has
+ended, and clear when rewinding before the event or changing selected rounds.
+Side/player filtering includes kills by selected players and deaths of selected
+players. World deaths and suicides retain their own labels. Combat layers can
+be toggled independently. Old v1/v2 captures still load but need recapturing for
+these combat fields. This is still a local replay feature; no backend table,
+normal stats response or profile/Groups cache contains the new data.
+
+The `nickstats.replay` format accepts v1/v2/v3. V2 adds recorded match rules,
 projectile rate, per-round projectiles (`[elapsed_ms,x,y,z]`, owner, side, icon,
-end), and utility end/radius/owner/side/icon/estimated fields. Import validates
+end), and utility end/radius/owner/side/icon/estimated fields. V3 player samples append
+yaw; per-round `firing` tracks store `[time,x,y,z,yaw,side]`, and `deaths` store
+the actors, sides, victim location, optional killer location, weapon and headshot.
+Firing samples share the existing aggregate position-sample memory budget.
+Import validates
 identity, version, ordering, ownership, coordinates, lifetimes and aggregate
 sample budgets. Limits remain 128 MiB replay JSON, 768 MiB demo, 64 players,
 one million combined position samples per replay/two million across up to eight
@@ -144,3 +168,20 @@ Radars/calibration are bundled under `assets/radars/`; see its README for source
 and map-version caveats. Unknown maps report missing calibration. Deploy
 `index.html`, `styles.css`, `js/` and `assets/` together. The React bundle is
 committed; no backend rebuild or database migration is required.
+
+To measure a real local export, without parsing a demo or contacting the server:
+
+```sh
+node tools/measure-replay-size.mjs /path/to/match.replay.json
+```
+
+It compares compact JSON with an equivalent v2 replay (same positions/utility,
+without aim/firing/deaths). Gzip figures are illustrative; exports use plain JSON.
+A deterministic synthetic 24-round example with ten 90-second position tracks per
+round, 3,000 firing samples and 216 deaths grew from 3,118,470 to 3,669,261 bytes
+(+550,791 bytes / 17.66%). This is not a measurement of a real demo and excludes
+projectile/utility data that would make the shared baseline larger. Actual cost
+varies with match length, surviving players and firing activity. Server replay
+storage remains zero; the site does not persist these replay files. The shared
+frontend gains a small amount of code, while normal API loads do not request,
+build or decode replay data.

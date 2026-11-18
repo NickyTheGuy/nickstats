@@ -181,3 +181,45 @@ test('utility drawing keeps smoke/fire areas through their endpoints and leaves 
   drawUtility(ctx,round,{...options,time:250});assert.equal(icons,1);assert.ok(lines>0);
   lines=0;drawUtility(ctx,round,{...options,time:1400});assert.equal(lines,0);
 });
+
+test('v3 capture keeps exact event positions, coalesces firing, and round-trips combat data',async()=>{
+  const c=collector(),a={id:'steam:1',name:'Attacker',steam_id:'1',x:100,y:0,z:0,health:100,side:2,yaw:90},b={id:'steam:2',name:'Victim',steam_id:'2',x:120,y:30,z:0,health:100,side:3,yaw:null};
+  const read=()=>[a,b];c.sample(64,64,1/64,read);
+  c.combat('weapon_fire',72,64,1/64,{shooter:a.id},read,'ak47');
+  c.combat('weapon_fire',73,64,1/64,{shooter:a.id},read,'ak47');
+  c.combat('weapon_fire',80,64,1/64,{shooter:a.id},read,'ak47');
+  c.combat('player_death',90,64,1/64,{killer:a.id,victim:b.id},read,'ak47',true);
+  const replay=JSON.parse(JSON.stringify(c.finish({...fixture(),round_timing:[{round:1,live_start_tick:64,duration_ms:1000,winner_side:'T'}]})));
+  assert.equal(replay.version,3);assert.equal(replay.rounds[0].tracks[0].samples[0][6],90);
+  assert.equal(replay.rounds[0].firing[0].samples.length,2);
+  assert.deepEqual(replay.rounds[0].deaths[0].from,[100,0,0]);assert.equal(replay.rounds[0].deaths[0].victim,'steam:2');
+  const {validateReplay}=await load();validateReplay(replay);
+  for(const mutate of [r=>r.rounds[0].tracks[0].samples[0][6]=Infinity,r=>r.rounds[0].deaths[0].killer='missing',r=>r.rounds[0].firing[0].samples[0][4]=999,r=>r.rounds[0].deaths[0].time=-1]){
+    const invalid=structuredClone(replay);mutate(invalid);assert.throws(()=>validateReplay(invalid),/Invalid replay/);
+  }
+  const {measureReplaySize}=await import('../tools/measure-replay-size.mjs');const size=measureReplaySize(replay);
+  assert.ok(size.combat_added_bytes>0);assert.equal(size.server_replay_storage_bytes,0);assert.equal(size.firing_samples,2);
+});
+test('aim interpolates the shortest yaw arc and radar direction reverses world Y',async()=>{
+  const {positionAt}=await load(),{aimVector}=await import('../frontend/features/analyzer/state/combat.mjs');
+  assert.equal(positionAt([[0,0,0,0,100,2,179],[200,0,0,0,100,2,-179]],100)[6],180);
+  assert.equal(positionAt([[0,0,0,0,100,2,null],[200,0,0,0,100,2,90]],100)[6],null);
+  const east=aimVector(0),north=aimVector(90);assert.equal(east[0],32);assert.ok(Math.abs(north[0])<0.0001);assert.equal(north[1],-32);
+});
+test('skulls remain after round end and filters include selected killers or victims, including world/self deaths',async()=>{
+  const {drawCombat,deathVisible}=await import('../frontend/features/analyzer/state/combat.mjs');
+  const event={time:100,victim:'b',killer:'a',victim_side:3,killer_side:2,x:0,y:0,z:0,from:[100,0,0],weapon:'ak47',headshot:false};
+  assert.equal(deathVisible(event,new Set(['a']),2),true);assert.equal(deathVisible(event,new Set(['b']),3),true);
+  assert.equal(deathVisible(event,new Set(['a']),3),false);
+  assert.equal(deathVisible({...event,killer:null},new Set(['b']),0),true);
+  let skulls=0,labels=[];const ctx={globalAlpha:1,beginPath(){},arc(){skulls++;},moveTo(){},lineTo(){},closePath(){},fill(){},stroke(){},setLineDash(){},strokeText(){},fillText(s){labels.push(s);}};
+  const options={time:2000,map:{pos_x:0,pos_y:0,scale:5},level:{min:-100,max:100},selected:new Set(['a']),side:0,colors:new Map([['a','red'],['b','blue']]),names:new Map([['a','Attacker'],['b','Victim']]),layers:['Deaths']};
+  drawCombat(ctx,{duration:1000,deaths:[event]},options);assert.ok(skulls>0);assert.deepEqual(labels,['Attacker → Victim']);
+  skulls=0;drawCombat(ctx,{deaths:[event]},{...options,time:0});assert.equal(skulls,0);
+});
+test('missing aim stays unavailable and source yaw wraps into a stable signed angle',()=>{
+  const context=vm.createContext({self:{deadem:{cs2:{}},addEventListener(){},postMessage(){}},importScripts(){}});
+  vm.runInContext(fs.readFileSync('js/demo-worker.js','utf8'),context);
+  assert.equal(vm.runInContext('replayAimYaw({getField(){return undefined}})',context),null);
+  assert.equal(vm.runInContext('replayAimYaw({getField(){return [0,270,0]}})',context),-90);
+});

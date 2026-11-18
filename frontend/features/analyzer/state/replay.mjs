@@ -9,7 +9,7 @@ const text = (s, max = 200) => typeof s === 'string' && s.length > 0 && s.length
 
 // Validate imported files before any drawing or interpolation. Unknown metadata never becomes markup/URLs.
 export function validateReplay(input) {
-  if (!input || input.format !== 'nickstats.replay' || ![1,2].includes(input.version) || input.coordinate_system !== 'source2-world') fail('unsupported format or version.');
+  if (!input || input.format !== 'nickstats.replay' || ![1,2,3].includes(input.version) || input.coordinate_system !== 'source2-world') fail('unsupported format or version.');
   if (!text(input.match_uid) || !text(input.map, 100) || !text(input.source_file, 500)) fail('missing match identity.');
   if (!finite(input.sample_hz, 64) || input.sample_hz <= 0) fail('invalid sample rate.');
   if (!Array.isArray(input.players) || !input.players.length || input.players.length > 64) fail('invalid roster.');
@@ -33,7 +33,7 @@ export function validateReplay(input) {
       let previous = -1;
       for (const s of track.samples) {
         if (++sampleCount > MAX_SAMPLES) fail('too many position samples.');
-        if (!Array.isArray(s) || s.length !== 6 || !s.every(n => finite(n, 600000)) || s[0] < 0 || s[0] <= previous || s[0] > round.duration || s.slice(1,4).some(n => Math.abs(n) > 32768) || s[4] < 0 || s[4] > 100 || ![2,3].includes(s[5])) fail('invalid or unordered position sample.');
+        if (!Array.isArray(s) || s.length !== (input.version===3?7:6) || !s.slice(0,6).every(n => finite(n, 600000)) || input.version===3 && !(s[6]===null || finite(s[6],180)) || s[0] < 0 || s[0] <= previous || s[0] > round.duration || s.slice(1,4).some(n => Math.abs(n) > 32768) || s[4] < 0 || s[4] > 100 || ![2,3].includes(s[5])) fail('invalid or unordered position sample.');
         previous = s[0];
       }
       return { player: track.player, samples: track.samples };
@@ -44,14 +44,14 @@ export function validateReplay(input) {
       if (++eventCount > 100000 || !e || !UTILITY_TYPES.includes(e.type) || !(e.player === null || ids.has(e.player)) || !finite(e.time, round.duration) || e.time < previous || e.time < 0 || ![e.x,e.y,e.z].every(n => finite(n, 32768))) fail('invalid utility event.');
       previous = e.time;
       const effect = { type:e.type,player:e.player,time:e.time,x:e.x,y:e.y,z:e.z };
-      if (input.version === 2) {
+      if (input.version >= 2) {
         if (!finite(e.end,round.duration) || e.end<e.time || !finite(e.radius,512) || e.radius<0 || ![0,2,3].includes(e.side) || !GRENADE_ICONS.includes(e.icon) || typeof e.estimated!=='boolean') fail('invalid utility lifetime or geometry.');
         Object.assign(effect,{end:e.end,radius:e.radius,side:e.side,icon:e.icon,estimated:e.estimated});
       }
       return effect;
     });
     const output = {number:round.number,duration:round.duration,winner:round.winner,tracks,utility};
-    if (input.version === 2) {
+    if (input.version >= 2) {
       if (!Array.isArray(round.projectiles) || round.projectiles.length>100000) fail('invalid projectiles.');
       const projectileIds = new Set();
       output.projectiles = round.projectiles.map(p => {
@@ -65,11 +65,31 @@ export function validateReplay(input) {
         return {id:p.id,type:p.type,icon:p.icon,player:p.player,side:p.side,end:p.end,samples:p.samples};
       });
     }
+    if(input.version===3) {
+      if(!Array.isArray(round.firing)||round.firing.length>players.length||!Array.isArray(round.deaths))fail('invalid combat data.');
+      const shooters=new Set();
+      output.firing=round.firing.map(track=>{
+        if(!track||!ids.has(track.player)||shooters.has(track.player)||!Array.isArray(track.samples)||!track.samples.length)fail('invalid shooter.');
+        shooters.add(track.player);let previous=-1;
+        for(const s of track.samples) {
+          if(++sampleCount>MAX_SAMPLES)fail('too many position samples.');
+          if(!Array.isArray(s)||s.length!==6||!s.slice(0,4).every(n=>finite(n,600000))||s[0]<0||s[0]<=previous||s[0]>round.duration||s.slice(1,4).some(n=>Math.abs(n)>32768)||!(s[4]===null||finite(s[4],180))||![2,3].includes(s[5]))fail('invalid firing sample.');
+          previous=s[0];
+        }
+        return {player:track.player,samples:track.samples};
+      });
+      let previous=-1;
+      output.deaths=round.deaths.map(e=>{
+        if(++eventCount>100000||!e||!ids.has(e.victim)||!(e.killer===null||ids.has(e.killer))||!finite(e.time,round.duration)||e.time<0||e.time<previous||![2,3].includes(e.victim_side)||![0,2,3].includes(e.killer_side)||![e.x,e.y,e.z].every(n=>finite(n,32768))||!(e.from===null||Array.isArray(e.from)&&e.from.length===3&&e.from.every(n=>finite(n,32768)))||!text(e.weapon,100)||typeof e.headshot!=='boolean')fail('invalid death event.');
+        previous=e.time;
+        return {time:e.time,victim:e.victim,killer:e.killer,victim_side:e.victim_side,killer_side:e.killer_side,x:e.x,y:e.y,z:e.z,from:e.from,weapon:e.weapon,headshot:e.headshot};
+      });
+    }
     return output;
   }).sort((a,b) => a.number - b.number);
   const replay = { format: input.format, version: input.version, coordinate_system: input.coordinate_system, sample_hz: input.sample_hz,
     match_uid: input.match_uid, map: input.map, source_file: input.source_file, players, rounds };
-  if (input.version === 2) {
+  if (input.version >= 2) {
     if (!input.rules || ![input.rules.regulation_rounds,input.rules.overtime_rounds].every(n=>Number.isSafeInteger(n)&&n>0) || !finite(input.projectile_hz,64) || input.projectile_hz<=0) fail('invalid match rules.');
     replay.rules = {regulation_rounds:input.rules.regulation_rounds,overtime_rounds:input.rules.overtime_rounds};
     replay.projectile_hz = input.projectile_hz;
@@ -88,7 +108,9 @@ export function positionAt(samples, time) {
   if (!a || a[4] === 0 || time - a[0] > 600) return null;
   if (!b || b[4] === 0 || b[5] !== a[5] || b[0] - a[0] > 600 || Math.hypot(b[1]-a[1],b[2]-a[2]) > 300) return a;
   const ratio = (time-a[0]) / (b[0]-a[0]);
-  return [time, a[1]+(b[1]-a[1])*ratio, a[2]+(b[2]-a[2])*ratio, a[3]+(b[3]-a[3])*ratio, a[4], a[5]];
+  const point=[time,a[1]+(b[1]-a[1])*ratio,a[2]+(b[2]-a[2])*ratio,a[3]+(b[3]-a[3])*ratio,a[4],a[5]];
+  if(a.length===7)point.push(a[6]===null||b[6]===null?a[6]:a[6]+((b[6]-a[6]+540)%360-180)*ratio);
+  return point;
 }
 export function worldToRadar(map, x, y) { return [(x-map.pos_x)/map.scale, (map.pos_y-y)/map.scale]; }
 export function onLevel(level, z) { return z >= level.min && z < level.max; }

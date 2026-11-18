@@ -7,6 +7,7 @@ import AnalyzerControls from './AnalyzerControls.jsx';
 import { presetRounds, replaySampleCount } from './state/round-selection.mjs';
 import PlaybackControls from './PlaybackControls.jsx';
 import mapData from './state/maps.json';
+import { COMBAT_LAYERS } from './state/combat.mjs';
 import { PLAYER_COLORS, UTILITY_TYPES } from './state/replay.mjs';
 import { openReplayFile, downloadReplay } from './state/files.mjs';
 
@@ -16,6 +17,7 @@ export default function Analyzer() {
   const [utilities,setUtilities] = useState(UTILITY_TYPES), [side,setSide] = useState(0), [phase,setPhase] = useState(null);
   const [time,setTime] = useState(0), [playing,setPlaying] = useState(false), [speed,setSpeed] = useState(1);
   const [busy,setBusy] = useState(false), [status,setStatus] = useState(''), [error,setError] = useState('');
+  const [combatLayers,setCombatLayers]=useState(COMBAT_LAYERS);
   const operation = useRef(null);
   useEffect(() => () => operation.current?.abort(), []);
   useEffect(() => {
@@ -112,14 +114,14 @@ export default function Analyzer() {
       </div>
       <div className="analyzer-workspace">
         <div className="analyzer-stage">
-          <MapWindow map={map} mapName={mapName} layout={layout} setLayout={setLayout} rounds={rounds} players={players} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities}
+          <MapWindow map={map} mapName={mapName} layout={layout} setLayout={setLayout} rounds={rounds} players={players} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities} combatLayers={combatLayers}
             controls={<AnalyzerControls players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
-              colors={colors} utilities={utilities} setUtilities={setUtilities} side={side} onSide={value=>selectPreset(phase||'all',value)} selectedCount={rounds.length}
+              colors={colors} utilities={utilities} setUtilities={setUtilities} side={side} onSide={value=>selectPreset(phase||'all',value)} selectedCount={rounds.length} combatLayers={combatLayers} setCombatLayers={setCombatLayers}
               roundPicker={{replays:mapReplays,selected:selectedRounds,onRemove:remove,onDownload:downloadReplay,busy,phase,onPreset:selectPreset,onReplace:replaceRounds,
                 onToggle:(id,checked)=>{setPhase(null);setSelectedRounds(previous=>checked?[...new Set([...previous,id])]:previous.filter(v=>v!==id));}}} />} />
           {!!duration && <PlaybackControls time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={setTime} speed={speed} setSpeed={setSpeed} />}
-          {map && <div className="analyzer-caption">Time from freeze end · {rounds.length} selected {rounds.length===1?'round':'rounds'} · Smoke / fire areas approximate</div>}
-          {mapReplays.some(r=>r.version===1) && <p className="analyzer-caption">Reopen the original demo to add grenade flight paths and recorded utility expiry to older replays.</p>}
+          {map && <div className="analyzer-caption">Time from freeze end · {rounds.length} selected {rounds.length===1?'round':'rounds'} · Skull: victim fill, killer outline · Areas approximate</div>}
+          {mapReplays.some(r=>r.version<3) && <p className="analyzer-caption">Reopen the original demo to add aim direction, deaths and firing effects to older replays.</p>}
         </div>
       </div>
     </>}

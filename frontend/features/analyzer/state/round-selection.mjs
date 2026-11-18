@@ -29,5 +29,5 @@ export function presetRounds(replays,{phase='all',side=0,players=[]}={}) {
   return replays.flatMap(replay=>replay.rounds.filter(round=>(phase==='all'||roundSection(replay,round.number).phase===phase) && matchesSide(round,side,players)).map(round=>roundKey(replay,round)));
 }
 export function replaySampleCount(replay) {
-  return replay.rounds.reduce((sum,round)=>sum+round.tracks.reduce((n,t)=>n+t.samples.length,0)+(round.projectiles||[]).reduce((n,p)=>n+p.samples.length,0),0);
+  return replay.rounds.reduce((sum,round)=>sum+round.tracks.reduce((n,t)=>n+t.samples.length,0)+(round.projectiles||[]).reduce((n,p)=>n+p.samples.length,0)+(round.firing||[]).reduce((n,t)=>n+t.samples.length,0),0);
 }

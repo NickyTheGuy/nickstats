@@ -4,7 +4,6 @@
   const START = { hegrenade_detonate:'HE', flashbang_detonate:'Flash', smokegrenade_detonate:'Smoke', inferno_startburn:'Fire', decoy_started:'Decoy' };
   const END = { smokegrenade_expired:'Smoke', inferno_expire:'Fire', inferno_extinguish:'Fire', decoy_detonate:'Decoy' };
   const icons = { HE:'hegrenade', Flash:'flashbang', Smoke:'smokegrenade', Fire:'molotov', Decoy:'decoy' };
-  const distance = (a,b) => Math.hypot(a.x-b.x,a.y-b.y,a.z-b.z);
   class ReplayCapture {
     constructor() {
       this.rules = { regulation_rounds:24, overtime_rounds:6 };
@@ -21,7 +20,7 @@
       if (key) this.lifetimes[key] = n*1000;
     }
     getRound(start) {
-      if (!this.rounds.has(start)) this.rounds.set(start, { tracks:new Map(), utility:[], projectiles:new Map(), observed:new Map(), lastTick:-Infinity, lastUtilityTick:-Infinity });
+      if (!this.rounds.has(start)) this.rounds.set(start, { tracks:new Map(), firing:new Map(), deaths:[], utility:[], projectiles:new Map(), observed:new Map(), lastTick:-Infinity, lastUtilityTick:-Infinity });
       return this.rounds.get(start);
     }
     countSample() { if (++this.samples > 1000000) throw new Error('Replay exceeds the one-million-position capture limit.'); }
@@ -38,7 +37,37 @@
         const track = round.tracks.get(p.id), last = track.at(-1);
         if (last?.[0] === time || last?.[4] === 0 && p.health === 0) continue;
         this.countSample();
-        track.push([time,Math.round(p.x),Math.round(p.y),Math.round(p.z),Math.max(0,Math.min(100,p.health)),p.side]);
+        track.push([time,Math.round(p.x),Math.round(p.y),Math.round(p.z),Math.max(0,Math.min(100,p.health)),p.side,Number.isFinite(p.yaw)?Math.round(p.yaw):null]);
+      }
+    }
+    combat(name,tick,start,interval,ids,readPlayers,weapon,headshot=false) {
+      if (!Number.isFinite(start) || tick<start || !['weapon_fire','player_death'].includes(name)) return;
+      const round=this.getRound(start),time=Math.round((tick-start)*interval*1000);
+      const players=readPlayers(),byId=new Map(players.map(p=>[p.id,p]));
+      for(const p of players) this.players.set(p.id,{id:p.id,name:p.name,steam_id:p.steam_id});
+      function point(id) {
+        const live=byId.get(id);
+        if(live && [live.x,live.y,live.z].every(Number.isFinite)) return live;
+        const sample=round.tracks.get(id)?.at(-1);
+        return sample && time-sample[0]<=600 ? {x:sample[1],y:sample[2],z:sample[3],side:sample[5],yaw:sample[6]} : null;
+      }
+      if(name==='weapon_fire') {
+        const shooter=point(ids.shooter);
+        if(!shooter || !ids.shooter || ![2,3].includes(shooter.side))return;
+        if(!round.firing.has(ids.shooter))round.firing.set(ids.shooter,[]);
+        const shots=round.firing.get(ids.shooter);
+        // A short burst indicator, not a ballistic simulation or a full fire-rate log.
+        if(shots.length && time-shots.at(-1)[0]<100)return;
+        this.countSample();
+        shots.push([time,Math.round(shooter.x),Math.round(shooter.y),Math.round(shooter.z),Number.isFinite(shooter.yaw)?Math.round(shooter.yaw):null,shooter.side]);
+      } else {
+        const victim=point(ids.victim),killer=point(ids.killer);
+        if(!victim || !ids.victim || ![2,3].includes(victim.side))return;
+        if(++this.events>100000)throw new Error('Replay exceeds the combat/utility-event capture limit.');
+        round.deaths.push({time,victim:ids.victim,killer:ids.killer||null,victim_side:victim.side,killer_side:killer?.side||0,
+          x:Math.round(victim.x),y:Math.round(victim.y),z:Math.round(victim.z),
+          from:killer?[Math.round(killer.x),Math.round(killer.y),Math.round(killer.z)]:null,
+          weapon:String(weapon||'world'),headshot:Boolean(headshot)});
       }
     }
     effect(round,time,info) {
@@ -129,10 +158,12 @@
           end:Math.min(duration,e.end??e.time+(this.lifetimes[e.icon==='incgrenade'?'Incendiary':e.type]||1000)) })).sort((a,b)=>a.time-b.time);
         const projectiles = [...data.projectiles.values()].map(p=>({...p,player:owner(p.player),samples:p.samples.filter(s=>s[0]<=duration),
           end:Math.min(duration,p.end??duration)})).filter(p=>p.samples.length);
-        rounds.push({number:timing.round,duration,winner:timing.winner_side,tracks,utility,projectiles});
+        const firing=[...data.firing].map(([player,samples])=>({player:owner(player),samples:samples.filter(s=>s[0]<=duration)})).filter(t=>t.player&&t.samples.length);
+        const deaths=data.deaths.filter(e=>e.time<=duration&&owner(e.victim)).map(e=>({...e,killer:owner(e.killer)}));
+        rounds.push({number:timing.round,duration,winner:timing.winner_side,tracks,utility,projectiles,firing,deaths});
       }
       if (!rounds.length) throw new Error('No playable movement tracks were captured from this demo.');
-      return {format:'nickstats.replay',version:2,match_uid:result.match_uid,map:result.map,source_file:result.source_file,
+      return {format:'nickstats.replay',version:3,match_uid:result.match_uid,map:result.map,source_file:result.source_file,
         sample_hz:5,projectile_hz:20,coordinate_system:'source2-world',rules:{...this.rules},players:[...this.players.values()],rounds};
     }
   }

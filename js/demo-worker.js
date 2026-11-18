@@ -178,7 +178,7 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261117-11");
+    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-1");
     const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay));
     self.postMessage(event.data.captureReplay
       ? { type: "result", replay: parsed.replay }
@@ -1405,7 +1405,7 @@ async function parseDemo(fileName, buffer, captureReplay = false) {
       const side = integer(safePawnField(pawn, "m_iTeamNum")) ?? teamNow.get(row.userId);
       const health = round.deaths.has(row.userId) ? 0 : numberOrNull(safePawnField(pawn, "m_iHealth")) ?? round.healthByUser.get(row.userId);
       players.push({ id: replayPlayerId(row), name: row.name, steam_id: row.steamId || null,
-        x: position.x, y: position.y, z: position.z, health, side });
+        x: position.x, y: position.y, z: position.z, health, side, yaw:replayAimYaw(pawn) });
     }
     return players;
   }
@@ -2464,6 +2464,12 @@ async function parseDemo(fileName, buffer, captureReplay = false) {
       const owner = stats.get(integer(gameEvent.userid));
       replayCapture.utility(descriptor.name, demoPacket.tick, round.liveStartTick, tickInterval, gameEvent,
         owner ? replayPlayerId(owner) : null);
+      if (descriptor.name === "player_death" || descriptor.name === "weapon_fire" && isInitiationDirectWeapon(gameEvent.weapon) && !normalizedWeapon(gameEvent.weapon).startsWith("knife") && normalizedWeapon(gameEvent.weapon)!=="bayonet") {
+        const killer=stats.get(integer(gameEvent.attacker));
+        replayCapture.combat(descriptor.name,demoPacket.tick,round.liveStartTick,tickInterval,
+          {victim:owner?replayPlayerId(owner):null,shooter:owner?replayPlayerId(owner):null,killer:killer?replayPlayerId(killer):null},
+          readReplayPlayers,gameEvent.weapon,gameEvent.headshot);
+      }
     }
 
     switch (descriptor.name) {
@@ -3437,6 +3443,12 @@ function pawnHorizontalSpeed(pawn) {
 
 // Replay positions use Source 2 world coordinates (512-unit cells, 16384 bias).
 // Keep this independent of the legacy distance-only stats helper.
+function replayAimYaw(pawn) {
+  const vector=safePawnField(pawn,"m_angEyeAngles");
+  const yaw=numberOrNull(vector?.[1]) ?? numberOrNull(safePawnField(pawn,"m_angEyeAngles.m_vecY"));
+  return yaw===null ? null : ((yaw+180)%360+360)%360-180;
+}
+
 function replayInfernoState(entity, origin) {
   const count = Math.min(64,Math.max(0,integer(safePawnField(entity,"m_fireCount"))||0));
   let burning = 0, known = false, radius = 0;
