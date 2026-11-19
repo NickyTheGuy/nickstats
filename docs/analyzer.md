@@ -389,3 +389,18 @@ Loading cancellation appears with status overlays, so loading does not insert
 an action column or move the permanent controls. Saved movement still refreshes
 through existing match/replay events and immutable capture IDs. This update is
 frontend-only and requires neither migration nor demo reparsing.
+
+## In-flight grenade selection (2026.11.19.4)
+
+Live grenade icons participate in the same click, additive selection and drag
+selection as players and detonation markers. Hit targets use the same interpolated
+trajectory position as drawing, including player, side, enemy, grenade-type,
+visual-layer and floor filters. No new request or capture data is required.
+
+For older saved trajectories, a mutually unique nearby same-owner/type effect
+at the projectile's end supplies its canonical selection identity and recorded
+effectiveness. Selecting that flight and its detonation counts one grenade and
+one player-round. Missing or ambiguous effects still allow selecting the flight
+and focusing its owner/round; effectiveness stays unknown rather than borrowing
+a different grenade's metrics or round totals. Association metadata is cached
+per immutable round to avoid repeating the matching work during playback.

@@ -25,7 +25,7 @@ export function insideArea(area,map,x,y){const [rx,ry]=worldToRadar(map,x,y);ret
 export function grenadeEffectiveness(effect,round) {
   const result={...(effect.effectiveness||{})},stats=round.performance?.find(p=>p.player===effect.player)?.grenades;
   const type=effect.type,throwField={HE:'he_thrown',Flash:'flash_thrown',Fire:'fire_thrown'}[type];
-  if(stats&&throwField&&stats[throwField]===1&&round.utility.filter(e=>e.player===effect.player&&e.type===type).length===1) {
+  if(!effect.unlinked_projectile&&stats&&throwField&&stats[throwField]===1&&round.utility.filter(e=>e.player===effect.player&&e.type===type).length===1) {
     const mapping=type==='Flash'?{enemies_flashed:'enemies_flashed',enemy_blind_ms:'blind_ms'}:{enemy_damage:type==='HE'?'he_damage':'fire_damage'};
     for(const [field,key]of Object.entries(mapping))if(result[field]==null&&Number.isFinite(stats[key]))result[field]=stats[key];
   }

@@ -1,19 +1,12 @@
 import { onLevel,positionAt,worldToRadar } from './replay.mjs';
 import { combatMarkers } from './combat.mjs';
-import { utilityVisible,effectEnd } from './utility.mjs';
+import { utilityVisible,effectEnd,projectilePosition } from './utility.mjs';
 import { roundChannels,createDisplay } from './display.mjs';
 import { heldItem,blindRemaining,playerAlive } from './player-state.mjs';
 import { selectionRoundKey } from './selection-targets.mjs';
 
-// Filtering to another player roster can renumber an effect array. Keep a
-// deterministic identity within its owner/round, including coincident throws.
-export function utilityKeys(round) {
-  const counts=new Map();
-  return round.utility.map(e=>{
-    const signature=JSON.stringify([e.player,e.type,e.time,e.x,e.y,e.z]),ordinal=counts.get(signature)||0;
-    counts.set(signature,ordinal+1);return `${signature}:${ordinal}`;
-  });
-}
+import { utilitySelectionData } from './utility-selection.mjs';
+export { utilityKeys } from './utility-selection.mjs';
 export function entrySelected(item,selection) {
   const row=selection instanceof Map?selection.get(actorKey(item)):selection.find(e=>actorKey(e)===actorKey(item));
   return Boolean(row&&(!item.utilities.length||item.utilities.every(key=>row.utilities.includes(key))));
@@ -48,7 +41,12 @@ export function selectionCandidates(rounds,{map,level,time,players,side=0,utilit
       if(event.time>time)continue;
       for(const mark of combatMarkers(event,{selected,side,layers,map,level,unit,singleRound:rounds.length===1,cellDeaths:rounds.length===1&&showPlayers}))add(mark.kind,mark.actor,mark.kind==='kill'?event.killer_side:event.victim_side,mark.x,mark.y,{event});
     }
-    const keys=utilityKeys(round);
+    const {keys,projectiles}=utilitySelectionData(round);
+    if(live)for(const {projectile,effect,key}of projectiles) {
+      if(!utilities.includes(projectile.type)||!projectile.player&&!allSelected||!utilityVisible(projectile,round,selected,side))continue;
+      const point=projectilePosition(projectile,time);if(!point||!onLevel(level,point[3]))continue;
+      add('utility',projectile.player,projectile.side,...worldToRadar(map,point[1],point[2]),{effect,projectile,utilityKey:key,enemy:channel.enemy});
+    }
     for(const [utilityIndex,effect]of round.utility.entries()) {
       if(effect.time>time||!history&&(!live||time>=effectEnd(effect,round.duration))||!utilities.includes(effect.type)||!effect.player&&!allSelected||!utilityVisible(effect,round,selected,side)||!onLevel(level,effect.z))continue;
       add('utility',effect.player,effect.side,...worldToRadar(map,effect.x,effect.y),{effect,utilityKey:keys[utilityIndex],enemy:channel.enemy});

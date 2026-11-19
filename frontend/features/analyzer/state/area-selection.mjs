@@ -1,4 +1,4 @@
-import { utilityKeys } from './map-selection.mjs';
+import { utilitySelectionData } from './utility-selection.mjs';
 import { onLevel,positionAt } from './replay.mjs';
 import { selectionRoundKey,insideArea,utilitySelectionEvents,combatSelectionEvents,summarizeGrenades } from './selection-targets.mjs';
 
@@ -38,7 +38,7 @@ export function summarizeArea(rounds,{area,map,level,time,players,side=0,target=
   for(const round of rounds) {
     const actors=new Map();
     if(selection) {
-      const key=selectionRoundKey(round),indices=new Set(),keys=utilityKeys(round),effectsByKey=new Map(keys.map((key,i)=>[key,round.utility[i]]));
+      const key=selectionRoundKey(round),indices=new Set(),{effectsByKey}=utilitySelectionData(round);
       const roster=rosters?.get(key),allowed=roster?new Set([...roster.primary,...roster.enemies]):selected;
       for(const item of selectionByRound.get(key)||[]) {
         if(item.player&&!allowed.has(item.player))continue;
