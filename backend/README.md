@@ -546,7 +546,7 @@ Apply `database/migrations/022_analyzer_utility_search.sql` before deploying thi
 backend. It adds capture-owned effectiveness rows and an index-completion marker;
 match statistics, dates, tags and replay chunks are preserved.
 
-`POST /analyzer/utility/search` is public and reads only the compact utility index.
+`POST /analyzer/utility/search` is public and searches the compact utility index.
 It accepts eligible capture/round scopes, selected replay player IDs, HE/Flash/Fire,
 a metric and minimum, and bounded pagination. Fire covers both Molotov and
 incendiary grenades. Group/date/tag/buy/side filters choose eligible scopes using
@@ -554,11 +554,13 @@ the existing Analyzer rules before searching. Unknown metrics and unowned throws
 are reported separately and excluded from numeric matches. A stale capture list
 returns 409 rather than silently searching superseded captures.
 
-New captures are indexed atomically at publication. Signed-in users can use
-**Index saved captures** in the Analyzer, which calls
-`POST /analyzer/utility/index` once per unindexed capture. This reads already-saved
-chunks on the server; it does not parse or download a demo. It is idempotent and
-resumable. Effectiveness is taken from capture metrics, with existing round totals
+New captures are indexed atomically at publication. Search automatically prepares
+one unindexed capture per request under its publication lock. Pending capture IDs
+let the client continue until preparation finishes; partial results are not
+published. This derived public cache needs no separate login or indexing button.
+It reads already-saved chunks on the server, without parsing or downloading a
+demo. `POST /analyzer/utility/index` remains an authenticated, idempotent
+administrative endpoint. Effectiveness is taken from capture metrics, with existing round totals
 used only when exactly one recorded throw and one captured effect prove the total
 belongs to that grenade. Ambiguous attribution remains NULL. Replacing statistics
 invalidates the fallback index; publishing a new capture creates a new index, and

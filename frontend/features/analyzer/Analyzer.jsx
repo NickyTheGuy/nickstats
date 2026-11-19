@@ -5,8 +5,7 @@ import KillFeed from './KillFeed.jsx';
 import { roundCombat } from './state/kill-feed.mjs';
 import { createDisplay,hasEnemyMovement } from './state/display.mjs';
 import UtilitySearch from './UtilitySearch.jsx';
-import { utilityScopes,utilityWatchKey } from './state/utility-search.mjs';
-import { utilityKeys } from './state/map-selection.mjs';
+import { utilityScopes,utilityResultRounds,utilityResultDisplay } from './state/utility-search.mjs';
 import SourcePicker from './SourcePicker.jsx';
 import useMatchFilters from './hooks/useMatchFilters.js';
 import AreaSummary from './AreaSummary.jsx';
@@ -19,6 +18,8 @@ import { createMovementCache, movementSelection } from './state/movement-cache.m
 import { groupRoundKeys } from './state/query.mjs';
 import { loadCaptureHeaders, loadSelectedRounds } from './state/server.mjs';
 import Button from '../../shared/components/buttons/Button.jsx';
+import FilePickerButton from '../../shared/components/buttons/FilePickerButton.jsx';
+import IconButton from '../../shared/components/buttons/IconButton.jsx';
 import FormMessage from '../../shared/components/feedback/FormMessage.jsx';
 import MapWindow from './MapWindow.jsx';
 import AnalyzerControls from './AnalyzerControls.jsx';
@@ -32,8 +33,7 @@ export default function Analyzer({entryStore}) {
   const entry=useSyncExternalStore(entryStore.subscribe,entryStore.getSnapshot);
   const matchFilters=useMatchFilters();
   const [area,setArea]=useState(null),[openMenu,setOpenMenu]=useState(null);
-  const [roundFocus,setRoundFocus]=useState(null),[utilitySearch,setUtilitySearch]=useState(false),[utilityWatch,setUtilityWatch]=useState(null);
-  const appliedWatch=useRef(null);
+  const [roundFocus,setRoundFocus]=useState(null),[utilityResults,setUtilityResults]=useState(null);
   const [showEnemies,setShowEnemies]=useState(false),[display,setDisplay]=useState(createDisplay),[enemyDisplay,setEnemyDisplay]=useState(createDisplay);
   const [mode,setMode]=useState('match'),[queryPlayers,setQueryPlayers]=useState(null);
   const [groupRounds,setGroupRounds]=useState({sections:[],numbers:[]}),[cacheRevision,setCacheRevision]=useState(0);
@@ -48,7 +48,7 @@ export default function Analyzer({entryStore}) {
   const [filters,setFilters]=useState({result:'all',buy:[],enemyBuy:[]});
   const operation = useRef(null),sourceIdentity=useRef('');
   useEffect(() => () => { operation.current?.abort();roundOperation.current?.abort(); }, []);
-  const clearSource=useCallback(()=>{operation.current?.abort();roundOperation.current?.abort();operation.current=null;roundOperation.current=null;setReplays([]);setArea(null);setUtilityWatch(null);setMapName('');setQueryPlayers(null);setBusy(false);setLoadingRounds(false);setError('');setStatus('');setPlaying(false);},[]);
+  const clearSource=useCallback(()=>{operation.current?.abort();roundOperation.current?.abort();operation.current=null;roundOperation.current=null;setReplays([]);setArea(null);setUtilityResults(null);setMapName('');setQueryPlayers(null);setBusy(false);setLoadingRounds(false);setError('');setStatus('');setPlaying(false);},[]);
   const chooseSource=useCallback(async source=>{
     clearSource();setMode(source.mode);setQueryPlayers(source.mode==='groups'?source.players:null);
     const identity=source.mode==='groups'?`groups:${source.players.map(p=>p.id).join(',')}`:`match:${source.matches[0]?.id}`;
@@ -83,12 +83,14 @@ export default function Analyzer({entryStore}) {
     return roundFocus?.map===mapName?keys.filter(key=>roundFocus.keys.includes(key)):keys;
   },[mapReplays,mode,groupRounds,filters,selectedPlayers,side,selectedRounds,roundFocus,mapName]);
   const searchScopes=useMemo(()=>utilityScopes(mapReplays,eligibleKeys),[mapReplays,eligibleKeys]);
-  useEffect(()=>{setUtilityWatch(null);appliedWatch.current=utilityWatch;if(utilitySearch){setArea(null);setTime(0);}},[searchScopes,selectedPlayers]);
-  const watchedKey=utilityWatch?utilityWatchKey(mapReplays,utilityWatch):null;
-  const roundKeys=useMemo(()=>utilitySearch?(watchedKey&&eligibleKeys.includes(watchedKey)?[watchedKey]:[]):eligibleKeys,[utilitySearch,watchedKey,eligibleKeys]);
+  const searchIdentity=JSON.stringify([searchScopes,selectedPlayers,side]);
+  useEffect(()=>{setUtilityResults(null);setArea(null);},[searchIdentity]);
+  const result=utilityResults?.identity===searchIdentity?utilityResults.data:null;
+  const applyUtilityResults=useCallback(data=>{setUtilityResults(data?{identity:searchIdentity,data}:null);setArea(null);setPlaying(false);},[searchIdentity]);
+  const roundKeys=useMemo(()=>result?[]:eligibleKeys,[result,eligibleKeys]);
   const focus=useMemo(()=>roundFocus?.map===mapName?instanceFocus(roundFocus.instances):null,[roundFocus,mapName]);
-  const rosters=useMemo(()=>rosterIndex(mapReplays,selectedPlayers,{enemies:mode==='groups'&&showEnemies&&hasEnemyMovement(enemyDisplay),focus,side}),[mapReplays,selectedPlayers,mode,showEnemies,enemyDisplay,focus,side]);
-  const playersForRound=useCallback((replay,round)=>rosterPlayers(rosters.get(`${replay.match_uid}:${round.number}`)),[rosters]);
+  const movementRosters=useMemo(()=>rosterIndex(mapReplays,selectedPlayers,{enemies:mode==='groups'&&showEnemies&&hasEnemyMovement(enemyDisplay),focus,side}),[mapReplays,selectedPlayers,mode,showEnemies,enemyDisplay,focus,side]);
+  const playersForRound=useCallback((replay,round)=>rosterPlayers(movementRosters.get(`${replay.match_uid}:${round.number}`)),[movementRosters]);
   const cachedRounds=useMemo(()=>{
     if(!remote)return null;
     try{return movementCache.current.read(movementSelection(mapReplays,roundKeys,selectedPlayers,{playersForRound}));}catch{return null;}
@@ -104,16 +106,11 @@ export default function Analyzer({entryStore}) {
       .finally(()=>{if(roundOperation.current===controller){setLoadingRounds(false);setStatus('');roundOperation.current=null;}});
     return()=>controller.abort();
   },[remote,mapReplays,roundKeys,selectedPlayers,playersForRound,retry]);
-  const rounds=useMemo(()=>remote?(cachedRounds??[]):mapReplays.flatMap(r=>r.rounds.filter(round=>roundKeys.includes(`${r.match_uid}:${round.number}`)).map(round=>({...round,match_uid:r.match_uid}))),[remote,cachedRounds,mapReplays,roundKeys]);
-  useEffect(()=>{
-    if(!utilitySearch||!utilityWatch||appliedWatch.current===utilityWatch||loadingRounds)return;
-    const round=rounds.find(r=>`${r.match_uid}:${r.number}`===watchedKey);if(!round)return;
-    const index=round.utility.findIndex(e=>e.event_number===utilityWatch.event);if(index<0){setError('Reload this capture to locate the selected throw.');return;}
-    appliedWatch.current=utilityWatch;setPlaying(false);setTime(Math.max(0,utilityWatch.time-3000));
-    setArea({map:mapName,items:[{roundKey:watchedKey,player:utilityWatch.player,side:utilityWatch.side,utilities:[utilityKeys(round)[index]]}]});
-  },[utilitySearch,utilityWatch,watchedKey,rounds,loadingRounds,mapName]);
-  function watchUtility(row){setUtilityWatch({...row});appliedWatch.current=null;setPlaying(false);setDisplay(value=>({...value,utilities:[...new Set([...value.utilities,row.type])],utilityLayers:[...new Set([...value.utilityLayers,'Live','History'])]}));requestAnimationFrame(()=>document.querySelector('.analyzer-map-window')?.scrollIntoView({block:'nearest'}));}
-  function chooseUtilitySearch(value){setUtilitySearch(value);setUtilityWatch(null);setArea(null);setTime(0);setPlaying(false);setOpenMenu(null);}
+  const movementRounds=useMemo(()=>remote?(cachedRounds??[]):mapReplays.flatMap(r=>r.rounds.filter(round=>roundKeys.includes(`${r.match_uid}:${round.number}`)).map(round=>({...round,match_uid:r.match_uid}))),[remote,cachedRounds,mapReplays,roundKeys]);
+  const rounds=useMemo(()=>result?utilityResultRounds(mapReplays,result.rows):movementRounds,[result,mapReplays,movementRounds]);
+  const rosters=useMemo(()=>result?new Map(rounds.map(round=>[`${round.match_uid}:${round.number}`,{primary:[...new Set(round.utility.map(e=>e.player))],enemies:[]}])):movementRosters,[result,rounds,movementRosters]);
+  const mapDisplay=useMemo(()=>result?utilityResultDisplay(result.type):display,[result,display]);
+  useEffect(()=>{if(result){setPlaying(false);setTime(rounds.reduce((max,r)=>Math.max(max,r.duration),0));}},[result]);
   const duration = rounds.reduce((max,r)=>Math.max(max,r.duration),0), map = Object.hasOwn(mapData.maps,mapName) ? mapData.maps[mapName] : null;
   const areaSummary=useMemo(()=>area?.map===mapName&&rounds.length?summarizeArea(rounds,{players:mapPlayers.map(p=>p.id),selection:area.items,rosters}):null,[rounds,area,mapName,mapPlayers,rosters]);
   function selectItems(items,append=false) {
@@ -137,7 +134,7 @@ export default function Analyzer({entryStore}) {
   }, [playing,speed,duration]);
   useEffect(() => { if (time >= duration) setPlaying(false); }, [time,duration]);
   function focusArea() {
-    if(utilitySearch){setUtilitySearch(false);setUtilityWatch(null);}
+    setUtilityResults(null);
     const keys=[...(areaSummary?.matched||[])].map(selectionRoundKey).filter(Boolean);if(!keys.length)return;
     setRoundFocus({map:mapName,keys,instances:areaSummary.instances,previousMatchRounds:mode==='match'?[...selectedRounds]:null});if(mode==='match')setSelectedRounds(keys);setArea(null);setTime(0);setPlaying(false);
   }
@@ -165,34 +162,35 @@ export default function Analyzer({entryStore}) {
     finally { setBusy(false); setStatus(''); setError(messages.join(' ')); operation.current = null; }
   }
   const combat=useMemo(()=>rounds.length===1?roundCombat(rounds[0],{rosters,players:selectedPlayers,side,display,enemyDisplay}):{kills:[],feed:[]},[rounds,rosters,selectedPlayers,side,display,enemyDisplay]);
-  const displayedRounds=utilitySearch&&watchedKey?[watchedKey]:selectedRounds;
-  const roundPicker={replays:mapReplays,selected:displayedRounds,filters:{...filters,side,players:selectedPlayers},
-    onNavigate:key=>{setUtilitySearch(false);setUtilityWatch(null);setSelectedRounds([key]);setRoundFocus(null);setArea(null);setTime(0);setPlaying(false);},onToggleSet:keys=>{if(utilitySearch&&watchedKey){setUtilitySearch(false);setUtilityWatch(null);}setSelectedRounds(toggleRoundSet(displayedRounds,keys));setRoundFocus(null);}};
+  const roundPicker={replays:mapReplays,selected:selectedRounds,filters:{...filters,side,players:selectedPlayers},
+    onNavigate:key=>{setUtilityResults(null);setSelectedRounds([key]);setRoundFocus(null);setArea(null);setTime(0);setPlaying(false);},onToggleSet:keys=>{setUtilityResults(null);setSelectedRounds(toggleRoundSet(selectedRounds,keys));setRoundFocus(null);}};
   return <section className="analyzer-view" aria-label="2D analyzer">
     <SourcePicker mode={mode} onMode={setMode} entry={entry} matchFilters={matchFilters} onChoose={chooseSource} onClear={clearSource} />
-    {utilitySearch&&<UtilitySearch scopes={searchScopes} players={selectedPlayers} names={mapPlayers} onWatch={watchUtility} onClose={()=>chooseUtilitySearch(false)} />}
-    <MapWindow searchIdle={utilitySearch&&!utilityWatch} map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} display={display} enemyDisplay={enemyDisplay} rosters={rosters}
+    <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} display={mapDisplay} enemyDisplay={enemyDisplay} rosters={rosters}
       roundStrip={mode==='match'?<RoundPicker {...roundPicker} />:null}
       area={area?.map===mapName?area:null} areaSummary={areaSummary} onSelectItems={selectItems} onClearSelection={()=>setArea(null)} onAreaStart={()=>setPlaying(false)}
-      clockOverlay={mode==='match'&&rounds.length===1&&<RoundClock round={rounds[0]} time={time} />}
+      clockOverlay={!result&&mode==='match'&&rounds.length===1&&<RoundClock round={rounds[0]} time={time} />}
       combatOverlay={rounds.length===1&&<KillFeed events={combat.feed} time={time} players={mapPlayers} colors={colors} />}
       areaOverlay={areaSummary&&<AreaSummary summary={areaSummary} loading={busy||loadingRounds} onClear={()=>setArea(null)} onFocus={focusArea} />}
       actions={<div className="analyzer-import">
-        {mode==='match'&&!utilitySearch&&<label className={`button button-primary${busy||loadingRounds?' disabled':''}`}>Open
-          <input aria-label="Open demos or replays" type="file" multiple accept=".dem,.zst,.json" disabled={busy||loadingRounds} onChange={e=>{const files=Array.from(e.target.files);e.target.value='';openFiles(files);}} />
-        </label>}
-        {(busy||loadingRounds)&&<Button className="button button-secondary" onClick={()=>{operation.current?.abort();roundOperation.current?.abort();}}>Cancel</Button>}
-        {remote&&(!utilitySearch||utilityWatch)&&!busy&&!loadingRounds&&<Button className="button button-secondary" onClick={()=>{movementCache.current.invalidateCaptures(mapReplays.map(r=>r.capture));setRetry(v=>v+1);}}>Reload selection</Button>}
+        {mode==='match'&&<FilePickerButton label="Open demos or replays" className="button button-primary" multiple accept=".dem,.zst,.json" disabled={busy||loadingRounds} onFiles={openFiles}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M3 7h7l2 3h9l-3 10H3V7Zm0 0V4h7l2 3h8v3" /></svg><span className="analyzer-control-label">Open</span>
+        </FilePickerButton>}
+        {(busy||loadingRounds)&&<IconButton label="Cancel loading" className="button button-secondary" controlSize={34} onClick={()=>{operation.current?.abort();roundOperation.current?.abort();}}><path d="m6 6 12 12M6 18 18 6" /></IconButton>}
+        {remote&&!result&&!busy&&!loadingRounds&&<Button aria-label="Reload selection" className="button button-secondary" onClick={()=>{movementCache.current.invalidateCaptures(mapReplays.map(r=>r.capture));setRetry(v=>v+1);}}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7" /></svg><span className="analyzer-control-label">Reload selection</span>
+        </Button>}
       </div>}
       status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage></>}
+      utility={<UtilitySearch scopes={searchScopes} players={selectedPlayers} side={side} result={result} onResults={applyUtilityResults} open={openMenu==='utility'} onToggle={()=>setOpenMenu(value=>value==='utility'?null:'utility')} />}
       visuals={<VisualControls mode={mode} open={openMenu==='visuals'} onToggle={()=>setOpenMenu(value=>value==='visuals'?null:'visuals')}
         showEnemies={showEnemies} onShowEnemies={setShowEnemies} display={display} setDisplay={setDisplay} enemyDisplay={enemyDisplay} setEnemyDisplay={setEnemyDisplay} />}
-      controls={<AnalyzerControls utilitySearch={utilitySearch} onUtilitySearch={chooseUtilitySearch} open={openMenu==='filters'} onToggle={()=>setOpenMenu(value=>value==='filters'?null:'filters')} players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
-        colors={colors} side={side} onSide={setSide} filters={filters} setFilters={setFilters} selectedCount={utilitySearch&&!utilityWatch?eligibleKeys.length:rounds.length}
+      controls={<AnalyzerControls open={openMenu==='filters'} onToggle={()=>setOpenMenu(value=>value==='filters'?null:'filters')} players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
+        colors={colors} side={side} onSide={setSide} filters={filters} setFilters={setFilters} selectedCount={result?rounds.length:eligibleKeys.length}
         roundFocus={roundFocus?.map===mapName?roundFocus:null} onClearFocus={clearRoundFocus}
         matchFilters={mode==='groups'?matchFilters:null}
         groupRounds={mode==='groups'?{replays:mapReplays,value:groupRounds,onChange:setGroupRounds}:null}
         />}
-      playback={<PlaybackControls time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={setTime} speed={speed} setSpeed={setSpeed} kills={combat.kills} players={mapPlayers} round={mode==='match'&&rounds.length===1?rounds[0]:null} onKillSeek={value=>{setPlaying(false);setTime(value);}} />} />
+      playback={<PlaybackControls time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={setTime} speed={speed} setSpeed={setSpeed} kills={combat.kills} players={mapPlayers} round={!result&&mode==='match'&&rounds.length===1?rounds[0]:null} onKillSeek={value=>{setPlaying(false);setTime(value);}} />} />
   </section>;
 }

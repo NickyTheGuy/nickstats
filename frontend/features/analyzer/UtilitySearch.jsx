@@ -1,55 +1,40 @@
 import { useEffect,useRef,useState } from 'react';
 import Button from '../../shared/components/buttons/Button.jsx';
-import DataTable from '../../shared/components/tables/DataTable.jsx';
-import Pagination from '../../shared/components/navigation/Pagination.jsx';
-import OptionField from '../../shared/components/forms/OptionField.jsx';
+import IconButton from '../../shared/components/buttons/IconButton.jsx';
 import FormMessage from '../../shared/components/feedback/FormMessage.jsx';
+import OverlayMenu from './OverlayMenu.jsx';
+import RoundFilter from './RoundFilter.jsx';
 import { analyzerJSON } from './state/server.mjs';
-import { UTILITY_SEARCH_TYPES,utilityMetrics,utilityQuery,validateUtilityPage } from './state/utility-search.mjs';
-import { formatTime } from './state/replay.mjs';
+import { UTILITY_SEARCH_TYPES,utilityMetrics,utilityQuery,searchUtility } from './state/utility-search.mjs';
 
-export default function UtilitySearch({scopes,players,names,onWatch,onClose}) {
-  const [form,setForm]=useState({type:'HE',metric:'damage',minimum:'40'}),[data,setData]=useState(null),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[error,setError]=useState('');
-  const operation=useRef(null),scopeKey=JSON.stringify([scopes,players]),canIndex=Boolean(window.NickStatsManualFilters.store.account);
-  useEffect(()=>{operation.current?.abort();setData(null);setError('');setBusy(false);setStatus('');return()=>operation.current?.abort();},[scopeKey]);
-  function edit(next){operation.current?.abort();setForm(next);setData(null);setError('');setBusy(false);setStatus('');}
-  async function run(offset=0,index=false) {
-    operation.current?.abort();const controller=new AbortController();operation.current=controller;setBusy(true);setError('');
+const icons={HE:['hegrenade'],Flash:['flashbang'],Fire:['molotov','incgrenade']};
+export default function UtilitySearch({scopes,players,side,open,onToggle,result,onResults}) {
+  const [form,setForm]=useState({type:'HE',metric:'damage',minimum:'40'}),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const operation=useRef(null),scopeKey=JSON.stringify([scopes,players,side]);
+  useEffect(()=>{operation.current?.abort();setError('');setBusy(false);return()=>operation.current?.abort();},[scopeKey]);
+  function edit(next){operation.current?.abort();setForm(next);setError('');setBusy(false);}
+  async function run(event) {
+    event.preventDefault();operation.current?.abort();const controller=new AbortController();operation.current=controller;setBusy(true);setError('');
     try {
-      const query=utilityQuery(scopes,players,form,offset);
-      if(index)for(const [i,capture]of data.pending_captures.entries()){
-        controller.signal.throwIfAborted();setStatus(`Indexing saved captures · ${i+1}/${data.pending_captures.length}…`);
-        await analyzerJSON('/utility/index',{method:'POST',body:JSON.stringify({capture}),signal:controller.signal});
-      }
-      setStatus('Searching utility…');
-      const result=await analyzerJSON('/utility/search',{method:'POST',body:JSON.stringify(query),signal:controller.signal});controller.signal.throwIfAborted();setData(validateUtilityPage(result,query));
+      const query=utilityQuery(scopes,players,{...form,side});
+      const found=await searchUtility(query,next=>analyzerJSON('/utility/search',{method:'POST',body:JSON.stringify(next),signal:controller.signal}),{signal:controller.signal});
+      controller.signal.throwIfAborted();onResults(found);
     }catch(e){if(!controller.signal.aborted)setError(e.message);}
-    finally{if(operation.current===controller){setBusy(false);setStatus('');}}
+    finally{if(operation.current===controller)setBusy(false);}
   }
-  const metricValue=row=>form.metric==='damage'?(row.enemy_damage??'—'):form.metric==='enemies'?(row.enemies_flashed??'—'):(row.enemy_blind_ms==null?'—':(row.enemy_blind_ms/1000).toFixed(2));
-  const metricLabel=utilityMetrics(form.type).find(([key])=>key===form.metric)?.[1];
-  const rows=data?.rows||[],owner=new Map(names.map(p=>[p.id,p.name])),rounds=scopes.reduce((n,s)=>n+s.rounds.length,0);
-  return <section className="panel analyzer-utility-search" aria-label="Utility search">
-    <header><h3>Utility search</h3><Button className="selection-chip" onClick={onClose}>Return to replay</Button></header>
-    <form className="analyzer-utility-form" onSubmit={event=>{event.preventDefault();run();}}>
-      <OptionField label="Grenade" value={form.type} options={UTILITY_SEARCH_TYPES} onChange={type=>edit({type,metric:type==='Flash'?'enemies':'damage',minimum:type==='Flash'?'1':'40'})} />
-      <OptionField label="Effectiveness" value={form.metric} options={utilityMetrics(form.type)} onChange={metric=>edit({...form,metric,minimum:metric==='blind_ms'?'1':form.minimum})} />
-      <label>Minimum<input aria-label="Minimum effectiveness" type="number" min="0" step={form.metric==='blind_ms'?'0.1':'1'} value={form.minimum} onChange={e=>edit({...form,minimum:e.target.value})} /></label>
-      <Button type="submit" className="button button-primary" disabled={busy||!rounds||!players.length}>Search {rounds} rounds</Button>
-      {busy&&<Button className="button button-secondary" onClick={()=>{operation.current?.abort();setBusy(false);setStatus('');}}>Cancel</Button>}
+  return <OverlayMenu buttonLabel={`Utility${result?` · ${result.total}`:""}`} label="Utility search" open={open} onToggle={onToggle}>
+    <form className="analyzer-utility-form" onSubmit={run}>
+      <RoundFilter label="Grenade" value={form.type} options={UTILITY_SEARCH_TYPES.map(([type,label])=>[type,<>{icons[type].map(icon=><img key={icon} src={`assets/grenades/${icon}.svg`} alt="" />)}<span>{type==='Flash'?'Flash':type}</span></>,{'aria-label':label,title:label}])}
+        onChange={type=>edit({type,metric:type==='Flash'?'enemies':'damage',minimum:type==='Flash'?'1':'40'})} />
+      <RoundFilter label="Effectiveness" value={form.metric} options={utilityMetrics(form.type).map(([key,label])=>[key,key==='damage'?'Damage':key==='enemies'?'Enemies blinded':'Blind seconds',{title:label}])}
+        onChange={metric=>edit({...form,metric,minimum:'1'})} />
+      <div className="analyzer-utility-submit">
+        <label className="analyzer-round-filter">Minimum<input aria-label="Minimum effectiveness" type="number" min="0" step={form.metric==='blind_ms'?'0.1':'1'} value={form.minimum} onChange={e=>edit({...form,minimum:e.target.value})} /></label>
+        <Button type="submit" className="button button-primary" disabled={busy||!scopes.length||!players.length}>{busy?'Searching…':'Search'}</Button>
+        {busy&&<IconButton label="Cancel utility search" className="button button-secondary" controlSize={34} onClick={()=>{operation.current?.abort();setBusy(false);}}><path d="m6 6 12 12M6 18 18 6" /></IconButton>}
+      </div>
+      <FormMessage error>{error}</FormMessage>
+      {result&&<div className="analyzer-utility-summary"><output aria-live="polite">{result.total} {result.total===1?'grenade':'grenades'}</output><IconButton label="Clear utility results" className="selection-chip" controlSize={28} onClick={()=>onResults(null)}><path d="m6 6 12 12M6 18 18 6" /></IconButton></div>}
     </form>
-    {!rounds&&<FormMessage>Choose saved matches and rounds to search.</FormMessage>}
-    <FormMessage error>{error}</FormMessage><FormMessage>{status}</FormMessage>
-    {data&&<><div className="analyzer-utility-coverage"><strong>{data.total} matching throws</strong><span>Unknown effectiveness / thrower · {data.unknown}</span>
-      {!!data.pending_captures.length&&<><span>{data.pending_captures.length} saved captures need indexing</span>{canIndex?<Button className="selection-chip" disabled={busy} onClick={()=>run(0,true)}>Index saved captures</Button>:<span>Log in to index saved captures.</span>}</>}
-    </div>
-    <div className="table-wrap analyzer-utility-results"><table className="player-profile-table" aria-label="Utility search results"><colgroup><col style={{width:110}}/><col style={{width:110}}/><col style={{width:72}}/><col/><col/><col/>{form.type==='Flash'&&<col/>}</colgroup><DataTable sortable={false}
-      headers={['Thrower',metricLabel,'Replay','Match','Round','Time',...(form.type==='Flash'?[form.metric==='enemies'?'Blind seconds':'Enemies blinded']:[])]}
-      rows={rows.map(row=>[<span className="analyzer-utility-owner" title={owner.get(row.player)||row.player}>{owner.get(row.player)||row.player}</span>,metricValue(row),
-        <Button className="selection-chip" title={row.attribution==='single_throw'?'Effectiveness from a round with exactly one grenade of this type.':'Recorded per-grenade effectiveness.'} onClick={()=>onWatch(row)}>Watch</Button>,
-        `#${row.match_id}`,row.round,formatTime(row.time),...(form.type==='Flash'?[form.metric==='enemies'?(row.enemy_blind_ms==null?'—':(row.enemy_blind_ms/1000).toFixed(2)):(row.enemies_flashed??'—')]:[])])}
-      emptyMessage={data.pending_captures.length?'Index saved captures to complete this search.':'No throws meet this threshold.'} /></table></div>
-    <Pagination className="table-pagination" hidden={data.total<=data.limit} text={`${data.offset+1}–${Math.min(data.offset+data.limit,data.total)} of ${data.total} throws`}
-      previousDisabled={busy||data.offset===0} nextDisabled={busy||data.offset+data.limit>=data.total} onPrevious={()=>run(Math.max(0,data.offset-data.limit))} onNext={()=>run(data.offset+data.limit)} /></>}
-  </section>;
+  </OverlayMenu>;
 }

@@ -313,41 +313,35 @@ The selected round chip scrolls into view when stepping.
 
 ## Utility search
 
-Filters → Analyzer view → Utility search opens a separate results card. Enable
-this before finding a large Group to search without first loading its movement.
-HE and Fire use minimum total enemy HP damage per grenade; Fire includes both
-Molotovs and incendiaries. Flashbangs use minimum enemies blinded or total enemy
-blind seconds. A positive enemies-blinded search also requires positive recorded
-blind time. Known zeroes remain zero; unknown damage/blinds or throwers do not
-qualify for numeric searches and are counted separately.
+The map toolbar's **Utility** overlay contains grenade icon switches, the relevant
+effectiveness switch, a minimum input and Search. HE and Fire use enemy HP damage
+per grenade; Fire covers Molotovs and incendiaries. Flashbangs use enemies blinded
+or total enemy blind seconds. Positive enemies-blinded searches also require
+positive recorded blind time. Unknown effectiveness never qualifies as zero.
 
-Search uses the existing eligible player/group, map, dates, tags, side, buys,
-round numbers and focus scope. Each grenade is a separate result: two 20-damage
-HEs never satisfy a 40-damage threshold. Results are ordered by the selected
-metric descending, then stable capture/round/event identity, with server-side
-pagination. Only relevant damage or flash columns are shown. Changing scopes or
-players aborts stale searches and clears their results. Visual toggles do not
-change search scope.
+Search uses the eligible player/group, map, dates, tags, side, buys and round
+selection. Each grenade is evaluated separately: two 20-damage HEs never satisfy
+a 40-damage threshold. Search automatically collects result pages and puts only
+the matching grenades on the map at round end, with persistent icons enabled.
+It does not download movement to display results. Hover gives the thrower,
+match, round, time and effectiveness. Normal map selection deduplicates actors
+and rounds; Focus selection opens those player-round instances in the replay,
+reusing cached movement where available. The compact clear control restores the
+normal map and its saved visual settings. Changing scope aborts old searches and
+clears results. Visual toggles do not change search scope.
 
-Searching reads the compact index rather than histories or movement chunks. The
-idle viewer keeps its filter toolbar but hides the empty playback/map area.
-Watch loads only that result's round, pauses just before detonation, enables the
-relevant utility layer, and selects the precise grenade by its original event
-number. The number survives server-side player projection and movement caching,
-including when another player's earlier grenades are omitted. Watching another
-throw in an already-loaded round reuses movement. Focusing a watched throw
-returns to replay with that player-round focus; Return to replay restores the
-normal eligible view. Explicit Match navigation leaves search mode.
+To keep the map responsive, searches exceeding 5,000 markers ask for a narrower
+filter or higher threshold instead of silently truncating results. Result-only
+markers carry round outcomes and grenade metrics; K/D and rating remain unknown
+until the full replay is loaded through Focus selection.
 
-Migration **022_analyzer_utility_search.sql** must be applied before the backend
-update. New capture publication builds the index atomically. Existing published
-captures report missing-index coverage and offer **Index saved captures** while
-signed in. This processes one saved capture at a time on the server and can be
-cancelled/resumed without partially publishing an index. It does not reparse a
-demo or download movement. Captured effectiveness is preferred; round totals can
-fill missing fields only when both saved throw count and captured effect count
-prove there was exactly one grenade of that type from that player. Other unknown
-attribution stays unknown and may need a fresh capture for complete searches.
-Statistics replacement invalidates indexes that can depend on round totals;
-new capture IDs and foreign-key cascades prevent old/superseded results being
-mixed into a fresh search. Extension dates and private tags remain untouched.
+Migration **022_analyzer_utility_search.sql** must already be applied; this overlay
+update adds no migration. New capture publication indexes atomically. Search
+prepares older published captures automatically on the server, one per request,
+then completes without a separate indexing step or login. This reads saved
+chunks once, without reparsing a demo or downloading movement. Capture metrics
+are preferred; round totals fill missing fields only when exactly one recorded
+throw and captured effect prove the total belongs to that grenade. Ambiguous
+attribution remains unknown. Statistics replacement invalidates indexes that
+can depend on round totals. Superseded captures are rejected, and dates and tags
+remain untouched.

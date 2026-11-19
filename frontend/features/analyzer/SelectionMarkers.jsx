@@ -18,7 +18,7 @@ export default function SelectionMarkers({candidates,players,view,selection,onSe
     const actor=names.get(item.entry.player)||'Unknown thrower',prefix=`${round.match_id?`Match #${round.match_id} · `:''}Round ${round.number}`;
     let text=`${item.enemy?'Enemy':'Player'} · ${actor} · ${prefix}${item.item?` · ${item.item}`:''}${item.blind?` · blinded ${(item.blind/1000).toFixed(1)}s`:''}`;
     if(event)text=`${item.kind==='kill'?'Kill':'Death'} · ${prefix} · ${formatTime(event.time)} · ${deathLabel(event,names)} · ${event.weapon}${event.headshot?' · headshot':''}`;
-    if(effect){const metric=grenadeEffectiveness(effect,round),yieldText=effect.type==='Flash'&&metric.enemies_flashed!=null?` · ${metric.enemies_flashed} enemies flashed`:['HE','Fire'].includes(effect.type)&&metric.enemy_damage!=null?` · ${metric.enemy_damage} enemy damage`:'';
+    if(effect){const metric=grenadeEffectiveness(effect,round),yieldText=effect.type==='Flash'&&metric.enemies_flashed!=null?` · ${metric.enemies_flashed} enemies flashed${metric.enemy_blind_ms!=null?` · ${(metric.enemy_blind_ms/1000).toFixed(2)}s blind`:""}`:['HE','Fire'].includes(effect.type)&&metric.enemy_damage!=null?` · ${metric.enemy_damage} enemy damage`:'';
       text=`${effect.type} · ${actor} · ${prefix} · ${formatTime(effect.time)}${yieldText}`;}
     group.items.push(item.entry);group.labels.push(text);
   }
