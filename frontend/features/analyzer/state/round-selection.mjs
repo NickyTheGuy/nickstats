@@ -59,3 +59,12 @@ export function combinedSections(replays,filters) {
   }
   return [...sections.values()].map(section=>({...section,numbers:[...section.numbers].sort(([a],[b])=>a-b),keys:[...section.numbers.values()].flat()}));
 }
+
+export function adjacentRounds(replays,selected,filters) {
+  if(selected.length!==1)return {previous:null,next:null};
+  for(const replay of replays) {
+    const rounds=replay.rounds.filter(round=>matchesRound(round,filters)).sort((a,b)=>a.number-b.number),keys=rounds.map(round=>roundKey(replay,round)),index=keys.indexOf(selected[0]);
+    if(index>=0)return {previous:keys[index-1]||null,next:keys[index+1]||null};
+  }
+  return {previous:null,next:null};
+}

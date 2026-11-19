@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import RoundClock from './RoundClock.jsx';
+import VisualControls from './VisualControls.jsx';
 import KillFeed from './KillFeed.jsx';
 import { roundCombat } from './state/kill-feed.mjs';
 import { createDisplay,hasEnemyMovement } from './state/display.mjs';
@@ -26,7 +28,7 @@ import { openReplayFile } from './state/files.mjs';
 export default function Analyzer({entryStore}) {
   const entry=useSyncExternalStore(entryStore.subscribe,entryStore.getSnapshot);
   const matchFilters=useMatchFilters();
-  const [area,setArea]=useState(null);
+  const [area,setArea]=useState(null),[openMenu,setOpenMenu]=useState(null);
   const [roundFocus,setRoundFocus]=useState(null);
   const [showEnemies,setShowEnemies]=useState(false),[display,setDisplay]=useState(createDisplay),[enemyDisplay,setEnemyDisplay]=useState(createDisplay);
   const [mode,setMode]=useState('match'),[queryPlayers,setQueryPlayers]=useState(null);
@@ -146,12 +148,13 @@ export default function Analyzer({entryStore}) {
   }
   const combat=useMemo(()=>rounds.length===1?roundCombat(rounds[0],{rosters,players:selectedPlayers,side,display,enemyDisplay}):{kills:[],feed:[]},[rounds,rosters,selectedPlayers,side,display,enemyDisplay]);
   const roundPicker={replays:mapReplays,selected:selectedRounds,filters:{...filters,side,players:selectedPlayers},
-    onToggleSet:keys=>{setSelectedRounds(previous=>toggleRoundSet(previous,keys));setRoundFocus(null);}};
+    onNavigate:key=>{setSelectedRounds([key]);setRoundFocus(null);setArea(null);setTime(0);setPlaying(false);},onToggleSet:keys=>{setSelectedRounds(previous=>toggleRoundSet(previous,keys));setRoundFocus(null);}};
   return <section className="analyzer-view" aria-label="2D analyzer">
     <SourcePicker mode={mode} onMode={setMode} entry={entry} matchFilters={matchFilters} onChoose={chooseSource} onClear={clearSource} />
     <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} display={display} enemyDisplay={enemyDisplay} rosters={rosters}
       roundStrip={mode==='match'?<RoundPicker {...roundPicker} />:null}
       area={area?.map===mapName?area:null} areaSummary={areaSummary} onSelectItems={selectItems} onClearSelection={()=>setArea(null)} onAreaStart={()=>setPlaying(false)}
+      clockOverlay={mode==='match'&&rounds.length===1&&<RoundClock round={rounds[0]} time={time} />}
       combatOverlay={rounds.length===1&&<KillFeed events={combat.feed} time={time} players={mapPlayers} colors={colors} />}
       areaOverlay={areaSummary&&<AreaSummary summary={areaSummary} loading={busy||loadingRounds} onClear={()=>setArea(null)} onFocus={focusArea} />}
       actions={<div className="analyzer-import">
@@ -162,13 +165,14 @@ export default function Analyzer({entryStore}) {
         {remote&&!busy&&!loadingRounds&&<Button className="button button-secondary" onClick={()=>{movementCache.current.invalidateCaptures(mapReplays.map(r=>r.capture));setRetry(v=>v+1);}}>Reload selection</Button>}
       </div>}
       status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage></>}
-      controls={<AnalyzerControls players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
+      visuals={<VisualControls mode={mode} open={openMenu==='visuals'} onToggle={()=>setOpenMenu(value=>value==='visuals'?null:'visuals')}
+        showEnemies={showEnemies} onShowEnemies={setShowEnemies} display={display} setDisplay={setDisplay} enemyDisplay={enemyDisplay} setEnemyDisplay={setEnemyDisplay} />}
+      controls={<AnalyzerControls open={openMenu==='filters'} onToggle={()=>setOpenMenu(value=>value==='filters'?null:'filters')} players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
         colors={colors} side={side} onSide={setSide} filters={filters} setFilters={setFilters} selectedCount={rounds.length}
-        roundFocus={roundFocus?.map===mapName?roundFocus:null} onClearFocus={clearRoundFocus} mode={mode}
-        showEnemies={showEnemies} onShowEnemies={setShowEnemies} display={display} setDisplay={setDisplay} enemyDisplay={enemyDisplay} setEnemyDisplay={setEnemyDisplay}
+        roundFocus={roundFocus?.map===mapName?roundFocus:null} onClearFocus={clearRoundFocus}
         matchFilters={mode==='groups'?matchFilters:null}
         groupRounds={mode==='groups'?{replays:mapReplays,value:groupRounds,onChange:setGroupRounds}:null}
         />}
-      playback={<PlaybackControls time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={setTime} speed={speed} setSpeed={setSpeed} kills={combat.kills} players={mapPlayers} onKillSeek={value=>{setPlaying(false);setTime(value);}} />} />
+      playback={<PlaybackControls time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={setTime} speed={speed} setSpeed={setSpeed} kills={combat.kills} players={mapPlayers} round={mode==='match'&&rounds.length===1?rounds[0]:null} onKillSeek={value=>{setPlaying(false);setTime(value);}} />} />
   </section>;
 }

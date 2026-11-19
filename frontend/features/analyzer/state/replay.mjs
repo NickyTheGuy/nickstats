@@ -98,6 +98,19 @@ export function validateReplay(input) {
         seen.add(c.player);return {player:c.player,side:c.side,result:c.result,buy:c.buy,enemy_buy:c.enemy_buy,hero:c.hero};
       });
     }
+    if(round.clock!=null) {
+      const c=round.clock;
+      if(!c||!['round_ms','bomb_ms'].every(key=>finite(c[key],600000)&&c[key]>0)||!['round_estimated','bomb_estimated'].every(key=>typeof c[key]==='boolean'))fail('invalid round clock.');
+      output.clock={round_ms:c.round_ms,bomb_ms:c.bomb_ms,round_estimated:c.round_estimated,bomb_estimated:c.bomb_estimated};
+    }
+    if(round.bomb_events!=null) {
+      if(!Array.isArray(round.bomb_events)||round.bomb_events.length>3)fail('invalid bomb events.');
+      const seen=new Set();let previous=-1;
+      output.bomb_events=round.bomb_events.map(e=>{
+        if(++eventCount>100000||!e||!['plant','defuse','explode'].includes(e.type)||seen.has(e.type)||!finite(e.time,round.duration)||e.time<0||e.time<previous||!(e.player===null||ids.has(e.player)))fail('invalid bomb event.');
+        seen.add(e.type);previous=e.time;return {type:e.type,time:e.time,player:e.player};
+      });
+    }
     if(round.equipment!=null) {
       if(!Array.isArray(round.equipment)||round.equipment.length>players.length)fail('invalid equipment.');
       const seen=new Set();

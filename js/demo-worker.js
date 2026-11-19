@@ -178,7 +178,7 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-12");
+    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-13");
     const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay), Boolean(event.data.includeStats));
     self.postMessage(event.data.captureReplay && !event.data.includeStats
       ? { type: "result", replay: parsed.replay }
@@ -212,7 +212,7 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
 
   const parser = new Parser(new ParserConfiguration({
     entityClasses: ["CCSTeam", "CCSGameRulesProxy", "CCSPlayerController", "CCSPlayerPawn", ...WEAPON_ENTITY_CLASSES,
-      ...(captureReplay ? ["CC4", "CHEGrenadeProjectile", "CFlashbangProjectile", "CSmokeGrenadeProjectile", "CMolotovProjectile", "CDecoyProjectile", "CInferno"] : [])],
+      ...(captureReplay ? ["CC4", "CPlantedC4", "CHEGrenadeProjectile", "CFlashbangProjectile", "CSmokeGrenadeProjectile", "CMolotovProjectile", "CDecoyProjectile", "CInferno"] : [])],
     messagePacketTypes: [
       MessagePacketType.NET_SET_CON_VAR,
       MessagePacketType.SVC_SERVER_INFO,
@@ -2435,6 +2435,10 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
       sampleClutchResources(demoPacket.tick);
       if (replayCapture && round.live && !round.finished) {
         collectReplay(() => {
+          const demo=parser.getDemo();let roundSeconds=null,bombSeconds=null;
+          for(const entity of demo.getEntitiesByClassNameIterator('CCSGameRulesProxy'))roundSeconds=numberOrNull(safePawnField(entity,'m_pGameRules.m_iRoundTime'));
+          for(const entity of demo.getEntitiesByClassNameIterator('CPlantedC4'))bombSeconds=numberOrNull(safePawnField(entity,'m_flTimerLength'));
+          replayCapture.setClock(round.liveStartTick,roundSeconds,bombSeconds);
           replayCapture.sample(demoPacket.tick, round.liveStartTick, tickInterval, readReplayPlayers);
           replayCapture.observe(demoPacket.tick, round.liveStartTick, tickInterval, readReplayUtilities);
         });
@@ -2492,6 +2496,9 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
       }
     });
 
+    if(replayCapture&&['bomb_planted','bomb_defused','bomb_exploded'].includes(descriptor.name))collectReplay(()=>{
+      const actor=stats.get(integer(gameEvent.userid));replayCapture.objective(descriptor.name,demoPacket.tick,round.liveStartTick,tickInterval,actor?replayPlayerId(actor):null);
+    });
     switch (descriptor.name) {
       case "begin_new_match":
         if (!resetSeen) {

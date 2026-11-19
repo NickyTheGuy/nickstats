@@ -3,10 +3,12 @@ import Button from '../../shared/components/buttons/Button.jsx';
 import FullscreenButton from '../../shared/components/buttons/FullscreenButton.jsx';
 import Readout from '../../shared/components/feedback/Readout.jsx';
 import OptionField from '../../shared/components/forms/OptionField.jsx';
-import KillTimeline from './KillTimeline.jsx';
+import RoundTimeline from './RoundTimeline.jsx';
+import { timelineEvents } from './state/round-clock.mjs';
 import { formatTime } from './state/replay.mjs';
 
-export default function PlaybackControls({ time, duration, playing, setPlaying, onSeek, speed, setSpeed, kills=[],players=[],onKillSeek=onSeek }) {
+export default function PlaybackControls({ time, duration, playing, setPlaying, onSeek, speed, setSpeed, kills=[],players=[],onKillSeek=onSeek,round=null }) {
+  const events=timelineEvents(kills,round,players);
   const host=useRef(null),[bottom,setBottom]=useState(10);
   useLayoutEffect(()=>{
     const controls=host.current,frame=controls.parentElement;
@@ -16,9 +18,9 @@ export default function PlaybackControls({ time, duration, playing, setPlaying, 
     window.addEventListener('scroll',locate,true);window.addEventListener('resize',locate);locate();
     return ()=>{observer.disconnect();window.removeEventListener('scroll',locate,true);window.removeEventListener('resize',locate);};
   },[]);
-  return <div ref={host} className={`analyzer-playback${kills.length?' with-kills':''}`} style={{bottom}}>
+  return <div ref={host} className={`analyzer-playback${events.length?' with-events':''}`} style={{bottom}}>
     <Button className="button button-primary" disabled={!duration} onClick={() => { if (time >= duration) onSeek(0); setPlaying(!playing); }} aria-label={playing ? 'Pause playback' : 'Play playback'}>{playing ? 'Pause' : 'Play'}</Button>
-    <div className={`analyzer-timeline${kills.length?' has-kills':''}`}><KillTimeline events={kills} duration={duration} players={players} onSeek={onKillSeek} /><input disabled={!duration} type="range" min="0" max={duration} step="50" value={Math.min(time,duration)} onChange={e => onSeek(Number(e.target.value))} aria-label="Round time" aria-valuetext={`${formatTime(time)} of ${formatTime(duration)}`} /></div>
+    <RoundTimeline events={events} round={round} time={time} duration={duration} onSeek={onSeek} onEventSeek={onKillSeek} />
     <Readout aria-label="Playback time" aria-live="off">{formatTime(time)} / {formatTime(duration)}</Readout>
     <OptionField label="Speed" value={String(speed)} options={[[0.5,'0.5×'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>[String(v),l])} onChange={v=>setSpeed(Number(v))} />
     <FullscreenButton getTarget={()=>host.current?.parentElement} className="button button-secondary playback-fullscreen" />

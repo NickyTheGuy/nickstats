@@ -64,7 +64,7 @@ export function createMovementCache({maxSamples=2000000,maxBytes=MAX_REPLAY_BYTE
     put(replay,rounds,players) {
       for(const round of rounds)for(const player of rosterPlayers(replay,players)) {
         const id=key(replay.capture,round.number,player);if(entries.has(id))continue;
-        const slice={number:round.number,duration:round.duration,winner:round.winner};
+        const slice={number:round.number,duration:round.duration,winner:round.winner,...(round.clock?{clock:round.clock}:{}),...(round.bomb_events?{bomb_events:round.bomb_events}:{})};
         for(const field of fields)slice[field]=(round[field]||[]).filter(item=>item.player===player);
         slice.deaths=(round.deaths||[]).filter(event=>event.victim===player||event.killer===player);
         insert(id,{capture:replay.capture,slice,samples:replaySampleCount({rounds:[slice]}),bytes:JSON.stringify(slice).length});
@@ -75,6 +75,7 @@ export function createMovementCache({maxSamples=2000000,maxBytes=MAX_REPLAY_BYTE
       for(const job of plan)for(const round of job.rounds) {
         const cached=slices(job,round);if(cached.some(entry=>!entry))return null;
         const output={number:round.number,duration:round.duration,winner:round.winner,match_id:job.replay.matchID,match_uid:job.replay.match_uid};
+        for(const key of ['clock','bomb_events'])if(cached[0].slice[key]!=null)output[key]=cached[0].slice[key];
         for(const field of fields)output[field]=cached.flatMap(entry=>entry.slice[field]);
         output.utility.sort((a,b)=>a.time-b.time);
         const deaths=new Map();for(const entry of cached)for(const event of entry.slice.deaths)deaths.set(JSON.stringify(event),event);

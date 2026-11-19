@@ -4046,7 +4046,7 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-match-half { display: flex; gap: 4px; align-items: center; padding-left: 7px; border-left: 1px solid var(--line-strong); }
 @container (max-width: 800px) {
   .analyzer-match-toolbar { grid-template-columns: minmax(0,1fr) auto; gap: 6px; }
-  .analyzer-match-rounds { grid-column: 1 / -1; grid-row: 2; }
+  .analyzer-round-strip { grid-column: 1 / -1; grid-row: 2; }
   .has-match-rounds .analyzer-levels { margin-top: 100px; height: calc(100% - 100px); }
   .analyzer-match-toolbar .analyzer-controls-toggle { padding: 9px 7px; font-size: 12px; }
 }
@@ -4054,11 +4054,11 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-display-controls legend { padding: 0 5px; font-weight: 600; font-size: 12px; }
 .analyzer-map canvas { object-fit: fill; }
 .analyzer-timeline { min-width: 0; position: relative; display: grid; align-items: center; }
-.analyzer-playback.with-kills { padding-top: 26px; }
-.analyzer-timeline.has-kills .analyzer-timeline-kills { top: -21px; }
-.analyzer-timeline-kills { position: absolute; top: 0; left: 8px; right: 8px; height: 18px; pointer-events: none; }
-.analyzer-kill-time { position: absolute; top: 0; transform: translateX(-50%); width: 19px; height: 19px; padding: 1px; border: 0; border-radius: 50%; background: var(--panel); color: var(--accent-ink); pointer-events: auto; cursor: pointer; }
-.analyzer-kill-time:focus-visible { outline: 2px solid var(--accent); }
+.analyzer-playback.with-events { padding-top: 26px; }
+.analyzer-timeline.has-events .analyzer-timeline-events { top: -21px; }
+.analyzer-timeline-events { position: absolute; top: 0; left: 8px; right: 8px; height: 18px; pointer-events: none; }
+.analyzer-event-time { position: absolute; top: 0; transform: translateX(-50%); width: 19px; height: 19px; padding: 1px; border: 0; border-radius: 50%; background: var(--panel); color: var(--accent-ink); pointer-events: auto; cursor: pointer; }
+.analyzer-event-time:focus-visible { outline: 2px solid var(--accent); }
 .analyzer-kill-feed { position: absolute; right: 12px; top: 110px; z-index: 3; display: grid; gap: 5px; max-width: calc(100% - 24px); pointer-events: none; font-size: 12px; }
 .analyzer-kill-feed > div { justify-self: end; display: flex; align-items: center; gap: 7px; padding: 5px 8px; border: 1px solid #758296; border-radius: 4px; background: #101a28d9; color: #eef3fa; }
 .analyzer-kill-feed img { width: 30px; height: 15px; object-fit: contain; }
@@ -4067,3 +4067,41 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-kill-feed > div { max-width: 100%; overflow: hidden; }
 .analyzer-kill-feed span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .analyzer-kill-feed img { flex: 0 0 30px; }
+
+/* Selection and display menus share one anchored, mutually exclusive panel. */
+.analyzer-menu-buttons { position: absolute; left: 10px; top: 10px; z-index: 4; display: flex; gap: 6px; min-width: 0; }
+.analyzer-menu-buttons .analyzer-controls { position: static; inset: auto; max-width: none; }
+.analyzer-menu-buttons .analyzer-control-panel { position: absolute; left: 0; top: 100%; }
+.analyzer-menu-buttons .analyzer-controls-toggle { max-width: none; white-space: nowrap; }
+.analyzer-match-toolbar .analyzer-menu-buttons { position: relative; inset: auto; }
+.analyzer-round-strip { display: flex; gap: 5px; align-items: center; min-width: 0; }
+.analyzer-round-strip .analyzer-match-rounds { flex: 1; }
+.analyzer-round-arrows { display: flex; gap: 3px; flex: 0 0 auto; }
+.analyzer-round-clock { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); z-index: 3; display: grid; justify-items: center; gap: 2px; min-width: 76px; padding: 5px 9px; border-radius: 6px; border: 1px solid #758296; background: #101a28dd; color: #eef3fa; font-variant-numeric: tabular-nums; }
+.analyzer-round-clock > span { font-size: 10px; }
+.analyzer-round-clock > strong { font-size: 19px; }
+.analyzer-round-clock[data-state=planted],.analyzer-event-time[data-kind=plant],.analyzer-event-time[data-kind=explode] { color: #ff7d79; }
+.analyzer-round-clock[data-state=defused],.analyzer-event-time[data-kind=defuse] { color: #79c9ff; }
+.analyzer-round-clock[data-state=exploded] { color: #ff7d79; }
+.analyzer-state-track { position: absolute; left: 8px; right: 8px; top: 50%; transform: translateY(-50%); height: 5px; overflow: hidden; border-radius: 4px; pointer-events: none; background: #aab2c0; }
+.analyzer-state-track > span { position: absolute; top: 0; height: 100%; background: #aab2c0; }
+.analyzer-state-track > span[data-state=planted] { background: #e85252; }
+.analyzer-state-track > span[data-state=defused] { background: #479bd8; }
+.analyzer-state-track > span[data-state=exploded] { background: #a82935; }
+.state-timeline input[type=range] { appearance: none; background: transparent; position: relative; z-index: 1; height: 20px; }
+.state-timeline input[type=range]::-webkit-slider-runnable-track { height: 5px; background: transparent; }
+.state-timeline input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; margin-top: -6.5px; border: 1px solid #aab2c0; border-radius: 50%; background: #fff; }
+.state-timeline input[type=range]::-moz-range-track { height: 5px; background: transparent; }
+.state-timeline input[type=range]::-moz-range-progress { background: transparent; }
+.state-timeline input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border: 1px solid #aab2c0; border-radius: 50%; background: #fff; }
+@container (max-width: 800px) { .has-match-rounds .analyzer-round-clock { left: 12px; top: 108px; transform: none; } }
+@container (max-width: 360px) {
+  .analyzer-match-toolbar .analyzer-menu-buttons { grid-column: 1 / -1; grid-row: 1; }
+  .analyzer-match-toolbar .analyzer-file-actions { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
+  .analyzer-round-strip { grid-row: 3; }
+  .has-match-rounds .analyzer-levels { margin-top: 146px; height: calc(100% - 146px); }
+  .has-match-rounds .analyzer-round-clock { top: 154px; }
+  .has-match-rounds .analyzer-kill-feed { top: 201px; }
+  .analyzer-map-window:not(.has-match-rounds) .analyzer-file-actions { top: 54px; }
+  .analyzer-map-window:not(.has-match-rounds) .analyzer-levels { margin-top: 100px; height: calc(100% - 100px); }
+}

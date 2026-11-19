@@ -273,3 +273,39 @@ pixel ratio. Radar drawing, panning, marker hit targets and selection share the
 same centered radar transform. Zoomed maps can paint into the pane's spare
 vertical or horizontal space instead of being clipped by a square bitmap first.
 Upper/lower level split resizing and independent map zoom remain supported.
+
+
+## Round clock, objectives and navigation
+
+The viewer header now separates Filters (players, dates, tags, sides, buys and
+round selection/focus) from Visuals (cells, names, equipment, blindness, utility,
+combat and enemy display). Both use one reusable overlay menu; opening one
+closes the other. Visual changes do not change the selected match/round set.
+
+For a single round in Match mode, a separate countdown sits over the map while
+the existing elapsed-time readout stays on the scrubber. An on-time plant resets
+the countdown to the bomb timer; a plant strictly after the round timer reached
+zero does not restart it. Defuse freezes the remaining bomb time; explosion shows
+zero. Scrubbing backwards recomputes the state deterministically.
+
+New captures optionally store global round `clock` values and `bomb_events`
+(plant, defuse, explode with exact elapsed milliseconds and optional actor).
+Clocks use recorded server convars and game-rule/planted-C4 fields when available.
+Standard fallback values are marked approximate in the clock readout. Older
+captures are enriched with existing `match_rounds.bomb_plant_elapsed_ms` when
+available, so plant markers can work without recapturing. Defuse/explosion times
+are never guessed from the winner or round end; those exact markers need a new
+capture. These small global fields survive player projection and movement-cache
+subsets. No database migration is required; update frontend and backend.
+
+The single-Match-round scrubber colors normal time grey, planted time red,
+post-defuse time blue and post-explosion time dark red. Plant/defuse/explosion
+buttons share the kill markers' tooltip/seek behavior. Clicking pauses and seeks
+to the exact event. Groups and multi-round Match views retain their existing
+elapsed timeline without the bomb countdown/state bands.
+
+Previous/Next buttons remain fixed to the right of the Match round strip. They
+select one adjacent eligible round in the same match, clear focus/area selection,
+pause and rewind. They skip rounds excluded by current filters, support arbitrary
+overtime, and disable at either boundary or when zero/multiple rounds are selected.
+The selected round chip scrolls into view when stepping.
