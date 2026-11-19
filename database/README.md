@@ -115,3 +115,13 @@ Migration 015 lets each login select the database player that represents them. T
 Migration 017 stores one statistics slice per played player round for Regulation (rounds 1–24) and Overtime (round 25 onward). Apply it before deploying the schema-22 backend. Existing matches remain available under All; reparse their demos to populate phase filters. The normal replace flow deletes old player rows and their phase slices in one transaction.
 
 Migration 018 adds `account_manual_filters` and `account_manual_filter_states`. Labels belong to signed-in accounts and capture the highest uploaded match ID at creation. Earlier matches default to Unknown, later matches to False, and explicit assignments override these defaults. Deleting a label or account cascades its assignments; deleting a match clears its assignments. Public statistics and match payloads are unaffected. Apply it before deploying the manual-filter API.
+
+
+Migration 022 adds `replay_utility_events` and `replay_utility_index_state`. Apply
+it after 021 and before deploying the utility-search backend. Each HE, flashbang,
+Molotov or incendiary detonation is indexed independently; unknown effectiveness
+stays nullable. New captures publish their index in the same transaction as their
+completion. Existing captures can be indexed from the Analyzer while signed in,
+without re-uploading demos. Search state is tied to capture IDs; statistics
+replacement invalidates it, and capture deletion cascades its rows. Existing
+match data, extension dates and private tags are unchanged.

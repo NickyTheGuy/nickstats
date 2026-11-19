@@ -96,7 +96,7 @@
     }
     outcome(kind,tick,start,interval,details) {
       if(!Number.isFinite(start)||tick<start||!details.player||!details.victim||!['flash','damage'].includes(kind)||!['Flash','HE','Fire'].includes(details.type)||kind==='flash'&&details.type!=='Flash'||kind==='damage'&&details.type==='Flash')return;
-      if(kind==='flash'&&(!Number.isFinite(details.duration)||details.duration<0)||kind==='damage'&&(!Number.isFinite(details.damage)||details.damage<0))return;
+      if(kind==='flash'&&(!Number.isFinite(details.duration)||details.duration<=0)||kind==='damage'&&(!Number.isFinite(details.damage)||details.damage<0))return;
       if(++this.events>100000)throw new Error('Replay exceeds the combat/utility-event capture limit.');
       this.getRound(start).outcomes.push({...details,kind,time:Math.round((tick-start)*interval*1000)});
     }

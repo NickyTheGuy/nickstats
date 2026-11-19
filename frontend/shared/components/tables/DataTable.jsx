@@ -3,7 +3,7 @@ import useSortedRows from '../../hooks/useSortedRows.js';
 import { useState } from 'react';
 import Pagination from '../navigation/Pagination.jsx';
 
-export default function DataTable({ headers, rows, sortRows = rows, toggleOff = false, emptyMessage, pageSize = 0, rowLabel = 'rows' }) {
+export default function DataTable({ headers, rows, sortRows = rows, toggleOff = false, emptyMessage, pageSize = 0, rowLabel = 'rows', sortable = true }) {
   const view = useSortedRows(rows, sortRows, toggleOff);
   const [page, setPage] = useState(0);
   const pages = pageSize ? Math.max(1, Math.ceil(view.rows.length / pageSize)) : 1;
@@ -12,8 +12,8 @@ export default function DataTable({ headers, rows, sortRows = rows, toggleOff = 
   return <>
     <thead><tr>{headers.map((label, index) => {
       const direction = view.sort?.column === index ? view.sort.direction : null;
-      return <th key={index} scope="col" aria-sort={direction ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'}>
-        <SortHeading toggleOff={toggleOff} column={{ label, direction, index }} onSort={column => { setPage(0); view.onSort(column.index); }} />
+      return <th key={index} scope="col" aria-sort={sortable && direction ? (direction === 'asc' ? 'ascending' : 'descending') : sortable ? 'none' : undefined}>
+        {sortable ? <SortHeading toggleOff={toggleOff} column={{ label, direction, index }} onSort={column => { setPage(0); view.onSort(column.index); }} /> : label}
       </th>;
     })}</tr></thead>
     <tbody>{!rows.length && emptyMessage && <tr><td colSpan={headers.length} className="empty">{emptyMessage}</td></tr>}{visible.map(({ values, index }) => <tr key={index}>

@@ -48,6 +48,7 @@ export function validateReplay(input) {
         if (!finite(e.end,round.duration) || e.end<e.time || !finite(e.radius,512) || e.radius<0 || ![0,2,3].includes(e.side) || !GRENADE_ICONS.includes(e.icon) || typeof e.estimated!=='boolean') fail('invalid utility lifetime or geometry.');
         Object.assign(effect,{end:e.end,radius:e.radius,side:e.side,icon:e.icon,estimated:e.estimated});
       }
+      if(e.event_number!=null){if(!Number.isSafeInteger(e.event_number)||e.event_number<0||e.event_number>=100000)fail('invalid grenade identity.');effect.event_number=e.event_number;}
       if(e.effectiveness!=null) {
         const keys=['enemies_flashed','enemy_damage','enemy_blind_ms'];
         if(typeof e.effectiveness!=='object'||Array.isArray(e.effectiveness)||!keys.every(key=>e.effectiveness[key]===null||Number.isSafeInteger(e.effectiveness[key])&&e.effectiveness[key]>=0&&e.effectiveness[key]<1000000000))fail('invalid grenade effectiveness.');

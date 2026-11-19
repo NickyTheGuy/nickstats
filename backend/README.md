@@ -1,6 +1,6 @@
 # NickStats API
 
-The API imports compact `nickstats.match/27` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 through 26 remain readable for existing stored matches; the browser still parses demos locally and uploads compact statistics and a separate movement capture. Run database migrations through 021 before deploying this backend. Movement is isolated from the existing statistics, dates and tag tables; see [Analyzer deployment and backfill](../docs/analyzer.md).
+The API imports compact `nickstats.match/27` files into the normalized MySQL schema and exposes read-only match/player endpoints. Schemas 9 through 26 remain readable for existing stored matches; the browser still parses demos locally and uploads compact statistics and a separate movement capture. Run database migrations through 022 before deploying this backend. Movement is isolated from the existing statistics, dates and tag tables; see [Analyzer deployment and backfill](../docs/analyzer.md).
 
 The compact format intentionally uses fixed-position arrays to keep uploads small. Inside the Swift service, those arrays decode into named domain types such as `TradeStats`, `KillContextStats`, `RoundTimingPayload`, and `DeathEventPayload`; database and validation code never rely on unexplained numeric indexes. Encoding those types reconstructs the same versioned wire format.
 
@@ -538,3 +538,28 @@ Private tag filtering uses the existing authenticated tag API in the browser;
 these public replay endpoints never return private tags. No replay work is added
 to the existing statistical read routes. Storage, backfill and memory limits are
 explained in [the Analyzer guide](../docs/analyzer.md).
+
+
+## Utility effectiveness search
+
+Apply `database/migrations/022_analyzer_utility_search.sql` before deploying this
+backend. It adds capture-owned effectiveness rows and an index-completion marker;
+match statistics, dates, tags and replay chunks are preserved.
+
+`POST /analyzer/utility/search` is public and reads only the compact utility index.
+It accepts eligible capture/round scopes, selected replay player IDs, HE/Flash/Fire,
+a metric and minimum, and bounded pagination. Fire covers both Molotov and
+incendiary grenades. Group/date/tag/buy/side filters choose eligible scopes using
+the existing Analyzer rules before searching. Unknown metrics and unowned throws
+are reported separately and excluded from numeric matches. A stale capture list
+returns 409 rather than silently searching superseded captures.
+
+New captures are indexed atomically at publication. Signed-in users can use
+**Index saved captures** in the Analyzer, which calls
+`POST /analyzer/utility/index` once per unindexed capture. This reads already-saved
+chunks on the server; it does not parse or download a demo. It is idempotent and
+resumable. Effectiveness is taken from capture metrics, with existing round totals
+used only when exactly one recorded throw and one captured effect prove the total
+belongs to that grenade. Ambiguous attribution remains NULL. Replacing statistics
+invalidates the fallback index; publishing a new capture creates a new index, and
+capture deletion cascades its index entries.
