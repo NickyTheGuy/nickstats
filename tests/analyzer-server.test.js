@@ -13,7 +13,7 @@ test('Analyzer conditions use both team orientations, exact-one XOR and Exclude,
   assert.deepEqual(analyzerMatches(matches,rules).map(m=>m.id),[3,4]);
   rules.friendly=group('and',[condition(1),group('none',[condition(2)])]);
   assert.deepEqual(analyzerMatches(matches,rules).map(m=>m.id),[3]);
-  assert.deepEqual(conditionPlayers([1,2,3,4].map(id=>({id:String(id)})),rules).map(p=>p.id),['1','2','3']);
+  assert.deepEqual(conditionPlayers([1,2,3,4].map(id=>({id:String(id)})),rules).map(p=>p.id),['1','3']);
   assert.equal(analyzerMatches(matches,rules,()=>false).length,0);
 });
 test('Groups select all matching buys across matches while numbers and overtime halves remain independent',async()=>{

@@ -1,6 +1,5 @@
 import { localDay } from '../../filters/state/date-range.mjs';
 import { evaluate, sanitizeRules, emptyRules, condition } from '../../groups/state/rules.mjs';
-import { usedPlayers } from '../../groups/state/editing.mjs';
 import { matchesRound, roundSection, roundKey } from './round-selection.mjs';
 export function rulesForPlayers(players) {
   const rules=emptyRules();rules.friendly.children=players.map(p=>condition(p.id));return rules;
@@ -16,7 +15,13 @@ export function analyzerMatches(matches,rules,eligible=()=>true) {
   });
 }
 export function conditionPlayers(players,rules) {
-  const used=usedPlayers(rules);return players.filter(p=>used.has(String(p.id)));
+  const included=new Set();
+  function walk(node,negated=false) {
+    if(node.playerId!=null){if(negated===Boolean(node.exclude))included.add(String(node.playerId));return;}
+    for(const child of node.children||[])walk(child,negated!==(node.op==='none'));
+  }
+  walk(rules.friendly);walk(rules.enemy);
+  return players.filter(p=>included.has(String(p.id)));
 }
 export function groupRoundKeys(replays,{sections=[],numbers=[]}={},filters={}) {
   return replays.flatMap(replay=>replay.rounds.filter(round=>

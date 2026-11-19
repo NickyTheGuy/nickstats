@@ -3,19 +3,20 @@
 ## Match and Groups
 
 **Match** opens a stored match by its database ID (or **Analyze** on the match
-banner). The original local **Open** option still accepts demos and replay JSON.
-Single-match player selection and round controls retain their existing behavior.
+banner). Player filters use stable team columns, with alphabetical ordering
+within each team. The viewer has no Open-file or Reload-selection toolbar actions.
 
 **Groups** reuses the normal Friendly/Enemy condition editor, including AND, OR,
 exactly-one XOR and Exclude. The candidate set is the union of matches containing
 at least one named condition player, matching the normal Groups feature; both
-team orientations are evaluated. Only players named in those conditions appear
-in the Analyzer player selector, including named players in Exclude conditions.
+team orientations are evaluated. Only players named
+in positive conditions appear in the Analyzer player selector; excluded players
+still constrain the search but are omitted from that selector.
 
 Dates and private/shared tags choose matches, defaulting to all. Undated matches
 are included unless a date range is selected. Each map is viewed separately: the
-map control reports counts and initially chooses the map with the most available
-captures. Missing captures are counted explicitly; they are never fabricated.
+map must be chosen before Find matches, and the server lookup is scoped to it.
+Missing captures are counted explicitly; they are never fabricated.
 **Analyze** on a player or Group profile carries its players/conditions, date and
 tag selections and its map when exactly one is selected. Analyzer round filters
 start at All rather than inheriting profile-only aggregation settings.
@@ -102,9 +103,7 @@ are retained in a bounded in-memory LRU cache keyed by immutable capture UUID.
 Narrowing side, buy, result, round, date, tag or player selections reuses those
 slices locally; widening a selection fetches only missing rounds/players. Changing
 map or returning to earlier matches can reuse retained slices too. Old inactive
-slices are evicted first when space is needed. Reload selection explicitly
-invalidates movement for the current captures; opening local files clears the
-remote movement cache. Browser refresh starts with an empty cache. There is no eight-match cap; the active selection retains the existing
+slices are evicted first when space is needed. Browser refresh starts with an empty cache. There is no eight-match cap; the active selection retains the existing
 two-million-sample/128 MiB browser memory budget. Exceeding it produces an explicit
 error to narrow dates, tags, players or rounds; no partial selection is displayed.
 
@@ -374,3 +373,19 @@ Deploy frontend and backend together. No new database migration is required.
 Existing captures remain readable, but reparse and save demos with this build to
 recover post-round actions; older captures cannot reconstruct omitted samples.
 Existing match dates and tags are preserved by the normal reparse path.
+
+## Compact player filters (2026.11.19.3)
+
+Match players use stable match-team slots for two columns and alphabetical names
+within each column. Older captures fall back to the first recorded sides; missing
+team evidence is kept in a separate row rather than assigned to an arbitrary
+team. Team columns do not follow the playback time or switch at halftime.
+Groups lists positive condition players alphabetically. Exclude groups and legacy
+negated leaves are omitted, with nested negation evaluated consistently; all
+conditions still participate in match lookup and qualification.
+
+The map toolbar contains only Filters, Visuals, Utility and (in Match) rounds.
+Loading cancellation appears with status overlays, so loading does not insert
+an action column or move the permanent controls. Saved movement still refreshes
+through existing match/replay events and immutable capture IDs. This update is
+frontend-only and requires neither migration nor demo reparsing.

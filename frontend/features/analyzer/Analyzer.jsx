@@ -17,17 +17,14 @@ import { mergeSelection } from './state/map-selection.mjs';
 import { createMovementCache, movementSelection } from './state/movement-cache.mjs';
 import { groupRoundKeys } from './state/query.mjs';
 import { loadCaptureHeaders, loadSelectedRounds } from './state/server.mjs';
-import Button from '../../shared/components/buttons/Button.jsx';
-import FilePickerButton from '../../shared/components/buttons/FilePickerButton.jsx';
 import IconButton from '../../shared/components/buttons/IconButton.jsx';
 import FormMessage from '../../shared/components/feedback/FormMessage.jsx';
 import MapWindow from './MapWindow.jsx';
 import AnalyzerControls from './AnalyzerControls.jsx';
-import { matchesRound, toggleRoundSet, replaySampleCount } from './state/round-selection.mjs';
+import { matchesRound, toggleRoundSet } from './state/round-selection.mjs';
 import PlaybackControls from './PlaybackControls.jsx';
 import mapData from './state/maps.json';
 import { PLAYER_COLORS } from './state/replay.mjs';
-import { openReplayFile } from './state/files.mjs';
 
 export default function Analyzer({entryStore}) {
   const entry=useSyncExternalStore(entryStore.subscribe,entryStore.getSnapshot);
@@ -37,7 +34,7 @@ export default function Analyzer({entryStore}) {
   const [showEnemies,setShowEnemies]=useState(false),[display,setDisplay]=useState(createDisplay),[enemyDisplay,setEnemyDisplay]=useState(createDisplay);
   const [mode,setMode]=useState('match'),[queryPlayers,setQueryPlayers]=useState(null);
   const [groupRounds,setGroupRounds]=useState({sections:[],numbers:[]}),[cacheRevision,setCacheRevision]=useState(0);
-  const [loadingRounds,setLoadingRounds]=useState(false),[retry,setRetry]=useState(0);
+  const [loadingRounds,setLoadingRounds]=useState(false);
   const roundOperation=useRef(null),movementCache=useRef(null);
   if(!movementCache.current)movementCache.current=createMovementCache();
   const [replays,setReplays] = useState([]), [mapName,setMapName] = useState('');
@@ -94,7 +91,7 @@ export default function Analyzer({entryStore}) {
   const cachedRounds=useMemo(()=>{
     if(!remote)return null;
     try{return movementCache.current.read(movementSelection(mapReplays,roundKeys,selectedPlayers,{playersForRound}));}catch{return null;}
-  },[remote,mapReplays,roundKeys,selectedPlayers,playersForRound,retry,cacheRevision]);
+  },[remote,mapReplays,roundKeys,selectedPlayers,playersForRound,cacheRevision]);
   useEffect(()=>{
     roundOperation.current?.abort();roundOperation.current=null;
 
@@ -105,7 +102,7 @@ export default function Analyzer({entryStore}) {
       .catch(e=>{if(!controller.signal.aborted){controller.abort();setError(e.message);}})
       .finally(()=>{if(roundOperation.current===controller){setLoadingRounds(false);setStatus('');roundOperation.current=null;}});
     return()=>controller.abort();
-  },[remote,mapReplays,roundKeys,selectedPlayers,playersForRound,retry]);
+  },[remote,mapReplays,roundKeys,selectedPlayers,playersForRound]);
   const movementRounds=useMemo(()=>remote?(cachedRounds??[]):mapReplays.flatMap(r=>r.rounds.filter(round=>roundKeys.includes(`${r.match_uid}:${round.number}`)).map(round=>({...round,match_uid:r.match_uid}))),[remote,cachedRounds,mapReplays,roundKeys]);
   const rounds=useMemo(()=>result?utilityResultRounds(mapReplays,result.rows):movementRounds,[result,mapReplays,movementRounds]);
   const rosters=useMemo(()=>result?new Map(rounds.map(round=>[`${round.match_uid}:${round.number}`,{primary:[...new Set(round.utility.map(e=>e.player))],enemies:[]}])):movementRosters,[result,rounds,movementRosters]);
@@ -139,28 +136,6 @@ export default function Analyzer({entryStore}) {
     setRoundFocus({map:mapName,keys,instances:areaSummary.instances,previousMatchRounds:mode==='match'?[...selectedRounds]:null});if(mode==='match')setSelectedRounds(keys);setArea(null);setTime(0);setPlaying(false);
   }
   function clearRoundFocus(){if(mode==='match'&&roundFocus?.previousMatchRounds)setSelectedRounds(roundFocus.previousMatchRounds);setRoundFocus(null);}
-  async function openFiles(files) {
-    if (!files.length || busy || loadingRounds) return;
-    clearSource();movementCache.current.clear();setRoundFocus(null);sourceIdentity.current='local';setMode('match');
-    const controller = new AbortController(); operation.current = controller;
-    setBusy(true); setError(''); setPlaying(false);
-    let loaded = remote?[]:[...replays], messages = [];
-    try {
-      for (const file of files) {
-        controller.signal.throwIfAborted();
-        try {
-          const replay = await openReplayFile(file,{ signal:controller.signal, onStatus:setStatus });
-          const remaining = loaded.filter(r=>r.map===replay.map&&r.match_uid!==replay.match_uid);
-          const count = [...remaining,replay].reduce((sum,r)=>sum+replaySampleCount(r),0);
-          if (count > 2000000) throw new Error('Open replays exceed two million positions. Reload the viewer to free memory first.');
-          loaded = [...remaining,replay]; setReplays(loaded); setMapName(replay.map);
-          setSelectedRounds([`${replay.match_uid}:${replay.rounds[0].number}`]);
-          setSelectedPlayers([...new Set(loaded.filter(r=>r.map===replay.map).flatMap(r=>r.players.map(p=>p.id)))]);
-        } catch (failure) { if (controller.signal.aborted) throw failure; messages.push(`${file.name}: ${failure.message}`); }
-      }
-    } catch (failure) { if (!controller.signal.aborted) messages.push(failure.message); }
-    finally { setBusy(false); setStatus(''); setError(messages.join(' ')); operation.current = null; }
-  }
   const combat=useMemo(()=>rounds.length===1?roundCombat(rounds[0],{rosters,players:selectedPlayers,side,display,enemyDisplay}):{kills:[],feed:[]},[rounds,rosters,selectedPlayers,side,display,enemyDisplay]);
   const roundPicker={replays:mapReplays,selected:selectedRounds,filters:{...filters,side,players:selectedPlayers},
     onNavigate:key=>{setUtilityResults(null);setSelectedRounds([key]);setRoundFocus(null);setArea(null);setTime(0);setPlaying(false);},onToggleSet:keys=>{setUtilityResults(null);setSelectedRounds(toggleRoundSet(selectedRounds,keys));setRoundFocus(null);}};
@@ -172,20 +147,13 @@ export default function Analyzer({entryStore}) {
       clockOverlay={!result&&mode==='match'&&rounds.length===1&&<RoundClock round={rounds[0]} time={time} />}
       combatOverlay={rounds.length===1&&<KillFeed events={combat.feed} time={time} players={mapPlayers} colors={colors} />}
       areaOverlay={areaSummary&&<AreaSummary summary={areaSummary} loading={busy||loadingRounds} onClear={()=>setArea(null)} onFocus={focusArea} />}
-      actions={<div className="analyzer-import">
-        {mode==='match'&&<FilePickerButton label="Open demos or replays" className="button button-primary" multiple accept=".dem,.zst,.json" disabled={busy||loadingRounds} onFiles={openFiles}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M3 7h7l2 3h9l-3 10H3V7Zm0 0V4h7l2 3h8v3" /></svg><span className="analyzer-control-label">Open</span>
-        </FilePickerButton>}
-        {(busy||loadingRounds)&&<IconButton label="Cancel loading" className="button button-secondary" controlSize={34} onClick={()=>{operation.current?.abort();roundOperation.current?.abort();}}><path d="m6 6 12 12M6 18 18 6" /></IconButton>}
-        {remote&&!result&&!busy&&!loadingRounds&&<Button aria-label="Reload selection" className="button button-secondary" onClick={()=>{movementCache.current.invalidateCaptures(mapReplays.map(r=>r.capture));setRetry(v=>v+1);}}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7" /></svg><span className="analyzer-control-label">Reload selection</span>
-        </Button>}
-      </div>}
-      status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage></>}
+      status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage>
+        {(busy||loadingRounds)&&<IconButton label="Cancel loading" className="button button-secondary" controlSize={30} onClick={()=>{operation.current?.abort();roundOperation.current?.abort();}}><path d="m6 6 12 12M6 18 18 6" /></IconButton>}
+      </>}
       utility={<UtilitySearch scopes={searchScopes} players={selectedPlayers} side={side} result={result} onResults={applyUtilityResults} open={openMenu==='utility'} onToggle={()=>setOpenMenu(value=>value==='utility'?null:'utility')} />}
       visuals={<VisualControls mode={mode} open={openMenu==='visuals'} onToggle={()=>setOpenMenu(value=>value==='visuals'?null:'visuals')}
         showEnemies={showEnemies} onShowEnemies={setShowEnemies} display={display} setDisplay={setDisplay} enemyDisplay={enemyDisplay} setEnemyDisplay={setEnemyDisplay} />}
-      controls={<AnalyzerControls open={openMenu==='filters'} onToggle={()=>setOpenMenu(value=>value==='filters'?null:'filters')} players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
+      controls={<AnalyzerControls replay={mode==='match'?mapReplays[0]:null} open={openMenu==='filters'} onToggle={()=>setOpenMenu(value=>value==='filters'?null:'filters')} players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
         colors={colors} side={side} onSide={setSide} filters={filters} setFilters={setFilters} selectedCount={result?rounds.length:eligibleKeys.length}
         roundFocus={roundFocus?.map===mapName?roundFocus:null} onClearFocus={clearRoundFocus}
         matchFilters={mode==='groups'?matchFilters:null}

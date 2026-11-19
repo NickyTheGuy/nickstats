@@ -88,18 +88,18 @@ Ctrl/Cmd+Shift+Left/Right moves the selection to Friendly/Enemy; Escape clears i
 
 ### 2D analyzer
 
-`#analyzer` is an independent React screen. Open `.dem` / `.dem.zst` locally,
-or import an exported `.replay.json`. No login/backend is needed; file contents
-are not uploaded. The same pinned parser/Zstandard CDNs are used as normal demo
-parsing. Replay data lives in memory until the page reloads; per-file save/remove controls
-are intentionally absent from the selection panel. Reopening a match replaces its existing replay, so
-old captures can be upgraded without removing them first.
+`#analyzer` is an independent React screen for stored Match and Groups replays.
+Match opens a stored database ID; Groups requires a chosen map before Find
+matches. The server returns lightweight rosters and selected movement slices,
+with a bounded cache for previously downloaded player-rounds. Demo parsing and
+capture publication use the normal Match upload flow.
 
-The viewer is the screen's only main surface: no enclosing white panel, heading,
-map picker, or persistent footer hints. Local demo opening is a compact overlay
-button; parsing progress/errors are transient overlays. One map is analyzed at
-a time. Opening a replay on another map replaces the in-memory cohort rather
-than retaining inaccessible maps without a picker. The map workspace resizes
+The map has no enclosing white card or persistent footer hints. Filters, Visuals
+and Utility are overlay menus; Match adds a permanent round strip. There are no
+Open-file or Reload-selection actions. Match player choices use alphabetical
+team columns; Groups choices omit excluded condition players. Progress, errors
+and cancellation use transient overlays that do not change the toolbar layout.
+One map is analyzed at a time. The map workspace resizes
 from its bottom-right corner. All levels are visible
 at once; Auto switches between columns and rows with available width. Layout is always automatic. The divider changes the two levels' share
 of that one viewer, using pointer drag or arrow keys (Home/End: 10/90%; Enter or
