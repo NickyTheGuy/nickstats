@@ -30,17 +30,20 @@ export function roundRating({kills,deaths,assists,damage,kast,played}) {
   const kpr=kills/played,dpr=deaths/played,apr=assists/played,adr=damage/played;
   return Math.max(0,.0073*100*kast/played+.3591*kpr-.5329*dpr+.2372*(2.13*kpr+.42*apr-.41)+.0032*adr+.1587);
 }
-export function summarizeArea(rounds,{area,map,level,time,players,side=0,target='Players',allSelected=false,utilities=['Smoke','Flash','HE','Fire','Decoy'],layers=['Kills','Deaths','Aim','Gunfire'],selection=null}) {
+export function summarizeArea(rounds,{area,map,level,time,players,side=0,target='Players',allSelected=false,utilities=['Smoke','Flash','HE','Fire','Decoy'],layers=['Kills','Deaths','Aim','Gunfire'],selection=null,rosters=null}) {
   const selectionByRound=new Map();
   for(const item of selection||[]){if(!selectionByRound.has(item.roundKey))selectionByRound.set(item.roundKey,[]);selectionByRound.get(item.roundKey).push(item);}
   const selected=new Set(players),matched=new Set(),observations=[],effects=[];let unknownActors=false;
+  const instances=[];
   for(const round of rounds) {
     const actors=new Map();
     if(selection) {
       const key=selectionRoundKey(round),indices=new Set(),keys=utilityKeys(round),effectsByKey=new Map(keys.map((key,i)=>[key,round.utility[i]]));
+      const roster=rosters?.get(key),allowed=roster?new Set([...roster.primary,...roster.enemies]):selected;
       for(const item of selectionByRound.get(key)||[]) {
+        if(item.player&&!allowed.has(item.player))continue;
         if(item.player&&selected.has(item.player))actors.set(item.player,item.side);
-        else if(!item.player){unknownActors=true;matched.add(round);}
+        else if(!item.player){unknownActors=true;matched.add(round);instances.push({roundKey:key,player:null});}
         if(!item.player||selected.has(item.player))for(const key of item.utilities||[])if(effectsByKey.get(key)?.player===item.player)indices.add(key);
       }
       for(const key of indices)effects.push({effect:effectsByKey.get(key),round});
@@ -60,7 +63,7 @@ export function summarizeArea(rounds,{area,map,level,time,players,side=0,target=
     for(const [player,actorSide]of actors) {
       const context=round.context?.find(c=>c.player===player),performance=round.performance?.find(p=>p.player===player),perspective=context?.side||actorSide;
       const result=context?.result||(round.winner&&perspective?((perspective===2?'T':'CT')===round.winner?'win':'loss'):null);
-      observations.push({round,player,side:perspective,result,performance});
+      observations.push({round,player,side:perspective,result,performance});instances.push({roundKey:selectionRoundKey(round),player});
     }
   }
   const totals={kills:0,deaths:0,assists:0,damage:0,kast:0,played:observations.length};let wins=0,known=0,complete=!unknownActors,combatComplete=!unknownActors;const teamResults=new Map();
@@ -73,7 +76,7 @@ export function summarizeArea(rounds,{area,map,level,time,players,side=0,target=
     if(!p)complete=false;else{totals.assists+=p.assists;totals.damage+=p.damage;totals.kast+=p.kast;}
   }
   for(const results of teamResults.values())for(const result of results.values()){known++;wins+=Number(result==='win');}
-  return {matched,total:rounds.length,count:matched.size,percent:rounds.length?100*matched.size/rounds.length:0,
+  return {matched,instances,total:rounds.length,count:matched.size,percent:rounds.length?100*matched.size/rounds.length:0,
     observations:observations.length,winRate:!unknownActors&&known?100*wins/known:null,knownResults:known,
     utility:summarizeGrenades(effects),target,...totals,combatComplete,rating:complete?roundRating(totals):null};
 }

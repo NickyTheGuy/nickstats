@@ -5,10 +5,20 @@ export const movementBudgetError=()=>new Error('This selection exceeds the viewe
 const fields=['tracks','firing','utility','projectiles','context','performance'];
 const key=(capture,number,player)=>JSON.stringify([capture,number,player]);
 const rosterPlayers=(replay,players)=>players.filter(id=>replay.players.some(p=>p.id===id));
-export function movementSelection(replays,keys,players) {
-  const wanted=new Set(keys),chosen=new Set(players);
-  return replays.map(replay=>({replay,players:rosterPlayers(replay,players),rounds:replay.rounds.filter(round=>
-    wanted.has(`${replay.match_uid}:${round.number}`)&&round.player_ids.some(id=>chosen.has(id)))})).filter(job=>job.rounds.length);
+export function movementSelection(replays,keys,players,{playersForRound=null}={}) {
+  const wanted=new Set(keys);
+  return replays.flatMap(replay=>{
+    const jobs=new Map();
+    for(const round of replay.rounds) {
+      if(!wanted.has(`${replay.match_uid}:${round.number}`))continue;
+      const roster=rosterPlayers(replay,playersForRound?playersForRound(replay,round):players),chosen=new Set(roster);
+      if(!round.player_ids.some(id=>chosen.has(id)))continue;
+      const key=JSON.stringify([...roster].sort());
+      if(!jobs.has(key))jobs.set(key,{replay,players:roster,rounds:[]});
+      jobs.get(key).rounds.push(round);
+    }
+    return [...jobs.values()];
+  });
 }
 
 // Completed captures are immutable. Keep independent player/round slices so

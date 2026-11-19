@@ -9,16 +9,17 @@ import { drawAim,drawCombat } from './state/combat.mjs';
 import { useGrenadeIcons,useCombatIcons } from './hooks.js';
 import useElementSize from '../../shared/hooks/useElementSize.js';
 import SelectionMarkers from './SelectionMarkers.jsx';
+import { selectionRoundKey } from './state/selection-targets.mjs';
 import { selectionCandidates,candidatesInArea } from './state/map-selection.mjs';
 
-export default function ReplayMap({ map, level, rounds, players, selected, colors, time, side, utilities, combatLayers, nameTags=false, area, areaSummary, onSelectItems=()=>{}, onClearSelection=()=>{}, onAreaStart=()=>{} }) {
+export default function ReplayMap({ map, level, rounds, players, selected, colors, time, side, utilities, combatLayers, nameTags=false, showPlayers=true, permanentUtility=true, rosters=null, area, areaSummary, onSelectItems=()=>{}, onClearSelection=()=>{}, onAreaStart=()=>{} }) {
   const icons=useGrenadeIcons(),combatIcons=useCombatIcons(rounds);
   const canvas = useRef(null), drag = useRef(null);
   const size=useElementSize(canvas);
   const [gestureMode,setGestureMode]=useState('select'),[preview,setPreview]=useState(null);
   const [view, setView] = useState({ zoom: 1, x: 0, y: 0 });
   const markerUnit=1024/Math.max(1,Math.min(size.width,size.height)*view.zoom);
-  const candidates=useMemo(()=>selectionCandidates(rounds,{map,level,time,players:selected,side,utilities,layers:combatLayers,allSelected:selected.length===players.length,unit:markerUnit}),[rounds,map,level,time,selected,side,utilities,combatLayers,players,markerUnit]);
+  const candidates=useMemo(()=>selectionCandidates(rounds,{map,level,time,players:selected,side,utilities,layers:combatLayers,allSelected:selected.length===players.length,unit:markerUnit,showPlayers,permanentUtility,rosters}),[rounds,map,level,time,selected,side,utilities,combatLayers,players,markerUnit,showPlayers,permanentUtility,rosters]);
   useEffect(() => { setView({ zoom: 1, x: 0, y: 0 }); }, [map]);
   const zoom = delta => setView(v => {
     const next = Math.max(1, Math.min(4, v.zoom + delta)), max = (next - 1) * 512;
@@ -41,15 +42,16 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
     ctx.translate(512+view.x,512+view.y); ctx.scale(view.zoom,view.zoom); ctx.translate(-512,-512);
     if (image) ctx.drawImage(image,0,0,1024,1024);
     if (!image) return;
-    const selectedSet = new Set(selected), names = new Map(players.map(p => [p.id,p.name]));
+    const names = new Map(players.map(p => [p.id,p.name]));
     for (const round of rounds) {
       if (time > round.duration) continue;
       ctx.globalAlpha = areaSummary?(areaSummary.matched.has(round)?.95:.18):rounds.length > 1 ? 0.65 : 0.9;
-      for (const track of round.tracks) {
-        if (!selectedSet.has(track.player)) continue;
+      const roster=rosters?.get(selectionRoundKey(round)),selectedSet=new Set(roster?roster.primary:selected),cells=new Set([...selectedSet,...(roster?.enemies||[])]);
+      if(showPlayers)for (const track of round.tracks) {
+        if (!cells.has(track.player)) continue;
         const color = colors.get(track.player);
         const s = positionAt(track.samples,time);
-        if (!s || !onLevel(level,s[3]) || side && side !== s[5]) continue;
+        if (!s || !onLevel(level,s[3]) || selectedSet.has(track.player) && side && side !== s[5]) continue;
         const [x,y] = worldToRadar(map,s[1],s[2]);
         if(combatLayers.includes('Aim'))drawAim(ctx,s,x,y,color);
         ctx.fillStyle = color; ctx.strokeStyle = '#101620'; ctx.lineWidth = 2;
@@ -61,11 +63,11 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
     }
     // Combat markers sit above every overlaid round's living-player markers.
     ctx.globalAlpha = rounds.length > 1 ? 0.85 : 1;
-    for(const round of rounds){ctx.globalAlpha=areaSummary?(areaSummary.matched.has(round)?.9:.12):rounds.length>1?.85:1;
-      drawCombat(ctx,round,{time,map,level,selected:selectedSet,side,colors,layers:combatLayers,icons:combatIcons,unit:markerUnit});
-      drawUtilityHistory(ctx,round,{time,map,level,selected:selectedSet,side,utilities,icons,allSelected:selected.length===players.length});}
+    for(const round of rounds){const roster=rosters?.get(selectionRoundKey(round)),selectedSet=new Set(roster?roster.primary:selected);ctx.globalAlpha=areaSummary?(areaSummary.matched.has(round)?.9:.12):rounds.length>1?.85:1;
+      drawCombat(ctx,round,{time,map,level,selected:selectedSet,side,colors,layers:showPlayers?combatLayers:combatLayers.filter(l=>l!=='Gunfire'),icons:combatIcons,unit:markerUnit});
+      if(permanentUtility)drawUtilityHistory(ctx,round,{time,map,level,selected:selectedSet,side,utilities,icons,allSelected:selected.length===players.length});}
     ctx.globalAlpha = 1;
-  }, [image,map,level,rounds,players,selected,colors,time,side,utilities,view,icons,combatLayers,combatIcons,markerUnit,nameTags,areaSummary]);
+  }, [image,map,level,rounds,players,selected,colors,time,side,utilities,view,icons,combatLayers,combatIcons,markerUnit,nameTags,showPlayers,permanentUtility,rosters,areaSummary]);
   const bounds=preview?.bounds;
   const rectangle=bounds?areaOnScreen(bounds,size,view):null;
   function pointerDown(event) {
@@ -107,7 +109,7 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
       <Button aria-label="Reset map view" onClick={()=>{setView({zoom:1,x:0,y:0});setGestureMode('select');}}>{view.zoom}×</Button>
       <Button aria-label="Zoom in" disabled={view.zoom===4} onClick={()=>zoom(0.5)}>+</Button>
     </div>
-    <canvas ref={canvas} data-name-tags={nameTags?'on':'off'} style={{touchAction:'none',cursor:gestureMode==='pan'?'grab':'crosshair'}}
+    <canvas ref={canvas} data-player-cells={showPlayers?'on':'off'} data-utility-icons={permanentUtility?'permanent':'lingering'} data-name-tags={nameTags?'on':'off'} style={{touchAction:'none',cursor:gestureMode==='pan'?'grab':'crosshair'}}
       tabIndex={0} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();cancel();onClearSelection();}}}
       width="1024" height="1024" role="img" aria-label={`2D round playback, ${level.id} level. Drag to select a map area. Shift, Ctrl or Command adds to selection. Alt-drag, middle-drag or choose Pan to move a zoomed map. Escape clears selection.`} />
     <SelectionMarkers candidates={candidates} players={players} view={view} selection={area?.items||[]} onSelect={(items,append)=>{onAreaStart();onSelectItems(items,append);}} />

@@ -16,7 +16,7 @@ export default function SelectionMarkers({candidates,players,view,selection,onSe
     if(!groups.has(key))groups.set(key,{x,y,kind:item.kind,items:[],labels:[]});
     const group=groups.get(key),{round,event,effect}=item;
     const actor=names.get(item.entry.player)||'Unknown thrower',prefix=`${round.match_id?`Match #${round.match_id} · `:''}Round ${round.number}`;
-    let text=`Player · ${actor} · ${prefix}`;
+    let text=`${item.enemy?'Enemy':'Player'} · ${actor} · ${prefix}`;
     if(event)text=`${item.kind==='kill'?'Kill':'Death'} · ${prefix} · ${formatTime(event.time)} · ${deathLabel(event,names)} · ${event.weapon}${event.headshot?' · headshot':''}`;
     if(effect){const metric=grenadeEffectiveness(effect,round),yieldText=effect.type==='Flash'&&metric.enemies_flashed!=null?` · ${metric.enemies_flashed} enemies flashed`:['HE','Fire'].includes(effect.type)&&metric.enemy_damage!=null?` · ${metric.enemy_damage} enemy damage`:'';
       text=`${effect.type} · ${actor} · ${prefix} · ${formatTime(effect.time)}${yieldText}`;}

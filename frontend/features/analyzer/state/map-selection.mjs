@@ -1,6 +1,6 @@
 import { onLevel,positionAt,worldToRadar } from './replay.mjs';
 import { combatMarkers } from './combat.mjs';
-import { utilityVisible } from './utility.mjs';
+import { utilityVisible,effectEnd } from './utility.mjs';
 import { selectionRoundKey } from './selection-targets.mjs';
 
 // Filtering to another player roster can renumber an effect array. Keep a
@@ -27,16 +27,17 @@ export function mergeSelection(previous,incoming,append=false) {
   }
   return [...actors.values()];
 }
-export function selectionCandidates(rounds,{map,level,time,players,side=0,utilities,layers,allSelected=false,unit=1}) {
-  const selected=new Set(players),items=[];
+export function selectionCandidates(rounds,{map,level,time,players,side=0,utilities,layers,allSelected=false,unit=1,showPlayers=true,permanentUtility=true,rosters=null}) {
+  const items=[];
   for(const round of rounds) {
     const roundKey=selectionRoundKey(round);if(!roundKey)continue;
+    const roster=rosters?.get(roundKey),selected=new Set(roster?roster.primary:players),cells=new Set([...selected,...(roster?.enemies||[])]);
     const add=(kind,player,actorSide,x,y,details={})=>items.push({kind,x,y,round,...details,entry:{roundKey,player,side:actorSide,utilities:details.utilityKey==null?[]:[details.utilityKey]}});
-    if(time<=round.duration)for(const track of round.tracks) {
-      if(!selected.has(track.player))continue;
+    if(showPlayers&&time<=round.duration)for(const track of round.tracks) {
+      if(!cells.has(track.player))continue;
       const s=positionAt(track.samples,time);
-      if(!s||!onLevel(level,s[3])||side&&s[5]!==side)continue;
-      add('player',track.player,s[5],...worldToRadar(map,s[1],s[2]));
+      if(!s||!onLevel(level,s[3])||selected.has(track.player)&&side&&s[5]!==side)continue;
+      add('player',track.player,s[5],...worldToRadar(map,s[1],s[2]),{enemy:!selected.has(track.player)});
     }
     for(const event of round.deaths||[]) {
       if(event.time>time)continue;
@@ -44,7 +45,7 @@ export function selectionCandidates(rounds,{map,level,time,players,side=0,utilit
     }
     const keys=utilityKeys(round);
     for(const [utilityIndex,effect]of round.utility.entries()) {
-      if(effect.time>time||!utilities.includes(effect.type)||!effect.player&&!allSelected||!utilityVisible(effect,round,selected,side)||!onLevel(level,effect.z))continue;
+      if(effect.time>time||!permanentUtility&&time>=effectEnd(effect,round.duration)||!utilities.includes(effect.type)||!effect.player&&!allSelected||!utilityVisible(effect,round,selected,side)||!onLevel(level,effect.z))continue;
       add('utility',effect.player,effect.side,...worldToRadar(map,effect.x,effect.y),{effect,utilityKey:keys[utilityIndex]});
     }
   }

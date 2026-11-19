@@ -180,8 +180,9 @@ button, middle-drag or Alt-drag, leaving Shift-drag available for selection.
 
 A drag selects the visible marker centers inside its rectangle. Kills use their
 drawn killer markers and deaths their drawn victim markers, including their
-separation offsets. All past enabled grenade detonation icons remain visible and
-selectable, while smoke/fire areas keep their actual lifetimes. A grenade selects
+separation offsets. Permanent utility icons keep all past enabled grenade detonations visible and
+selectable. Lingering icons disappear at each effect’s end; smoke/fire areas
+keep their actual lifetimes in either mode. A grenade selects
 its thrower's player-round and that specific grenade's effectiveness. Choosing a
 player and their grenade/kill/death still counts their full-round outcomes once;
 repeated boxes/clicks cannot multiply the same grenade's effectiveness. Distinct
@@ -204,11 +205,41 @@ type from that player. Other old effectiveness values display —. Event selecti
 and focusing work with existing captures; complete per-grenade effectiveness for
 multiple throws needs a new movement capture. No database migration is required.
 
-Focus rounds freezes the selected distinct match/round IDs, clears the marker
-selection and rewinds playback to view that cohort in full. The other match/round/player
-filters remain in effect. Clear Round Focus in Players & rounds removes that
-restriction; Match mode also restores its prior explicit round selection. Manual
-Match round edits replace the focused selection. Focus uses already cached
-movement and does not re-download a subset.
+Focus selection freezes the selected **player-round instances**, clears the
+marker selection and rewinds playback. A player is retained only in the rounds
+where that specific instance was selected, even if another selected player was
+somewhere else in the same rounds. The focused instance count appears in the
+control panel. Clear focus removes that restriction; Match mode also restores its
+prior explicit round selection. Manual Match round edits replace focus. Focus
+uses already cached player/round slices and does not re-download a subset.
 
 Find Matches is left-justified and vertically aligned within its action row.
+
+
+## Match rounds and display controls
+
+Match has a permanent, single-row round strip centered in the viewer header.
+Round numbers and half/overtime presets use the existing compact toggle buttons.
+The strip scrolls horizontally through arbitrarily long overtimes; it never
+expands. On narrow viewers it occupies a second header row. The Match overlay
+contains player and filter controls, without a duplicate round picker. Groups
+keeps its phase, half and cross-match round-number controls in the overlay.
+
+Both modes expose Player cells (default On) and Utility icons (Permanent by
+default, or Lingering). Hiding cells also hides their aim/name labels and living
+player hit targets; utility and kill/death controls remain independent. Grenade
+flight and trails still draw with Lingering icons; only expired detonation icons
+are removed. Visibility changes reuse movement already loaded.
+
+Groups additionally offers Enemy player cells (default Off). Opponents are
+resolved per round from the selected players’ sides, with roster-team fallback
+for older indexes. CT/T filtering keeps the opponents of that perspective,
+rather than hiding them for being on the opposite side. If selected condition
+players represent both teams, the extra cells cover opponents of either
+perspective. Enemy cells use red and are selectable, but do not add enemy utility
+or combat overlays or widen any date/tag/round/group filters. Focusing an enemy
+instance keeps that instance alone. Enemy movement is fetched on demand, only
+for the required opponents and rounds, then reuses the same bounded cache.
+
+This update changes only the frontend. No backend rebuild, migration or new demo
+capture is required.

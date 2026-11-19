@@ -69,15 +69,15 @@ export async function loadCaptureHeaders(matches,{signal,onStatus=()=>{}}={},req
     for(const match of batch) {
       const index=byID.get(match.capture);
       if(!index?.header||!Array.isArray(index.rounds))throw new Error('Movement captures changed. Find matches again.');
-      replays.push({...index.header,rounds:index.rounds,capture:match.capture,matchID:String(match.id)});
+      replays.push({...index.header,rounds:index.rounds,capture:match.capture,matchID:String(match.id),teams:Object.fromEntries((match.players||[]).filter(p=>p.steam_id&&p.team!=null).map(p=>[`steam:${p.steam_id}`,p.team]))});
     }
   }
   return replays;
 }
 // Reuse immutable player/round slices; a match request contains only missing
 // rounds and players. Two concurrent match reads bound transfer pressure.
-export async function loadSelectedRounds(replays,keys,players,{signal,onStatus=()=>{},maxSamples=2000000,cache=createMovementCache({maxSamples})}={},request=analyzerJSON) {
-  const plan=movementSelection(replays,keys,players);cache.pin(plan);
+export async function loadSelectedRounds(replays,keys,players,{signal,onStatus=()=>{},maxSamples=2000000,playersForRound=null,cache=createMovementCache({maxSamples})}={},request=analyzerJSON) {
+  const plan=movementSelection(replays,keys,players,{playersForRound});cache.pin(plan);
   signal?.throwIfAborted();
   const existing=cache.read(plan,{sampleLimit:maxSamples});if(existing!==null)return existing;
   const jobs=plan.map(job=>cache.missing(job)).filter(job=>job.rounds.length);
