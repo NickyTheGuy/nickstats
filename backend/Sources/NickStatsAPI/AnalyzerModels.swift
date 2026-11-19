@@ -97,6 +97,9 @@ func replayRoundSummary(_ round: ReplayJSON, players: Set<String>) throws -> (Re
           let utility = round["utility"].array, let deaths = round["deaths"].array,
           utility.count + deaths.count <= 100000,
           let context = round["context"].array, context.count <= players.count else { throw replayBad("invalid round.") }
+    if round["live_duration"] != .null {
+        guard let live = round["live_duration"].number,live.isFinite,(0...duration).contains(live) else { throw replayBad("invalid live round duration.") }
+    }
     func owner(_ value: ReplayJSON, optional: Bool = false) -> Bool {
         (optional && value == .null) || value.string.map { players.contains($0) } == true
     }

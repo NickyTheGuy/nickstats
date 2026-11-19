@@ -27,7 +27,7 @@ func storedRound(_ sql: any SQLDatabase, capture: String, manifest: ReplayRoundM
     return try assembleReplayRound(chunks,manifest:manifest,verifyChecksum:true)
 }
 
-struct AnalyzerQuery: Content { var players: String?; var match: Int64?; var offset: Int?; var limit: Int? }
+struct AnalyzerQuery: Content { var players: String?; var match: Int64?; var map: String?; var offset: Int?; var limit: Int? }
 struct AnalyzerRosterPlayer: Content { var id: Int64; var steam_id: String; var name: String; var team: Int }
 struct AnalyzerMatch: Content {
     var id: Int64; var map: String; var played_at: Int64?; var capture: String?; var players: [AnalyzerRosterPlayer]
@@ -48,6 +48,8 @@ func analyzerRoutes(_ app: Application) throws {
         guard offset >= 0, (1...100).contains(limit) else { throw Abort(.badRequest) }
         let ids = try comparisonPlayerIDs(q.players ?? "", minimum: q.match == nil ? 1 : 0)
         guard ids.count <= 20, q.match == nil || q.match! > 0 else { throw Abort(.badRequest) }
+        guard q.map == nil || (q.map!.count <= 100 && q.map!.range(of:"^[a-zA-Z0-9_]+$",options:.regularExpression) != nil) else { throw Abort(.badRequest) }
+        let mapScope: SQLQueryString = q.map.map { "m.map_name=\(bind:$0)" } ?? "TRUE"
         let candidate: SQLQueryString
         if let match = q.match { candidate = "m.id=\(bind:match)" }
         else { candidate = "EXISTS(SELECT 1 FROM match_players mp WHERE mp.match_id=m.id AND mp.player_id IN (\(binds:ids)))" }
@@ -56,7 +58,7 @@ func analyzerRoutes(_ app: Application) throws {
             (SELECT c.id FROM replay_captures c WHERE c.match_id=m.id AND c.complete=TRUE
              AND c.demo_sha256=m.demo_sha256 ORDER BY c.created_at DESC,c.id DESC LIMIT 1) AS capture
           FROM matches m
-          WHERE \(candidate)
+          WHERE \(candidate) AND \(mapScope)
           ORDER BY m.played_at IS NULL,m.played_at DESC,m.id DESC LIMIT \(bind:limit) OFFSET \(bind:offset)
           """).all()
         let matchIDs = try rows.map { try $0.decode(column:"id",as:Int64.self) }

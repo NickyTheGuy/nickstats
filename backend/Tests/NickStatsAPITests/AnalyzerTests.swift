@@ -116,3 +116,15 @@ private func analyzerRound() throws -> ReplayJSON {
     value["bomb_events"] = try replayDecode("[{\"type\":\"plant\",\"time\":1001,\"player\":null}]",as:ReplayJSON.self)
     #expect(throws:(any Error).self) { try replayRoundSummary(.object(value),players:["steam:1","steam:2"]) }
 }
+
+@Test func replayPostRoundDurationPreservesTheLiveBoundaryThroughProjection() throws {
+    var value = try analyzerRound().object!
+    value["live_duration"] = .number(400)
+    let round = ReplayJSON.object(value)
+    _ = try replayRoundSummary(round,players:["steam:1","steam:2"])
+    #expect(projectReplayRound(round,players:["steam:1"])["live_duration"].integer == 400)
+    for bad in [-1.0,1001.0] {
+        value["live_duration"] = .number(bad)
+        #expect(throws:(any Error).self) { try replayRoundSummary(.object(value),players:["steam:1","steam:2"]) }
+    }
+}

@@ -65,7 +65,7 @@ try:
               'match_uid':'sha256:'+'a'*64,'demo_sha256':'a'*64,'map':'de_mirage','source_file':'test.dem',
               'rules':{'regulation_rounds':24,'overtime_rounds':6},
               'players':[{'id':'steam:'+str(i),'steam_id':str(i),'name':str(i)} for i in range(1,4)]}
-    rounds = [{'number':i,'duration':1000,'winner':'CT',
+    rounds = [{'number':i,'duration':1000,'live_duration':600,'winner':'CT',
                'tracks':[{'player':'steam:1','samples':[[0,0,0,0,100,3,None],[200,1,2,0,100,3,45]]},
                          {'player':'steam:3','samples':[[0,10,10,0,100,2,None]]}],
                'context':[{'player':'steam:1','side':3,'result':'win','buy':'full','enemy_buy':'eco','hero':False}],
@@ -100,6 +100,9 @@ try:
     request('/analyzer/captures/'+capture+'/complete',method='POST',expected=204)
     assert request('/analyzer/matches?players=1')['matches'][0]['capture'] == capture
     assert request('/analyzer/matches?match=1')['matches'][0]['players'][2]['team'] == 1
+    assert len(request('/analyzer/matches?players=1&map=de_mirage')['matches']) == 1
+    assert request('/analyzer/matches?players=1&map=de_nuke')['matches'] == []
+    request('/analyzer/matches?players=1&map=bad%20map',expected=400)
     assert len(request('/analyzer/captures/'+capture)['rounds']) == 2
     assert len(request('/analyzer/indexes', {'captures':[capture]})['captures'][0]['rounds']) == 2
     selected = request('/analyzer/captures/'+capture+'/selection', {'rounds':[2], 'players':['steam:1']})
@@ -117,6 +120,7 @@ try:
     assert both['rounds'][0]['blindness'][0]['duration'] == 2500
     sql("UPDATE player_round_phase_stats SET stats_json=JSON_SET(stats_json,'$.utility_thrown',JSON_ARRAY(0,1,0,1,0),'$.utility',JSON_ARRAY(0,80),'$.profile',JSON_ARRAY(0,0,0,0,0,0,0,0,0,0,0,0,0,2,1500,0)) WHERE match_player_id=1 AND round_number=1")
     enriched = request('/analyzer/captures/'+capture+'/selection', {'rounds':[1], 'players':['steam:1']})
+    assert enriched['rounds'][0]['live_duration'] == 600
     assert enriched['rounds'][0]['bomb_events'] == [{'type':'plant','time':300,'player':None}]
     grenade = enriched['rounds'][0]['performance'][0]['grenades']
     assert grenade['flash_thrown'] == 1 and grenade['enemies_flashed'] == 2 and grenade['fire_damage'] == 80 and grenade['blind_ms'] == 1500
