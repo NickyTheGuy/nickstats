@@ -178,7 +178,7 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-9");
+    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261118-12");
     const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay), Boolean(event.data.includeStats));
     self.postMessage(event.data.captureReplay && !event.data.includeStats
       ? { type: "result", replay: parsed.replay }
@@ -212,7 +212,7 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
 
   const parser = new Parser(new ParserConfiguration({
     entityClasses: ["CCSTeam", "CCSGameRulesProxy", "CCSPlayerController", "CCSPlayerPawn", ...WEAPON_ENTITY_CLASSES,
-      ...(captureReplay ? ["CHEGrenadeProjectile", "CFlashbangProjectile", "CSmokeGrenadeProjectile", "CMolotovProjectile", "CDecoyProjectile", "CInferno"] : [])],
+      ...(captureReplay ? ["CC4", "CHEGrenadeProjectile", "CFlashbangProjectile", "CSmokeGrenadeProjectile", "CMolotovProjectile", "CDecoyProjectile", "CInferno"] : [])],
     messagePacketTypes: [
       MessagePacketType.NET_SET_CON_VAR,
       MessagePacketType.SVC_SERVER_INFO,
@@ -1412,7 +1412,12 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
       if (!row || !position) continue;
       const side = integer(safePawnField(pawn, "m_iTeamNum")) ?? teamNow.get(row.userId);
       const health = round.deaths.has(row.userId) ? 0 : numberOrNull(safePawnField(pawn, "m_iHealth")) ?? round.healthByUser.get(row.userId);
-      players.push({ id: replayPlayerId(row), name: row.name, steam_id: row.steamId || null,
+      let item=null;
+      try {
+        const active=entityHandles(safePawnField(pawn,"m_pWeaponServices.m_hActiveWeapon"))[0],entity=active==null?null:demo.getEntityByHandle(active);
+        item=String(entity?.class?.name||'').replaceAll('_','').toLowerCase()==='cc4'?'c4':weaponEntityId(entity);
+      }catch { /* Missing optional equipment never discards movement. */ }
+      players.push({ item, id: replayPlayerId(row), name: row.name, steam_id: row.steamId || null,
         x: position.x, y: position.y, z: position.z, health, side, yaw:replayAimYaw(pawn) });
     }
     return players;
@@ -2225,6 +2230,7 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
     const attacker = stats.get(attackerId);
     const duration = Math.max(0, number(event.blind_duration));
     if (victim && duration > 0) {
+      if(replayCapture&&round.live&&!round.finished)collectReplay(()=>replayCapture.blind(tick,round.liveStartTick,tickInterval,replayPlayerId(victim),duration*1000));
       const expiry = tick + Math.ceil(duration / tickInterval);
       blindUntilTick.set(victim.userId, Math.max(blindUntilTick.get(victim.userId) ?? -1, expiry));
       const attackerTeam = teamNow.get(attackerId);

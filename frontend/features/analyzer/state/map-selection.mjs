@@ -1,6 +1,8 @@
 import { onLevel,positionAt,worldToRadar } from './replay.mjs';
 import { combatMarkers } from './combat.mjs';
 import { utilityVisible,effectEnd } from './utility.mjs';
+import { roundChannels,createDisplay } from './display.mjs';
+import { heldItem,blindRemaining,playerAlive } from './player-state.mjs';
 import { selectionRoundKey } from './selection-targets.mjs';
 
 // Filtering to another player roster can renumber an effect array. Keep a
@@ -27,26 +29,30 @@ export function mergeSelection(previous,incoming,append=false) {
   }
   return [...actors.values()];
 }
-export function selectionCandidates(rounds,{map,level,time,players,side=0,utilities,layers,allSelected=false,unit=1,showPlayers=true,permanentUtility=true,rosters=null}) {
+export function selectionCandidates(rounds,{map,level,time,players,side=0,utilities,layers,allSelected=false,unit=1,showPlayers=true,permanentUtility=true,rosters=null,display=null,enemyDisplay=createDisplay()}) {
   const items=[];
   for(const round of rounds) {
     const roundKey=selectionRoundKey(round);if(!roundKey)continue;
-    const roster=rosters?.get(roundKey),selected=new Set(roster?roster.primary:players),cells=new Set([...selected,...(roster?.enemies||[])]);
+    const initialDisplay=display||{...createDisplay(),players:showPlayers,utilities,combat:layers,utilityLayers:permanentUtility?['Live','History']:['Live']};
+    for(const channel of roundChannels(round,{rosters,players,side,display:initialDisplay,enemyDisplay})) {
+    const selected=channel.ids,cells=channel.ids,side=channel.side,{display:settings}=channel;
+    const showPlayers=settings.players,layers=settings.combat,utilities=settings.utilities,history=settings.utilityLayers.includes('History'),live=settings.utilityLayers.includes('Live');
     const add=(kind,player,actorSide,x,y,details={})=>items.push({kind,x,y,round,...details,entry:{roundKey,player,side:actorSide,utilities:details.utilityKey==null?[]:[details.utilityKey]}});
     if(showPlayers&&time<=round.duration)for(const track of round.tracks) {
-      if(!cells.has(track.player))continue;
+      if(!cells.has(track.player)||!playerAlive(round,track.player,time))continue;
       const s=positionAt(track.samples,time);
       if(!s||!onLevel(level,s[3])||selected.has(track.player)&&side&&s[5]!==side)continue;
-      add('player',track.player,s[5],...worldToRadar(map,s[1],s[2]),{enemy:!selected.has(track.player)});
+      add('player',track.player,s[5],...worldToRadar(map,s[1],s[2]),{enemy:channel.enemy,item:settings.items?heldItem(round,track.player,time):null,blind:settings.blindness?blindRemaining(round,track.player,time):0});
     }
     for(const event of round.deaths||[]) {
       if(event.time>time)continue;
-      for(const mark of combatMarkers(event,{selected,side,layers,map,level,unit}))add(mark.kind,mark.actor,mark.kind==='kill'?event.killer_side:event.victim_side,mark.x,mark.y,{event});
+      for(const mark of combatMarkers(event,{selected,side,layers,map,level,unit,singleRound:rounds.length===1,cellDeaths:rounds.length===1&&showPlayers}))add(mark.kind,mark.actor,mark.kind==='kill'?event.killer_side:event.victim_side,mark.x,mark.y,{event});
     }
     const keys=utilityKeys(round);
     for(const [utilityIndex,effect]of round.utility.entries()) {
-      if(effect.time>time||!permanentUtility&&time>=effectEnd(effect,round.duration)||!utilities.includes(effect.type)||!effect.player&&!allSelected||!utilityVisible(effect,round,selected,side)||!onLevel(level,effect.z))continue;
-      add('utility',effect.player,effect.side,...worldToRadar(map,effect.x,effect.y),{effect,utilityKey:keys[utilityIndex]});
+      if(effect.time>time||!history&&(!live||time>=effectEnd(effect,round.duration))||!utilities.includes(effect.type)||!effect.player&&!allSelected||!utilityVisible(effect,round,selected,side)||!onLevel(level,effect.z))continue;
+      add('utility',effect.player,effect.side,...worldToRadar(map,effect.x,effect.y),{effect,utilityKey:keys[utilityIndex],enemy:channel.enemy});
+    }
     }
   }
   return items;

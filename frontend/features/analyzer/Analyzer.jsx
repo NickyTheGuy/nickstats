@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import KillFeed from './KillFeed.jsx';
+import { roundCombat } from './state/kill-feed.mjs';
+import { createDisplay,hasEnemyMovement } from './state/display.mjs';
 import SourcePicker from './SourcePicker.jsx';
 import useMatchFilters from './hooks/useMatchFilters.js';
 import AreaSummary from './AreaSummary.jsx';
@@ -17,16 +20,15 @@ import AnalyzerControls from './AnalyzerControls.jsx';
 import { matchesRound, toggleRoundSet, replaySampleCount } from './state/round-selection.mjs';
 import PlaybackControls from './PlaybackControls.jsx';
 import mapData from './state/maps.json';
-import { COMBAT_LAYERS } from './state/combat.mjs';
-import { PLAYER_COLORS, UTILITY_TYPES } from './state/replay.mjs';
+import { PLAYER_COLORS } from './state/replay.mjs';
 import { openReplayFile } from './state/files.mjs';
 
 export default function Analyzer({entryStore}) {
   const entry=useSyncExternalStore(entryStore.subscribe,entryStore.getSnapshot);
   const matchFilters=useMatchFilters();
-  const [nameTags,setNameTags]=useState(false),[area,setArea]=useState(null);
+  const [area,setArea]=useState(null);
   const [roundFocus,setRoundFocus]=useState(null);
-  const [showPlayers,setShowPlayers]=useState(true),[showEnemies,setShowEnemies]=useState(false),[permanentUtility,setPermanentUtility]=useState(true);
+  const [showEnemies,setShowEnemies]=useState(false),[display,setDisplay]=useState(createDisplay),[enemyDisplay,setEnemyDisplay]=useState(createDisplay);
   const [mode,setMode]=useState('match'),[queryPlayers,setQueryPlayers]=useState(null);
   const [groupRounds,setGroupRounds]=useState({sections:[],numbers:[]}),[cacheRevision,setCacheRevision]=useState(0);
   const [loadingRounds,setLoadingRounds]=useState(false),[retry,setRetry]=useState(0);
@@ -34,11 +36,10 @@ export default function Analyzer({entryStore}) {
   if(!movementCache.current)movementCache.current=createMovementCache();
   const [replays,setReplays] = useState([]), [mapName,setMapName] = useState('');
   const [selectedRounds,setSelectedRounds] = useState([]), [selectedPlayers,setSelectedPlayers] = useState([]);
-  const [utilities,setUtilities] = useState(UTILITY_TYPES), [side,setSide] = useState(0);
+  const [side,setSide] = useState(0);
   const [time,setTime] = useState(0), [playing,setPlaying] = useState(false), [speed,setSpeed] = useState(1);
   const [busy,setBusy] = useState(false), [status,setStatus] = useState(''), [error,setError] = useState('');
   const [filters,setFilters]=useState({result:'all',buy:[],enemyBuy:[]});
-  const [combatLayers,setCombatLayers]=useState(COMBAT_LAYERS);
   const operation = useRef(null),sourceIdentity=useRef('');
   useEffect(() => () => { operation.current?.abort();roundOperation.current?.abort(); }, []);
   const clearSource=useCallback(()=>{operation.current?.abort();roundOperation.current?.abort();operation.current=null;roundOperation.current=null;setReplays([]);setArea(null);setMapName('');setQueryPlayers(null);setBusy(false);setLoadingRounds(false);setError('');setStatus('');setPlaying(false);},[]);
@@ -76,7 +77,7 @@ export default function Analyzer({entryStore}) {
     return roundFocus?.map===mapName?keys.filter(key=>roundFocus.keys.includes(key)):keys;
   },[mapReplays,mode,groupRounds,filters,selectedPlayers,side,selectedRounds,roundFocus,mapName]);
   const focus=useMemo(()=>roundFocus?.map===mapName?instanceFocus(roundFocus.instances):null,[roundFocus,mapName]);
-  const rosters=useMemo(()=>rosterIndex(mapReplays,selectedPlayers,{enemies:mode==='groups'&&showEnemies&&showPlayers,focus,side}),[mapReplays,selectedPlayers,mode,showEnemies,showPlayers,focus,side]);
+  const rosters=useMemo(()=>rosterIndex(mapReplays,selectedPlayers,{enemies:mode==='groups'&&showEnemies&&hasEnemyMovement(enemyDisplay),focus,side}),[mapReplays,selectedPlayers,mode,showEnemies,enemyDisplay,focus,side]);
   const playersForRound=useCallback((replay,round)=>rosterPlayers(rosters.get(`${replay.match_uid}:${round.number}`)),[rosters]);
   const cachedRounds=useMemo(()=>{
     if(!remote)return null;
@@ -143,13 +144,15 @@ export default function Analyzer({entryStore}) {
     } catch (failure) { if (!controller.signal.aborted) messages.push(failure.message); }
     finally { setBusy(false); setStatus(''); setError(messages.join(' ')); operation.current = null; }
   }
+  const combat=useMemo(()=>rounds.length===1?roundCombat(rounds[0],{rosters,players:selectedPlayers,side,display,enemyDisplay}):{kills:[],feed:[]},[rounds,rosters,selectedPlayers,side,display,enemyDisplay]);
   const roundPicker={replays:mapReplays,selected:selectedRounds,filters:{...filters,side,players:selectedPlayers},
     onToggleSet:keys=>{setSelectedRounds(previous=>toggleRoundSet(previous,keys));setRoundFocus(null);}};
   return <section className="analyzer-view" aria-label="2D analyzer">
     <SourcePicker mode={mode} onMode={setMode} entry={entry} matchFilters={matchFilters} onChoose={chooseSource} onClear={clearSource} />
-    <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities} combatLayers={combatLayers} nameTags={nameTags} showPlayers={showPlayers} permanentUtility={permanentUtility} rosters={rosters}
+    <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} display={display} enemyDisplay={enemyDisplay} rosters={rosters}
       roundStrip={mode==='match'?<RoundPicker {...roundPicker} />:null}
       area={area?.map===mapName?area:null} areaSummary={areaSummary} onSelectItems={selectItems} onClearSelection={()=>setArea(null)} onAreaStart={()=>setPlaying(false)}
+      combatOverlay={rounds.length===1&&<KillFeed events={combat.feed} time={time} players={mapPlayers} colors={colors} />}
       areaOverlay={areaSummary&&<AreaSummary summary={areaSummary} loading={busy||loadingRounds} onClear={()=>setArea(null)} onFocus={focusArea} />}
       actions={<div className="analyzer-import">
         {mode==='match'&&<label className={`button button-primary${busy||loadingRounds?' disabled':''}`}>Open
@@ -160,12 +163,12 @@ export default function Analyzer({entryStore}) {
       </div>}
       status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage></>}
       controls={<AnalyzerControls players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
-        colors={colors} utilities={utilities} setUtilities={setUtilities} side={side} onSide={setSide} filters={filters} setFilters={setFilters} selectedCount={rounds.length} combatLayers={combatLayers} setCombatLayers={setCombatLayers}
+        colors={colors} side={side} onSide={setSide} filters={filters} setFilters={setFilters} selectedCount={rounds.length}
         roundFocus={roundFocus?.map===mapName?roundFocus:null} onClearFocus={clearRoundFocus} mode={mode}
-        showPlayers={showPlayers} onShowPlayers={setShowPlayers} showEnemies={showEnemies} onShowEnemies={setShowEnemies} permanentUtility={permanentUtility} onPermanentUtility={setPermanentUtility}
-        nameTags={nameTags} onNameTags={setNameTags} matchFilters={mode==='groups'?matchFilters:null}
+        showEnemies={showEnemies} onShowEnemies={setShowEnemies} display={display} setDisplay={setDisplay} enemyDisplay={enemyDisplay} setEnemyDisplay={setEnemyDisplay}
+        matchFilters={mode==='groups'?matchFilters:null}
         groupRounds={mode==='groups'?{replays:mapReplays,value:groupRounds,onChange:setGroupRounds}:null}
         />}
-      playback={<PlaybackControls time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={setTime} speed={speed} setSpeed={setSpeed} />} />
+      playback={<PlaybackControls time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={setTime} speed={speed} setSpeed={setSpeed} kills={combat.kills} players={mapPlayers} onKillSeek={value=>{setPlaying(false);setTime(value);}} />} />
   </section>;
 }

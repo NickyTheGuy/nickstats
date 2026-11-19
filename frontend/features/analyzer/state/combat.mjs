@@ -13,12 +13,12 @@ export function deathLabel(event,names) {
 }
 // Perspective is explicit: kills belong to selected killers; deaths to selected victims.
 // A kill is located at the killer's recorded position, a death at the victim's.
-export function combatMarkers(event,{selected,side,layers,map,level,unit=1,preferredRole=null}) {
+export function combatMarkers(event,{selected,side,layers,map,level,unit=1,preferredRole=null,singleRound=false,cellDeaths=false}) {
   const marks=[],enemy=event.killer&&event.killer!==event.victim&&!(event.killer_side&&event.killer_side===event.victim_side);
-  if(enemy&&event.from&&layers.includes('Kills')&&selected.has(event.killer)&&(!side||event.killer_side===side)&&onLevel(level,event.from[2])) {
+  if(!singleRound&&enemy&&event.from&&layers.includes('Kills')&&selected.has(event.killer)&&(!side||event.killer_side===side)&&onLevel(level,event.from[2])) {
     const [x,y]=worldToRadar(map,event.from[0],event.from[1]);marks.push({kind:'kill',actor:event.killer,x,y,baseX:x,baseY:y,event});
   }
-  if(layers.includes('Deaths')&&deathVisible(event,selected,side)&&onLevel(level,event.z)) {
+  if((layers.includes('Deaths')||cellDeaths)&&deathVisible(event,selected,side)&&onLevel(level,event.z)) {
     const [x,y]=worldToRadar(map,event.x,event.y);marks.push({kind:'death',actor:event.victim,x,y,baseX:x,baseY:y,event});
   }
   if(!preferredRole&&marks.length===2&&Math.hypot(marks[0].x-marks[1].x,marks[0].y-marks[1].y)<40*unit) {
@@ -51,7 +51,7 @@ function killBadge(ctx,color,icon) {
     ctx.moveTo(-9,0);ctx.lineTo(9,0);ctx.moveTo(0,-8);ctx.lineTo(0,8);ctx.stroke();
   }
 }
-export function drawCombat(ctx,round,{time,map,level,selected,side,colors,layers,icons={},unit=1,preferredRole=null}) {
+export function drawCombat(ctx,round,{time,map,level,selected,side,colors,layers,icons={},unit=1,preferredRole=null,singleRound=false,cellDeaths=false}) {
   if(layers.includes('Gunfire'))for(const track of round.firing||[]) {
     if(!selected.has(track.player))continue;
     const s=track.samples[sampleIndex(track.samples,time)];
@@ -63,7 +63,7 @@ export function drawCombat(ctx,round,{time,map,level,selected,side,colors,layers
   }
   for(const e of round.deaths||[]) {
     if(e.time>time)break;
-    const marks=combatMarkers(e,{selected,side,layers,map,level,unit,preferredRole});
+    const marks=combatMarkers(e,{selected,side,layers,map,level,unit,preferredRole,singleRound,cellDeaths});
     if(marks.length&&time-e.time<450&&e.from&&e.killer!==e.victim&&onLevel(level,e.from[2])&&onLevel(level,e.z)) {
       const from=worldToRadar(map,e.from[0],e.from[1]),to=worldToRadar(map,e.x,e.y);ctx.strokeStyle=colors.get(e.killer)||'#fff';ctx.lineWidth=1.5;
       ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(...from);ctx.lineTo(...to);ctx.stroke();ctx.setLineDash([]);
@@ -74,7 +74,7 @@ export function drawCombat(ctx,round,{time,map,level,selected,side,colors,layers
       }
       ctx.save();ctx.translate(mark.x,mark.y);ctx.scale(unit,unit);
       const color=colors.get(mark.actor)||'#eef3fa';
-      if(mark.kind==='kill')killBadge(ctx,color,icons[weaponIconKey(e.weapon)]);else skull(ctx,color);
+      if(mark.kind==='kill')killBadge(ctx,color,icons[weaponIconKey(e.weapon)]);else {if(singleRound)ctx.globalAlpha*=.4;skull(ctx,color);}
       ctx.restore();
     }
   }

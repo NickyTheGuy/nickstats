@@ -180,9 +180,9 @@ button, middle-drag or Alt-drag, leaving Shift-drag available for selection.
 
 A drag selects the visible marker centers inside its rectangle. Kills use their
 drawn killer markers and deaths their drawn victim markers, including their
-separation offsets. Permanent utility icons keep all past enabled grenade detonations visible and
-selectable. Lingering icons disappear at each effect’s end; smoke/fire areas
-keep their actual lifetimes in either mode. A grenade selects
+separation offsets. History icons keep past enabled grenade detonations visible and selectable.
+Live effects show grenade flight, trails and temporary smoke/fire areas. These
+layers are independent: either, both, or neither can be enabled. A grenade selects
 its thrower's player-round and that specific grenade's effectiveness. Choosing a
 player and their grenade/kill/death still counts their full-round outcomes once;
 repeated boxes/clicks cannot multiply the same grenade's effectiveness. Distinct
@@ -206,9 +206,10 @@ and focusing work with existing captures; complete per-grenade effectiveness for
 multiple throws needs a new movement capture. No database migration is required.
 
 Focus selection freezes the selected **player-round instances**, clears the
-marker selection and rewinds playback. A player is retained only in the rounds
+marker selection and rewinds playback. A selected player is retained only in the rounds
 where that specific instance was selected, even if another selected player was
-somewhere else in the same rounds. The focused instance count appears in the
+somewhere else in the same rounds. Enabled enemy context remains visible in
+those rounds; focus does not silently hide opponents or their enabled actions. The focused instance count appears in the
 control panel. Clear focus removes that restriction; Match mode also restores its
 prior explicit round selection. Manual Match round edits replace focus. Focus
 uses already cached player/round slices and does not re-download a subset.
@@ -225,21 +226,50 @@ expands. On narrow viewers it occupies a second header row. The Match overlay
 contains player and filter controls, without a duplicate round picker. Groups
 keeps its phase, half and cross-match round-number controls in the overlay.
 
-Both modes expose Player cells (default On) and Utility icons (Permanent by
-default, or Lingering). Hiding cells also hides their aim/name labels and living
-player hit targets; utility and kill/death controls remain independent. Grenade
-flight and trails still draw with Lingering icons; only expired detonation icons
-are removed. Visibility changes reuse movement already loaded.
+Both modes expose player cells, names, held items, blindness, utility types and
+combat layers. Live effects (default On) show projectile flight/trails and active
+utility areas; History icons (default Off) show permanent detonation markers up
+to the scrubbed time, without pretending expired areas are still active. Both
+layers can be enabled together. Hiding cells leaves utility/combat controls
+independent. Visibility changes reuse movement already loaded.
 
-Groups additionally offers Enemy player cells (default Off). Opponents are
-resolved per round from the selected players’ sides, with roster-team fallback
-for older indexes. CT/T filtering keeps the opponents of that perspective,
-rather than hiding them for being on the opposite side. If selected condition
-players represent both teams, the extra cells cover opponents of either
-perspective. Enemy cells use red and are selectable, but do not add enemy utility
-or combat overlays or widen any date/tag/round/group filters. Focusing an enemy
-instance keeps that instance alone. Enemy movement is fetched on demand, only
-for the required opponents and rounds, then reuses the same bounded cache.
+Groups has an Enemies toggle (default Off), with its own reusable copy of all
+display controls. Cells and actions are independent: enemy utility can remain on
+with enemy cells off. Opponents are resolved per round from the selected players’
+sides, with roster-team fallback for older indexes. CT/T filtering preserves
+opponents of that perspective. Focus narrows the primary player-round instances,
+then retains enabled opposing context. Enemy display never widens date, tag,
+round or group filters. Movement is fetched on demand only for required players
+and rounds, then uses the same bounded cache.
 
-This update changes only the frontend. No backend rebuild, migration or new demo
-capture is required.
+## Single-round combat and optional player state
+
+With exactly one replay round in view, kills use a fading six-second kill feed
+and crosshair markers on the scrubber, rather than weapon badges on the map.
+Click a timeline marker to pause and seek to its exact event time. Feed opacity
+is derived from replay time, so scrubbing backwards restores entries. Visible
+player cells leave faded skulls at their recorded deaths, including during the
+brief gap before the next sampled health update. Multi-round analysis retains
+its existing kill/death map markers.
+
+New movement captures optionally contain equipment tracks with change-only
+`[time,item|null]` samples and victim blindness events `{player,time,duration}`.
+Equipment is read from the active weapon handle at the existing 5 Hz position
+cadence, including C4. Unknown handles clear the badge; weapons are never guessed
+from later kills. Blindness includes self/team flashes as well as enemy flashes.
+Overlapping blindness uses the greatest remaining expiry, not summed durations.
+The cell overlay is translucent white with a remaining-time radial meter; five
+seconds is its display ceiling, while recorded durations remain unchanged.
+
+These fields are validated, projected by player, budgeted and cached with the
+other replay data. Existing captures still support the feed, timeline and display
+changes; blindness and held-item badges need a fresh movement capture. Update
+both frontend and backend; no database migration is needed.
+
+## Rectangular map viewport
+
+Each canvas now allocates a backing bitmap matching its pane, with a capped
+pixel ratio. Radar drawing, panning, marker hit targets and selection share the
+same centered radar transform. Zoomed maps can paint into the pane's spare
+vertical or horizontal space instead of being clipped by a square bitmap first.
+Upper/lower level split resizing and independent map zoom remain supported.

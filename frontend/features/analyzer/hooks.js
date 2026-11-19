@@ -18,7 +18,7 @@ export function useGrenadeIcons() {
 const combatCache=new Map();
 export function useCombatIcons(rounds) {
   const [icons,setIcons]=useState({});
-  const names=[...new Set(rounds.flatMap(round=>(round.deaths||[]).map(e=>weaponIconKey(e.weapon))).filter(Boolean))].sort().join(',');
+  const names=[...new Set(rounds.flatMap(round=>[...(round.deaths||[]).map(e=>weaponIconKey(e.weapon)),...(round.equipment||[]).flatMap(track=>track.samples.map(s=>weaponIconKey(s[1])))]).filter(Boolean))].sort().join(',');
   useEffect(()=>{
     let active=true;
     Promise.all(names.split(',').filter(Boolean).map(name=>{

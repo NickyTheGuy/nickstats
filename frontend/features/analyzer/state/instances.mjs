@@ -9,14 +9,13 @@ export function roundRoster(replay,round,players,{enemies=false,focus=null,side=
     const side=track.samples.find(s=>s[5]===2||s[5]===3)?.[5];if(side)sides.set(track.player,side);
   }
   const primary=players.filter(id=>available.has(id)&&(!side||!sides.has(id)||sides.get(id)===side));
-  const enemy=enemies?replay.players.filter(p=>!primary.includes(p.id)&&primary.some(id=>
+  const chosen=focus?.get(selectionRoundKey({...round,match_uid:replay.match_uid}));
+  const focused=focus&&!chosen?.has(null)?primary.filter(id=>chosen?.has(id)):primary;
+  const reference=focused.length?focused:primary;
+  const enemy=enemies?replay.players.filter(p=>!focused.includes(p.id)&&reference.some(id=>
     sides.has(id)&&sides.has(p.id)?sides.get(id)!==sides.get(p.id):
       replay.teams?.[id]!=null&&replay.teams?.[p.id]!=null&&replay.teams[id]!==replay.teams[p.id])).map(p=>p.id):[];
-  if(!focus)return {primary,enemies:enemy};
-  const chosen=focus.get(selectionRoundKey({...round,match_uid:replay.match_uid}));
-  // Unknown-thrower captures can focus a round but cannot identify its actor.
-  if(chosen?.has(null))return {primary,enemies:enemy};
-  return {primary:primary.filter(id=>chosen?.has(id)),enemies:enemy.filter(id=>chosen?.has(id))};
+  return {primary:focused,enemies:enemy};
 }
 export function instanceFocus(instances) {
   const result=new Map();

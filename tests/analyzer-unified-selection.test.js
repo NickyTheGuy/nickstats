@@ -10,7 +10,7 @@ function round(uid='one') {return {match_uid:uid,number:1,duration:1000,winner:'
 const options={map,level,time:500,players:['a','b'],utilities:['Flash','Fire'],layers:['Kills','Deaths'],allSelected:true};
 test('One box selects living players, killers, victims and expired grenades together',async()=>{
   const {selectionCandidates,candidatesInArea,mergeSelection}=await api(),{summarizeArea}=await summary(),r=round();
-  const candidates=selectionCandidates([r],options);assert.deepEqual(new Set(candidates.map(i=>i.kind)),new Set(['player','kill','death','utility']));
+  const candidates=selectionCandidates([r,{...r,match_uid:'empty',tracks:[],deaths:[],utility:[]}],options);assert.deepEqual(new Set(candidates.map(i=>i.kind)),new Set(['player','kill','death','utility']));
   const items=mergeSelection([],candidatesInArea(candidates,{left:-20,right:350,top:-10,bottom:10}));
   const result=summarizeArea([r],{players:['a','b'],selection:items});
   assert.equal(result.count,1);assert.equal(result.observations,2);assert.equal(result.kills,2);assert.equal(result.deaths,1);assert.equal(result.utility.count,1);assert.deepEqual(result.utility.metrics[0],['Enemies / flash','2.00']);
@@ -40,10 +40,10 @@ test('Grenade identities survive another player being filtered out and keep trul
 });
 test('Candidate hits respect drawn combat offsets, enabled layers, side, floor and event time',async()=>{
   const {selectionCandidates,candidatesInArea}=await api(),r=round();r.deaths[0].x=0;
-  const marks=selectionCandidates([r],options),kill=marks.find(m=>m.kind==='kill'),death=marks.find(m=>m.kind==='death');assert.equal(kill.x,-18);assert.equal(death.x,18);
+  const marks=selectionCandidates([r,round('two')],options),kill=marks.find(m=>m.kind==='kill'),death=marks.find(m=>m.kind==='death');assert.equal(kill.x,-18);assert.equal(death.x,18);
   assert.ok(candidatesInArea(marks,{left:-20,right:-16,top:-2,bottom:2}).some(e=>e.player==='a'));
   assert.ok(selectionCandidates([r],{...options,time:0}).every(i=>i.kind==='player'));
   assert.equal(selectionCandidates([r],{...options,side:2}).filter(i=>i.kind==='utility').length,0);
   assert.equal(selectionCandidates([r],{...options,level:{min:100,max:200}}).length,0);
-  assert.ok(selectionCandidates([r],{...options,layers:[],utilities:[]}).every(i=>i.kind==='player'));
+  assert.ok(selectionCandidates([r,round('two')],{...options,layers:[],utilities:[]}).every(i=>i.kind==='player'));
 });

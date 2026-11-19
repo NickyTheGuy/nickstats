@@ -98,6 +98,28 @@ export function validateReplay(input) {
         seen.add(c.player);return {player:c.player,side:c.side,result:c.result,buy:c.buy,enemy_buy:c.enemy_buy,hero:c.hero};
       });
     }
+    if(round.equipment!=null) {
+      if(!Array.isArray(round.equipment)||round.equipment.length>players.length)fail('invalid equipment.');
+      const seen=new Set();
+      output.equipment=round.equipment.map(track=>{
+        if(!track||!ids.has(track.player)||seen.has(track.player)||!Array.isArray(track.samples)||!track.samples.length)fail('invalid equipment owner.');
+        seen.add(track.player);let previous=-1;
+        for(const sample of track.samples){
+          if(++sampleCount>MAX_SAMPLES)fail('too many equipment samples.');
+          if(!Array.isArray(sample)||sample.length!==2||!finite(sample[0],round.duration)||sample[0]<0||sample[0]<=previous||!(sample[1]===null||typeof sample[1]==='string'&&/^[a-z0-9_]{1,100}$/.test(sample[1])))fail('invalid equipment sample.');
+          previous=sample[0];
+        }
+        return {player:track.player,samples:track.samples};
+      });
+    }
+    if(round.blindness!=null) {
+      if(!Array.isArray(round.blindness))fail('invalid blindness.');
+      let previous=-1;
+      output.blindness=round.blindness.map(e=>{
+        if(++eventCount>100000||!e||!ids.has(e.player)||!finite(e.time,round.duration)||e.time<0||e.time<previous||!finite(e.duration,600000)||e.duration<=0)fail('invalid blindness event.');
+        previous=e.time;return {player:e.player,time:e.time,duration:e.duration};
+      });
+    }
     if(round.performance!=null) {
       if(!Array.isArray(round.performance)||round.performance.length>players.length)fail('invalid round performance.');
       const seen=new Set();

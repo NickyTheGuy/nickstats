@@ -1,5 +1,5 @@
 import { GRENADE_ICONS } from './replay.mjs';
-export const WEAPON_ICONS=['ak47','aug','awp','bizon','famas','g3sg1','galilar','m249','m4a1','m4a1_silencer','mac10','mag7','mp5sd','mp7','mp9','negev','nova','p90','sawedoff','scar20','sg556','ssg08','ump45','xm1014','cz75a','deagle','elite','fiveseven','glock','hkp2000','p250','revolver','tec9','usp_silencer','taser','knife'];
+export const WEAPON_ICONS=['ak47','aug','awp','bizon','famas','g3sg1','galilar','m249','m4a1','m4a1_silencer','mac10','mag7','mp5sd','mp7','mp9','negev','nova','p90','sawedoff','scar20','sg556','ssg08','ump45','xm1014','cz75a','deagle','elite','fiveseven','glock','hkp2000','p250','revolver','tec9','usp_silencer','taser','knife','c4'];
 const allowed=new Set([...WEAPON_ICONS,...GRENADE_ICONS]);
 export function weaponIconKey(weapon) {
   let key=String(weapon||'').toLowerCase().replace(/^weapon_/,'');

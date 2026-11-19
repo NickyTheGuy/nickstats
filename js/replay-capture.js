@@ -20,7 +20,7 @@
       if (key) this.lifetimes[key] = n*1000;
     }
     getRound(start) {
-      if (!this.rounds.has(start)) this.rounds.set(start, { tracks:new Map(), firing:new Map(), deaths:[], utility:[], outcomes:[], projectiles:new Map(), observed:new Map(), lastTick:-Infinity, lastUtilityTick:-Infinity });
+      if (!this.rounds.has(start)) this.rounds.set(start, { tracks:new Map(), equipment:new Map(), blindness:[], firing:new Map(), deaths:[], utility:[], outcomes:[], projectiles:new Map(), observed:new Map(), lastTick:-Infinity, lastUtilityTick:-Infinity });
       return this.rounds.get(start);
     }
     countSample() { if (++this.samples > 1000000) throw new Error('Replay exceeds the one-million-position capture limit.'); }
@@ -36,9 +36,18 @@
         if (!round.tracks.has(p.id)) round.tracks.set(p.id,[]);
         const track = round.tracks.get(p.id), last = track.at(-1);
         if (last?.[0] === time || last?.[4] === 0 && p.health === 0) continue;
+        if(!round.equipment.has(p.id))round.equipment.set(p.id,[]);
+        const equipment=round.equipment.get(p.id),item=typeof p.item==='string'&&/^[a-z0-9_]{1,100}$/.test(p.item)?p.item:null;
+        if(!equipment.length||equipment.at(-1)[1]!==item){this.countSample();equipment.push([time,item]);}
         this.countSample();
         track.push([time,Math.round(p.x),Math.round(p.y),Math.round(p.z),Math.max(0,Math.min(100,p.health)),p.side,Number.isFinite(p.yaw)?Math.round(p.yaw):null]);
       }
+    }
+    blind(tick,start,interval,player,duration) {
+      if(!Number.isFinite(start)||tick<start||!player||!Number.isFinite(duration)||duration<=0)return;
+      if(Math.round(duration)<=0)return;
+      if(++this.events>100000)throw new Error('Replay exceeds the combat/utility-event capture limit.');
+      this.getRound(start).blindness.push({player,time:Math.round((tick-start)*interval*1000),duration:Math.min(600000,Math.round(duration))});
     }
     combat(name,tick,start,interval,ids,readPlayers,weapon,headshot=false) {
       if (!Number.isFinite(start) || tick<start || !['weapon_fire','player_death'].includes(name)) return;
@@ -201,10 +210,12 @@
         const projectiles = [...data.projectiles.values()].map(p=>({...p,player:owner(p.player),samples:p.samples.filter(s=>s[0]<=duration),
           end:Math.min(duration,p.end??duration)})).filter(p=>p.samples.length);
         const firing=[...data.firing].map(([player,samples])=>({player:owner(player),samples:samples.filter(s=>s[0]<=duration)})).filter(t=>t.player&&t.samples.length);
+        const equipment=[...data.equipment].map(([player,samples])=>({player,samples:samples.filter(s=>s[0]<=duration)})).filter(t=>owner(t.player)&&t.samples.length);
+        const blindness=data.blindness.filter(e=>e.time<=duration&&owner(e.player)).sort((a,b)=>a.time-b.time);
         const deaths=data.deaths.filter(e=>e.time<=duration&&owner(e.victim)).map(e=>({...e,killer:owner(e.killer)}));
         const context=(byRound.get(timing.round)||[]).filter(c=>owner(c.player)).map(c=>({player:c.player,side:c.side,result:c.result,buy:c.buy,enemy_buy:c.enemy_buy,hero:Boolean(c.hero)}));
         const performance=(byRound.get(timing.round)||[]).filter(c=>owner(c.player)&&c.performance).map(c=>({player:c.player,...c.performance}));
-        rounds.push({number:timing.round,duration,winner:timing.winner_side,tracks,utility,projectiles,firing,deaths,context,...(performance.length?{performance}:{})});
+        rounds.push({number:timing.round,duration,winner:timing.winner_side,tracks,utility,projectiles,firing,deaths,context,equipment,blindness,...(performance.length?{performance}:{})});
       }
       if (!rounds.length) throw new Error('No playable movement tracks were captured from this demo.');
       return {format:'nickstats.replay',version:4,match_uid:result.match_uid,demo_sha256:result.demo_sha256,map:result.map,source_file:result.source_file,

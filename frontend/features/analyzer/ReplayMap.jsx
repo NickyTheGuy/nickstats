@@ -9,17 +9,19 @@ import { drawAim,drawCombat } from './state/combat.mjs';
 import { useGrenadeIcons,useCombatIcons } from './hooks.js';
 import useElementSize from '../../shared/hooks/useElementSize.js';
 import SelectionMarkers from './SelectionMarkers.jsx';
-import { selectionRoundKey } from './state/selection-targets.mjs';
+import { roundChannels,createDisplay } from './state/display.mjs';
+import { viewport } from './state/viewport.mjs';
+import { drawPlayerState,playerAlive } from './state/player-state.mjs';
 import { selectionCandidates,candidatesInArea } from './state/map-selection.mjs';
 
-export default function ReplayMap({ map, level, rounds, players, selected, colors, time, side, utilities, combatLayers, nameTags=false, showPlayers=true, permanentUtility=true, rosters=null, area, areaSummary, onSelectItems=()=>{}, onClearSelection=()=>{}, onAreaStart=()=>{} }) {
+export default function ReplayMap({ map, level, rounds, players, selected, colors, time, side, display=createDisplay(), enemyDisplay=createDisplay(), rosters=null, area, areaSummary, onSelectItems=()=>{}, onClearSelection=()=>{}, onAreaStart=()=>{} }) {
   const icons=useGrenadeIcons(),combatIcons=useCombatIcons(rounds);
   const canvas = useRef(null), drag = useRef(null);
   const size=useElementSize(canvas);
   const [gestureMode,setGestureMode]=useState('select'),[preview,setPreview]=useState(null);
   const [view, setView] = useState({ zoom: 1, x: 0, y: 0 });
   const markerUnit=1024/Math.max(1,Math.min(size.width,size.height)*view.zoom);
-  const candidates=useMemo(()=>selectionCandidates(rounds,{map,level,time,players:selected,side,utilities,layers:combatLayers,allSelected:selected.length===players.length,unit:markerUnit,showPlayers,permanentUtility,rosters}),[rounds,map,level,time,selected,side,utilities,combatLayers,players,markerUnit,showPlayers,permanentUtility,rosters]);
+  const candidates=useMemo(()=>selectionCandidates(rounds,{map,level,time,players:selected,side,display,enemyDisplay,allSelected:selected.length===players.length,unit:markerUnit,rosters}),[rounds,map,level,time,selected,side,display,enemyDisplay,players,markerUnit,rosters]);
   useEffect(() => { setView({ zoom: 1, x: 0, y: 0 }); }, [map]);
   const zoom = delta => setView(v => {
     const next = Math.max(1, Math.min(4, v.zoom + delta)), max = (next - 1) * 512;
@@ -36,38 +38,42 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
     return () => { cancelled = true; };
   }, [level.image]);
   useEffect(() => {
-    const ctx = canvas.current.getContext('2d');
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.clearRect(0,0,1024,1024); ctx.fillStyle = '#151c25'; ctx.fillRect(0,0,1024,1024);
-    ctx.translate(512+view.x,512+view.y); ctx.scale(view.zoom,view.zoom); ctx.translate(-512,-512);
-    if (image) ctx.drawImage(image,0,0,1024,1024);
-    if (!image) return;
-    const names = new Map(players.map(p => [p.id,p.name]));
-    for (const round of rounds) {
-      if (time > round.duration) continue;
-      ctx.globalAlpha = areaSummary?(areaSummary.matched.has(round)?.95:.18):rounds.length > 1 ? 0.65 : 0.9;
-      const roster=rosters?.get(selectionRoundKey(round)),selectedSet=new Set(roster?roster.primary:selected),cells=new Set([...selectedSet,...(roster?.enemies||[])]);
-      if(showPlayers)for (const track of round.tracks) {
-        if (!cells.has(track.player)) continue;
-        const color = colors.get(track.player);
-        const s = positionAt(track.samples,time);
-        if (!s || !onLevel(level,s[3]) || selectedSet.has(track.player) && side && side !== s[5]) continue;
-        const [x,y] = worldToRadar(map,s[1],s[2]);
-        if(combatLayers.includes('Aim'))drawAim(ctx,s,x,y,color);
-        ctx.fillStyle = color; ctx.strokeStyle = '#101620'; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2); ctx.fill(); ctx.stroke();
-        if(nameTags){ctx.font = 'bold 13px system-ui';ctx.lineWidth = 3;
-          const label = names.get(track.player) || '?';ctx.strokeText(label,x+10,y+4);ctx.fillText(label,x+10,y+4);}
+    const frame=viewport(size,view,window.devicePixelRatio||1),element=canvas.current;
+    const width=Math.round(frame.width*frame.pixelRatio),height=Math.round(frame.height*frame.pixelRatio);
+    if(element.width!==width)element.width=width;if(element.height!==height)element.height=height;
+    const ctx=element.getContext('2d');ctx.setTransform(frame.pixelRatio,0,0,frame.pixelRatio,0,0);
+    ctx.clearRect(0,0,frame.width,frame.height);ctx.fillStyle='#151c25';ctx.fillRect(0,0,frame.width,frame.height);
+    ctx.translate(frame.x,frame.y);ctx.scale(frame.scale,frame.scale);ctx.translate(-512,-512);
+    if(image)ctx.drawImage(image,0,0,1024,1024);else return;
+    const names=new Map(players.map(p=>[p.id,p.name]));
+    for(const round of rounds) {
+      const channels=roundChannels(round,{rosters,players:selected,side,display,enemyDisplay});
+      ctx.globalAlpha=areaSummary?(areaSummary.matched.has(round)?.95:.18):rounds.length>1?.65:.9;
+      if(time<=round.duration)for(const channel of channels) {
+        const settings=channel.display;
+        if(settings.players)for(const track of round.tracks) {
+          if(!channel.ids.has(track.player)||!playerAlive(round,track.player,time))continue;
+          const point=positionAt(track.samples,time);
+          if(!point||!onLevel(level,point[3])||channel.side&&channel.side!==point[5])continue;
+          const [x,y]=worldToRadar(map,point[1],point[2]),color=colors.get(track.player)||'#ff7373',radius=Math.max(7,5*markerUnit);
+          if(settings.combat.includes('Aim'))drawAim(ctx,point,x,y,color);
+          ctx.fillStyle=color;ctx.strokeStyle='#101620';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,radius,0,2*Math.PI);ctx.fill();ctx.stroke();
+          drawPlayerState(ctx,round,track.player,time,x,y,{display:settings,icons:combatIcons,unit:markerUnit,radius});
+          if(settings.names){ctx.font='bold 13px system-ui';ctx.lineWidth=3;const label=names.get(track.player)||'?';ctx.strokeText(label,x+10,y-6);ctx.fillStyle=color;ctx.fillText(label,x+10,y-6);}
+        }
+        if(settings.utilityLayers.includes('Live'))drawUtility(ctx,round,{time,map,level,selected:channel.ids,side:channel.side,utilities:settings.utilities,icons,allSelected:channel.ids.size===players.length});
       }
-      drawUtility(ctx,round,{time,map,level,selected:selectedSet,side,utilities,icons,allSelected:selected.length===players.length});
     }
-    // Combat markers sit above every overlaid round's living-player markers.
-    ctx.globalAlpha = rounds.length > 1 ? 0.85 : 1;
-    for(const round of rounds){const roster=rosters?.get(selectionRoundKey(round)),selectedSet=new Set(roster?roster.primary:selected);ctx.globalAlpha=areaSummary?(areaSummary.matched.has(round)?.9:.12):rounds.length>1?.85:1;
-      drawCombat(ctx,round,{time,map,level,selected:selectedSet,side,colors,layers:showPlayers?combatLayers:combatLayers.filter(l=>l!=='Gunfire'),icons:combatIcons,unit:markerUnit});
-      if(permanentUtility)drawUtilityHistory(ctx,round,{time,map,level,selected:selectedSet,side,utilities,icons,allSelected:selected.length===players.length});}
-    ctx.globalAlpha = 1;
-  }, [image,map,level,rounds,players,selected,colors,time,side,utilities,view,icons,combatLayers,combatIcons,markerUnit,nameTags,showPlayers,permanentUtility,rosters,areaSummary]);
+    for(const round of rounds) {
+      ctx.globalAlpha=areaSummary?(areaSummary.matched.has(round)?.9:.12):rounds.length>1?.85:1;
+      for(const channel of roundChannels(round,{rosters,players:selected,side,display,enemyDisplay})) {
+        const settings=channel.display;
+        drawCombat(ctx,round,{time,map,level,selected:channel.ids,side:channel.side,colors,layers:settings.combat,icons:combatIcons,unit:markerUnit,singleRound:rounds.length===1,cellDeaths:rounds.length===1&&settings.players});
+        if(settings.utilityLayers.includes('History'))drawUtilityHistory(ctx,round,{time,map,level,selected:channel.ids,side:channel.side,utilities:settings.utilities,icons,allSelected:channel.ids.size===players.length,liveEffects:settings.utilityLayers.includes('Live')});
+      }
+    }
+    ctx.globalAlpha=1;
+  },[image,map,level,rounds,players,selected,colors,time,side,display,enemyDisplay,view,icons,combatIcons,markerUnit,rosters,areaSummary,size.width,size.height]);
   const bounds=preview?.bounds;
   const rectangle=bounds?areaOnScreen(bounds,size,view):null;
   function pointerDown(event) {
@@ -109,9 +115,9 @@ export default function ReplayMap({ map, level, rounds, players, selected, color
       <Button aria-label="Reset map view" onClick={()=>{setView({zoom:1,x:0,y:0});setGestureMode('select');}}>{view.zoom}×</Button>
       <Button aria-label="Zoom in" disabled={view.zoom===4} onClick={()=>zoom(0.5)}>+</Button>
     </div>
-    <canvas ref={canvas} data-player-cells={showPlayers?'on':'off'} data-utility-icons={permanentUtility?'permanent':'lingering'} data-name-tags={nameTags?'on':'off'} style={{touchAction:'none',cursor:gestureMode==='pan'?'grab':'crosshair'}}
+    <canvas ref={canvas} data-player-cells={display.players?'on':'off'} data-utility-icons={display.utilityLayers.join(',')} data-name-tags={display.names?'on':'off'} style={{touchAction:'none',cursor:gestureMode==='pan'?'grab':'crosshair'}}
       tabIndex={0} onKeyDown={event=>{if(event.key==='Escape'){event.preventDefault();cancel();onClearSelection();}}}
-      width="1024" height="1024" role="img" aria-label={`2D round playback, ${level.id} level. Drag to select a map area. Shift, Ctrl or Command adds to selection. Alt-drag, middle-drag or choose Pan to move a zoomed map. Escape clears selection.`} />
+      role="img" aria-label={`2D round playback, ${level.id} level. Drag to select a map area. Shift, Ctrl or Command adds to selection. Alt-drag, middle-drag or choose Pan to move a zoomed map. Escape clears selection.`} />
     <SelectionMarkers candidates={candidates} players={players} view={view} selection={area?.items||[]} onSelect={(items,append)=>{onAreaStart();onSelectItems(items,append);}} />
     {rectangle&&<div className="analyzer-area-rectangle" style={rectangle} />}
     {!image && <span className="analyzer-map-status" role="status">{imageError ? 'Radar image could not load.' : 'Loading radar…'}</span>}
