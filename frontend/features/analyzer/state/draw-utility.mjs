@@ -40,7 +40,7 @@ export function drawUtility(ctx,round,{time,map,level,selected,side,utilities,ic
 }
 
 export function drawUtilityHistory(ctx,round,{time,map,level,selected,side,utilities,icons,target,allSelected}) {
-  for(const effect of utilitySelectionEvents(round,{time,level,selected,side,utilities,target,allSelected})) {
+  for(const effect of utilitySelectionEvents(round,{time,level,selected,side,utilities,target:target||'All',allSelected})) {
     if(time<effectEnd(effect,round.duration))continue;
     const [x,y]=worldToRadar(map,effect.x,effect.y);
     drawIcon(ctx,icons[effect.icon||UTILITY_ICONS[effect.type]],x,y,UTILITY_COLORS[effect.type]);

@@ -171,21 +171,24 @@ database migration is required.
 
 ## Event and grenade cohorts
 
-Selection target in Players & rounds chooses Players, Kills, Deaths, Smokes,
-Flashbangs, HE grenades, Fire grenades or Decoys. This target controls what a box
-selects independently of passing players. Choosing a target enables its marker
-layer if needed. Clicking a visible kill/death or grenade marker also chooses its
-target type and selects a small geographic area around that event. Hover details
-remain available.
+Selection is shared across living players, kills, deaths and every enabled utility
+layer. There is no selection-target mode. A click selects the marker's owning
+player-round, rather than querying a small geographic box; grouped coincident
+markers retain all their represented player-rounds. A plain click/drag replaces
+selection. Shift/Ctrl/Command-click or drag adds to it, including across floors
+and playback times. Empty-map click or Escape clears it. Pan uses its explicit
+button, middle-drag or Alt-drag, leaving Shift-drag available for selection.
 
-Kills select the killer's recorded position; deaths select the victim's death
-position. Grenades select their detonation/landing point and the thrower's round
-outcome. Only events that have happened by the playback time and belong to the
-selected players/side participate. Choosing a grenade type keeps its expired
-markers visible as grenade icons; active smoke/fire ranges retain their actual
-lifetimes. Other utility still follows the existing visibility controls. Whole
-round outcomes count each actor once even if they had multiple matching events;
-matching grenades count individually for per-grenade averages.
+A drag selects the visible marker centers inside its rectangle. Kills use their
+drawn killer markers and deaths their drawn victim markers, including their
+separation offsets. All past enabled grenade detonation icons remain visible and
+selectable, while smoke/fire areas keep their actual lifetimes. A grenade selects
+its thrower's player-round and that specific grenade's effectiveness. Choosing a
+player and their grenade/kill/death still counts their full-round outcomes once;
+repeated boxes/clicks cannot multiply the same grenade's effectiveness. Distinct
+grenades and distinct match-rounds remain separate. Selection stores identities,
+so scrubbing or moving a player does not silently change the cohort. Utility
+identities remain stable when a filtered roster changes array indices.
 
 The outcome card reports grenade count, enemies flashed and enemy blind seconds
 per flashbang, or enemy damage per HE/fire grenade. New demo captures correlate
@@ -202,8 +205,8 @@ type from that player. Other old effectiveness values display —. Event selecti
 and focusing work with existing captures; complete per-grenade effectiveness for
 multiple throws needs a new movement capture. No database migration is required.
 
-Focus rounds freezes the selected distinct match/round IDs, clears the geographic
-box and rewinds playback to view that cohort in full. The other match/round/player
+Focus rounds freezes the selected distinct match/round IDs, clears the marker
+selection and rewinds playback to view that cohort in full. The other match/round/player
 filters remain in effect. Clear Round Focus in Players & rounds removes that
 restriction; Match mode also restores its prior explicit round selection. Manual
 Match round edits replace the focused selection. Focus uses already cached

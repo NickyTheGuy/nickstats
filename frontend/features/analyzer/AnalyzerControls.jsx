@@ -3,8 +3,6 @@ import Button from '../../shared/components/buttons/Button.jsx';
 import ToggleChips from '../../shared/components/forms/ToggleChips.jsx';
 import ToggleGroup from '../../shared/components/forms/ToggleGroup.jsx';
 import MultiToggleGroup from '../../shared/components/forms/MultiToggleGroup.jsx';
-import OptionField from '../../shared/components/forms/OptionField.jsx';
-import { SELECTION_TARGETS } from './state/selection-targets.mjs';
 import RoundPicker from './RoundPicker.jsx';
 import MatchFilters from './MatchFilters.jsx';
 import GroupRoundPicker from './GroupRoundPicker.jsx';
@@ -17,7 +15,7 @@ function RoundFilter({label,value,options,onChange,multiple=false}) {
   const Choices=multiple?MultiToggleGroup:ToggleGroup;
   return <div className="analyzer-round-filter"><span>{label}</span><Choices label={label} options={options} value={value} onChange={onChange} className="side-toggle" /></div>;
 }
-export default function AnalyzerControls({players,selectedPlayers,setSelectedPlayers,colors,utilities,setUtilities,side,onSide,roundPicker,selectedCount,combatLayers,setCombatLayers,filters,setFilters,groupRounds,matchFilters,nameTags,onNameTags,selectionTarget,onSelectionTarget,roundFocus,onClearFocus}) {
+export default function AnalyzerControls({players,selectedPlayers,setSelectedPlayers,colors,utilities,setUtilities,side,onSide,roundPicker,selectedCount,combatLayers,setCombatLayers,filters,setFilters,groupRounds,matchFilters,nameTags,onNameTags,roundFocus,onClearFocus}) {
   const [open,setOpen]=useState(false);
   const toggle=(setter,value,checked)=>setter(previous=>checked?[...new Set([...previous,value])]:previous.filter(v=>v!==value));
   return <div className={`analyzer-controls${open?' is-open':''}`}>
@@ -27,7 +25,6 @@ export default function AnalyzerControls({players,selectedPlayers,setSelectedPla
       <div className="analyzer-picker-head"><strong>Players</strong><Button className="selection-chip" onClick={()=>setSelectedPlayers(selectedPlayers.length===players.length?[]:players.map(p=>p.id))}>{selectedPlayers.length===players.length?'Clear':'All'}</Button></div>
       <ToggleChips label="Analyzer players" className="analyzer-players" options={players.map(p=>[p.id,p.name,{style:{'--player-color':colors.get(p.id)},className:'analyzer-player',title:p.name}])} selected={selectedPlayers} onChange={(id,checked)=>toggle(setSelectedPlayers,id,checked)} />
       <RoundFilter label="Name tags" value={nameTags?'on':'off'} options={[["off","Off"],["on","On"]]} onChange={value=>onNameTags(value==='on')} />
-      <OptionField className="analyzer-round-filter" label="Selection target" options={SELECTION_TARGETS} value={selectionTarget} onChange={onSelectionTarget} />
       {matchFilters&&<MatchFilters {...matchFilters} />}
       <RoundFilter label="Player side" value={String(side)} options={[["0","All"],["3","CT"],["2","T"]]} onChange={v=>onSide(Number(v))} />
       <RoundFilter label="Round result" value={filters.result} options={[["all","All"],["win","Won"],["loss","Lost"]]} onChange={value=>setFilters(f=>({...f,result:value}))} />

@@ -1,5 +1,6 @@
+import { utilityKeys } from './map-selection.mjs';
 import { onLevel,positionAt } from './replay.mjs';
-import { insideArea,utilitySelectionEvents,combatSelectionEvents,summarizeGrenades } from './selection-targets.mjs';
+import { selectionRoundKey,insideArea,utilitySelectionEvents,combatSelectionEvents,summarizeGrenades } from './selection-targets.mjs';
 
 // Canvas object-fit:contain leaves letterboxing. Both selection and map drawing
 // use the square's center/scale, then undo pan and zoom in radar coordinates.
@@ -29,10 +30,21 @@ export function roundRating({kills,deaths,assists,damage,kast,played}) {
   const kpr=kills/played,dpr=deaths/played,apr=assists/played,adr=damage/played;
   return Math.max(0,.0073*100*kast/played+.3591*kpr-.5329*dpr+.2372*(2.13*kpr+.42*apr-.41)+.0032*adr+.1587);
 }
-export function summarizeArea(rounds,{area,map,level,time,players,side=0,target='Players',allSelected=false,utilities=['Smoke','Flash','HE','Fire','Decoy'],layers=['Kills','Deaths','Aim','Gunfire']}) {
+export function summarizeArea(rounds,{area,map,level,time,players,side=0,target='Players',allSelected=false,utilities=['Smoke','Flash','HE','Fire','Decoy'],layers=['Kills','Deaths','Aim','Gunfire'],selection=null}) {
+  const selectionByRound=new Map();
+  for(const item of selection||[]){if(!selectionByRound.has(item.roundKey))selectionByRound.set(item.roundKey,[]);selectionByRound.get(item.roundKey).push(item);}
   const selected=new Set(players),matched=new Set(),observations=[],effects=[];let unknownActors=false;
   for(const round of rounds) {
     const actors=new Map();
+    if(selection) {
+      const key=selectionRoundKey(round),indices=new Set(),keys=utilityKeys(round),effectsByKey=new Map(keys.map((key,i)=>[key,round.utility[i]]));
+      for(const item of selectionByRound.get(key)||[]) {
+        if(item.player&&selected.has(item.player))actors.set(item.player,item.side);
+        else if(!item.player){unknownActors=true;matched.add(round);}
+        if(!item.player||selected.has(item.player))for(const key of item.utilities||[])if(effectsByKey.get(key)?.player===item.player)indices.add(key);
+      }
+      for(const key of indices)effects.push({effect:effectsByKey.get(key),round});
+    } else {
     if(target==='Players'&&time<=round.duration)for(const track of round.tracks) {
       if(!selected.has(track.player))continue;
       const point=positionAt(track.samples,time);
@@ -42,6 +54,7 @@ export function summarizeArea(rounds,{area,map,level,time,players,side=0,target=
     for(const event of combatSelectionEvents(round,{target,time,selected,side,layers,level}))if(insideArea(area,map,event.x,event.y))actors.set(event.player,event.side);
     for(const effect of utilitySelectionEvents(round,{target,time,selected,side,utilities,level,allSelected}))if(insideArea(area,map,effect.x,effect.y)) {
       if(effect.player)actors.set(effect.player,effect.side);else{unknownActors=true;matched.add(round);}effects.push({effect,round});
+    }
     }
     if(actors.size)matched.add(round);
     for(const [player,actorSide]of actors) {

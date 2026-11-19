@@ -1,14 +1,13 @@
 import { onLevel,worldToRadar } from './replay.mjs';
 import { utilityVisible } from './utility.mjs';
-export const SELECTION_TARGETS=[['Players','Players'],['Kills','Kills'],['Deaths','Deaths'],['Smoke','Smokes'],['Flash','Flashbangs'],['HE','HE grenades'],['Fire','Fire grenades'],['Decoy','Decoys']];
 export const isUtilityTarget=target=>['Smoke','Flash','HE','Fire','Decoy'].includes(target);
 export function selectionRoundKey(round){return round.match_uid?`${round.match_uid}:${round.number}`:round.match_id?`match:${round.match_id}:${round.number}`:null;}
 
 // Detonation markers remain selectable after their active area expires. This
-// history is shown only for the currently selected grenade target type.
+// history can include every enabled grenade layer.
 export function utilitySelectionEvents(round,{target,time,selected,side,utilities,level,allSelected=false}) {
-  if(!isUtilityTarget(target)||!utilities.includes(target))return [];
-  return round.utility.filter(e=>e.type===target&&e.time<=time&&(e.player||allSelected)&&utilityVisible(e,round,selected,side)&&onLevel(level,e.z));
+  if(target!=='All'&&(!isUtilityTarget(target)||!utilities.includes(target)))return [];
+  return round.utility.filter(e=>(target==='All'?utilities.includes(e.type):e.type===target)&&e.time<=time&&(e.player||allSelected)&&utilityVisible(e,round,selected,side)&&onLevel(level,e.z));
 }
 export function combatSelectionEvents(round,{target,time,selected,side,layers,level}) {
   if(!layers.includes(target))return [];

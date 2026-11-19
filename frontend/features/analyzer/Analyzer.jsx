@@ -3,7 +3,8 @@ import SourcePicker from './SourcePicker.jsx';
 import useMatchFilters from './hooks/useMatchFilters.js';
 import AreaSummary from './AreaSummary.jsx';
 import { summarizeArea } from './state/area-selection.mjs';
-import { selectionRoundKey,isUtilityTarget } from './state/selection-targets.mjs';
+import { selectionRoundKey } from './state/selection-targets.mjs';
+import { mergeSelection } from './state/map-selection.mjs';
 import { createMovementCache, movementSelection } from './state/movement-cache.mjs';
 import { groupRoundKeys } from './state/query.mjs';
 import { loadCaptureHeaders, loadSelectedRounds } from './state/server.mjs';
@@ -22,7 +23,7 @@ export default function Analyzer({entryStore}) {
   const entry=useSyncExternalStore(entryStore.subscribe,entryStore.getSnapshot);
   const matchFilters=useMatchFilters();
   const [nameTags,setNameTags]=useState(false),[area,setArea]=useState(null);
-  const [selectionTarget,setSelectionTarget]=useState('Players'),[roundFocus,setRoundFocus]=useState(null);
+  const [roundFocus,setRoundFocus]=useState(null);
   const [mode,setMode]=useState('match'),[queryPlayers,setQueryPlayers]=useState(null);
   const [groupRounds,setGroupRounds]=useState({sections:[],numbers:[]}),[cacheRevision,setCacheRevision]=useState(0);
   const [loadingRounds,setLoadingRounds]=useState(false),[retry,setRetry]=useState(0);
@@ -37,7 +38,7 @@ export default function Analyzer({entryStore}) {
   const [combatLayers,setCombatLayers]=useState(COMBAT_LAYERS);
   const operation = useRef(null),sourceIdentity=useRef('');
   useEffect(() => () => { operation.current?.abort();roundOperation.current?.abort(); }, []);
-  const clearSource=useCallback(()=>{operation.current?.abort();roundOperation.current?.abort();operation.current=null;roundOperation.current=null;setReplays([]);setMapName('');setQueryPlayers(null);setBusy(false);setLoadingRounds(false);setError('');setStatus('');setPlaying(false);},[]);
+  const clearSource=useCallback(()=>{operation.current?.abort();roundOperation.current?.abort();operation.current=null;roundOperation.current=null;setReplays([]);setArea(null);setMapName('');setQueryPlayers(null);setBusy(false);setLoadingRounds(false);setError('');setStatus('');setPlaying(false);},[]);
   const chooseSource=useCallback(async source=>{
     clearSource();setMode(source.mode);setQueryPlayers(source.mode==='groups'?source.players:null);
     const identity=source.mode==='groups'?`groups:${source.players.map(p=>p.id).join(',')}`:`match:${source.matches[0]?.id}`;
@@ -88,8 +89,11 @@ export default function Analyzer({entryStore}) {
   },[remote,mapReplays,roundKeys,selectedPlayers,retry]);
   const rounds=useMemo(()=>remote?(cachedRounds??[]):mapReplays.flatMap(r=>r.rounds.filter(round=>roundKeys.includes(`${r.match_uid}:${round.number}`)).map(round=>({...round,match_uid:r.match_uid}))),[remote,cachedRounds,mapReplays,roundKeys]);
   const duration = rounds.reduce((max,r)=>Math.max(max,r.duration),0), map = Object.hasOwn(mapData.maps,mapName) ? mapData.maps[mapName] : null;
-  const areaLevel=area?.map===mapName?map?.levels.find(level=>level.id===area.level):null;
-  const areaSummary=useMemo(()=>areaLevel?summarizeArea(rounds,{area:area.bounds,map,level:areaLevel,time,players:selectedPlayers,side,target:selectionTarget,allSelected:selectedPlayers.length===mapPlayers.length,utilities,layers:combatLayers}):null,[rounds,area,areaLevel,map,time,selectedPlayers,side,selectionTarget,utilities,combatLayers,mapPlayers]);
+  const areaSummary=useMemo(()=>area?.map===mapName?summarizeArea(rounds,{players:selectedPlayers,selection:area.items}):null,[rounds,area,mapName,selectedPlayers]);
+  function selectItems(items,append=false) {
+    setPlaying(false);
+    setArea(previous=>({map:mapName,items:mergeSelection(previous?.map===mapName?previous.items:[],items,append)}));
+  }
   useEffect(() => { if(!area||mapName&&area.map!==mapName)setTime(0);setPlaying(false); }, [selectedRounds,groupRounds,mapName,filters,selectedPlayers,side]);
   useEffect(()=>{if(rounds.length)setTime(value=>Math.min(value,duration));},[rounds,duration]);
   useEffect(() => {
@@ -106,11 +110,6 @@ export default function Analyzer({entryStore}) {
     return () => cancelAnimationFrame(frame);
   }, [playing,speed,duration]);
   useEffect(() => { if (time >= duration) setPlaying(false); }, [time,duration]);
-  function chooseSelectionTarget(target) {
-    setSelectionTarget(target);
-    if(isUtilityTarget(target))setUtilities(values=>values.includes(target)?values:[...values,target]);
-    if(['Kills','Deaths'].includes(target))setCombatLayers(values=>values.includes(target)?values:[...values,target]);
-  }
   function focusArea() {
     const keys=[...(areaSummary?.matched||[])].map(selectionRoundKey).filter(Boolean);if(!keys.length)return;
     setRoundFocus({map:mapName,keys,previousMatchRounds:mode==='match'?[...selectedRounds]:null});if(mode==='match')setSelectedRounds(keys);setArea(null);setTime(0);setPlaying(false);
@@ -140,8 +139,8 @@ export default function Analyzer({entryStore}) {
   }
   return <section className="analyzer-view" aria-label="2D analyzer">
     <SourcePicker mode={mode} onMode={setMode} entry={entry} matchFilters={matchFilters} onChoose={chooseSource} onClear={clearSource} />
-    <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities} combatLayers={combatLayers} nameTags={nameTags} selectionTarget={selectionTarget} onSelectionTarget={chooseSelectionTarget}
-      area={area?.map===mapName?area:null} areaSummary={areaSummary} onArea={value=>setArea(value?{...value,map:mapName}:null)} onAreaStart={()=>setPlaying(false)}
+    <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} utilities={utilities} combatLayers={combatLayers} nameTags={nameTags}
+      area={area?.map===mapName?area:null} areaSummary={areaSummary} onSelectItems={selectItems} onClearSelection={()=>setArea(null)} onAreaStart={()=>setPlaying(false)}
       areaOverlay={areaSummary&&<AreaSummary summary={areaSummary} loading={busy||loadingRounds} onClear={()=>setArea(null)} onFocus={focusArea} />}
       actions={<div className="analyzer-import">
         {mode==='match'&&<label className={`button button-primary${busy||loadingRounds?' disabled':''}`}>Open
@@ -153,7 +152,7 @@ export default function Analyzer({entryStore}) {
       status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage></>}
       controls={<AnalyzerControls players={players} selectedPlayers={selectedPlayers} setSelectedPlayers={setSelectedPlayers}
         colors={colors} utilities={utilities} setUtilities={setUtilities} side={side} onSide={setSide} filters={filters} setFilters={setFilters} selectedCount={rounds.length} combatLayers={combatLayers} setCombatLayers={setCombatLayers}
-        selectionTarget={selectionTarget} onSelectionTarget={chooseSelectionTarget} roundFocus={roundFocus?.map===mapName?roundFocus:null} onClearFocus={clearRoundFocus}
+        roundFocus={roundFocus?.map===mapName?roundFocus:null} onClearFocus={clearRoundFocus}
         nameTags={nameTags} onNameTags={setNameTags} matchFilters={mode==='groups'?matchFilters:null}
         groupRounds={mode==='groups'?{replays:mapReplays,value:groupRounds,onChange:setGroupRounds}:null}
         roundPicker={{replays:mapReplays,selected:selectedRounds,filters:{...filters,side,players:selectedPlayers},
