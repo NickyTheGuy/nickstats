@@ -73,28 +73,32 @@ func validateUtilitySearch(_ q: UtilitySearchQuery) throws {
         throw Abort(.badRequest,reason:"Invalid utility search. Narrow the match or round selection if it is too large.")
     }
 }
+// Derived public search data: prepare once under the capture lock, including concurrent searches.
+func prepareUtilityIndex(_ database: any Database,capture: String) async throws {
+    try await database.transaction { db in
+            guard let sql = db as? any SQLDatabase else { throw Abort(.internalServerError) }
+            guard let row = try await sql.raw("""
+              SELECT c.match_id,c.manifest_json FROM replay_captures c JOIN matches m ON m.id=c.match_id
+              WHERE c.id=\(bind:capture) AND c.complete=TRUE AND c.demo_sha256=m.demo_sha256 FOR UPDATE
+              """).first() else { throw Abort(.conflict,reason:"Capture changed. Find matches again.") }
+            if try await sql.raw("SELECT capture_id FROM replay_utility_index_state WHERE capture_id=\(bind:capture) AND version=1").first() != nil { return }
+            let manifest = try replayDecode(row.decode(column:"manifest_json",as:String.self),as:[ReplayRoundManifest].self)
+            let totals = try await legacyUtilityTotals(sql,matchID:row.decode(column:"match_id",as:Int64.self))
+            try await sql.raw("DELETE FROM replay_utility_events WHERE capture_id=\(bind:capture)").run()
+            try await sql.raw("DELETE FROM replay_utility_index_state WHERE capture_id=\(bind:capture)").run()
+            for item in manifest {
+                let data = try await storedRound(sql,capture:capture,manifest:item),round = try JSONDecoder().decode(ReplayJSON.self,from:data)
+                try await saveUtilityIndexRound(sql,capture:capture,round:round,legacy:totals[item.number] ?? [:])
+            }
+            try await markUtilityIndexed(sql,capture:capture)
+        }
+}
 func utilitySearchRoutes(_ app: Application) {
     app.post("analyzer","utility","index") { request async throws -> UtilityReindexResult in
         try requireUploadAuthorization(request)
         let query = try request.content.decode(UtilityReindexQuery.self)
         guard UUID(uuidString:query.capture) != nil else { throw Abort(.badRequest) }
-        try await request.db.transaction { db in
-            guard let sql = db as? any SQLDatabase else { throw Abort(.internalServerError) }
-            guard let row = try await sql.raw("""
-              SELECT c.match_id,c.manifest_json FROM replay_captures c JOIN matches m ON m.id=c.match_id
-              WHERE c.id=\(bind:query.capture) AND c.complete=TRUE AND c.demo_sha256=m.demo_sha256 FOR UPDATE
-              """).first() else { throw Abort(.conflict,reason:"Capture changed. Find matches again.") }
-            if try await sql.raw("SELECT capture_id FROM replay_utility_index_state WHERE capture_id=\(bind:query.capture) AND version=1").first() != nil { return }
-            let manifest = try replayDecode(row.decode(column:"manifest_json",as:String.self),as:[ReplayRoundManifest].self)
-            let totals = try await legacyUtilityTotals(sql,matchID:row.decode(column:"match_id",as:Int64.self))
-            try await sql.raw("DELETE FROM replay_utility_events WHERE capture_id=\(bind:query.capture)").run()
-            try await sql.raw("DELETE FROM replay_utility_index_state WHERE capture_id=\(bind:query.capture)").run()
-            for item in manifest {
-                let data = try await storedRound(sql,capture:query.capture,manifest:item),round = try JSONDecoder().decode(ReplayJSON.self,from:data)
-                try await saveUtilityIndexRound(sql,capture:query.capture,round:round,legacy:totals[item.number] ?? [:])
-            }
-            try await markUtilityIndexed(sql,capture:query.capture)
-        }
+        try await prepareUtilityIndex(request.db,capture:query.capture)
         return UtilityReindexResult(indexed:true)
     }
     app.post("analyzer","utility","search") { request async throws -> UtilitySearchPage in
@@ -110,7 +114,13 @@ func utilitySearchRoutes(_ app: Application) {
         guard captures.count == ids.count else { throw Abort(.conflict,reason:"Captures changed. Find matches again.") }
         var pending: [String] = [],indexed: [String] = []
         for row in captures { let id = try row.decode(column:"id",as:String.self);if try row.decode(column:"indexed",as:String?.self) == nil { pending.append(id) } else { indexed.append(id) } }
-        if indexed.isEmpty { return UtilitySearchPage(rows:[],total:0,unknown:0,pending_captures:pending.sorted(),offset:offset,limit:limit) }
+        // Bound each request to one old capture. Clients continue the search until
+        // preparation is complete; freshly published captures are already indexed.
+        if let capture = pending.sorted().first {
+            try await prepareUtilityIndex(request.db,capture:capture)
+            pending.removeAll { $0 == capture };indexed.append(capture)
+        }
+        if !pending.isEmpty { return UtilitySearchPage(rows:[],total:0,unknown:0,pending_captures:pending.sorted(),offset:offset,limit:limit) }
         var scope: SQLQueryString = "FALSE"
         for s in q.scopes { scope = "\(scope) OR (e.capture_id=\(bind:s.capture) AND e.round_number IN (\(binds:s.rounds)))" }
         let column: SQLQueryString = q.metric == "damage" ? "e.enemy_damage":q.metric == "enemies" ? "e.enemies_flashed":"e.enemy_blind_ms"

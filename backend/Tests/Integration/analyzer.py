@@ -135,7 +135,10 @@ try:
     request('/analyzer/utility/search',query | {'type':'bad'},expected=400)
     request('/analyzer/utility/search',query | {'scopes':[{'capture':'bad','rounds':[1]}]},expected=400)
     sql(f"DELETE FROM replay_utility_index_state WHERE capture_id='{capture}'; DELETE FROM replay_utility_events WHERE capture_id='{capture}'")
-    assert request('/analyzer/utility/search',query)['pending_captures'] == [capture]
+    prepared = request('/analyzer/utility/search',query,auth=False)
+    assert prepared['pending_captures'] == [] and prepared['total'] == 1
+    assert prepared['rows'][0]['enemy_damage'] == 40
+    assert sql(f"SELECT COUNT(*) FROM replay_utility_index_state WHERE capture_id='{capture}' AND version=1") == '1'
     request('/analyzer/utility/index',{'capture':capture},auth=False,expected=401)
     request('/analyzer/utility/index',{'capture':capture})
     request('/analyzer/utility/index',{'capture':capture})
