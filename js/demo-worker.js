@@ -2506,10 +2506,11 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
         if(enemy)replayCapture.outcome('flash',tick,start,tickInterval,{player:replayPlayerId(attacker),victim:`user:${victimId}`,type:'Flash',entity:Number.isInteger(gameEvent.entityid)&&gameEvent.entityid>0?gameEvent.entityid:null,duration});
       }
       if(descriptor.name==='player_hurt') {
-        const raw=Math.max(0,number(gameEvent.dmg_health)),after=numberOrNull(gameEvent.health),before=round.healthByUser.get(victimId);
+        const replayRound=replayCapture.getRound(start),healthByUser=round.live?round.healthByUser:(replayRound.healthByUser??=new Map(round.healthByUser));
+        const raw=Math.max(0,number(gameEvent.dmg_health)),after=numberOrNull(gameEvent.health),before=healthByUser.get(victimId);
         const health=after===null?null:Math.max(0,Math.min(100,after));
         const damage=health===null?raw:Math.max(0,Math.min(raw,(Number.isFinite(before)&&before>=health?before:Math.min(100,health+raw))-health));
-        if(!round.live&&health!==null)round.healthByUser.set(victimId,health);
+        if(!round.live&&health!==null)healthByUser.set(victimId,health);
         const weapon=String(gameEvent.weapon||'').toLowerCase();
         if(enemy&&damage>0&&['hegrenade','inferno','molotov','incgrenade'].includes(weapon))replayCapture.outcome('damage',tick,start,tickInterval,{player:replayPlayerId(attacker),victim:`user:${victimId}`,type:weapon==='hegrenade'?'HE':'Fire',entity:null,damage:Math.round(damage)});
       }
