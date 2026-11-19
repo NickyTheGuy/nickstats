@@ -165,6 +165,19 @@ func replayRoundSummary(_ round: ReplayJSON, players: Set<String>) throws -> (Re
               ["buy","enemy_buy"].allSatisfy({ [.null,.string("full"),.string("force"),.string("eco"),.string("pistol")].contains(c[$0]) }),
               [.bool(true),.bool(false)].contains(c["hero"]) else { throw replayBad("invalid round context.") }
     }
+    if round["clock"] != .null {
+        guard ["round_ms","bomb_ms"].allSatisfy({ round["clock"][$0].number.map { $0.isFinite && $0 > 0 && $0 <= 600000 } == true }),
+              ["round_estimated","bomb_estimated"].allSatisfy({ [.bool(true),.bool(false)].contains(round["clock"][$0]) }) else { throw replayBad("invalid round clock.") }
+    }
+    if round["bomb_events"] != .null {
+        guard let events = round["bomb_events"].array,events.count <= 3 else { throw replayBad("invalid bomb events.") }
+        var previous: Double = -1;var seen = Set<String>()
+        for e in events {
+            guard let type = e["type"].string,["plant","defuse","explode"].contains(type),seen.insert(type).inserted,
+                  let time = e["time"].number,time.isFinite,time >= previous,(0...duration).contains(time),owner(e["player"],optional:true) else { throw replayBad("invalid bomb event.") }
+            previous = time
+        }
+    }
     if round["equipment"] != .null {
         guard let values = round["equipment"].array, values.count <= players.count else { throw replayBad("invalid equipment.") }
         var seen = Set<String>()

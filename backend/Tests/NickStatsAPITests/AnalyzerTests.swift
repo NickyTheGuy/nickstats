@@ -104,3 +104,15 @@ private func analyzerRound() throws -> ReplayJSON {
     value["equipment"] = try replayDecode("[{\"player\":\"steam:1\",\"samples\":[[0,\"../bad\"]]}]",as:ReplayJSON.self)
     #expect(throws:(any Error).self) { try replayRoundSummary(.object(value),players:["steam:1","steam:2"]) }
 }
+
+@Test func roundClocksAndBombEventsRemainGlobalDuringProjection() throws {
+    var value = try analyzerRound().object!
+    value["clock"] = try replayDecode("{\"round_ms\":115000,\"bomb_ms\":40000,\"round_estimated\":false,\"bomb_estimated\":false}",as:ReplayJSON.self)
+    let events = try replayDecode("[{\"type\":\"plant\",\"time\":100,\"player\":\"steam:2\"},{\"type\":\"defuse\",\"time\":900,\"player\":\"steam:1\"}]",as:ReplayJSON.self)
+    value["bomb_events"] = events
+    _ = try replayRoundSummary(.object(value),players:["steam:1","steam:2"])
+    #expect(projectReplayRound(.object(value),players:["steam:1"])["bomb_events"] == events)
+    #expect(projectReplayRound(.object(value),players:["steam:2"])["clock"] == value["clock"])
+    value["bomb_events"] = try replayDecode("[{\"type\":\"plant\",\"time\":1001,\"player\":null}]",as:ReplayJSON.self)
+    #expect(throws:(any Error).self) { try replayRoundSummary(.object(value),players:["steam:1","steam:2"]) }
+}

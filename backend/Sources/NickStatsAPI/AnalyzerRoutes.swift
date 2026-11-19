@@ -235,6 +235,14 @@ func analyzerRoutes(_ app: Application) throws {
             performance[try row.decode(column:"round_number",as:Int.self),default:[]].append(.object(value))
         }
         timing.record("performance",since:performanceStart)
+        let objectiveStart = timing.start()
+        let plants = try await sql.raw("""
+          SELECT round_number,bomb_plant_elapsed_ms FROM match_rounds WHERE match_id=\(bind:matchID)
+          AND round_number IN (\(binds:selection.rounds)) AND bomb_plant_elapsed_ms IS NOT NULL
+          """).all()
+        var plantTimes: [Int:Int] = [:]
+        for row in plants { plantTimes[try row.decode(column:"round_number",as:Int.self)] = try row.decode(column:"bomb_plant_elapsed_ms",as:Int.self) }
+        timing.record("objectives",since:objectiveStart)
         var rounds: [ReplayJSON] = []
         for item in items {
             let assembleStart = timing.start()
@@ -248,6 +256,9 @@ func analyzerRoutes(_ app: Application) throws {
             let projectStart = timing.start()
             var projected = projectReplayRound(round,players:players)
             if var object = projected.object {
+                if object["bomb_events"] == nil,let plant = plantTimes[item.number],Double(plant) <= (round["duration"].number ?? -1) {
+                    object["bomb_events"] = .array([.object(["type":.string("plant"),"time":.number(Double(plant)),"player":.null])])
+                }
                 var byPlayer: [String:ReplayJSON] = [:]
                 for value in projected["performance"].array ?? [] { if let id = value["player"].string { byPlayer[id] = value } }
                 for value in performance[item.number] ?? [] { if let id = value["player"].string { byPlayer[id] = value } }

@@ -26,6 +26,7 @@ sql("""
 INSERT INTO parser_configs(id,config_sha256,rules_json) VALUES(1,UNHEX(REPEAT('a',64)),'{}');
 INSERT INTO matches(id,demo_sha256,payload_schema,nickstats_build,parser_name,parser_version,parser_config_id,map_name,played_at,played_at_source,rounds)
 VALUES(1,UNHEX(REPEAT('a',64)),'nickstats.match/27','integration','test','1',1,'de_mirage','2026-11-01 12:00:00','faceit_history',2);
+INSERT INTO match_rounds(match_id,round_number,live_start_tick,end_tick,duration_ms,winner_side,bomb_plant_elapsed_ms) VALUES(1,1,0,64,1000,'CT',300);
 INSERT INTO players(id,steam_id,current_name) VALUES(1,1,'One'),(2,2,'Two'),(3,3,'Three');
 INSERT INTO match_teams(id,match_id,team_slot,source_team_id,display_name) VALUES(1,1,0,'a','A'),(2,1,1,'b','B');
 INSERT INTO match_players(match_id,match_team_id,player_slot,player_id,display_name) VALUES(1,1,0,1,'One'),(1,1,1,2,'Two'),(1,2,2,3,'Three');
@@ -73,6 +74,8 @@ try:
                'utility':[],'firing':[],'projectiles':[],
                'deaths':[{'time':500,'victim':'steam:3','killer':'steam:1','victim_side':2,'killer_side':3,
                           'x':10,'y':10,'z':0,'from':[1,2,0],'weapon':'ak47','headshot':True}]} for i in [1,2]]
+    rounds[1]['clock'] = {'round_ms':115000,'bomb_ms':40000,'round_estimated':False,'bomb_estimated':False}
+    rounds[1]['bomb_events'] = [{'type':'plant','time':100,'player':'steam:3'},{'type':'defuse','time':900,'player':'steam:1'}]
     text = [json.dumps(r, separators=(',', ':')) for r in rounds]
     manifest = [{'number':r['number'],'parts':2,'bytes':len(t.encode()),'sha256':hashlib.sha256(t.encode()).hexdigest(),
                  'summary':{k:r[k] for k in ['number','duration','winner','context']} | {'player_ids':['steam:1','steam:3']}}
@@ -99,12 +102,15 @@ try:
     assert selected['rounds'][0]['deaths'][0]['victim'] == 'steam:3'
     assert selected['rounds'][0]['equipment'][0]['samples'][1] == [200,'c4']
     assert selected['rounds'][0]['blindness'] == []
+    assert selected['rounds'][0]['bomb_events'] == rounds[1]['bomb_events']
+    assert selected['rounds'][0]['clock']['bomb_ms'] == 40000
     both = request('/analyzer/captures/'+capture+'/selection', {'rounds':[1,2], 'players':['steam:1','steam:3']})
     assert [r['number'] for r in both['rounds']] == [1,2]
     assert all(len(r['tracks']) == 2 for r in both['rounds'])
     assert both['rounds'][0]['blindness'][0]['duration'] == 2500
     sql("UPDATE player_round_phase_stats SET stats_json=JSON_SET(stats_json,'$.utility_thrown',JSON_ARRAY(0,1,0,1,0),'$.utility',JSON_ARRAY(0,80),'$.profile',JSON_ARRAY(0,0,0,0,0,0,0,0,0,0,0,0,0,2,1500,0)) WHERE match_player_id=1 AND round_number=1")
     enriched = request('/analyzer/captures/'+capture+'/selection', {'rounds':[1], 'players':['steam:1']})
+    assert enriched['rounds'][0]['bomb_events'] == [{'type':'plant','time':300,'player':None}]
     grenade = enriched['rounds'][0]['performance'][0]['grenades']
     assert grenade['flash_thrown'] == 1 and grenade['enemies_flashed'] == 2 and grenade['fire_damage'] == 80 and grenade['blind_ms'] == 1500
     request(f'/analyzer/captures/{capture}/rounds/1/parts/0', {'data':'bad'},method='PUT',expected=409)
