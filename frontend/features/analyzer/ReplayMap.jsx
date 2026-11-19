@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../../shared/components/buttons/Button.jsx';
+import useRememberedState from '../../shared/hooks/useRememberedState.js';
+import { preference,viewPreferences } from './state/preferences.mjs';
 import ToggleButton from '../../shared/components/buttons/ToggleButton.jsx';
 import { pointerToRadar,areaBounds,areaOnScreen } from './state/area-selection.mjs';
 import { onLevel, positionAt, worldToRadar } from './state/replay.mjs';
@@ -14,15 +16,14 @@ import { viewport } from './state/viewport.mjs';
 import { drawPlayerState,playerAlive } from './state/player-state.mjs';
 import { selectionCandidates,candidatesInArea } from './state/map-selection.mjs';
 
-export default function ReplayMap({ map, level, rounds, players, selected, colors, time, side, display=createDisplay(), enemyDisplay=createDisplay(), rosters=null, area, areaSummary, onSelectItems=()=>{}, onClearSelection=()=>{}, onAreaStart=()=>{} }) {
+export default function ReplayMap({ map, level, viewKey, rounds, players, selected, colors, time, side, display=createDisplay(), enemyDisplay=createDisplay(), rosters=null, area, areaSummary, onSelectItems=()=>{}, onClearSelection=()=>{}, onAreaStart=()=>{} }) {
   const icons=useGrenadeIcons(),combatIcons=useCombatIcons(rounds);
   const canvas = useRef(null), drag = useRef(null);
   const size=useElementSize(canvas);
   const [gestureMode,setGestureMode]=useState('select'),[preview,setPreview]=useState(null);
-  const [view, setView] = useState({ zoom: 1, x: 0, y: 0 });
+  const [view, setView] = useRememberedState(preference(`view.${viewKey}`),()=>({ zoom: 1, x: 0, y: 0 }),viewPreferences);
   const markerUnit=1024/Math.max(1,Math.min(size.width,size.height)*view.zoom);
   const candidates=useMemo(()=>selectionCandidates(rounds,{map,level,time,players:selected,side,display,enemyDisplay,allSelected:selected.length===players.length,unit:markerUnit,rosters}),[rounds,map,level,time,selected,side,display,enemyDisplay,players,markerUnit,rosters]);
-  useEffect(() => { setView({ zoom: 1, x: 0, y: 0 }); }, [map]);
   const zoom = delta => setView(v => {
     const next = Math.max(1, Math.min(4, v.zoom + delta)), max = (next - 1) * 512;
     if(next===1)setGestureMode('select');

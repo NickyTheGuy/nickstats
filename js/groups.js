@@ -4,7 +4,6 @@
   const GROUP_DATA_ENDPOINT = "/nickstats/api/groups";
   const MAX_GROUP = 20;
   const MATCH_LIST_LIMIT = 50;
-  const GROUP_REFRESH_AGE_MS = 60_000;
   const GROUP_SELECTION_KEY = "nickstats.groupSelection.v1";
   const GROUP_QUERY_KEY = "nickstats.groupQuery.v2";
   const rules = window.NickStatsGroupRules;
@@ -329,23 +328,11 @@
     state.groupStale = true;
     state.groupController?.abort();
     state.groupController = null;
-    if (!$("groupsPage").hidden) buildGroup({ refresh: true });
+    ui.groupBuildButton.update({ disabled: !canBuild() });
+    setStatus("Matches changed. Build profiles to update.");
   }
 
   window.addEventListener("nickstats:matches-changed", markGroupStale);
-  function ensureCurrentGroup({ force = false } = {}) {
-    if ($("groupsPage").hidden || document.hidden || state.groupController || !canBuild()) return;
-    if (force || state.groupStale || !state.players.length || Date.now() - state.groupLoadedAt >= GROUP_REFRESH_AGE_MS) {
-      buildGroup({ refresh: true });
-    }
-  }
-
-  window.addEventListener("nickstats:page", event => {
-    if (event.detail?.page === "groups") ensureCurrentGroup({ force: true });
-  });
-  window.addEventListener("focus", () => ensureCurrentGroup());
-  document.addEventListener("visibilitychange", () => ensureCurrentGroup());
-
   function displayedPlayers() {
     return state.players;
   }
@@ -531,7 +518,5 @@
       onReset: () => { if (state.players.length) runCombination(); } });
   });
   renderSelectedRoster();
-  // Initial navigation fires before this controller loads. Restore selections
-  // from storage, but always obtain their match data from the API.
-  ensureCurrentGroup();
+  // Restore the editor only. Fetch histories when Build profiles is clicked.
 })();

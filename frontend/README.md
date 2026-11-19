@@ -54,7 +54,8 @@ coordinates draggable player cells in `RuleGroup`/`RuleCondition`.
 It uses the shared button and option controls. Pure evaluation,
 bounds, migration, and team-orientation logic live in `state/rules.mjs` and are
 exposed through the feature adapter for `js/groups.js`. The controller retains
-history loading, filters, summaries and existing result views. Node tests cover
+history loading, filters, summaries and existing result views. Saved conditions
+restore without fetching profiles; Build profiles is always explicit. Node tests cover
 Boolean semantics and match qualification independently of React rendering.
 
 The compact rule editor uses `state/editing.mjs` for immutable cell/group moves,
@@ -68,7 +69,7 @@ when editing, including NONE negation. Pointer selection supports multi-item dra
 and movement without an on-screen action toolbar.
 
 
-The simplified editor automatically shows all selected player profiles. There is
+After an explicit build, the simplified editor shows all selected player profiles. There is
 no unassigned bench or per-player presence toggle. Cells' × removes the selected
 player; group × ungroups its children. The internal `none` operator is labeled
 Exclude, with red outlines/cells in negated groups. `normalizeEditorRules` upgrades
@@ -265,3 +266,13 @@ can set `align` through `OptionField` or `OptionDropdown` instead of adding
 per-screen spacing workarounds. Date/map triggers keep intentional start alignment
 and symmetric vertical padding. Hidden buttons remain hidden under the shared
 layout rule.
+
+### Analyzer browser preferences
+
+`shared/state/preferences.mjs` and `useRememberedState` batch lightweight browser
+preferences and tolerate storage failures. Analyzer validators live in
+`features/analyzer/state/preferences.mjs`. Source drafts, loaded-source intent,
+filters and view choices persist; positions and result payloads do not. The last
+loaded source resumes only on the Analyzer page, with filters restored before
+movement loads. Drafts wait for submission, explicit new routes take priority,
+and private tag choices are scoped to the account. Playback resumes paused.

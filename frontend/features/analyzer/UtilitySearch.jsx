@@ -4,12 +4,14 @@ import IconButton from '../../shared/components/buttons/IconButton.jsx';
 import FormMessage from '../../shared/components/feedback/FormMessage.jsx';
 import OverlayMenu from './OverlayMenu.jsx';
 import RoundFilter from './RoundFilter.jsx';
+import useRememberedState from '../../shared/hooks/useRememberedState.js';
+import { preference,utilityPreferences } from './state/preferences.mjs';
 import { analyzerJSON } from './state/server.mjs';
 import { UTILITY_SEARCH_TYPES,utilityMetrics,utilityQuery,searchUtility } from './state/utility-search.mjs';
 
 const icons={HE:['hegrenade'],Flash:['flashbang'],Fire:['molotov','incgrenade']};
 export default function UtilitySearch({scopes,players,side,open,onToggle,result,onResults}) {
-  const [form,setForm]=useState({type:'HE',metric:'damage',minimum:'40'}),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [form,setForm]=useRememberedState(preference('utility'),()=>({type:'HE',metric:'damage',minimum:'40'}),utilityPreferences),[busy,setBusy]=useState(false),[error,setError]=useState('');
   const operation=useRef(null),scopeKey=JSON.stringify([scopes,players,side]);
   useEffect(()=>{operation.current?.abort();setError('');setBusy(false);return()=>operation.current?.abort();},[scopeKey]);
   function edit(next){operation.current?.abort();setForm(next);setError('');setBusy(false);}

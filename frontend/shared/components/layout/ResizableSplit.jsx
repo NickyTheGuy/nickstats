@@ -1,8 +1,9 @@
 import { Children, useLayoutEffect, useRef, useState } from 'react';
+import useRememberedState from '../../hooks/useRememberedState.js';
 
-export default function ResizableSplit({ children, orientation='auto', label='Panel split', className='' }) {
+export default function ResizableSplit({ children, orientation='auto', label='Panel split', className='',preferenceKey=null }) {
   const host=useRef(null), drag=useRef(null);
-  const [width,setWidth]=useState(0), [share,setShare]=useState(50);
+  const [width,setWidth]=useState(0), [share,setShare]=useRememberedState(preferenceKey,50,value=>Number.isFinite(value)?Math.max(10,Math.min(90,value)):50);
   useLayoutEffect(()=>{
     setWidth(host.current.getBoundingClientRect().width);
     const observer=new ResizeObserver(([entry])=>setWidth(entry.contentRect.width));

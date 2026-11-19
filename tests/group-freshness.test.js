@@ -22,7 +22,7 @@ function setup() {
     fetch:(url,options)=>new Promise((resolve,reject)=>requests.push({url,options,resolve,reject})),
     apiJson:response=>response.json(),
     normalizePlayer:player=>({profileId:String(player.id),label:player.name,rows:player.matches}),
-    populateMaps:options=>assert.equal(options.reset,false),
+    populateMaps(){},
     persistRoster(){},renderSelectedRoster(){},
     runCombination:()=>rendered.push(Array.from(state.players).flatMap(player=>Array.from(player.rows,row=>row.id))),
     displayedPlayers:()=>state.players,
@@ -30,71 +30,28 @@ function setup() {
     setStatus:(...args)=>statuses.push(args)
   };
   const start=source.indexOf('  async function buildGroup('), end=source.indexOf('  function displayedPlayers(',start);
-  vm.runInNewContext(`${source.slice(start,end)} globalThis.ensure = ensureCurrentGroup;`,sandbox);
+  vm.runInNewContext(`${source.slice(start,end)} globalThis.build = buildGroup;`,sandbox);
   const finish = (index,ids) => requests[index].resolve({json:async()=>({players:[
     {id:1,name:'Current name',matches:ids.map(id=>({id}))},
     {id:2,name:'Excluded',matches:[]}
   ]})});
   return {state,nodes,document,listeners,requests,rendered,statuses,ratingRequests,measures,finish,
-    ensure:sandbox.ensure,advance:ms=>{now+=ms;}};
+    build:sandbox.build,advance:ms=>{now+=ms;}};
 }
 
-test('returning to Groups reloads matches without resetting its roster, roles, filters or view',async()=>{
-  const app=setup();
-  app.listeners.get('nickstats:page')({detail:{page:'groups'}});
-  assert.equal(app.requests.length,1);
-  assert.equal(app.requests[0].url,'/nickstats/api/groups?players=1%2C2&wire=4');
-  assert.equal(app.requests[0].options.cache,'no-store');
-  assert.deepEqual(app.ratingRequests,['1','2'],'ratings start before the history response arrives');
-  app.finish(0,['old','new-this-week']);
-  await tick();
-  assert.deepEqual(app.rendered,[['old','new-this-week']]);
-  assert.equal(app.measures.size,5);
-  assert.ok(app.measures.has('NickStats Groups: total'));
-  assert.equal(app.state.selected.get('1').match_count,2);
-  assert.equal(app.state.players.length,2,'all selected players have a profile');
-  assert.equal(app.state.side,'CT');
-  assert.equal(app.state.buy,'full');
-  assert.equal(app.state.comboDisplay,'graphs');
-  assert.deepEqual([...app.state.graphPlayers],['1']);
+test('manual Build profiles gets current histories and ratings without changing conditions',async()=>{
+  const app=setup();app.build();assert.equal(app.requests.length,1);assert.equal(app.requests[0].url,'/nickstats/api/groups?players=1%2C2&wire=4');assert.equal(app.requests[0].options.cache,'no-store');assert.deepEqual(app.ratingRequests,['1','2']);
+  app.finish(0,['old','new-this-week']);await tick();assert.deepEqual(app.rendered,[['old','new-this-week']]);assert.equal(app.state.side,'CT');assert.equal(app.state.buy,'full');assert.equal(app.state.selected.get('1').match_count,2);
 });
-
-test('restored rosters fetch initially; week-old focus refresh coalesces visibility events',async()=>{
-  const app=setup();
-  app.state.players=[];app.state.groupLoadedAt=0;
-  app.ensure();
-  app.listeners.get('focus')();
-  app.listeners.get('visibilitychange')();
-  assert.equal(app.requests.length,1);
-  app.finish(0,['first']);await tick();
-  app.listeners.get('focus')();
-  assert.equal(app.requests.length,1,'fresh focus does not rebuild repeatedly');
-  app.advance(7*24*60*60*1000);
-  app.listeners.get('focus')();app.listeners.get('visibilitychange')();
-  assert.equal(app.requests.length,2,'one request for an idle return');
-  app.finish(1,['first','new']);await tick();
-  assert.deepEqual(app.rendered.at(-1),['first','new']);
-  app.nodes.groupsPage.hidden=true;app.advance(60001);
-  app.listeners.get('focus')();
-  assert.equal(app.requests.length,2,'hidden Groups waits until visited');
+test('restored rosters and navigation, focus and visibility never trigger a build',async()=>{
+  const app=setup();app.state.players=[];app.state.groupLoadedAt=0;
+  app.listeners.get('nickstats:page')?.({detail:{page:'groups'}});app.listeners.get('focus')?.();app.listeners.get('visibilitychange')?.();app.advance(7*24*60*60*1000);app.listeners.get('focus')?.();assert.equal(app.requests.length,0);
+  assert.equal(app.state.selected.size,2);app.build();assert.equal(app.requests.length,1);app.finish(0,['current']);await tick();app.advance(60001);app.listeners.get('focus')?.();assert.equal(app.requests.length,1);
 });
-
-test('failed refreshes remain retryable and an aborted older request cannot replace newer data',async()=>{
-  const app=setup();app.advance(60001);
-  app.ensure();app.requests[0].reject(new Error('offline'));await tick();
-  assert.equal(app.state.players[0].rows[0].id,'old');
-  assert.equal(app.state.groupController,null);
-  assert.ok(app.statuses.some(([message,error])=>error&&message.includes('offline')));
-  app.ensure();assert.equal(app.requests.length,2);
-  app.listeners.get('nickstats:matches-changed')();
-  assert.equal(app.requests.length,3);
-  app.finish(2,['newest']);await tick();
-  app.finish(1,['stale']);await tick();
-  assert.deepEqual(app.rendered,[['newest']]);
+test('match changes invalidate pending builds without automatically starting another request',async()=>{
+  const app=setup();app.build();app.listeners.get('nickstats:matches-changed')();assert.equal(app.requests.length,1);assert.equal(app.requests[0].options.signal.aborted,true);assert.equal(app.state.groupController,null);assert.equal(app.state.groupStale,true);
+  app.build();assert.equal(app.requests.length,2);app.finish(1,['newest']);await tick();app.finish(0,['stale']);await tick();assert.deepEqual(app.rendered,[['newest']]);
 });
-
-test('empty selections never auto-build',()=>{
-  const app=setup();app.state.players=[];
-  app.state.selected.clear();app.ensure();
-  assert.equal(app.requests.length,0);
+test('failed manual builds can be retried and empty selections never build',async()=>{
+  const app=setup();app.state.selected.clear();app.build();assert.equal(app.requests.length,0);app.state.selected.set('1',{id:'1'});app.build();app.requests[0].reject(new Error('offline'));await tick();assert.equal(app.state.groupController,null);app.build();assert.equal(app.requests.length,2);app.finish(1,['current']);await tick();
 });

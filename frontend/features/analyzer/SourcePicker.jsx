@@ -7,23 +7,32 @@ import GroupBuilder from '../groups/GroupBuilder.jsx';
 import { normalizeEditorRules } from '../groups/state/editing.mjs';
 import PlayerSearch from '../players/search/PlayerSearch.jsx';
 import { createPlayerSearch } from '../players/state/player-search.mjs';
-import { analyzerMatches, conditionPlayers, rulesForPlayers } from './state/query.mjs';
+import { analyzerMatches, conditionPlayers, rulesForPlayers,parseAnalyzerRoute } from './state/query.mjs';
 import { candidateMatches } from './state/server.mjs';
 import mapData from './state/maps.json';
+import { browserPreferences } from '../../shared/state/preferences.mjs';
+import { preference } from './state/preferences.mjs';
 
-export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFilters}) {
-  const [players,setPlayers]=useState([]),[rules,setRules]=useState(()=>rulesForPlayers([]));
-  const [matchID,setMatchID]=useState(''),[candidates,setCandidates]=useState(null),[map,setMap]=useState('');
-  const [pending,setPending]=useState(false),[error,setError]=useState(''),[pendingTags,setPendingTags]=useState([]);
+export default function SourcePicker({saved,mode,onMode,entry,onChoose,onClear,matchFilters}) {
+  const [players,setPlayers]=useState(saved.players),[rules,setRules]=useState(()=>normalizeEditorRules(saved.rules||rulesForPlayers(saved.players),saved.players.map(p=>p.id)));
+  const [matchID,setMatchID]=useState(saved.matchID),[candidates,setCandidates]=useState(null),[map,setMap]=useState(saved.map);
+  const [pending,setPending]=useState(false),[error,setError]=useState(''),[pendingTags,setPendingTags]=useState(saved.tags);
   const [search]=useState(()=>createPlayerSearch());
   const {dates,tags,revision}=matchFilters;
-  const operation=useRef(null);
+  const operation=useRef(null),boot=useRef(false),skipEntry=useRef(saved.route===location.hash?entry:null),pendingAccount=useRef(saved.account);
+  const [hydrated,setHydrated]=useState(false),[hasSearched,setHasSearched]=useState(saved.loaded);
+  useEffect(()=>{setHydrated(true);},[]);
+  useEffect(()=>{
+    if(!hydrated)return;
+    browserPreferences().set(preference('source'),{mode,matchID,players,rules,map,date:{from:dates.from,through:dates.through},tags:pendingTags.length?pendingTags:[...tags.selected],
+      account:pendingTags.length?pendingAccount.current:window.NickStatsManualFilters.store.account,loaded:hasSearched,route:location.hash.startsWith('#analyzer')?location.hash:browserPreferences().read(preference('source'),saved).route});
+  },[hydrated,mode,matchID,players,rules,map,pendingTags,hasSearched,revision]);
   useEffect(()=>()=>{operation.current?.abort();search.destroy();},[]);
-  function invalidate() {operation.current?.abort();setPending(false);setCandidates(null);setError('');onClear();}
+  function invalidate() {setHasSearched(false);operation.current?.abort();setPending(false);setCandidates(null);setError('');onClear();}
   function editPlayers(next) {invalidate();setPlayers(next);setRules(normalizeEditorRules(rules,next.map(p=>String(p.id))));}
   async function lookup(nextPlayers=players,nextMatchID=null,nextMap=map) {
     operation.current?.abort();const controller=new AbortController();operation.current=controller;
-    setPending(true);setError('');setCandidates(null);onClear();
+    setHasSearched(true);setPending(true);setError('');setCandidates(null);onClear();
     try {
       const matches=await candidateMatches({players:nextPlayers,matchID:nextMatchID,map:nextMatchID?undefined:nextMap,signal:controller.signal});
       controller.signal.throwIfAborted();
@@ -31,11 +40,12 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFi
         if(!matches.length)throw new Error('This match was not found.');
         onChoose({mode:'match',matches,players:[]});
       } else setCandidates(matches);
-    }catch(e){if(!controller.signal.aborted)setError(e.message);}
+    }catch(e){if(!controller.signal.aborted){setHasSearched(false);setError(e.message);}}
     finally{if(operation.current===controller){setPending(false);operation.current=null;}}
   }
   useEffect(()=>{
     const store=window.NickStatsManualFilters.store;
+    if(pendingTags.length&&pendingAccount.current&&store.account&&pendingAccount.current!==store.account){setPendingTags([]);return;}
     if(!pendingTags.length||!store.account||!store.ready||pendingTags.some(([id])=>!store.filters.some(tag=>tag.id===id)))return;
     tags.reset();for(const [id,condition]of pendingTags)tags.select(id,condition);setPendingTags([]);
   },[pendingTags,revision]);
@@ -49,6 +59,8 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFi
   },[mode,candidates,scoped,used,chosenMap,onChoose]);
   useEffect(()=>{
     if(!entry)return;
+    if(skipEntry.current===entry){skipEntry.current=null;return;}
+    boot.current=true;pendingAccount.current=null;
     operation.current?.abort();search.reset();setError('');setCandidates(null);onMode(entry.mode);
     if(entry.mode==='match'){setPendingTags([]);setMatchID(entry.matchID);lookup([],entry.matchID);return;}
     const nextRules=normalizeEditorRules(entry.rules,entry.players.map(p=>p.id));
@@ -57,6 +69,12 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFi
     tags.reset();setPendingTags(entry.tags||[]);
     if(entry.map)lookup(entry.players,null,entry.map);else onClear();
   },[entry]);
+  useEffect(()=>{
+    const restore=()=>{if(boot.current||!location.hash.startsWith('#analyzer')||parseAnalyzerRoute(location.hash)&&location.hash!==saved.route)return;boot.current=true;
+      if(saved.loaded){if(saved.mode==='match'&&saved.matchID)lookup([],saved.matchID);else if(saved.mode==='groups'&&saved.map&&saved.players.length)lookup(saved.players,null,saved.map);}
+    };
+    restore();window.addEventListener('nickstats:page',restore);return()=>window.removeEventListener('nickstats:page',restore);
+  },[]);
   useEffect(()=>{
     const refresh=()=>{if(mode==='groups'&&candidates!==null)lookup();else if(mode==='match'&&matchID)lookup([],matchID);};
     window.addEventListener('nickstats:matches-changed',refresh);window.addEventListener('nickstats:replays-changed',refresh);
@@ -67,7 +85,7 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFi
     <ToggleGroup label="Analyzer mode" className="side-toggle" value={mode} options={[["match","Match"],["groups","Groups"]]}
       onChange={value=>{invalidate();onMode(value);}} />
     {mode==='match'?<form className="analyzer-match-search" onSubmit={e=>{e.preventDefault();if(/^\d+$/.test(matchID)&&Number(matchID)>0)lookup([],matchID);}}>
-      <label htmlFor="analyzerMatchID">Match</label><input id="analyzerMatchID" aria-label="Stored match ID" type="text" inputMode="numeric" value={matchID} placeholder="Match ID" onChange={e=>setMatchID(e.target.value)} />
+      <label htmlFor="analyzerMatchID">Match</label><input id="analyzerMatchID" aria-label="Stored match ID" type="text" inputMode="numeric" value={matchID} placeholder="Match ID" onChange={e=>{setHasSearched(false);setMatchID(e.target.value);}} />
       <Button type="submit" className="button button-primary" disabled={pending||!/^\d+$/.test(matchID)||Number(matchID)<=0}>Open match</Button>
     </form>:<>
       <PlayerSearch store={search} prefix="analyzer" variant="group" onSelect={player=>{if(players.length<20&&!players.some(p=>String(p.id)===String(player.id))){editPlayers([...players,{...player,id:String(player.id)}]);search.reset();}}} excluded={id=>players.some(p=>String(p.id)===id)||players.length>=20} />

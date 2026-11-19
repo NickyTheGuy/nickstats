@@ -404,3 +404,33 @@ one player-round. Missing or ambiguous effects still allow selecting the flight
 and focusing its owner/round; effectiveness stays unknown rather than borrowing
 a different grenade's metrics or round totals. Association metadata is cached
 per immutable round to avoid repeating the matching work during playback.
+
+## Remembered workspace (2026.11.19.5)
+
+Browser preferences retain the last Match/Groups source, group conditions, map,
+dates and account-scoped tag choices; selected players/rounds; side, result and
+buy filters; category/number filters; ordinary focused player-round cohorts;
+primary/enemy visual toggles; utility-search criteria; playback time and speed;
+and each map level's zoom/pan plus its map split. Transient menu openings, drag
+rectangles and utility result payloads are not saved. Playback always resumes
+paused. Oversized focus snapshots are omitted from preferences.
+
+Only lightweight choices and identities are written to `nickstats.uiPreferences.v1`.
+Writes are coalesced and pending changes flush on page hide. Corrupt, unavailable
+or full storage does not block live use. No replay positions, query results or
+history counters are stored there. Existing data caches remain bounded and
+request fresh capture indexes on a restored search. Restored filters apply before
+the first movement request, and unknown actors/rounds or obsolete focus keys are
+reconciled against the current capture headers.
+
+A previously loaded Analyzer resumes when the Analyzer is opened. A draft that
+was never submitted remains a draft, including when the address bar still
+contains an earlier deep link. A different explicit Match/Groups link overrides
+the remembered source. The hidden Analyzer does not launch restoration reads on
+other pages. Tag choices do not cross account boundaries.
+
+The regular Groups tab retains its existing roster/condition storage but no
+longer builds automatically on startup, navigation, focus or database changes.
+Build profiles is the explicit action; stale notifications cancel obsolete work
+and re-enable it. This release requires only frontend deployment, with no schema
+migration or demo reparse.

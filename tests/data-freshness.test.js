@@ -62,6 +62,6 @@ test("existing player tabs and group selections are refreshed without resetting 
   assert.match(players, /profile\.graphCache\?\.clear\(\)/);
   assert.match(players, /mapFilter\.setOptions\(availableMaps\)/);
   assert.match(groups, /nickstats:matches-changed", markGroupStale/);
-  assert.match(groups, /buildGroup\(\{ refresh: true \}\)/);
+  assert.match(groups, /button\("groupBuildButton", \(\) => buildGroup\(\)\)/);
   assert.match(groups, /populateMaps\(\{ reset: !refresh \}\)/);
 });
