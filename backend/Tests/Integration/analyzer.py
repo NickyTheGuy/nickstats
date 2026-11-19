@@ -76,6 +76,13 @@ try:
                           'x':10,'y':10,'z':0,'from':[1,2,0],'weapon':'ak47','headshot':True}]} for i in [1,2]]
     rounds[1]['clock'] = {'round_ms':115000,'bomb_ms':40000,'round_estimated':False,'bomb_estimated':False}
     rounds[1]['bomb_events'] = [{'type':'plant','time':100,'player':'steam:3'},{'type':'defuse','time':900,'player':'steam:1'}]
+    def grenade(kind,damage=None,enemies=None,blind=None,icon=None):
+        return {'time':100,'end':900,'type':kind,'player':'steam:1','side':3,'x':10,'y':10,'z':0,
+                'icon':icon or {'HE':'hegrenade','Flash':'flashbang','Fire':'molotov'}[kind],'radius':120 if kind=='Fire' else 0,'estimated':False,
+                'effectiveness':{'enemy_damage':damage,'enemies_flashed':enemies,'enemy_blind_ms':blind}}
+    rounds[0]['utility'] = [grenade('HE',40),grenade('HE',20),grenade('Flash',enemies=0,blind=0),grenade('Flash',enemies=2,blind=2000),
+                            grenade('Fire',80),grenade('Fire',45,icon='incgrenade'),grenade('Fire')]
+    rounds[1]['utility'] = [grenade('HE'),grenade('HE'),grenade('Fire',10),grenade('Flash',enemies=1,blind=500)]
     text = [json.dumps(r, separators=(',', ':')) for r in rounds]
     manifest = [{'number':r['number'],'parts':2,'bytes':len(t.encode()),'sha256':hashlib.sha256(t.encode()).hexdigest(),
                  'summary':{k:r[k] for k in ['number','duration','winner','context']} | {'player_ids':['steam:1','steam:3']}}
@@ -113,6 +120,26 @@ try:
     assert enriched['rounds'][0]['bomb_events'] == [{'type':'plant','time':300,'player':None}]
     grenade = enriched['rounds'][0]['performance'][0]['grenades']
     assert grenade['flash_thrown'] == 1 and grenade['enemies_flashed'] == 2 and grenade['fire_damage'] == 80 and grenade['blind_ms'] == 1500
+    query = {'scopes':[{'capture':capture,'rounds':[1,2]}],'players':['steam:1'],'type':'HE','metric':'damage','minimum':40}
+    found = request('/analyzer/utility/search',query,auth=False)
+    assert found['total'] == 1 and found['unknown'] == 2 and found['pending_captures'] == []
+    assert found['rows'][0]['enemy_damage'] == 40
+    fire = request('/analyzer/utility/search',query | {'type':'Fire'})
+    assert fire['total'] == 2 and fire['unknown'] == 1 and {r['icon'] for r in fire['rows']} == {'molotov','incgrenade'}
+    flash = request('/analyzer/utility/search',query | {'type':'Flash','metric':'enemies','minimum':1,'limit':1})
+    assert flash['total'] == 2 and flash['rows'][0]['enemies_flashed'] == 2
+    next_page = request('/analyzer/utility/search',query | {'type':'Flash','metric':'enemies','minimum':1,'limit':1,'offset':1})
+    assert next_page['rows'][0]['enemies_flashed'] == 1
+    assert request('/analyzer/utility/search',query | {'scopes':[{'capture':capture,'rounds':[2]}]})['total'] == 0
+    request('/analyzer/utility/search',query | {'metric':'bad'},expected=400)
+    request('/analyzer/utility/search',query | {'type':'bad'},expected=400)
+    request('/analyzer/utility/search',query | {'scopes':[{'capture':'bad','rounds':[1]}]},expected=400)
+    sql(f"DELETE FROM replay_utility_index_state WHERE capture_id='{capture}'; DELETE FROM replay_utility_events WHERE capture_id='{capture}'")
+    assert request('/analyzer/utility/search',query)['pending_captures'] == [capture]
+    request('/analyzer/utility/index',{'capture':capture},auth=False,expected=401)
+    request('/analyzer/utility/index',{'capture':capture})
+    request('/analyzer/utility/index',{'capture':capture})
+    assert request('/analyzer/utility/search',query)['total'] == 1
     request(f'/analyzer/captures/{capture}/rounds/1/parts/0', {'data':'bad'},method='PUT',expected=409)
     assert sql("SELECT CONCAT(played_at,'|',played_at_source) FROM matches WHERE id=1") == '2026-11-01 12:00:00|faceit_history'
     assert sql("SELECT state FROM account_manual_filter_states WHERE filter_id='tag' AND match_id=1") == 'true'
@@ -123,6 +150,7 @@ try:
     sql("UPDATE matches SET demo_sha256=UNHEX(REPEAT('b',64)) WHERE id=1")
     assert request('/analyzer/matches?match=1')['matches'][0].get('capture') is None
     request('/analyzer/captures/'+capture,expected=404)
+    request('/analyzer/utility/search',query,expected=409)
     print('Analyzer integration passed: auth, rosters, chunk checksums, atomic publication, projection, date/tag preservation, stale fingerprints.')
 finally:
     server.terminate()

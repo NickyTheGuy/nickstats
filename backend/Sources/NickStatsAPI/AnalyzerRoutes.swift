@@ -18,7 +18,7 @@ private func replayResponse(_ json: String) -> Response {
     response.headers.replaceOrAdd(name: "Cache-Control", value: "no-store")
     return response
 }
-private func storedRound(_ sql: any SQLDatabase, capture: String, manifest: ReplayRoundManifest) async throws -> Data {
+func storedRound(_ sql: any SQLDatabase, capture: String, manifest: ReplayRoundManifest) async throws -> Data {
     let rows = try await sql.raw("""
       SELECT part_number, body FROM replay_chunks WHERE capture_id = \(bind: capture)
       AND round_number = \(bind: manifest.number) ORDER BY part_number
@@ -39,6 +39,7 @@ struct ReplayChunk: Content { var data: String }
 struct ReplayCaptureCreated: Content { var capture: String }
 
 func analyzerRoutes(_ app: Application) throws {
+    utilitySearchRoutes(app)
     // Candidate union only: the shared browser rule evaluator tests both team
     // orientations. No histories, counters or positions are built for this lookup.
     app.get("analyzer","matches") { request async throws -> AnalyzerMatchPage in
@@ -154,14 +155,17 @@ func analyzerRoutes(_ app: Application) throws {
             let players = Set((header["players"].array ?? []).compactMap { $0["id"].string })
             let manifest = try replayDecode(row.decode(column:"manifest_json",as:String.self),as:[ReplayRoundManifest].self)
             var sampleCount = 0
+            let utilityTotals = try await legacyUtilityTotals(sql,matchID:match)
             for item in manifest {
                 let data = try await storedRound(sql,capture:capture,manifest:item)
                 let round = try JSONDecoder().decode(ReplayJSON.self,from:data)
                 let (summary,count) = try replayRoundSummary(round,players:players)
                 guard summary == item.summary else { throw replayBad("round filter index does not match capture.") }
+                try await saveUtilityIndexRound(sql,capture:capture,round:round,legacy:utilityTotals[item.number] ?? [:])
                 sampleCount += count
                 guard sampleCount <= 1000000 else { throw replayBad("too many samples in match.") }
             }
+            try await markUtilityIndexed(sql,capture:capture)
             try await sql.raw("UPDATE replay_captures SET complete=TRUE WHERE id=\(bind:capture)").run()
             // Keep old readers safe for a day, then reclaim superseded captures.
             try await sql.raw("DELETE FROM replay_captures WHERE match_id=\(bind:match) AND id<>\(bind:capture) AND created_at < NOW() - INTERVAL 1 DAY").run()
