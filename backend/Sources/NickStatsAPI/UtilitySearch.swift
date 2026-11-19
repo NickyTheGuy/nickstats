@@ -55,7 +55,7 @@ func markUtilityIndexed(_ sql: any SQLDatabase,capture: String) async throws {
     try await sql.raw("INSERT INTO replay_utility_index_state(capture_id,version) VALUES(\(bind:capture),1)").run()
 }
 struct UtilityScope: Content { var capture: String;var rounds: [Int] }
-struct UtilitySearchQuery: Content { var scopes: [UtilityScope];var players: [String];var type: String;var metric: String;var minimum: Int;var offset: Int?;var limit: Int? }
+struct UtilitySearchQuery: Content { var scopes: [UtilityScope];var players: [String];var type: String;var metric: String;var minimum: Int;var side: Int?;var offset: Int?;var limit: Int? }
 struct UtilitySearchHit: Content {
     var capture: String;var match_id: Int64;var map: String;var round: Int;var event: Int;var player: String;var side: Int;var type: String;var icon: String;var time: Int
     var x: Int;var y: Int;var z: Int;var enemy_damage: Int?;var enemies_flashed: Int?;var enemy_blind_ms: Int?;var attribution: String
@@ -69,7 +69,7 @@ func validateUtilitySearch(_ q: UtilitySearchQuery) throws {
           q.scopes.allSatisfy({ UUID(uuidString:$0.capture) != nil && !$0.rounds.isEmpty && Set($0.rounds).count == $0.rounds.count && $0.rounds.allSatisfy({ (1...65535).contains($0) }) }),
           !q.players.isEmpty,q.players.count <= 64,Set(q.players).count == q.players.count,q.players.allSatisfy({ !$0.isEmpty && $0.count <= 200 }),
           ["HE","Flash","Fire"].contains(q.type),q.type == "Flash" ? ["enemies","blind_ms"].contains(q.metric):q.metric == "damage",
-          (0...999999999).contains(q.minimum),(0...1000000).contains(q.offset ?? 0),(1...100).contains(q.limit ?? 50) else {
+          [0,2,3].contains(q.side ?? 0),(0...999999999).contains(q.minimum),(0...1000000).contains(q.offset ?? 0),(1...100).contains(q.limit ?? 50) else {
         throw Abort(.badRequest,reason:"Invalid utility search. Narrow the match or round selection if it is too large.")
     }
 }
@@ -127,7 +127,8 @@ func utilitySearchRoutes(_ app: Application) {
         let owner: SQLQueryString = "e.player_id IN (\(binds:q.players))"
         let complete: SQLQueryString = q.type == "Flash" && q.metric == "enemies" && q.minimum > 0 ? "\(column) IS NOT NULL AND e.enemy_blind_ms IS NOT NULL":"\(column) IS NOT NULL"
         let qualifies: SQLQueryString = q.type == "Flash" && q.metric == "enemies" && q.minimum > 0 ? "\(owner) AND \(complete) AND \(column)>=\(bind:q.minimum) AND e.enemy_blind_ms>0":"\(owner) AND \(complete) AND \(column)>=\(bind:q.minimum)"
-        let base: SQLQueryString = "(\(scope)) AND e.capture_id IN (\(binds:indexed)) AND e.grenade_type=\(bind:q.type) AND (\(owner) OR e.player_id IS NULL)"
+        let side: SQLQueryString = (q.side ?? 0) == 0 ? "TRUE":"e.side=\(bind:q.side!)"
+        let base: SQLQueryString = "(\(scope)) AND e.capture_id IN (\(binds:indexed)) AND e.grenade_type=\(bind:q.type) AND \(side) AND (\(owner) OR e.player_id IS NULL)"
         let counts = try await sql.raw("""
           SELECT CAST(COALESCE(SUM(CASE WHEN \(qualifies) THEN 1 ELSE 0 END),0) AS SIGNED) AS matched,
             CAST(COALESCE(SUM(CASE WHEN e.player_id IS NULL OR NOT(\(complete)) THEN 1 ELSE 0 END),0) AS SIGNED) AS unknown_count

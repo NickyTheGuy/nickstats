@@ -32,7 +32,7 @@ import Testing
 }
 @Test func utilitySearchRejectsUnboundedAndInvalidQueries() throws {
     let scope = UtilityScope(capture:UUID().uuidString,rounds:[1,29])
-    let valid = UtilitySearchQuery(scopes:[scope],players:["steam:1"],type:"Fire",metric:"damage",minimum:40,offset:0,limit:50)
+    let valid = UtilitySearchQuery(scopes:[scope],players:["steam:1"],type:"Fire",metric:"damage",minimum:40,side:nil,offset:0,limit:50)
     try validateUtilitySearch(valid)
     var bad = valid;bad.metric = "SQL";#expect(throws:(any Error).self) { try validateUtilitySearch(bad) }
     bad = valid;bad.minimum = -1;#expect(throws:(any Error).self) { try validateUtilitySearch(bad) }

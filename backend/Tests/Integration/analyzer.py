@@ -124,6 +124,9 @@ try:
     found = request('/analyzer/utility/search',query,auth=False)
     assert found['total'] == 1 and found['unknown'] == 2 and found['pending_captures'] == []
     assert found['rows'][0]['enemy_damage'] == 40
+    assert request('/analyzer/utility/search',query | {'side':2})['total'] == 0
+    assert request('/analyzer/utility/search',query | {'side':3})['total'] == 1
+    request('/analyzer/utility/search',query | {'side':4},expected=400)
     fire = request('/analyzer/utility/search',query | {'type':'Fire'})
     assert fire['total'] == 2 and fire['unknown'] == 1 and {r['icon'] for r in fire['rows']} == {'molotov','incgrenade'}
     flash = request('/analyzer/utility/search',query | {'type':'Flash','metric':'enemies','minimum':1,'limit':1})
