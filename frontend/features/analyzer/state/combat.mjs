@@ -51,7 +51,7 @@ function killBadge(ctx,color,icon) {
     ctx.moveTo(-9,0);ctx.lineTo(9,0);ctx.moveTo(0,-8);ctx.lineTo(0,8);ctx.stroke();
   }
 }
-export function drawCombat(ctx,round,{time,map,level,selected,side,colors,layers,icons={},unit=1,preferredRole=null,singleRound=false,cellDeaths=false}) {
+export function drawCombat(ctx,round,{time,startTime=0,map,level,selected,side,colors,layers,icons={},unit=1,preferredRole=null,singleRound=false,cellDeaths=false}) {
   if(layers.includes('Gunfire'))for(const track of round.firing||[]) {
     if(!selected.has(track.player))continue;
     const s=track.samples[sampleIndex(track.samples,time)];
@@ -63,6 +63,7 @@ export function drawCombat(ctx,round,{time,map,level,selected,side,colors,layers
   }
   for(const e of round.deaths||[]) {
     if(e.time>time)break;
+    if(e.time<startTime)continue;
     const marks=combatMarkers(e,{selected,side,layers,map,level,unit,preferredRole,singleRound,cellDeaths});
     if(marks.length&&time-e.time<450&&e.from&&e.killer!==e.victim&&onLevel(level,e.from[2])&&onLevel(level,e.z)) {
       const from=worldToRadar(map,e.from[0],e.from[1]),to=worldToRadar(map,e.x,e.y);ctx.strokeStyle=colors.get(e.killer)||'#fff';ctx.lineWidth=1.5;

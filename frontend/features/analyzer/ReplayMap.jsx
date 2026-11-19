@@ -16,14 +16,14 @@ import { viewport } from './state/viewport.mjs';
 import { drawPlayerState,playerAlive } from './state/player-state.mjs';
 import { selectionCandidates,candidatesInArea } from './state/map-selection.mjs';
 
-export default function ReplayMap({ map, level, viewKey, rounds, players, selected, colors, time, side, display=createDisplay(), enemyDisplay=createDisplay(), rosters=null, area, areaSummary, onSelectItems=()=>{}, onClearSelection=()=>{}, onAreaStart=()=>{} }) {
+export default function ReplayMap({ map, level, viewKey, rounds, players, selected, colors, time, startTime=0, side, display=createDisplay(), enemyDisplay=createDisplay(), rosters=null, area, areaSummary, onSelectItems=()=>{}, onClearSelection=()=>{}, onAreaStart=()=>{} }) {
   const icons=useGrenadeIcons(),combatIcons=useCombatIcons(rounds);
   const canvas = useRef(null), drag = useRef(null);
   const size=useElementSize(canvas);
   const [gestureMode,setGestureMode]=useState('select'),[preview,setPreview]=useState(null);
   const [view, setView] = useRememberedState(preference(`view.${viewKey}`),()=>({ zoom: 1, x: 0, y: 0 }),viewPreferences);
   const markerUnit=1024/Math.max(1,Math.min(size.width,size.height)*view.zoom);
-  const candidates=useMemo(()=>selectionCandidates(rounds,{map,level,time,players:selected,side,display,enemyDisplay,allSelected:selected.length===players.length,unit:markerUnit,rosters}),[rounds,map,level,time,selected,side,display,enemyDisplay,players,markerUnit,rosters]);
+  const candidates=useMemo(()=>selectionCandidates(rounds,{map,level,time,startTime,players:selected,side,display,enemyDisplay,allSelected:selected.length===players.length,unit:markerUnit,rosters}),[rounds,map,level,time,startTime,selected,side,display,enemyDisplay,players,markerUnit,rosters]);
   const zoom = delta => setView(v => {
     const next = Math.max(1, Math.min(4, v.zoom + delta)), max = (next - 1) * 512;
     if(next===1)setGestureMode('select');
@@ -69,12 +69,12 @@ export default function ReplayMap({ map, level, viewKey, rounds, players, select
       ctx.globalAlpha=areaSummary?(areaSummary.matched.has(round)?.9:.12):rounds.length>1?.85:1;
       for(const channel of roundChannels(round,{rosters,players:selected,side,display,enemyDisplay})) {
         const settings=channel.display;
-        drawCombat(ctx,round,{time,map,level,selected:channel.ids,side:channel.side,colors,layers:settings.combat,icons:combatIcons,unit:markerUnit,singleRound:rounds.length===1,cellDeaths:rounds.length===1&&settings.players});
-        if(settings.utilityLayers.includes('History'))drawUtilityHistory(ctx,round,{time,map,level,selected:channel.ids,side:channel.side,utilities:settings.utilities,icons,allSelected:channel.ids.size===players.length,liveEffects:settings.utilityLayers.includes('Live')});
+        drawCombat(ctx,round,{time,startTime,map,level,selected:channel.ids,side:channel.side,colors,layers:settings.combat,icons:combatIcons,unit:markerUnit,singleRound:rounds.length===1,cellDeaths:rounds.length===1&&settings.players});
+        if(settings.utilityLayers.includes('History'))drawUtilityHistory(ctx,round,{time,startTime,map,level,selected:channel.ids,side:channel.side,utilities:settings.utilities,icons,allSelected:channel.ids.size===players.length,liveEffects:settings.utilityLayers.includes('Live')});
       }
     }
     ctx.globalAlpha=1;
-  },[image,map,level,rounds,players,selected,colors,time,side,display,enemyDisplay,view,icons,combatIcons,markerUnit,rosters,areaSummary,size.width,size.height]);
+  },[image,map,level,rounds,players,selected,colors,time,startTime,side,display,enemyDisplay,view,icons,combatIcons,markerUnit,rosters,areaSummary,size.width,size.height]);
   const bounds=preview?.bounds;
   const rectangle=bounds?areaOnScreen(bounds,size,view):null;
   function pointerDown(event) {

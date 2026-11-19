@@ -4,8 +4,8 @@ function EventIcon({kind}) {
     {kind==='round_end'?<path d="M5 18V2m0 1h10l-2 3 2 3H5"/>:kind==='kill'?<><circle cx="10" cy="10" r="5.5"/><path d="M10 1v6m0 6v6M1 10h6m6 0h6"/></>:kind==='defuse'?<><circle cx="10" cy="10" r="7"/><path d="m6 10 3 3 5-6"/></>:kind==='explode'?<path d="m10 1 2 5 5-3-2 6 4 2-5 2 1 5-5-3-4 3 1-6-5-2 5-2z"/>:<><rect x="4" y="7" width="12" height="11" rx="2"/><path d="M7 7V4c0-3 6-3 6 0v3m-6 4h6m-6 3h3"/></>}
   </svg>;
 }
-export default function TimelineMarkers({events,duration,onSeek}) {
+export default function TimelineMarkers({events,duration,onSeek,startTime=0,time:windowEnd=duration}) {
   const groups=new Map();for(const event of events){if(!groups.has(event.time))groups.set(event.time,[]);groups.get(event.time).push(event);}
-  return <div className="analyzer-timeline-events" aria-label="Round timeline events">{duration>0&&[...groups].map(([time,rows])=><TooltipButton key={time} className="analyzer-event-time" data-kind={rows.find(e=>e.kind!=='kill')?.kind||'kill'} style={{left:`${100*Math.min(time,duration)/duration}%`}}
+  return <div className="analyzer-timeline-events" aria-label="Round timeline events">{duration>0&&[...groups].map(([time,rows])=><TooltipButton key={time} className={`analyzer-event-time${time<startTime||time>windowEnd?' is-outside-window':''}`} data-kind={rows.find(e=>e.kind!=='kill')?.kind||'kill'} style={{left:`${100*Math.min(time,duration)/duration}%`}}
     label={rows.map(e=>e.label).join('; ')} content={rows.map((e,i)=><div key={i}>{e.label}</div>)} onClick={()=>onSeek(time)}><EventIcon kind={rows.find(e=>e.kind!=='kill')?.kind||'kill'} /></TooltipButton>)}</div>;
 }

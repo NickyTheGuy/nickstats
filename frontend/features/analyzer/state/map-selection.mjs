@@ -1,10 +1,11 @@
 import { onLevel,positionAt,worldToRadar } from './replay.mjs';
 import { combatMarkers } from './combat.mjs';
-import { utilityVisible,effectEnd,projectilePosition } from './utility.mjs';
+import { utilityVisible,projectilePosition } from './utility.mjs';
 import { roundChannels,createDisplay } from './display.mjs';
 import { heldItem,blindRemaining,playerAlive } from './player-state.mjs';
 import { selectionRoundKey } from './selection-targets.mjs';
 
+import { inEventWindow,utilityWindowVisible } from './time-window.mjs';
 import { utilitySelectionData } from './utility-selection.mjs';
 export { utilityKeys } from './utility-selection.mjs';
 export function entrySelected(item,selection) {
@@ -22,7 +23,7 @@ export function mergeSelection(previous,incoming,append=false) {
   }
   return [...actors.values()];
 }
-export function selectionCandidates(rounds,{map,level,time,players,side=0,utilities,layers,allSelected=false,unit=1,showPlayers=true,permanentUtility=true,rosters=null,display=null,enemyDisplay=createDisplay()}) {
+export function selectionCandidates(rounds,{map,level,time,startTime=0,players,side=0,utilities,layers,allSelected=false,unit=1,showPlayers=true,permanentUtility=true,rosters=null,display=null,enemyDisplay=createDisplay()}) {
   const items=[];
   for(const round of rounds) {
     const roundKey=selectionRoundKey(round);if(!roundKey)continue;
@@ -38,7 +39,7 @@ export function selectionCandidates(rounds,{map,level,time,players,side=0,utilit
       add('player',track.player,s[5],...worldToRadar(map,s[1],s[2]),{enemy:channel.enemy,item:settings.items?heldItem(round,track.player,time):null,blind:settings.blindness?blindRemaining(round,track.player,time):0});
     }
     for(const event of round.deaths||[]) {
-      if(event.time>time)continue;
+      if(!inEventWindow(event.time,startTime,time))continue;
       for(const mark of combatMarkers(event,{selected,side,layers,map,level,unit,singleRound:rounds.length===1,cellDeaths:rounds.length===1&&showPlayers}))add(mark.kind,mark.actor,mark.kind==='kill'?event.killer_side:event.victim_side,mark.x,mark.y,{event});
     }
     const {keys,projectiles}=utilitySelectionData(round);
@@ -48,7 +49,7 @@ export function selectionCandidates(rounds,{map,level,time,players,side=0,utilit
       add('utility',projectile.player,projectile.side,...worldToRadar(map,point[1],point[2]),{effect,projectile,utilityKey:key,enemy:channel.enemy});
     }
     for(const [utilityIndex,effect]of round.utility.entries()) {
-      if(effect.time>time||!history&&(!live||time>=effectEnd(effect,round.duration))||!utilities.includes(effect.type)||!effect.player&&!allSelected||!utilityVisible(effect,round,selected,side)||!onLevel(level,effect.z))continue;
+      if(!utilityWindowVisible(effect,{time,startTime,history,live,duration:round.duration})||!utilities.includes(effect.type)||!effect.player&&!allSelected||!utilityVisible(effect,round,selected,side)||!onLevel(level,effect.z))continue;
       add('utility',effect.player,effect.side,...worldToRadar(map,effect.x,effect.y),{effect,utilityKey:keys[utilityIndex],enemy:channel.enemy});
     }
     }

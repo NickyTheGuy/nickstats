@@ -46,6 +46,9 @@ export default function Analyzer({entryStore}) {
   const [selectedRounds,setSelectedRounds] = useRememberedState(preference('rounds'),[],strings), [selectedPlayers,setSelectedPlayers] = useRememberedState(preference('players'),[],value=>strings(value,64));
   const [side,setSide] = useRememberedState(preference('side'),0,value=>[0,2,3].includes(value)?value:0);
   const [time,setTime] = useRememberedState(preference('time'),0,value=>numberIn(value,0,600000,0)), [playing,setPlaying] = useState(false), [speed,setSpeed] = useRememberedState(preference('speed'),1,value=>[.5,1,2,4].includes(value)?value:1);
+  const [eventStart,setEventStart]=useRememberedState(preference('eventStart'),0,value=>numberIn(value,0,600000,0));
+  const startTime=Math.min(eventStart,time);
+  const seekTime=useCallback(value=>{setTime(value);setEventStart(start=>Math.min(start,value));},[setTime,setEventStart]);
   const [busy,setBusy] = useState(false), [status,setStatus] = useState(''), [error,setError] = useState('');
   const [filters,setFilters]=useRememberedState(preference('filters'),()=>({result:'all',buy:[],enemyBuy:[]}),roundPreferences);
   const operation = useRef(null),sourceIdentity=useRef(browserPreferences().read(preference('identity'),'',value=>typeof value==='string'?value:''));
@@ -55,7 +58,7 @@ export default function Analyzer({entryStore}) {
     clearSource();setMode(source.mode);setQueryPlayers(source.mode==='groups'?source.players:null);
     const identity=source.mode==='groups'?`groups:${source.players.map(p=>p.id).join(',')}`:`match:${source.matches[0]?.id}`;
     const reset=identity!==sourceIdentity.current;
-    if(reset){resumeTime.current=null;setRoundFocus(null);setFilters({result:'all',buy:[],enemyBuy:[]});setSide(0);setGroupRounds({sections:[],numbers:[]});}
+    if(reset){setEventStart(0);resumeTime.current=null;setRoundFocus(null);setFilters({result:'all',buy:[],enemyBuy:[]});setSide(0);setGroupRounds({sections:[],numbers:[]});}
     const available=source.matches.filter(m=>m.capture);
     if(!available.length){if(source.matches.length)setError('No movement is stored for this selection. Reparse these demos from Match to capture it.');return;}
     const controller=new AbortController();operation.current=controller;setBusy(true);
@@ -135,6 +138,7 @@ export default function Analyzer({entryStore}) {
     frame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(frame);
   }, [playing,speed,duration]);
+  useEffect(()=>{if(resumeTime.current===null&&eventStart>time)setEventStart(time);},[time,eventStart,rounds.length]);
   useEffect(() => { if (time >= duration) setPlaying(false); }, [time,duration]);
   function focusArea() {
     setUtilityResults(null);
@@ -147,11 +151,11 @@ export default function Analyzer({entryStore}) {
     onNavigate:key=>{setUtilityResults(null);setSelectedRounds([key]);setRoundFocus(null);setArea(null);setTime(0);setPlaying(false);},onToggleSet:keys=>{setUtilityResults(null);setSelectedRounds(toggleRoundSet(selectedRounds,keys));setRoundFocus(null);}};
   return <section className="analyzer-view" aria-label="2D analyzer">
     <SourcePicker saved={savedSource} mode={mode} onMode={setMode} entry={entry} matchFilters={matchFilters} onChoose={chooseSource} onClear={clearSource} />
-    <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} side={side} display={mapDisplay} enemyDisplay={enemyDisplay} rosters={rosters}
+    <MapWindow map={map} mapName={mapName} rounds={rounds} players={mapPlayers} selected={selectedPlayers} colors={colors} time={time} startTime={startTime} side={side} display={mapDisplay} enemyDisplay={enemyDisplay} rosters={rosters}
       roundStrip={mode==='match'?<RoundPicker {...roundPicker} />:null}
       area={area?.map===mapName?area:null} areaSummary={areaSummary} onSelectItems={selectItems} onClearSelection={()=>setArea(null)} onAreaStart={()=>setPlaying(false)}
       clockOverlay={!result&&mode==='match'&&rounds.length===1&&<RoundClock round={rounds[0]} time={time} />}
-      combatOverlay={rounds.length===1&&<KillFeed events={combat.feed} time={time} players={mapPlayers} colors={colors} />}
+      combatOverlay={rounds.length===1&&<KillFeed events={combat.feed} time={time} startTime={startTime} players={mapPlayers} colors={colors} />}
       areaOverlay={areaSummary&&<AreaSummary summary={areaSummary} loading={busy||loadingRounds} onClear={()=>setArea(null)} onFocus={focusArea} />}
       status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage>
         {(busy||loadingRounds)&&<IconButton label="Cancel loading" className="button button-secondary" controlSize={30} onClick={()=>{operation.current?.abort();roundOperation.current?.abort();}}><path d="m6 6 12 12M6 18 18 6" /></IconButton>}
@@ -165,6 +169,6 @@ export default function Analyzer({entryStore}) {
         matchFilters={mode==='groups'?matchFilters:null}
         groupRounds={mode==='groups'?{replays:mapReplays,value:groupRounds,onChange:setGroupRounds}:null}
         />}
-      playback={<PlaybackControls time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={setTime} speed={speed} setSpeed={setSpeed} kills={combat.kills} players={mapPlayers} round={!result&&mode==='match'&&rounds.length===1?rounds[0]:null} onKillSeek={value=>{setPlaying(false);setTime(value);}} />} />
+      playback={<PlaybackControls startTime={startTime} onStart={value=>setEventStart(Math.min(time,value))} time={time} duration={duration} playing={playing} setPlaying={setPlaying} onSeek={seekTime} speed={speed} setSpeed={setSpeed} kills={combat.kills} players={mapPlayers} round={!result&&mode==='match'&&rounds.length===1?rounds[0]:null} onKillSeek={value=>{setPlaying(false);seekTime(value);}} />} />
   </section>;
 }

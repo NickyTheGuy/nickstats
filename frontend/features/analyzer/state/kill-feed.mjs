@@ -9,6 +9,6 @@ export function roundCombat(round,options) {
   }
   return {kills,feed};
 }
-export function feedRows(events,time) {
-  return events.filter(event=>event.time<=time&&time-event.time<6000).slice(-6).map(event=>({event,opacity:Math.min(1,(6000-time+event.time)/1500)}));
+export function feedRows(events,time,startTime=0) {
+  return events.filter(event=>event.time>=startTime&&event.time<=time&&time-event.time<6000).slice(-6).map(event=>({event,opacity:Math.min(1,(6000-time+event.time)/1500)}));
 }

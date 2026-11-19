@@ -7,7 +7,9 @@ import RoundTimeline from './RoundTimeline.jsx';
 import { timelineEvents } from './state/round-clock.mjs';
 import { formatTime } from './state/replay.mjs';
 
-export default function PlaybackControls({ time, duration, playing, setPlaying, onSeek, speed, setSpeed, kills=[],players=[],onKillSeek=onSeek,round=null }) {
+const compactTime=value=>formatTime(Math.floor(value/1000)*1000).replace(/\.0$/,'');
+
+export default function PlaybackControls({ time, duration, playing, setPlaying, onSeek, speed, setSpeed, kills=[],players=[],onKillSeek=onSeek,round=null,startTime=0,onStart }) {
   const events=timelineEvents(kills,round,players);
   const host=useRef(null),[bottom,setBottom]=useState(10);
   useLayoutEffect(()=>{
@@ -20,8 +22,8 @@ export default function PlaybackControls({ time, duration, playing, setPlaying, 
   },[]);
   return <div ref={host} className={`analyzer-playback${events.length?' with-events':''}`} style={{bottom}}>
     <Button className="button button-primary" disabled={!duration} onClick={() => { if (time >= duration) onSeek(0); setPlaying(!playing); }} aria-label={playing ? 'Pause playback' : 'Play playback'}>{playing ? 'Pause' : 'Play'}</Button>
-    <RoundTimeline events={events} round={round} time={time} duration={duration} onSeek={onSeek} onEventSeek={onKillSeek} />
-    <Readout aria-label="Playback time" aria-live="off">{formatTime(time)} / {formatTime(duration)}</Readout>
+    <RoundTimeline startTime={startTime} onStart={onStart} events={events} round={round} time={time} duration={duration} onSeek={onSeek} onEventSeek={onKillSeek} />
+    <Readout aria-label="Playback time" aria-live="off" title={`${formatTime(startTime)} – ${formatTime(time)} / ${formatTime(duration)}`}><span className="playback-time-full">{formatTime(startTime)} – {formatTime(time)} / {formatTime(duration)}</span><span className="playback-time-compact">{compactTime(startTime)}–{compactTime(time)}</span></Readout>
     <OptionField label="Speed" value={String(speed)} options={[[0.5,'0.5×'],[1,'1×'],[2,'2×'],[4,'4×']].map(([v,l])=>[String(v),l])} onChange={v=>setSpeed(Number(v))} />
     <FullscreenButton getTarget={()=>host.current?.parentElement} className="button button-secondary playback-fullscreen" />
   </div>;

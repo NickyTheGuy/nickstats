@@ -434,3 +434,26 @@ longer builds automatically on startup, navigation, focus or database changes.
 Build profiles is the explicit action; stale notifications cancel obsolete work
 and re-enable it. This release requires only frontend deployment, with no schema
 migration or demo reparse.
+
+## Two-sided event window (2026.11.19.6)
+
+The timeline has an outlined start handle and the existing circular end/playhead.
+Accumulated kills, deaths and grenade-history icons are restricted to the
+inclusive interval between them, with identical bounds for drawing, hit targets
+and map selection. Active player positions, gunfire, in-flight grenades and
+ongoing utility effects retain their normal playback behavior. Single-round kill
+feeds also respect the start; timeline event markers outside the interval dim
+but remain available for seeking. Bomb-state colors and countdowns still describe
+the round at the playhead.
+
+Moving the start never seeks the playhead and cannot pass it. Seeking the end
+earlier brings the start back if needed. Play advances normally from the current
+playhead; it does not loop or constrain playback to the interval. Restarting at
+round end returns to zero and resets the start. The start is remembered with the
+other workspace preferences. Range changes do not request movement or alter
+existing snapshot selections and full-round cohort outcome statistics.
+
+The shared `RangeSlider` owns native accessible handles, ordered bounds, keyboard
+controls and track/touch dragging. On narrow viewers the timeline spans a full
+row, with a compact interval readout below. This update is frontend-only and
+requires no migration or demo reparse.

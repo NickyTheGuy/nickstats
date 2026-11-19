@@ -39,8 +39,9 @@ export function drawUtility(ctx,round,{time,map,level,selected,side,utilities,ic
   }
 }
 
-export function drawUtilityHistory(ctx,round,{time,map,level,selected,side,utilities,icons,target,allSelected,liveEffects=false}) {
+export function drawUtilityHistory(ctx,round,{time,startTime=0,map,level,selected,side,utilities,icons,target,allSelected,liveEffects=false}) {
   for(const effect of utilitySelectionEvents(round,{time,level,selected,side,utilities,target:target||'All',allSelected})) {
+    if(effect.time<startTime)continue;
     if(liveEffects&&time<effectEnd(effect,round.duration)&&!['Smoke','Fire'].includes(effect.type))continue;
     const [x,y]=worldToRadar(map,effect.x,effect.y);
     drawIcon(ctx,icons[effect.icon||UTILITY_ICONS[effect.type]],x,y,UTILITY_COLORS[effect.type]);
