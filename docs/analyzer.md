@@ -132,22 +132,21 @@ demo reparse.
 
 ## Area selection
 
-Drag on the map to select a rectangular radar area. Selection pauses playback.
-The outcome panel counts distinct qualifying rounds out of all currently filtered
-rounds and shows their percentage. A round qualifies when at least one selected
-player is alive inside the box at the current playback time, on the selected map
-level and side. Zoom/pan changes the view without moving the selected world area.
-Use Pan (available when zoomed), middle-drag or Shift-drag to pan. Click an empty
-map point, press Escape with the map focused, or use the panel's close button to
-clear the area. Playback/scrubbing reevaluates the same area at the new time. While an area is
-selected, changing filters preserves the playback time (clamped to the available
-round duration), so the spatial condition keeps its timing context.
+Drag on the map to select the player and event markers inside a rectangular
+radar area; selection pauses playback. Click selects the owning player-round of
+a marker. The outcome panel counts distinct selected rounds out of all currently
+filtered rounds and shows their percentage. Selection stores the player-rounds
+and grenades captured by the gesture, so playback, scrubbing, zoom and pan do not
+change it. Shift/Ctrl/Command adds another click or box to the selection. Use Pan
+(available when zoomed), middle-drag or Alt-drag to pan. Empty-map click, Escape
+or the panel's close button clears selection. Changing filters preserves playback
+time while a selection exists, clamped to the available round duration.
 
-Kills, deaths and rating pool the qualifying **player rounds**: only the
-selected players who were inside the box contribute. A shared match round counts
-once in the round percentage even if several selected players are inside. Win
+Kills, deaths and rating pool the selected **player rounds**. Each player counts
+once per match-round, including when both their living marker and events were
+selected. A shared match round counts once in the round percentage. Win
 rate counts each qualifying team's result once per round, so several teammates
-in the same area do not multiply a round's weight. Unknown results are excluded. K–D and K/D use the
+in the same selection do not multiply a round's weight. Unknown results are excluded. K–D and K/D use the
 whole round, including combat after the selected playback time. Rating uses the
 same pooled damage/assists/KAST formula as profiles, not an average of individual
 rounded ratings. Missing exact round data displays an unavailable rating, never a
@@ -157,7 +156,7 @@ also unavailable.
 The backend attaches small performance records from existing
 `player_round_phase_stats` rows to movement selection responses. New local demo
 captures include the same counters. The optional replay field remains compatible
-with version 4 and is cached with player movement, so changing the area or time
+with version 4 and is cached with player movement, so changing selection or time
 requires no network request. Existing captures can use their saved database round
 statistics without being recaptured. Matches imported before per-round statistics
 were stored may need their statistics reparsed for a rating; positions and
