@@ -88,3 +88,19 @@ private func analyzerRound() throws -> ReplayJSON {
     var invalid = utility.object!;invalid["effectiveness"] = .object([:]);object["utility"] = .array([.object(invalid)])
     #expect(throws:(any Error).self) { try replayRoundSummary(.object(object),players:["steam:1","steam:2"]) }
 }
+
+@Test func optionalEquipmentAndBlindnessValidateAndFollowProjection() throws {
+    var value = try analyzerRound().object!
+    let equipment = try replayDecode("[{\"player\":\"steam:1\",\"samples\":[[0,\"ak47\"],[200,\"c4\"],[600,null]]}]",as:ReplayJSON.self)
+    let blindness = try replayDecode("[{\"player\":\"steam:2\",\"time\":300,\"duration\":2500}]",as:ReplayJSON.self)
+    value["equipment"] = equipment;value["blindness"] = blindness
+    _ = try replayRoundSummary(.object(value),players:["steam:1","steam:2"])
+    #expect(projectReplayRound(.object(value),players:["steam:1"])["equipment"] == equipment)
+    #expect(projectReplayRound(.object(value),players:["steam:1"])["blindness"] == .array([]))
+    #expect(projectReplayRound(.object(value),players:["steam:2"])["blindness"] == blindness)
+    value["blindness"] = try replayDecode("[{\"player\":\"steam:2\",\"time\":300,\"duration\":-1}]",as:ReplayJSON.self)
+    #expect(throws:(any Error).self) { try replayRoundSummary(.object(value),players:["steam:1","steam:2"]) }
+    value["blindness"] = .array([])
+    value["equipment"] = try replayDecode("[{\"player\":\"steam:1\",\"samples\":[[0,\"../bad\"]]}]",as:ReplayJSON.self)
+    #expect(throws:(any Error).self) { try replayRoundSummary(.object(value),players:["steam:1","steam:2"]) }
+}

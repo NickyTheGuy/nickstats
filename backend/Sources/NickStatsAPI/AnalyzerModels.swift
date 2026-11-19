@@ -165,6 +165,30 @@ func replayRoundSummary(_ round: ReplayJSON, players: Set<String>) throws -> (Re
               ["buy","enemy_buy"].allSatisfy({ [.null,.string("full"),.string("force"),.string("eco"),.string("pistol")].contains(c[$0]) }),
               [.bool(true),.bool(false)].contains(c["hero"]) else { throw replayBad("invalid round context.") }
     }
+    if round["equipment"] != .null {
+        guard let values = round["equipment"].array, values.count <= players.count else { throw replayBad("invalid equipment.") }
+        var seen = Set<String>()
+        for track in values {
+            guard owner(track["player"]),let id = track["player"].string,seen.insert(id).inserted,
+                  let rows = track["samples"].array,!rows.isEmpty else { throw replayBad("invalid equipment owner.") }
+            var previous: Double = -1
+            for row in rows {
+                guard let s = row.array,s.count == 2,let time = s[0].number,time.isFinite,time >= 0,time > previous,time <= duration,
+                      s[1] == .null || s[1].string.map({ !$0.isEmpty && $0.count <= 100 && $0.allSatisfy { $0.isASCII && ($0.isLowercase || $0.isNumber || $0 == "_") } }) == true else { throw replayBad("invalid equipment sample.") }
+                previous = time;sampleCount += 1
+                guard sampleCount <= 1000000 else { throw replayBad("too many equipment samples.") }
+            }
+        }
+    }
+    if round["blindness"] != .null {
+        guard let values = round["blindness"].array,values.count + utility.count + deaths.count <= 100000 else { throw replayBad("invalid blindness.") }
+        var previous: Double = -1
+        for e in values {
+            guard owner(e["player"]),let time = e["time"].number,time.isFinite,time >= previous,(0...duration).contains(time),
+                  let length = e["duration"].number,length.isFinite,length > 0,length <= 600000 else { throw replayBad("invalid blindness event.") }
+            previous = time
+        }
+    }
     if round["performance"] != .null {
         guard let values = round["performance"].array, values.count <= players.count else { throw replayBad("invalid round performance.") }
         var seen = Set<String>()
@@ -182,7 +206,7 @@ func replayRoundSummary(_ round: ReplayJSON, players: Set<String>) throws -> (Re
 }
 func projectReplayRound(_ round: ReplayJSON, players: Set<String>?) -> ReplayJSON {
     guard let players, var output = round.object else { return round }
-    for key in ["tracks","firing","utility","projectiles","context","performance"] {
+    for key in ["tracks","firing","utility","projectiles","context","performance","equipment","blindness"] {
         output[key] = .array((round[key].array ?? []).filter { players.contains($0["player"].string ?? "") })
     }
     output["deaths"] = .array((round["deaths"].array ?? []).filter { players.contains($0["victim"].string ?? "") || players.contains($0["killer"].string ?? "") })

@@ -68,6 +68,8 @@ try:
                'tracks':[{'player':'steam:1','samples':[[0,0,0,0,100,3,None],[200,1,2,0,100,3,45]]},
                          {'player':'steam:3','samples':[[0,10,10,0,100,2,None]]}],
                'context':[{'player':'steam:1','side':3,'result':'win','buy':'full','enemy_buy':'eco','hero':False}],
+               'equipment':[{'player':'steam:1','samples':[[0,'ak47'],[200,'c4']]}],
+               'blindness':[{'player':'steam:3','time':100,'duration':2500}],
                'utility':[],'firing':[],'projectiles':[],
                'deaths':[{'time':500,'victim':'steam:3','killer':'steam:1','victim_side':2,'killer_side':3,
                           'x':10,'y':10,'z':0,'from':[1,2,0],'weapon':'ak47','headshot':True}]} for i in [1,2]]
@@ -95,9 +97,12 @@ try:
     assert selected['rounds'][0]['performance'] == [{'player':'steam:1','kills':0,'deaths':1,'assists':0,'damage':25,'kast':0}]
     assert len(selected['header']['players']) == 3 and len(selected['rounds'][0]['tracks']) == 1
     assert selected['rounds'][0]['deaths'][0]['victim'] == 'steam:3'
+    assert selected['rounds'][0]['equipment'][0]['samples'][1] == [200,'c4']
+    assert selected['rounds'][0]['blindness'] == []
     both = request('/analyzer/captures/'+capture+'/selection', {'rounds':[1,2], 'players':['steam:1','steam:3']})
     assert [r['number'] for r in both['rounds']] == [1,2]
     assert all(len(r['tracks']) == 2 for r in both['rounds'])
+    assert both['rounds'][0]['blindness'][0]['duration'] == 2500
     sql("UPDATE player_round_phase_stats SET stats_json=JSON_SET(stats_json,'$.utility_thrown',JSON_ARRAY(0,1,0,1,0),'$.utility',JSON_ARRAY(0,80),'$.profile',JSON_ARRAY(0,0,0,0,0,0,0,0,0,0,0,0,0,2,1500,0)) WHERE match_player_id=1 AND round_number=1")
     enriched = request('/analyzer/captures/'+capture+'/selection', {'rounds':[1], 'players':['steam:1']})
     grenade = enriched['rounds'][0]['performance'][0]['grenades']
