@@ -67,7 +67,7 @@ func validateUtilitySearch(_ q: UtilitySearchQuery) throws {
     guard !q.scopes.isEmpty,q.scopes.count <= 1000,Set(q.scopes.map(\.capture)).count == q.scopes.count,
           q.scopes.reduce(0,{ $0+$1.rounds.count }) <= 20000,
           q.scopes.allSatisfy({ UUID(uuidString:$0.capture) != nil && !$0.rounds.isEmpty && Set($0.rounds).count == $0.rounds.count && $0.rounds.allSatisfy({ (1...65535).contains($0) }) }),
-          !q.players.isEmpty,q.players.count <= 20,Set(q.players).count == q.players.count,q.players.allSatisfy({ !$0.isEmpty && $0.count <= 200 }),
+          !q.players.isEmpty,q.players.count <= 64,Set(q.players).count == q.players.count,q.players.allSatisfy({ !$0.isEmpty && $0.count <= 200 }),
           ["HE","Flash","Fire"].contains(q.type),q.type == "Flash" ? ["enemies","blind_ms"].contains(q.metric):q.metric == "damage",
           (0...999999999).contains(q.minimum),(0...1000000).contains(q.offset ?? 0),(1...100).contains(q.limit ?? 50) else {
         throw Abort(.badRequest,reason:"Invalid utility search. Narrow the match or round selection if it is too large.")

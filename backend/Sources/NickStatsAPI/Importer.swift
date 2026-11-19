@@ -148,6 +148,8 @@ func importMatch(
         for row in previousPlayers {
             affectedPlayerIDs.insert(try integerID(row, column: "player_id"))
         }
+        // Round-total fallbacks must be rebuilt when statistics are replaced.
+        try await sql.raw("DELETE i FROM replay_utility_index_state i JOIN replay_captures c ON c.id=i.capture_id WHERE c.match_id=\(bind:existingMatchID)").run()
         // Relationship rows must go first because they also reference match_players.
         try await sql.raw("DELETE FROM match_rounds WHERE match_id = \(bind: existingMatchID)").run()
         try await sql.raw("DELETE FROM duel_side_stats WHERE match_id = \(bind: existingMatchID)").run()

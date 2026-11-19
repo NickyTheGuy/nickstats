@@ -219,9 +219,13 @@ func replayRoundSummary(_ round: ReplayJSON, players: Set<String>) throws -> (Re
 }
 func projectReplayRound(_ round: ReplayJSON, players: Set<String>?) -> ReplayJSON {
     guard let players, var output = round.object else { return round }
-    for key in ["tracks","firing","utility","projectiles","context","performance","equipment","blindness"] {
+    for key in ["tracks","firing","projectiles","context","performance","equipment","blindness"] {
         output[key] = .array((round[key].array ?? []).filter { players.contains($0["player"].string ?? "") })
     }
+    output["utility"] = .array((round["utility"].array ?? []).enumerated().compactMap { index,event in
+        guard players.contains(event["player"].string ?? ""),var object = event.object else { return nil }
+        object["event_number"] = .number(Double(index));return .object(object)
+    })
     output["deaths"] = .array((round["deaths"].array ?? []).filter { players.contains($0["victim"].string ?? "") || players.contains($0["killer"].string ?? "") })
     return .object(output)
 }

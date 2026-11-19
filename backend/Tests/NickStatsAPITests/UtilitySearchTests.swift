@@ -38,3 +38,10 @@ import Testing
     bad = valid;bad.minimum = -1;#expect(throws:(any Error).self) { try validateUtilitySearch(bad) }
     bad = valid;bad.scopes = [];#expect(throws:(any Error).self) { try validateUtilitySearch(bad) }
 }
+@Test func projectedGrenadeIdentityMatchesIndexWhenOtherOwnersAreFilteredOut() throws {
+    let round = try replayDecode("{\"utility\":[{\"type\":\"HE\",\"player\":\"other\"},{\"type\":\"Fire\",\"player\":\"selected\"}]}",as:ReplayJSON.self)
+    let projected = projectReplayRound(round,players:["selected"])
+    #expect(projected["utility"].array?.count == 1)
+    #expect(projected["utility"].array?.first?["event_number"].integer == 1)
+    #expect(utilityIndexEvents(round)[1].number == 1)
+}
