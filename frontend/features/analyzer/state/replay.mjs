@@ -57,6 +57,7 @@ export function validateReplay(input) {
       return effect;
     });
     const output = {number:round.number,duration:round.duration,winner:round.winner,tracks,utility};
+    if(round.live_duration!=null){if(!finite(round.live_duration,round.duration)||round.live_duration<0)fail('invalid live round duration.');output.live_duration=round.live_duration;}
     if (input.version >= 2) {
       if (!Array.isArray(round.projectiles) || round.projectiles.length>100000) fail('invalid projectiles.');
       const projectileIds = new Set();

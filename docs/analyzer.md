@@ -345,3 +345,32 @@ throw and captured effect prove the total belongs to that grenade. Ambiguous
 attribution remains unknown. Statistics replacement invalidates indexes that
 can depend on round totals. Superseded captures are rejected, and dates and tags
 remain untouched.
+
+## Map-first Groups and post-round playback (2026.11.19.2)
+
+Groups requires a map before Find matches. Choosing a map is local: no match
+rosters, replay indexes or movement are fetched until Find matches is pressed.
+The match lookup is scoped by map in SQL, before pagination and roster loading.
+Changing maps clears the old view and waits for another search. A profile/group
+handoff without a map also waits; a handoff with an explicit map opens that map.
+Dates and tags still filter the matching map locally without downloading new
+movement for already-cached rounds.
+
+New captures continue after the live round ends, through the playable transition
+period. Player positions, held items, blindness, combat and utility use the same
+sampling rates. Replay collection closes at official end, next prestart/start,
+or an observed transition to freeze/warmup. The next live round has its own
+window; if final transition events are absent, the last recorded demo packet
+bounds the final replay. Warmup and the next round's freeze are excluded.
+
+Replay `duration` covers the full playback window; optional `live_duration`
+preserves the round-win time. The single-round countdown freezes there, and the
+scrubber marks post-round time (while retaining bomb defuse/explosion colors).
+Existing live-round statistical definitions and match timing stay unchanged.
+This affects only optional movement capture and Analyzer responses; ordinary
+profile/Groups statistic payloads do not gain movement data.
+
+Deploy frontend and backend together. No new database migration is required.
+Existing captures remain readable, but reparse and save demos with this build to
+recover post-round actions; older captures cannot reconstruct omitted samples.
+Existing match dates and tags are preserved by the normal reparse path.

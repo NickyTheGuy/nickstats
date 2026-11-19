@@ -8,11 +8,11 @@ export async function analyzerJSON(path,{signal,...options}={}) {
   if(!response.ok)throw new Error(body?.reason||`Analyzer returned HTTP ${response.status}.`);
   return body;
 }
-export async function candidateMatches({players=[],matchID,signal},request=analyzerJSON) {
+export async function candidateMatches({players=[],matchID,map,signal},request=analyzerJSON) {
   const matches=[];
   for(let offset=0;;offset+=100) {
     signal?.throwIfAborted();
-    const query=new URLSearchParams({limit:'100',offset:String(offset),...(matchID?{match:String(matchID)}:{players:players.map(p=>p.id).join(',')})});
+    const query=new URLSearchParams({limit:'100',offset:String(offset),...(matchID?{match:String(matchID)}:{players:players.map(p=>p.id).join(','),...(map?{map}:{})})});
     const page=await request(`/matches?${query}`,{signal});
     if(!Array.isArray(page?.matches))throw new Error('Could not read Analyzer match rosters.');
     matches.push(...page.matches);

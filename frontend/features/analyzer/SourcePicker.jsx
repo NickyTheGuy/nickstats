@@ -9,6 +9,7 @@ import PlayerSearch from '../players/search/PlayerSearch.jsx';
 import { createPlayerSearch } from '../players/state/player-search.mjs';
 import { analyzerMatches, conditionPlayers, rulesForPlayers } from './state/query.mjs';
 import { candidateMatches } from './state/server.mjs';
+import mapData from './state/maps.json';
 
 export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFilters}) {
   const [players,setPlayers]=useState([]),[rules,setRules]=useState(()=>rulesForPlayers([]));
@@ -20,11 +21,11 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFi
   useEffect(()=>()=>{operation.current?.abort();search.destroy();},[]);
   function invalidate() {operation.current?.abort();setPending(false);setCandidates(null);setError('');onClear();}
   function editPlayers(next) {invalidate();setPlayers(next);setRules(normalizeEditorRules(rules,next.map(p=>String(p.id))));}
-  async function lookup(nextPlayers=players,nextMatchID=null) {
+  async function lookup(nextPlayers=players,nextMatchID=null,nextMap=map) {
     operation.current?.abort();const controller=new AbortController();operation.current=controller;
     setPending(true);setError('');setCandidates(null);onClear();
     try {
-      const matches=await candidateMatches({players:nextPlayers,matchID:nextMatchID,signal:controller.signal});
+      const matches=await candidateMatches({players:nextPlayers,matchID:nextMatchID,map:nextMatchID?undefined:nextMap,signal:controller.signal});
       controller.signal.throwIfAborted();
       if(nextMatchID) {
         if(!matches.length)throw new Error('This match was not found.');
@@ -39,12 +40,12 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFi
     tags.reset();for(const [id,condition]of pendingTags)tags.select(id,condition);setPendingTags([]);
   },[pendingTags,revision]);
   const matching=useMemo(()=>candidates===null||pendingTags.length?[]:analyzerMatches(candidates,rules,m=>dates.matches(m.played_at)&&tags.matches(m)),[candidates,rules,revision,pendingTags]);
-  const maps=useMemo(()=>[...new Set(matching.map(m=>m.map))].sort(),[matching]);
-  const chosenMap=maps.includes(map)?map:([...maps].sort((a,b)=>matching.filter(m=>m.map===b&&m.capture).length-matching.filter(m=>m.map===a&&m.capture).length)[0]||'');
+  const maps=useMemo(()=>[...new Set([...Object.keys(mapData.maps),...(map?[map]:[])])].sort(),[map]);
+  const chosenMap=map;
   const scoped=useMemo(()=>matching.filter(m=>m.map===chosenMap),[matching,chosenMap]);
   const used=useMemo(()=>conditionPlayers(players,rules),[players,rules]);
   useEffect(()=>{
-    if(mode==='groups'&&candidates!==null)onChoose({mode:'groups',matches:scoped,players:used,map:chosenMap});
+    if(mode==='groups'&&chosenMap&&candidates!==null)onChoose({mode:'groups',matches:scoped,players:used,map:chosenMap});
   },[mode,candidates,scoped,used,chosenMap,onChoose]);
   useEffect(()=>{
     if(!entry)return;
@@ -54,7 +55,7 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFi
     setPlayers(entry.players);setRules(nextRules);setMap(entry.map||'');
     dates.from=entry.date?.from||'';dates.through=entry.date?.through||'';dates.closeMenus();
     tags.reset();setPendingTags(entry.tags||[]);
-    lookup(entry.players);
+    if(entry.map)lookup(entry.players,null,entry.map);else onClear();
   },[entry]);
   useEffect(()=>{
     const refresh=()=>{if(mode==='groups'&&candidates!==null)lookup();else if(mode==='match'&&matchID)lookup([],matchID);};
@@ -73,10 +74,11 @@ export default function SourcePicker({mode,onMode,entry,onChoose,onClear,matchFi
       <GroupBuilder players={players} rules={rules} onRules={next=>{invalidate();setRules(next);}}
         onRemove={id=>editPlayers(players.filter(p=>String(p.id)!==String(id)))} />
       <div className="analyzer-source-actions">
-        <Button className="button button-primary" disabled={pending||!players.length} onClick={()=>lookup()}>Find matches</Button>
+        <OptionField label="Map" options={[["","Choose map"],...maps.map(name=>[name,name.replace(/^de_/,"")])]} value={map} onChange={value=>{invalidate();setMap(value);}} />
+        <Button className="button button-primary" disabled={pending||!players.length||!map} onClick={()=>lookup()}>Find matches</Button>
       </div>
       {candidates!==null&&<div className="analyzer-query-result">
-        {!!maps.length&&<OptionField label="Map" options={maps.map(name=>[name,`${name.replace(/^de_/,'')} · ${matching.filter(m=>m.map===name).length} matches`])} value={chosenMap} onChange={setMap} />}
+        {!pendingTags.length&&!scoped.length&&<FormMessage>No matching matches.</FormMessage>}
         {missing>0&&<FormMessage>{missing} {missing===1?'match needs a movement capture.':'matches need movement captures.'}</FormMessage>}
       </div>}
     </>}

@@ -178,7 +178,7 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261119-1");
+    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261119-2");
     const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay), Boolean(event.data.includeStats));
     self.postMessage(event.data.captureReplay && !event.data.includeStats
       ? { type: "result", replay: parsed.replay }
@@ -2230,7 +2230,6 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
     const attacker = stats.get(attackerId);
     const duration = Math.max(0, number(event.blind_duration));
     if (victim && duration > 0) {
-      if(replayCapture&&round.live&&!round.finished)collectReplay(()=>replayCapture.blind(tick,round.liveStartTick,tickInterval,replayPlayerId(victim),duration*1000));
       const expiry = tick + Math.ceil(duration / tickInterval);
       blindUntilTick.set(victim.userId, Math.max(blindUntilTick.get(victim.userId) ?? -1, expiry));
       const attackerTeam = teamNow.get(attackerId);
@@ -2257,8 +2256,6 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
     if ((attackerTeam === 2 || attackerTeam === 3) &&
         (victimTeam === 2 || victimTeam === 3) && attackerTeam !== victimTeam) {
       attacker.enemiesFlashed += 1;
-      if(replayCapture&&round.live&&!round.finished)collectReplay(()=>replayCapture.outcome('flash',tick,round.liveStartTick,tickInterval,
-        {player:replayPlayerId(attacker),victim:`user:${victimId}`,type:'Flash',entity:Number.isInteger(event.entityid)&&event.entityid>0?event.entityid:null,duration:Math.round(duration*1000)}));
     }
   }
 
@@ -2324,8 +2321,6 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
       }
     }
     const weapon = String(event.weapon || "").toLocaleLowerCase();
-    if(replayCapture&&round.live&&!round.finished&&damage>0&&['hegrenade','inferno','molotov','incgrenade'].includes(weapon))collectReplay(()=>replayCapture.outcome('damage',tick,round.liveStartTick,tickInterval,
-      {player:replayPlayerId(row),victim:`user:${victimId}`,type:weapon==='hegrenade'?'HE':'Fire',entity:null,damage:Math.round(damage)}));
     if (weapon === "hegrenade") row.heDamage += damage;
     if (weapon === "inferno" || weapon === "molotov" || weapon === "incgrenade") row.fireDamage += damage;
   }
@@ -2433,14 +2428,18 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
       samplePlayerInventories(demoPacket.tick);
       samplePlayerMotion(demoPacket.tick);
       sampleClutchResources(demoPacket.tick);
-      if (replayCapture && round.live && !round.finished) {
+      if(replayCapture&&Number.isFinite(replayCapture.activeStart)&&round.finished) {
+        const state=gameRulesRoundState(parser.getDemo());
+        if(state?.freeze||state?.warmup)collectReplay(()=>replayCapture.endRound(demoPacket.tick,tickInterval));
+      }
+      if (replayCapture && Number.isFinite(replayCapture.activeStart)) {
         collectReplay(() => {
           const demo=parser.getDemo();let roundSeconds=null,bombSeconds=null;
           for(const entity of demo.getEntitiesByClassNameIterator('CCSGameRulesProxy'))roundSeconds=numberOrNull(safePawnField(entity,'m_pGameRules.m_iRoundTime'));
           for(const entity of demo.getEntitiesByClassNameIterator('CPlantedC4'))bombSeconds=numberOrNull(safePawnField(entity,'m_flTimerLength'));
-          replayCapture.setClock(round.liveStartTick,roundSeconds,bombSeconds);
-          replayCapture.sample(demoPacket.tick, round.liveStartTick, tickInterval, readReplayPlayers);
-          replayCapture.observe(demoPacket.tick, round.liveStartTick, tickInterval, readReplayUtilities);
+          replayCapture.setClock(replayCapture.activeStart,roundSeconds,bombSeconds);
+          replayCapture.sample(demoPacket.tick, replayCapture.activeStart, tickInterval, readReplayPlayers);
+          replayCapture.observe(demoPacket.tick, replayCapture.activeStart, tickInterval, readReplayUtilities);
         });
       }
       sampleGameRulesRoundEnd(demoPacket.tick);
@@ -2484,20 +2483,36 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
     if (!descriptor) return;
     eventCounts.set(descriptor.name, (eventCounts.get(descriptor.name) || 0) + 1);
     const gameEvent = zip(descriptor, messagePacket.data.keys || []);
-    if (replayCapture && round.live && !round.finished) collectReplay(() => {
+    if (replayCapture && Number.isFinite(replayCapture.activeStart)) collectReplay(() => {
       const owner = stats.get(integer(gameEvent.userid));
-      replayCapture.utility(descriptor.name, demoPacket.tick, round.liveStartTick, tickInterval, gameEvent,
+      replayCapture.utility(descriptor.name, demoPacket.tick, replayCapture.activeStart, tickInterval, gameEvent,
         owner ? replayPlayerId(owner) : null);
       if (descriptor.name === "player_death" || descriptor.name === "weapon_fire" && isInitiationDirectWeapon(gameEvent.weapon) && !normalizedWeapon(gameEvent.weapon).startsWith("knife") && normalizedWeapon(gameEvent.weapon)!=="bayonet") {
         const killer=stats.get(integer(gameEvent.attacker));
-        replayCapture.combat(descriptor.name,demoPacket.tick,round.liveStartTick,tickInterval,
+        replayCapture.combat(descriptor.name,demoPacket.tick,replayCapture.activeStart,tickInterval,
           {victim:owner?replayPlayerId(owner):null,shooter:owner?replayPlayerId(owner):null,killer:killer?replayPlayerId(killer):null},
           readReplayPlayers,gameEvent.weapon,gameEvent.headshot);
       }
     });
 
-    if(replayCapture&&['bomb_planted','bomb_defused','bomb_exploded'].includes(descriptor.name))collectReplay(()=>{
-      const actor=stats.get(integer(gameEvent.userid));replayCapture.objective(descriptor.name,demoPacket.tick,round.liveStartTick,tickInterval,actor?replayPlayerId(actor):null);
+    if(replayCapture&&Number.isFinite(replayCapture.activeStart))collectReplay(()=>{
+      const start=replayCapture.activeStart,tick=demoPacket.tick,victimId=integer(gameEvent.userid),attackerId=integer(gameEvent.attacker);
+      const victim=stats.get(victimId),attacker=stats.get(attackerId),side=teamNow.get(attackerId),victimSide=teamNow.get(victimId);
+      const enemy=attacker&&victim&&attacker!==victim&&[2,3].includes(side)&&[2,3].includes(victimSide)&&side!==victimSide;
+      if(['bomb_planted','bomb_defused','bomb_exploded'].includes(descriptor.name))replayCapture.objective(descriptor.name,tick,start,tickInterval,victim?replayPlayerId(victim):null);
+      if(descriptor.name==='player_blind') {
+        const duration=Math.round(Math.max(0,number(gameEvent.blind_duration))*1000);
+        if(victim)replayCapture.blind(tick,start,tickInterval,replayPlayerId(victim),duration);
+        if(enemy)replayCapture.outcome('flash',tick,start,tickInterval,{player:replayPlayerId(attacker),victim:`user:${victimId}`,type:'Flash',entity:Number.isInteger(gameEvent.entityid)&&gameEvent.entityid>0?gameEvent.entityid:null,duration});
+      }
+      if(descriptor.name==='player_hurt') {
+        const raw=Math.max(0,number(gameEvent.dmg_health)),after=numberOrNull(gameEvent.health),before=round.healthByUser.get(victimId);
+        const health=after===null?null:Math.max(0,Math.min(100,after));
+        const damage=health===null?raw:Math.max(0,Math.min(raw,(Number.isFinite(before)&&before>=health?before:Math.min(100,health+raw))-health));
+        if(!round.live&&health!==null)round.healthByUser.set(victimId,health);
+        const weapon=String(gameEvent.weapon||'').toLowerCase();
+        if(enemy&&damage>0&&['hegrenade','inferno','molotov','incgrenade'].includes(weapon))replayCapture.outcome('damage',tick,start,tickInterval,{player:replayPlayerId(attacker),victim:`user:${victimId}`,type:weapon==='hegrenade'?'HE':'Fire',entity:null,damage:Math.round(damage)});
+      }
     });
     switch (descriptor.name) {
       case "begin_new_match":
@@ -2509,6 +2524,7 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
         break;
       case "round_start":
       case "round_prestart":
+        collectReplay(()=>replayCapture.endRound(demoPacket.tick,tickInterval));
         // Both events can occur for one round, and a delayed official-end event
         // can arrive between them. Do not throw away a round with real activity.
         if (round.finished) {
@@ -2531,6 +2547,7 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
         round.freezeSeen = true;
         round.live = true;
         round.liveStartTick = demoPacket.tick;
+        collectReplay(()=>replayCapture.beginRound(demoPacket.tick,tickInterval));
         round.gameRulesCompletedAtStart = gameRulesRoundState(parser.getDemo())?.completed;
         // Discard transient pre-freeze spawns (for example a bot created while
         // a player reconnects) and snapshot the roster that actually goes live.
@@ -2555,6 +2572,7 @@ async function parseDemo(fileName, buffer, captureReplay = false, keepStatsOnRep
         break;
       case "round_officially_ended":
         finishRound(null, true, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
+        if(round.finished&&replayCapture?.activeStart===round.liveStartTick)collectReplay(()=>replayCapture.endRound(demoPacket.tick,tickInterval));
         break;
       case "cs_win_panel_match":
         finishRound(null, true, descriptor.name, demoPacket.tick, scalarEventFields(gameEvent));
@@ -3557,7 +3575,8 @@ function gameRulesRoundState(demo) {
     return {
       completed: integer(safePawnField(entity, "m_pGameRules.m_totalRoundsPlayed")),
       winner: integer(safePawnField(entity, "m_pGameRules.m_iRoundWinStatus")),
-      warmup: safePawnField(entity, "m_pGameRules.m_bWarmupPeriod")
+      warmup: safePawnField(entity, "m_pGameRules.m_bWarmupPeriod"),
+      freeze: safePawnField(entity, "m_pGameRules.m_bFreezePeriod")
     };
   }
   return null;

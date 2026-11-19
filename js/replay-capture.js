@@ -11,7 +11,17 @@
       this.clock={round_ms:115000,bomb_ms:40000,round_estimated:true,bomb_estimated:true};this.defuseClock=false;
       this.reset();
     }
-    reset() { this.rounds = new Map(); this.players = new Map(); this.samples = 0; this.events = 0; }
+    reset() { this.activeStart=null; this.rounds = new Map(); this.players = new Map(); this.samples = 0; this.events = 0; }
+    beginRound(tick,interval) {
+      if(this.activeStart===tick)return;
+      this.endRound(tick,interval);
+      if(Number.isFinite(tick))this.activeStart=tick;
+    }
+    endRound(tick,interval) {
+      if(!Number.isFinite(this.activeStart))return;
+      if(Number.isFinite(tick)&&tick>=this.activeStart)this.getRound(this.activeStart).captureEnd=Math.round((tick-this.activeStart)*interval*1000);
+      this.activeStart=null;
+    }
     configure(name,value) {
       const n = Number(value);
       if (!Number.isFinite(n) || n <= 0) return;
@@ -42,6 +52,7 @@
     sample(tick,start,interval,readPlayers) {
       if (!Number.isFinite(start) || tick < start) return;
       const round = this.getRound(start);
+      round.lastTime=Math.round((tick-start)*interval*1000);
       if ((tick-round.lastTick)*interval < 0.2) return;
       round.lastTick = tick;
       const time = Math.round((tick-start)*interval*1000);
@@ -213,7 +224,7 @@
       for (const timing of result.round_timing) {
         const data = this.rounds.get(timing.live_start_tick);
         if (!data) continue;
-        const duration = timing.duration_ms;
+        const duration = Math.max(timing.duration_ms,data.captureEnd??data.lastTime??0);
         const tracks = [...data.tracks].map(([player,samples])=>({player,samples:samples.filter(s=>s[0]<=duration)})).filter(t=>t.samples.length);
         if (!tracks.length) continue;
         const effectiveness=this.effectiveness(data,duration);
@@ -231,7 +242,7 @@
         const deaths=data.deaths.filter(e=>e.time<=duration&&owner(e.victim)).map(e=>({...e,killer:owner(e.killer)}));
         const context=(byRound.get(timing.round)||[]).filter(c=>owner(c.player)).map(c=>({player:c.player,side:c.side,result:c.result,buy:c.buy,enemy_buy:c.enemy_buy,hero:Boolean(c.hero)}));
         const performance=(byRound.get(timing.round)||[]).filter(c=>owner(c.player)&&c.performance).map(c=>({player:c.player,...c.performance}));
-        rounds.push({number:timing.round,duration,winner:timing.winner_side,tracks,utility,projectiles,firing,deaths,context,equipment,blindness,clock:data.clock,bomb_events,...(performance.length?{performance}:{})});
+        rounds.push({number:timing.round,duration,live_duration:timing.duration_ms,winner:timing.winner_side,tracks,utility,projectiles,firing,deaths,context,equipment,blindness,clock:data.clock,bomb_events,...(performance.length?{performance}:{})});
       }
       if (!rounds.length) throw new Error('No playable movement tracks were captured from this demo.');
       return {format:'nickstats.replay',version:4,match_uid:result.match_uid,demo_sha256:result.demo_sha256,map:result.map,source_file:result.source_file,

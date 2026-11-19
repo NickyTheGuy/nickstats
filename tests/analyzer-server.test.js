@@ -78,3 +78,9 @@ test('Replay indexes batch large histories and restore requested order independe
   const headers=await loadCaptureHeaders(matches,{},async(path,o)=>{assert.equal(path,'/indexes');calls++;const {captures}=JSON.parse(o.body);return {captures:[...captures].reverse().map(capture=>({capture,header:{match_uid:capture},rounds:[]}))};});
   assert.equal(calls,3);assert.deepEqual(headers.map(h=>h.matchID),matches.map(m=>String(m.id)));
 });
+test('A chosen map scopes every Groups lookup page; Match lookup remains map independent',async()=>{
+  const {candidateMatches}=await api(),paths=[];
+  await candidateMatches({players:[{id:1}],map:'de_nuke'},async path=>{paths.push(path);return {matches:paths.length===1?Array.from({length:100},(_,id)=>({id})):[]};});
+  assert.equal(paths.length,2);for(const path of paths)assert.equal(new URL(path,'https://test').searchParams.get('map'),'de_nuke');
+  paths.length=0;await candidateMatches({players:[],matchID:12,map:'de_mirage'},async path=>{paths.push(path);return {matches:[]};});assert.equal(new URL(paths[0],'https://test').searchParams.has('map'),false);
+});
