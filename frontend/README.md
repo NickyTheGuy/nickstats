@@ -283,3 +283,8 @@ calculations and `selection-matches.mjs` for lazy match-scoped statistics.
 `SelectionMetrics` is shared by the map popup and routed Selection page.
 Private friends are held by the account friends store, cleared on account changes,
 and edited using the normal player-search and button components.
+
+Per-player selection tabs share the same selection and match-statistics load;
+`selection-players.mjs` applies the player restriction before all scope summaries
+and actions. `timeline.mjs` derives playback bounds from saved round summaries,
+independently of cache loading or fullscreen layout.

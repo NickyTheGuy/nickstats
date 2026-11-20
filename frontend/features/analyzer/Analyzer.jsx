@@ -1,3 +1,4 @@
+import { selectionTimeline } from './state/timeline.mjs';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import RoundClock from './RoundClock.jsx';
 import VisualControls from './VisualControls.jsx';
@@ -59,7 +60,7 @@ export default function Analyzer({entryStore}) {
     clearSource();setMode(source.mode);setQueryPlayers(source.mode==='groups'?source.players:null);
     const identity=source.mode==='groups'?`groups:${source.players.map(p=>p.id).join(',')}`:`match:${source.matches[0]?.id}`;
     const reset=identity!==sourceIdentity.current;
-    if(reset){setEventStart(0);resumeTime.current=null;setRoundFocus(null);setFilters({result:'all',buy:[],enemyBuy:[]});setSide(0);setGroupRounds({sections:[],numbers:[]});}
+    if(reset){setTime(0);setEventStart(0);resumeTime.current=null;setRoundFocus(null);setFilters({result:'all',buy:[],enemyBuy:[]});setSide(0);setGroupRounds({sections:[],numbers:[]});}
     const available=source.matches.filter(m=>m.capture);
     if(!available.length){if(source.matches.length)setError('No movement is stored for this selection. Reparse these demos from Match to capture it.');return;}
     const controller=new AbortController();operation.current=controller;setBusy(true);
@@ -118,14 +119,17 @@ export default function Analyzer({entryStore}) {
   const rosters=useMemo(()=>result?new Map(rounds.map(round=>[`${round.match_uid}:${round.number}`,{primary:[...new Set(round.utility.map(e=>e.player))],enemies:[]}])):movementRosters,[result,rounds,movementRosters]);
   const mapDisplay=useMemo(()=>result?utilityResultDisplay(result.type):display,[result,display]);
   useEffect(()=>{if(result){setPlaying(false);setTime(rounds.reduce((max,r)=>Math.max(max,r.duration),0));}},[result]);
-  const duration = rounds.reduce((max,r)=>Math.max(max,r.duration),0), map = Object.hasOwn(mapData.maps,mapName) ? mapData.maps[mapName] : null;
+  // Manifest durations remain available while movement slices are loading.
+  const timeline=useMemo(()=>result?{count:rounds.length,duration:rounds.reduce((max,round)=>Math.max(max,round.duration),0)}:selectionTimeline(mapReplays,roundKeys),[result,rounds,mapReplays,roundKeys]);
+  const duration = timeline.duration, map = Object.hasOwn(mapData.maps,mapName) ? mapData.maps[mapName] : null;
   const areaSummary=useMemo(()=>area?.map===mapName&&rounds.length?summarizeArea(rounds,{players:mapPlayers.map(p=>p.id),selection:area.items,rosters}):null,[rounds,area,mapName,mapPlayers,rosters]);
   function selectItems(items,append=false) {
     setPlaying(false);
     setArea(previous=>({map:mapName,items:mergeSelection(previous?.map===mapName?previous.items:[],items,append)}));
   }
-  useEffect(() => { if(resumeTime.current===null&&(!area||mapName&&area.map!==mapName))setTime(0);setPlaying(false); }, [selectedRounds,groupRounds,mapName,filters,selectedPlayers,side]);
-  useEffect(()=>{if(rounds.length){if(resumeTime.current!==null){setTime(Math.min(resumeTime.current,duration));resumeTime.current=null;}else setTime(value=>Math.min(value,duration));}},[rounds,duration]);
+  useEffect(() => { setPlaying(false); }, [selectedRounds,groupRounds,mapName,filters,selectedPlayers,side]);
+  const hasTimeline=timeline.count>0;
+  useEffect(()=>{if(hasTimeline){if(resumeTime.current!==null){setTime(Math.min(resumeTime.current,duration));resumeTime.current=null;}else setTime(value=>Math.min(value,duration));}},[hasTimeline,duration]);
   useEffect(() => {
     if (!playing || !duration) return;
     let frame, previous = performance.now(), lastRender = previous;
@@ -141,10 +145,10 @@ export default function Analyzer({entryStore}) {
   }, [playing,speed,duration]);
   useEffect(()=>{if(resumeTime.current===null&&eventStart>time)setEventStart(time);},[time,eventStart,rounds.length]);
   useEffect(() => { if (time >= duration) setPlaying(false); }, [time,duration]);
-  function focusArea() {
+  function focusArea(selection=areaSummary) {
     setUtilityResults(null);
-    const keys=[...(areaSummary?.matched||[])].map(selectionRoundKey).filter(Boolean);if(!keys.length)return;
-    setRoundFocus({map:mapName,keys,instances:areaSummary.instances,previousMatchRounds:mode==='match'?[...selectedRounds]:null});if(mode==='match')setSelectedRounds(keys);setArea(null);setTime(0);setPlaying(false);
+    const keys=[...(selection?.matched||[])].map(selectionRoundKey).filter(Boolean);if(!keys.length)return;
+    setRoundFocus({map:mapName,keys,instances:selection.instances,previousMatchRounds:mode==='match'?[...selectedRounds]:null});if(mode==='match')setSelectedRounds(keys);setArea(null);setTime(0);setPlaying(false);
   }
   function clearRoundFocus(){if(mode==='match'&&roundFocus?.previousMatchRounds)setSelectedRounds(roundFocus.previousMatchRounds);setRoundFocus(null);}
   const combat=useMemo(()=>rounds.length===1?roundCombat(rounds[0],{rosters,players:selectedPlayers,side,display,enemyDisplay}):{kills:[],feed:[]},[rounds,rosters,selectedPlayers,side,display,enemyDisplay]);

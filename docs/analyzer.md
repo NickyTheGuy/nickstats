@@ -517,3 +517,24 @@ The private friends API is `GET /auth/friends` and `POST /auth/friends` with
 `player_id` and `friend` (boolean). Both require a signed account session;
 the upload token alone is insufficient. Mutations are idempotent, account-isolated,
 limited to 500 friends, and return private/no-store responses.
+
+### Per-player selection tabs and playback position (2026.11.20.2)
+
+When more than one player is selected, the popup shows a single horizontal row
+of Combined and player tabs. Names are drawn from the replay roster; unknown
+utility owners have a separate tab. All three statistic scopes and the friends
+breakdown use the active player's selection. Focus selection and Open selected
+matches also use that player's instances. Switching tabs preserves the underlying
+map selection and reuses one match-statistics load for the complete selection.
+Removing the active player returns to Combined. A single player's popup does not
+need a tab row. The shared TabList supports keyboard navigation and horizontal
+scrolling without expanding into several rows.
+
+Round, buy, side and player filters pause playback but preserve its position and
+the event-start handle. The timeline uses the selected round manifests, so loading
+movement does not temporarily shrink its maximum to zero. A genuinely shorter
+selection clamps the playhead to its duration and keeps start <= end. An empty
+filter result disables the timeline while retaining the position for when rounds
+are selected again. Native/fallback fullscreen changes do not restart playback.
+Opening a different source, Focus and explicit next/previous round navigation
+retain their deliberate restart behavior. No backend or database change is needed.

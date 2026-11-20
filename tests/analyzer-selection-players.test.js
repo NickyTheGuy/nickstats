@@ -1,0 +1,17 @@
+const {test}=require('node:test'),assert=require('node:assert/strict');
+test('Player tabs separate exact events, round totals and match context without changing the original selection',async()=>{
+ const {selectionPlayerOptions,playerSelection}=await import('../frontend/features/analyzer/state/selection-players.mjs'),{summarizeArea}=await import('../frontend/features/analyzer/state/area-selection.mjs'),{exactSelectionSummary,eventSelectionKey,selectedMatchContext}=await import('../frontend/features/analyzer/state/selection-scope.mjs');
+ const death={time:100,killer:'a',victim:'b',killer_side:3,victim_side:2,weapon:'ak47',x:0,y:0,z:0},round={number:1,match_uid:'u',duration:1000,utility:[],deaths:[death],context:[{player:'a',side:3,result:'win'},{player:'b',side:2,result:'loss'}],performance:[{player:'a',kills:3,deaths:0,assists:1,damage:200,kast:1},{player:'b',kills:0,deaths:1,assists:0,damage:20,kast:0}]},players=[{id:'a',name:'Alex'},{id:'b',name:'Sam'}],items=[{roundKey:'u:1',player:'a',side:3,events:[eventSelectionKey('kill',death)],utilities:[]},{roundKey:'u:1',player:'b',side:2,events:[eventSelectionKey('death',death)],utilities:[]}],summary=summarizeArea([round],{players:['a','b'],selection:items});
+ assert.deepEqual(selectionPlayerOptions(summary,players),[['combined','Combined'],['a','Alex'],['b','Sam']]);
+ const a=playerSelection([round],items,summary,'a'),b=playerSelection([round],items,summary,'b');assert.equal(summary.winRate,50);assert.equal(a.summary.winRate,100);assert.equal(b.summary.winRate,0);assert.equal(a.summary.kills,3);assert.equal(a.summary.count,1);assert.equal(a.summary.observations,1);
+ assert.equal(exactSelectionSummary([round],a.items).kills,1);assert.equal(exactSelectionSummary([round],a.items).deaths,0);assert.equal(exactSelectionSummary([round],b.items).deaths,1);assert.equal(items.length,2);assert.equal(playerSelection([round],items,summary).summary,summary);
+ const context=selectedMatchContext([{matchID:'5',match_uid:'u',map:'de_nuke',rounds:[round],roster:[]}],a.summary,a.items);assert.equal(context.matches[0].instances.length,1);assert.equal(context.matches[0].instances[0].player,'a');
+});
+test('Player tabs include unknown grenade owners and omit stale or invisible instances',async()=>{
+ const {selectionPlayerOptions,playerSelection}=await import('../frontend/features/analyzer/state/selection-players.mjs');const summary={instances:[{roundKey:'u:1',player:'a'},{roundKey:'u:1',player:null}]},items=[{roundKey:'u:1',player:'a',utilities:[]},{roundKey:'u:1',player:null,utilities:['g']},{roundKey:'u:2',player:'a',utilities:[]}];
+ assert.deepEqual(selectionPlayerOptions(summary,[{id:'a',name:'Alex'}]),[['combined','Combined'],['a','Alex'],['unknown','Unknown thrower']]);assert.equal(playerSelection([],items,summary).items.length,2);assert.equal(playerSelection([],items,summary,'unknown').items.length,1);
+});
+test('Timeline bounds come from selected round summaries regardless of movement cache coverage',async()=>{
+ const {selectionTimeline}=await import('../frontend/features/analyzer/state/timeline.mjs'),replays=[{match_uid:'one',rounds:[{number:1,duration:6000},{number:2,duration:18000}]},{match_uid:'two',rounds:[{number:1,duration:12000}]}];
+ assert.deepEqual(selectionTimeline(replays,['one:1','one:2','two:1']),{count:3,duration:18000});assert.deepEqual(selectionTimeline(replays,['one:1']),{count:1,duration:6000});assert.deepEqual(selectionTimeline(replays,[]),{count:0,duration:0});assert.deepEqual(selectionTimeline(replays,['one:1','one:1']),{count:1,duration:6000});
+});
