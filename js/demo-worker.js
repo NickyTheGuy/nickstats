@@ -178,7 +178,7 @@ self.addEventListener("message", async event => {
         : output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
       self.postMessage({ type: "status", message: "Fingerprinting and parsing the demo locally…" });
     }
-    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261120-4");
+    if (event.data.captureReplay && !self.NickStatsReplayCapture) importScripts("./replay-capture.js?v=20261120-5");
     const parsed = await parseDemo(event.data.name, buffer, Boolean(event.data.captureReplay), Boolean(event.data.includeStats));
     self.postMessage(event.data.captureReplay && !event.data.includeStats
       ? { type: "result", replay: parsed.replay }

@@ -32,7 +32,7 @@ need deployment; movement captures, dates, tags and friends are untouched.
 Supported cards use the stored full-round combat, opening, utility, movement,
 clutch, initiation, weapon and objective counters. Event-timing/phase, alive-count
 round-state and team-equipment-value cards are marked unavailable in this first
-version, as are teammate trade breakdowns. They never reuse whole-match values or
+version. Teammate trade breakdowns also follow these round conditions. They never reuse whole-match values or
 silently display missing counters as zero. Empty samples show no rating.
 
 This first filter applies to individual profile cards and map summaries. Quick

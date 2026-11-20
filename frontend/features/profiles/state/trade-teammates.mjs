@@ -1,6 +1,7 @@
-export function tradeSelection(playerId, matchIds, side) {
+export function tradeSelection(playerId, matchIds, side, filters = {}) {
   const ids = [...new Set(matchIds.map(Number))].sort((a,b) => a-b);
-  return { playerId: String(playerId), match_ids: ids, side, key: JSON.stringify([String(playerId), side, ids]) };
+  const rounds = Object.fromEntries(['buy','opponent_buy','round_result','round_phase','round_condition'].map(key => [key,filters[key] || 'ALL']));
+  return { playerId: String(playerId), match_ids: ids, side, ...rounds, key: JSON.stringify([String(playerId), side, ids, rounds]) };
 }
 
 export function createTradeTeammatesClient(fetcher, now = Date.now) {
@@ -14,7 +15,7 @@ export function createTradeTeammatesClient(fetcher, now = Date.now) {
       const started = generation;
       const response = await fetcher(`/nickstats/api/players/${encodeURIComponent(selection.playerId)}/trade-teammates`, {
         method:'POST', headers:{'Content-Type':'application/json',Accept:'application/json'}, cache:'no-store',signal,
-        body:JSON.stringify({match_ids:selection.match_ids,side:selection.side})
+        body:JSON.stringify({match_ids:selection.match_ids,side:selection.side, ...Object.fromEntries(['buy','opponent_buy','round_result','round_phase','round_condition'].map(key => [key,selection[key]]))})
       });
       const value = await response.json().catch(() => null);
       if (!response.ok) throw new Error(response.status === 404

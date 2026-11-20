@@ -163,8 +163,7 @@
       matchIds: profile ? matchesFor(profile.payload).map(match => match.id) : [],
       side: state.side,
       active: Boolean(profile) && !$("playersPage").hidden && state.display === "profile" && state.view === "trades",
-      roundCondition: state.roundCondition!=="ALL",
-      unsupported: state.roundCondition!=="ALL" || state.buy !== "ALL" || state.opponentBuy !== "ALL" || state.roundResult !== "ALL" || state.roundPhase !== "ALL" || state.heroOnly,
+      buy: state.buy, opponentBuy: state.opponentBuy, roundResult: state.roundResult, roundPhase: state.roundPhase, roundCondition: state.roundCondition,
       onPlayer: id => loadProfile(id)
     });
   }

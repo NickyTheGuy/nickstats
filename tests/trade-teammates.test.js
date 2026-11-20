@@ -25,7 +25,7 @@ test('one bulk read serves both directions, expires, and invalidates after datab
   const selection=tradeSelection(1,[2,1],'CT');
   await client.load(selection);await client.load(selection);
   assert.equal(calls.length,1);
-  assert.deepEqual(JSON.parse(calls[0].options.body),{match_ids:[1,2],side:'CT'});
+  assert.deepEqual(JSON.parse(calls[0].options.body),{match_ids:[1,2],side:'CT',buy:'ALL',opponent_buy:'ALL',round_result:'ALL',round_phase:'ALL',round_condition:'ALL'});
   assert.equal(calls[0].options.method,'POST');
   now+=60000;await client.load(selection);assert.equal(calls.length,2);
   client.invalidate();await client.load(selection);assert.equal(calls.length,3);
@@ -42,4 +42,25 @@ test('failed or aborted trade reads do not populate the cache',async()=>{
   const abort=new AbortController();abort.abort();
   await assert.rejects(client.load(selection,abort.signal),error=>error.name==='AbortError');
   await client.load(selection);assert.equal(calls,3);
+});
+
+
+test('every round filter partitions the cache and is forwarded without altering match selection',async()=>{
+  const {tradeSelection,createTradeTeammatesClient}=await import('../frontend/features/profiles/state/trade-teammates.mjs');
+  const filters={buy:'pistol',opponent_buy:'full',round_result:'loss',round_phase:'OVERTIME',round_condition:'opening_attempt'};
+  const base=tradeSelection(1,[3,1,3],'CT');
+  let body;
+  const client=createTradeTeammatesClient(async(url,options)=>{
+    body=JSON.parse(options.body);return {ok:true,json:async()=>({outgoing:[],incoming:[]})};
+  });
+  for(const [key,value] of Object.entries(filters)){
+    const selected=tradeSelection(1,[1,3],'CT',{[key]:value});
+    assert.notEqual(selected.key,base.key);
+    await client.load(selected);
+    assert.equal(body[key],value);
+    assert.deepEqual(body.match_ids,[1,3]);
+  }
+  assert.equal(base.key,tradeSelection(1,[1,3],'CT',Object.fromEntries(Object.keys(filters).map(k=>[k,'ALL']))).key);
+  await client.load(tradeSelection(1,[1,3],'T',filters));
+  assert.deepEqual(body,{match_ids:[1,3],side:'T',...filters});
 });
