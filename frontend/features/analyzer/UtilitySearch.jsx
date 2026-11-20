@@ -11,15 +11,15 @@ import { UTILITY_SEARCH_TYPES,utilityMetrics,utilityQuery,searchUtility } from '
 
 const icons={HE:['hegrenade'],Flash:['flashbang'],Fire:['molotov','incgrenade']};
 export default function UtilitySearch({scopes,players,side,open,onToggle,result,onResults}) {
-  const [form,setForm]=useRememberedState(preference('utility'),()=>({type:'HE',metric:'damage',minimum:'40'}),utilityPreferences),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [form,setForm]=useRememberedState(preference('utility'),()=>({type:'HE',metric:'damage',minimum:'40'}),utilityPreferences),[busy,setBusy]=useState(false),[error,setError]=useState(''),[progress,setProgress]=useState(null);
   const operation=useRef(null),scopeKey=JSON.stringify([scopes,players,side]);
   useEffect(()=>{operation.current?.abort();setError('');setBusy(false);return()=>operation.current?.abort();},[scopeKey]);
   function edit(next){operation.current?.abort();setForm(next);setError('');setBusy(false);}
   async function run(event) {
-    event.preventDefault();operation.current?.abort();const controller=new AbortController();operation.current=controller;setBusy(true);setError('');
+    event.preventDefault();operation.current?.abort();const controller=new AbortController();operation.current=controller;setBusy(true);setError('');setProgress(null);
     try {
       const query=utilityQuery(scopes,players,{...form,side});
-      const found=await searchUtility(query,next=>analyzerJSON('/utility/search',{method:'POST',body:JSON.stringify(next),signal:controller.signal}),{signal:controller.signal});
+      const found=await searchUtility(query,(next,{signal})=>analyzerJSON('/utility/search',{method:'POST',body:JSON.stringify(next),signal}),{signal:controller.signal,onProgress:value=>{if(operation.current===controller&&!controller.signal.aborted)setProgress(value);}});
       controller.signal.throwIfAborted();onResults(found);
     }catch(e){if(!controller.signal.aborted)setError(e.message);}
     finally{if(operation.current===controller)setBusy(false);}
@@ -32,7 +32,7 @@ export default function UtilitySearch({scopes,players,side,open,onToggle,result,
         onChange={metric=>edit({...form,metric,minimum:'1'})} />
       <div className="analyzer-utility-submit">
         <label className="analyzer-round-filter">Minimum<input aria-label="Minimum effectiveness" type="number" min="0" step={form.metric==='blind_ms'?'0.1':'1'} value={form.minimum} onChange={e=>edit({...form,minimum:e.target.value})} /></label>
-        <Button type="submit" className="button button-primary" disabled={busy||!scopes.length||!players.length}>{busy?'Searching…':'Search'}</Button>
+        <Button type="submit" className="button button-primary" disabled={busy||!scopes.length||!players.length}>{busy?(progress?`${progress.phase==='indexing'?'Indexing':'Loading'} · ${progress.complete}/${progress.total}…`:'Searching…'):'Search'}</Button>
         {busy&&<IconButton label="Cancel utility search" className="button button-secondary" controlSize={34} onClick={()=>{operation.current?.abort();setBusy(false);}}><path d="m6 6 12 12M6 18 18 6" /></IconButton>}
       </div>
       <FormMessage error>{error}</FormMessage>

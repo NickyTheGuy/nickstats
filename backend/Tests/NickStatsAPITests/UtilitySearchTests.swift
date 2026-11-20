@@ -45,3 +45,26 @@ import Testing
     #expect(projected["utility"].array?.first?["event_number"].integer == 1)
     #expect(utilityIndexEvents(round)[1].number == 1)
 }
+
+@Test func utilityBackfillDecodesOnlyIndexFieldsWithoutChangingAttributionOrEventNumbers() throws {
+    let text = """
+    {"number":29,"tracks":[{"samples":[[0,1,2,3,4,5],[100,6,7,8,9,10]]}],"projectiles":[{"samples":[[0,1,2,3]]}],
+     "utility":[{"type":"Smoke"},{"type":"HE","player":"p","effectiveness":{"enemy_damage":45}},{"type":"Flash","player":"p"}],
+     "performance":[{"player":"p","grenades":{"flash_thrown":1,"enemies_flashed":2,"blind_ms":1500}}]}
+    """
+    let full = try replayDecode(text,as:ReplayJSON.self)
+    let projected = try replayDecode(text,as:UtilityIndexRound.self).replay
+    #expect(projected["number"].integer == 29)
+    #expect(projected["tracks"] == .null)
+    #expect(projected["projectiles"] == .null)
+    #expect(projected["utility"] == full["utility"])
+    let before = utilityIndexEvents(full),after = utilityIndexEvents(projected)
+    #expect(after.map(\.number) == before.map(\.number))
+    #expect(after.map(\.damage) == before.map(\.damage))
+    #expect(after.map(\.enemies) == before.map(\.enemies))
+    #expect(after.map(\.blind) == before.map(\.blind))
+    #expect(after.map(\.attribution) == before.map(\.attribution))
+    #expect(after[1].enemies == 2)
+    let legacy = try replayDecode("{\"number\":1,\"utility\":[]}",as:UtilityIndexRound.self)
+    #expect(legacy.replay["performance"].array == [])
+}

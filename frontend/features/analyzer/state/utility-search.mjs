@@ -23,23 +23,36 @@ export function validateUtilityPage(data,query) {
   }
   return data;
 }
+// A stalled request must settle even if the transport ignores cancellation.
+async function requestPage(query,request,{signal,requestTimeout}) {
+  signal?.throwIfAborted();
+  const controller=new AbortController();let timer,abort;
+  const stopped=new Promise((_,reject)=>{
+    abort=()=>{controller.abort();reject(signal.reason||new DOMException('Search cancelled.','AbortError'));};
+    signal?.addEventListener('abort',abort,{once:true});
+    timer=setTimeout(()=>{controller.abort();reject(new Error('Utility search timed out. Completed indexing is saved; try again.'));},requestTimeout);
+  });
+  try{return await Promise.race([stopped,Promise.resolve().then(()=>{controller.signal.throwIfAborted();return request(query,{signal:controller.signal});})]);}
+  finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
+}
 // Preparation and paging are transport details, not separate user actions.
-export async function searchUtility(query,request,{signal,maxResults=5000}={}) {
+export async function searchUtility(query,request,{signal,maxResults=5000,requestTimeout=45000,onProgress=()=>{}}={}) {
   let page,pending=query.scopes.length+1,offset=0,total=null;const rows=[],seen=new Set();
   do {
     signal?.throwIfAborted();
     const next={...query,offset,limit:100};
-    page=validateUtilityPage(await request(next),next);
+    page=validateUtilityPage(await requestPage(next,request,{signal,requestTimeout}),next);
     signal?.throwIfAborted();
     if(page.pending_captures.length){
       if(offset||page.pending_captures.length>=pending)throw new Error('Utility search could not finish. Try again.');
-      pending=page.pending_captures.length;continue;
+      pending=page.pending_captures.length;onProgress({phase:'indexing',complete:query.scopes.length-pending,total:query.scopes.length});continue;
     }
     if(page.total>maxResults)throw new Error('Too many matching grenades. Raise the minimum or narrow the filters.');
     if(total!==null&&total!==page.total)throw new Error('Utility results changed. Search again.');
     total=page.total;
     for(const row of page.rows){const key=`${row.capture}:${row.round}:${row.event}`;if(seen.has(key))throw new Error('Utility results changed. Search again.');seen.add(key);rows.push(row);}
     offset+=page.rows.length;
+    onProgress({phase:'results',complete:offset,total});
     if(offset<total&&!page.rows.length)throw new Error('Utility results changed. Search again.');
   }while(page.pending_captures.length||offset<total);
   return {rows,total,type:query.type};

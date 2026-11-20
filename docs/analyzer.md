@@ -465,3 +465,16 @@ Touchscreens support two-finger pinch and pan. The focused canvas also accepts
 plus/minus to zoom, arrow keys to pan, and 0 or Home to fit the map. Explicit
 zoom and Select/Pan controls are removed. Each floor remembers its own camera;
 these gestures use already loaded movement and make no movement requests.
+
+### Utility search loading (2026.11.19.8)
+
+Indexing is automatic: captures are indexed atomically when published. Older or
+invalidated captures are prepared one match per search request, with completed
+indexes reused permanently until the capture/statistics change. Backfill decodes
+only utility/performance fields and uses bounded multi-row inserts rather than
+one write per grenade. Search shows indexing/result-page progress in its button.
+Each request has a 45-second timeout; Cancel also settles a stalled request.
+Completed capture indexing survives cancellation or retry. Results appear only
+when the complete search succeeds. `Server-Timing` on utility search requests
+separates index preparation, storage reads, decoding, writes and the actual query.
+Deploy the backend and built frontend together. No reparse or migration is needed.

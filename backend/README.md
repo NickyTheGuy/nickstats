@@ -565,3 +565,12 @@ used only when exactly one recorded throw and one captured effect prove the tota
 belongs to that grenade. Ambiguous attribution remains NULL. Replacing statistics
 invalidates the fallback index; publishing a new capture creates a new index, and
 capture deletion cascades its index entries.
+
+Utility search backfill (2026.11.19.8) skips decoding movement fields and batches
+up to 100 grenade inserts per database write. Completed capture indexes are
+persistent, shared across searches and independent of player/group combinations.
+Search responses include `Server-Timing`: `captures`, `prepare` (with
+`index_totals`, `index_read`, `index_decode`, `index_write`), `count`, `query`,
+`encode`, `total`. Preparation phases appear only on a cold search. These timings
+are also logged as "Utility search timing". Deploy both backend and frontend;
+no migration or reparse is required for this change.

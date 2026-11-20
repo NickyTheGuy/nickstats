@@ -1,4 +1,5 @@
 """HTTP + MySQL integration checks; only runs against the isolated CI database."""
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 import os
@@ -46,6 +47,8 @@ def request(path, body=None, method=None, auth=True, expected=200):
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
             status, content = response.status, response.read()
+            if path == '/analyzer/utility/search' and status == 200:
+                assert 'total;dur=' in response.headers.get('Server-Timing', '')
     except urllib.error.HTTPError as error:
         status, content = error.code, error.read()
     assert status == expected, (path, status, content[:500])
@@ -142,7 +145,10 @@ try:
     request('/analyzer/utility/search',query | {'type':'bad'},expected=400)
     request('/analyzer/utility/search',query | {'scopes':[{'capture':'bad','rounds':[1]}]},expected=400)
     sql(f"DELETE FROM replay_utility_index_state WHERE capture_id='{capture}'; DELETE FROM replay_utility_events WHERE capture_id='{capture}'")
-    prepared = request('/analyzer/utility/search',query,auth=False)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        cold = list(pool.map(lambda _: request('/analyzer/utility/search',query,auth=False), range(2)))
+    assert cold[0] == cold[1]
+    prepared = cold[0]
     assert prepared['pending_captures'] == [] and prepared['total'] == 1
     assert prepared['rows'][0]['enemy_damage'] == 40
     assert sql(f"SELECT COUNT(*) FROM replay_utility_index_state WHERE capture_id='{capture}' AND version=1") == '1'
@@ -157,6 +163,29 @@ try:
     newer = request('/analyzer/matches/1/captures',upload)['capture']
     request('/analyzer/captures/'+newer+'/complete',method='POST',expected=409)
     assert request('/analyzer/matches?match=1')['matches'][0]['capture'] == capture
+    # Cross the 100-event insert batch boundary, then prove lazy rebuilding is
+    # identical to atomic publication, including stable event numbers/paging.
+    rounds[0]['utility'] = [grenade('HE',40) for _ in range(205)]
+    rounds[1]['utility'] = []
+    text = [json.dumps(r,separators=(',', ':')) for r in rounds]
+    for item,t in zip(manifest,text):
+        item['bytes'] = len(t.encode())
+        item['sha256'] = hashlib.sha256(t.encode()).hexdigest()
+    bulk = request('/analyzer/matches/1/captures',upload)['capture']
+    for i,t in enumerate(text,1):
+        cut = len(t)//2
+        for part,value in enumerate([t[:cut],t[cut:]]):
+            request(f'/analyzer/captures/{bulk}/rounds/{i}/parts/{part}',{'data':value},method='PUT',expected=204)
+    request('/analyzer/captures/'+bulk+'/complete',method='POST',expected=204)
+    bulk_query = query | {'scopes':[{'capture':bulk,'rounds':[1,2]}],'limit':100}
+    published = request('/analyzer/utility/search',bulk_query)
+    assert published['total'] == 205 and len(published['rows']) == 100
+    assert [r['event'] for r in published['rows']] == list(range(100))
+    sql(f"DELETE FROM replay_utility_index_state WHERE capture_id='{bulk}'")
+    rebuilt = request('/analyzer/utility/search',bulk_query,auth=False)
+    assert rebuilt == published
+    last = request('/analyzer/utility/search',bulk_query | {'offset':200})
+    assert [r['event'] for r in last['rows']] == list(range(200,205))
     sql("UPDATE matches SET demo_sha256=UNHEX(REPEAT('b',64)) WHERE id=1")
     assert request('/analyzer/matches?match=1')['matches'][0].get('capture') is None
     request('/analyzer/captures/'+capture,expected=404)

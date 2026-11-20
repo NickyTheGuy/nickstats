@@ -57,3 +57,19 @@ test('Result maps show exact matching grenades, retain identities and metadata, 
   const summary=summarizeArea(rounds,{players:['steam:1'],selection:[{roundKey:'uid:1',player:'steam:1',side:3,utilities:utilityKeys(rounds[0])}]});
   assert.equal(summary.count,1);assert.equal(summary.observations,1);assert.equal(summary.utility.count,2);assert.equal(summary.combatComplete,false);assert.equal(summary.rating,null);assert.equal(summary.winRate,100);
 });
+
+test('Utility indexing and result paging report progress without publishing partial results',async()=>{
+  const {searchUtility,utilityQuery}=await api(),query=utilityQuery([{capture:'cap',rounds:[1]},{capture:'other',rounds:[1]}],players,{type:'Fire',metric:'damage',minimum:'40'}),progress=[];let calls=0;
+  const result=await searchUtility(query,async q=>++calls===1?{rows:[],total:0,unknown:0,pending_captures:['other'],offset:q.offset,limit:q.limit}:{rows:[hit],total:1,unknown:0,pending_captures:[],offset:q.offset,limit:q.limit},{onProgress:p=>progress.push(p)});
+  assert.deepEqual(progress,[{phase:'indexing',complete:1,total:2},{phase:'results',complete:1,total:1}]);assert.equal(result.rows.length,1);
+});
+test('A stalled utility request times out, aborts its transport and permits a clean retry',async()=>{
+  const {searchUtility,utilityQuery}=await api(),query=utilityQuery(scopes,players,{type:'Fire',metric:'damage',minimum:'40'});let signal;
+  await assert.rejects(searchUtility(query,(q,options)=>{signal=options.signal;return new Promise(()=>{});},{requestTimeout:10}),/timed out.*indexing is saved/);assert.equal(signal.aborted,true);
+  const result=await searchUtility(query,async q=>({rows:[hit],total:1,unknown:0,pending_captures:[],offset:q.offset,limit:q.limit}));assert.equal(result.total,1);
+});
+test('Cancelling settles a hung request even when the transport ignores abort',async()=>{
+  const {searchUtility,utilityQuery}=await api(),query=utilityQuery(scopes,players,{type:'Fire',metric:'damage',minimum:'40'}),controller=new AbortController();let started,transportSignal;
+  const ready=new Promise(resolve=>{started=resolve;}),search=searchUtility(query,async(q,{signal})=>{transportSignal=signal;started();return new Promise(()=>{});},{signal:controller.signal});
+  await ready;controller.abort();await assert.rejects(search,{name:'AbortError'});assert.equal(transportSignal.aborted,true);
+});
