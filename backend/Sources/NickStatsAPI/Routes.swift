@@ -29,6 +29,7 @@ func requireUploadAuthorization(_ request: Request) throws {
 }
 
 func routes(_ app: Application) throws {
+    accountFriendsRoutes(app)
     manualFilterRoutes(app)
     try analyzerRoutes(app)
     app.get("health") { request async throws -> HealthResponse in

@@ -1,5 +1,7 @@
 """HTTP + MySQL integration checks; only runs against the isolated CI database."""
 from concurrent.futures import ThreadPoolExecutor
+import base64
+import hmac
 import hashlib
 import json
 import os
@@ -38,8 +40,10 @@ INSERT INTO account_manual_filters(id,username,name,cutoff_match_id) VALUES('tag
 INSERT INTO account_manual_filter_states(filter_id,match_id,state) VALUES('tag',1,'true');
 """)
 
-def request(path, body=None, method=None, auth=True, expected=200):
+def request(path, body=None, method=None, auth=True, expected=200, cookie=None):
     headers = {'Content-Type': 'application/json'}
+    if cookie:
+        headers['Cookie'] = 'nickstats_session=' + cookie
     if auth:
         headers['Authorization'] = 'Bearer ' + os.environ['NICKSTATS_UPLOAD_TOKEN']
     data = None if body is None else json.dumps(body, separators=(',', ':')).encode()
@@ -54,7 +58,8 @@ def request(path, body=None, method=None, auth=True, expected=200):
     assert status == expected, (path, status, content[:500])
     return json.loads(content) if content else None
 
-server = subprocess.Popen([str(root/'backend/.build/debug/NickStatsAPI'), 'serve', '--hostname', '127.0.0.1', '--port', '8000'])
+secret = 'integration-only-session-secret-32-characters'
+server = subprocess.Popen([str(root/'backend/.build/debug/NickStatsAPI'), 'serve', '--hostname', '127.0.0.1', '--port', '8000'],env={**os.environ,'NICKSTATS_SESSION_SECRET':secret})
 try:
     for attempt in range(60):
         try:
@@ -64,6 +69,22 @@ try:
             time.sleep(.5)
     else:
         raise RuntimeError('API did not start')
+    def session(username):
+        payload = json.dumps({'username':username,'expiresAt':int(time.time())+600},separators=(',', ':')).encode()
+        b64 = lambda data: base64.urlsafe_b64encode(data).decode().rstrip('=')
+        return b64(payload)+'.'+b64(hmac.new(secret.encode(),payload,hashlib.sha256).digest())
+    cookie = session('test')
+    request('/auth/friends',auth=False,expected=401)
+    request('/auth/friends',{'player_id':2,'friend':True},auth=False,expected=401)
+    assert request('/auth/friends',cookie=cookie)['friends'] == []
+    for _ in range(2):
+        assert len(request('/auth/friends',{'player_id':2,'friend':True},cookie=cookie)['friends']) == 1
+    request('/auth/friends',{'player_id':99999,'friend':True},cookie=cookie,expected=404)
+    sql("INSERT INTO auth_users(username,password_salt,password_hash,password_iterations) SELECT 'other',password_salt,password_hash,password_iterations FROM auth_users WHERE username='test'")
+    assert request('/auth/friends',cookie=session('other'))['friends'] == []
+    assert request('/auth/friends',{'player_id':2,'friend':False},cookie=session('other'))['friends'] == []
+    assert len(request('/auth/friends',cookie=cookie)['friends']) == 1
+    assert request('/auth/friends',{'player_id':2,'friend':False},cookie=cookie)['friends'] == []
     header = {'format':'nickstats.replay','version':4,'coordinate_system':'source2-world','sample_hz':5,'projectile_hz':20,
               'match_uid':'sha256:'+'a'*64,'demo_sha256':'a'*64,'map':'de_mirage','source_file':'test.dem',
               'rules':{'regulation_rounds':24,'overtime_rounds':6},
