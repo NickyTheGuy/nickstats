@@ -14,7 +14,7 @@ import { summarizeArea } from './state/area-selection.mjs';
 import { selectionRoundKey } from './state/selection-targets.mjs';
 import RoundPicker from './RoundPicker.jsx';
 import { rosterIndex,rosterPlayers,instanceFocus } from './state/instances.mjs';
-import { mergeSelection } from './state/map-selection.mjs';
+import { mergeSelection,toggleSelection,invertSelection } from './state/map-selection.mjs';
 import { createMovementCache, movementSelection } from './state/movement-cache.mjs';
 import { groupRoundKeys } from './state/query.mjs';
 import { loadCaptureHeaders, loadSelectedRounds } from './state/server.mjs';
@@ -123,9 +123,12 @@ export default function Analyzer({entryStore}) {
   const timeline=useMemo(()=>result?{count:rounds.length,duration:rounds.reduce((max,round)=>Math.max(max,round.duration),0)}:selectionTimeline(mapReplays,roundKeys),[result,rounds,mapReplays,roundKeys]);
   const duration = timeline.duration, map = Object.hasOwn(mapData.maps,mapName) ? mapData.maps[mapName] : null;
   const areaSummary=useMemo(()=>area?.map===mapName&&rounds.length?summarizeArea(rounds,{players:mapPlayers.map(p=>p.id),selection:area.items,rosters}):null,[rounds,area,mapName,mapPlayers,rosters]);
-  function selectItems(items,append=false) {
+  function selectItems(items,append=false,operation='merge') {
     setPlaying(false);
-    setArea(previous=>({map:mapName,items:mergeSelection(previous?.map===mapName?previous.items:[],items,append)}));
+    setArea(previous=>{
+      const before=previous?.map===mapName?previous.items:[],next=operation==='toggle'?toggleSelection(before,items,append):operation==='invert'?invertSelection(before,items):mergeSelection(before,items,append);
+      return next.length?{map:mapName,items:next}:null;
+    });
   }
   useEffect(() => { setPlaying(false); }, [selectedRounds,groupRounds,mapName,filters,selectedPlayers,side]);
   const hasTimeline=timeline.count>0;

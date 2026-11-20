@@ -24,6 +24,46 @@ export function mergeSelection(previous,incoming,append=false) {
   }
   return [...actors.values()];
 }
+// Remove marker identities, not their entire owning player-round.
+export function subtractSelection(previous,incoming){
+  const removed=new Map(mergeSelection([],incoming).map(item=>[actorKey(item),item]));
+  return previous.flatMap(item=>{
+    const row=removed.get(actorKey(item));if(!row)return [item];
+    if(!row.cell&&!row.events?.length&&!row.utilities.length)return [];
+    const events=(item.events||[]).filter(key=>!row.events?.includes(key)),utilities=item.utilities.filter(key=>!row.utilities.includes(key));
+    const cell=Boolean(item.cell&&!row.cell);if(!cell&&!events.length&&!utilities.length)return [];
+    const next={...item,utilities};if(item.events)next.events=events;if(item.cell)next.cell=cell;
+    return [next];
+  });
+}
+export function toggleSelection(previous,incoming,append=false){
+  const rows=mergeSelection([],incoming),selected=new Map(previous.map(item=>[actorKey(item),item]));
+  return rows.length&&rows.every(item=>entrySelected(item,selected))?subtractSelection(previous,rows):mergeSelection(previous,rows,append);
+}
+export function invertSelection(previous,visible){
+  const rows=mergeSelection([],visible),add=[],selected=new Map(previous.map(item=>[actorKey(item),item]));
+  // Work atom by atom: an actor can own a cell, several kills and grenades.
+  for(const item of rows){
+    const old=selected.get(actorKey(item));
+    const next={...item,utilities:item.utilities.filter(key=>!old?.utilities.includes(key))};
+    if(item.events)next.events=item.events.filter(key=>!old?.events?.includes(key));
+    if(item.cell)next.cell=!old?.cell;
+    if(next.cell||next.events?.length||next.utilities.length)add.push(next);
+  }
+  return mergeSelection(subtractSelection(previous,rows),add,true);
+}
+export function visibleMapCandidates(candidates,size,view){
+  const scale=Math.min(size.width,size.height)/1024;if(!scale)return [];
+  return candidates.flatMap(item=>{
+    const screenX=size.width/2+((item.x-512)*view.zoom+view.x)*scale,screenY=size.height/2+((item.y-512)*view.zoom+view.y)*scale;
+    return screenX<0||screenY<0||screenX>size.width||screenY>size.height?[]:[{...item,screenX,screenY}];
+  });
+}
+export function invertSelectionShortcut(event){
+  if(event.key.toLowerCase()!=='i'||event.repeat||event.ctrlKey||event.metaKey||event.altKey)return false;
+  const element=event.target;
+  return !element?.closest?.('textarea,select,[contenteditable]:not([contenteditable="false"]),input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="button"])');
+}
 export function selectionCandidates(rounds,{map,level,time,startTime=0,players,side=0,utilities,layers,allSelected=false,unit=1,showPlayers=true,permanentUtility=true,rosters=null,display=null,enemyDisplay=createDisplay()}) {
   const items=[];
   for(const round of rounds) {

@@ -4,14 +4,13 @@ import useElementSize from '../../shared/hooks/useElementSize.js';
 import { deathLabel } from './state/combat.mjs';
 import { formatTime } from './state/replay.mjs';
 import { grenadeEffectiveness } from './state/selection-targets.mjs';
-import { actorKey,entrySelected } from './state/map-selection.mjs';
+import { actorKey,entrySelected,visibleMapCandidates } from './state/map-selection.mjs';
 
 export default function SelectionMarkers({candidates,players,view,selection,onSelect}) {
-  const host=useRef(null),size=useElementSize(host),scale=Math.min(size.width,size.height)/1024;
+  const host=useRef(null),size=useElementSize(host);
   const names=new Map(players.map(p=>[p.id,p.name])),groups=new Map(),chosen=new Map(selection.map(e=>[actorKey(e),e]));
-  if(scale)for(const item of candidates) {
-    const x=size.width/2+((item.x-512)*view.zoom+view.x)*scale,y=size.height/2+((item.y-512)*view.zoom+view.y)*scale;
-    if(x<0||y<0||x>size.width||y>size.height)continue;
+  for(const item of visibleMapCandidates(candidates,size,view)) {
+    const x=item.screenX,y=item.screenY;
     const key=`${item.kind}:${item.effect?.type||''}:${item.entry.player}:${Math.round(x/12)}:${Math.round(y/12)}`;
     if(!groups.has(key))groups.set(key,{x,y,kind:item.kind,items:[],labels:[]});
     const group=groups.get(key),{round,event,effect}=item;

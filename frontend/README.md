@@ -288,3 +288,8 @@ Per-player selection tabs share the same selection and match-statistics load;
 `selection-players.mjs` applies the player restriction before all scope summaries
 and actions. `timeline.mjs` derives playback bounds from saved round summaries,
 independently of cache loading or fullscreen layout.
+
+Marker clicks use atomic subtraction/toggling; drag gestures continue to use
+`mergeSelection`. MapWindow collects visible entries from both panes for the I
+shortcut. `visibleMapCandidates` supplies the same clipping rules to marker
+rendering and inversion, keeping viewport selection consistent after zoom/pan.

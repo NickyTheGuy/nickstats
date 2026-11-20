@@ -538,3 +538,21 @@ filter result disables the timeline while retaining the position for when rounds
 are selected again. Native/fallback fullscreen changes do not restart playback.
 Opening a different source, Focus and explicit next/previous round navigation
 retain their deliberate restart behavior. No backend or database change is needed.
+
+### Selection toggles and inversion (2026.11.20.3)
+
+Clicking/tapping a fully selected marker deselects that marker while preserving
+other selected cells, kills, deaths and grenades, including those owned by the
+same player-round. Overlapping grouped markers are removed together when fully
+selected; otherwise clicking selects that group. Unselected clicks still replace
+selection unless Shift/Ctrl/Command is held. Box selection keeps the existing
+replace/add behavior and never toggles overlapping entries off. A drag beginning
+on a marker suppresses its trailing click, including empty/flat drag rectangles.
+
+With focus in the viewer, I inverts the currently rendered selectable markers
+across both map levels. It respects the time window, visual/player toggles and
+pan/zoom clipping. Duplicate grenade representations and grouped markers use
+stable underlying identities. Hidden/off-screen selections remain unchanged;
+inverting twice restores the previous selection. Keyboard repeat, Ctrl/Command/
+Alt shortcuts, text inputs, select controls and editable content are ignored.
+Emptying the selection closes its popup. No movement requests or reparses occur.

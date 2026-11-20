@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import useRememberedState from '../../shared/hooks/useRememberedState.js';
 import { preference,viewPreferences } from './state/preferences.mjs';
 import { pointerToRadar,areaBounds,areaOnScreen } from './state/area-selection.mjs';
@@ -13,9 +13,9 @@ import { roundChannels,createDisplay } from './state/display.mjs';
 import { viewport } from './state/viewport.mjs';
 import { transformMapView,wheelZoomFactor,touchTransform } from './state/map-view.mjs';
 import { drawPlayerState,playerAlive } from './state/player-state.mjs';
-import { selectionCandidates,candidatesInArea } from './state/map-selection.mjs';
+import { selectionCandidates,candidatesInArea,visibleMapCandidates } from './state/map-selection.mjs';
 
-export default function ReplayMap({ map, level, viewKey, rounds, players, selected, colors, time, startTime=0, side, display=createDisplay(), enemyDisplay=createDisplay(), rosters=null, area, areaSummary, onSelectItems=()=>{}, onClearSelection=()=>{}, onAreaStart=()=>{} }) {
+export default function ReplayMap({ map, level, viewKey, rounds, players, selected, colors, time, startTime=0, side, display=createDisplay(), enemyDisplay=createDisplay(), rosters=null, area, areaSummary, onSelectItems=()=>{}, onClearSelection=()=>{}, onAreaStart=()=>{},onVisibleCandidates }) {
   const icons=useGrenadeIcons(),combatIcons=useCombatIcons(rounds);
   const canvas = useRef(null),surface=useRef(null),drag = useRef(null),touches=useRef(new Map()),pinch=useRef(null),suppressClick=useRef(false);
   const size=useElementSize(canvas);
@@ -23,6 +23,11 @@ export default function ReplayMap({ map, level, viewKey, rounds, players, select
   const [view, setView] = useRememberedState(preference(`view.${viewKey}`),()=>({ zoom: 1, x: 0, y: 0 }),viewPreferences);
   const markerUnit=1024/Math.max(1,Math.min(size.width,size.height)*view.zoom);
   const candidates=useMemo(()=>selectionCandidates(rounds,{map,level,time,startTime,players:selected,side,display,enemyDisplay,allSelected:selected.length===players.length,unit:markerUnit,rosters}),[rounds,map,level,time,startTime,selected,side,display,enemyDisplay,players,markerUnit,rosters]);
+  const visible=useMemo(()=>visibleMapCandidates(candidates,size,view),[candidates,size.width,size.height,view]);
+  useLayoutEffect(()=>{
+    onVisibleCandidates?.(viewKey,visible.map(item=>item.entry));
+    return()=>onVisibleCandidates?.(viewKey,null);
+  },[onVisibleCandidates,viewKey,visible]);
   useEffect(()=>{
     const element=surface.current;
     function wheel(event){
@@ -118,7 +123,7 @@ export default function ReplayMap({ map, level, viewKey, rounds, players, select
     if(current.kind==='select') {
       const bounds=areaBounds(current.radar,pointerToRadar({x:event.clientX,y:event.clientY},current.rect,current.view));
       const moved=Math.hypot(event.clientX-current.start.x,event.clientY-current.start.y)>=4;
-      if(moved&&bounds)onSelectItems(candidatesInArea(candidates,bounds),current.append);
+      if(moved){suppressClick.current=true;if(bounds)onSelectItems(candidatesInArea(candidates,bounds),current.append);}
       else if(!current.fromMarker&&!current.append)onClearSelection();
     }
     drag.current=null;setPreview(null);setPanning(false);if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);
@@ -134,8 +139,8 @@ export default function ReplayMap({ map, level, viewKey, rounds, players, select
   return <div ref={surface} className="analyzer-map" data-panning={panning||undefined} onContextMenuCapture={event=>{event.preventDefault();event.stopPropagation();}} onClickCapture={event=>{if(suppressClick.current&&event.detail>0){event.preventDefault();event.stopPropagation();}}} onKeyDownCapture={event=>{if(event.key==='Escape'){cancel();onClearSelection();}}} onPointerDownCapture={pointerDown} onPointerMoveCapture={pointerMove} onPointerUpCapture={pointerUp} onPointerCancelCapture={cancel} onLostPointerCapture={event=>{if(event.target===event.currentTarget)cancel();}}>
     <canvas ref={canvas} data-player-cells={display.players?'on':'off'} data-utility-icons={display.utilityLayers.join(',')} data-name-tags={display.names?'on':'off'} style={{touchAction:'none',cursor:panning?'grabbing':'crosshair'}}
       tabIndex={0} onKeyDown={keyboard}
-      role="img" aria-label={`2D round playback, ${level.id} level. Left-drag to select; right-drag to pan. Scroll or pinch to zoom. Two fingers pan on touchscreens. Shift, Ctrl or Command adds to selection. Plus/minus zoom, arrows pan, and 0 resets the focused map. Escape clears selection.`} />
-    <SelectionMarkers candidates={candidates} players={players} view={view} selection={area?.items||[]} onSelect={(items,append)=>{onAreaStart();onSelectItems(items,append);}} />
+      role="img" aria-label={`2D round playback, ${level.id} level. Left-drag to select; right-drag to pan. Scroll or pinch to zoom. Two fingers pan on touchscreens. Shift, Ctrl or Command adds to selection. Plus/minus zoom, arrows pan, and 0 resets the focused map. I inverts visible markers. Escape clears selection.`} />
+    <SelectionMarkers candidates={candidates} players={players} view={view} selection={area?.items||[]} onSelect={(items,append)=>{onAreaStart();onSelectItems(items,append,'toggle');}} />
     {rectangle&&<div className="analyzer-area-rectangle" style={rectangle} />}
     {!image && <span className="analyzer-map-status" role="status">{imageError ? 'Radar image could not load.' : 'Loading radar…'}</span>}
   </div>;
