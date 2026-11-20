@@ -125,8 +125,8 @@ try:
     enriched = request('/analyzer/captures/'+capture+'/selection', {'rounds':[1], 'players':['steam:1']})
     assert enriched['rounds'][0]['live_duration'] == 600
     assert enriched['rounds'][0]['bomb_events'] == [{'type':'plant','time':300,'player':None}]
-    grenade = enriched['rounds'][0]['performance'][0]['grenades']
-    assert grenade['flash_thrown'] == 1 and grenade['enemies_flashed'] == 2 and grenade['fire_damage'] == 80 and grenade['blind_ms'] == 1500
+    grenade_totals = enriched['rounds'][0]['performance'][0]['grenades']
+    assert grenade_totals['flash_thrown'] == 1 and grenade_totals['enemies_flashed'] == 2 and grenade_totals['fire_damage'] == 80 and grenade_totals['blind_ms'] == 1500
     query = {'scopes':[{'capture':capture,'rounds':[1,2]}],'players':['steam:1'],'type':'HE','metric':'damage','minimum':40}
     found = request('/analyzer/utility/search',query,auth=False)
     assert found['total'] == 1 and found['unknown'] == 2 and found['pending_captures'] == []
@@ -172,6 +172,9 @@ try:
         item['bytes'] = len(t.encode())
         item['sha256'] = hashlib.sha256(t.encode()).hexdigest()
     bulk = request('/analyzer/matches/1/captures',upload)['capture']
+    # Publication order is deterministic even if both test captures were created
+    # in the same timestamp second (production breaks ties by UUID).
+    sql(f"UPDATE replay_captures SET created_at=NOW()+INTERVAL 1 MINUTE WHERE id='{bulk}'")
     for i,t in enumerate(text,1):
         cut = len(t)//2
         for part,value in enumerate([t[:cut],t[cut:]]):
