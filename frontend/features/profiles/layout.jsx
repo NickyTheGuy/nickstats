@@ -111,9 +111,6 @@ function ProfileLayout({ prefix }) {
         <StatSection number="01" title="Clutch performance" className="player-count-section">
           <div className="player-count-strip player-clutch-strip" id={`${prefix}ClutchStats`} />
         </StatSection>
-        <StatSection number="02" title="Expected Clutch Value">
-          <div className="player-detail-grid clutch-economics-impact" id={`${prefix}ClutchEconomicsStats`} />
-        </StatSection>
         <StatSection number="02" title="Multikill rounds" className="player-count-section">
           <div className="player-count-strip player-multikill-strip" id={`${prefix}MultikillStats`} />
         </StatSection>

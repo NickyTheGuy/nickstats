@@ -256,14 +256,6 @@
             key: "clutches", label: "Total W/A · Win%", value: item => clutchRate(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt")),
             format: (item, formatCount = integer) => clutchDisplay(clutchTotal(item.stats, "clutch"), clutchTotal(item.stats, "clutch_attempt"), formatCount)
           }];
-      if (state.expandedGroups.clutches) {
-        const economy = item => Scoreboard.clutchEconomics(availability.scope(item.stats, "clutchEconomics"), "clutch_econ_");
-        clutchColumns.push(
-          { key: "clutch-economy-average", label: "All / attempt", value: item => economy(item).average, format: item => Scoreboard.money(economy(item).average) },
-          ...[5, 4, 3, 2, 1].map(size => ({ key: `clutch-economy-size${size}`, label: `1v${size} / attempt`,
-            value: item => economy(item).bySize[size].average, format: item => Scoreboard.money(economy(item).bySize[size].average) }))
-        );
-      }
       const contactRoundPercent = item => {
         const rounds = availability.rounds(item.stats, "initiation_rounds");
         return availability.available(item.stats, "initiation_rounds") && rounds > 0 ? 100 * number(item.stats.initiation_rounds) / rounds : null;

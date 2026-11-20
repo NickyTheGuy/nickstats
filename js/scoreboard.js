@@ -35,7 +35,7 @@
       ["flashKills", "Flash kills", [10, 11, 17, 18], "Opening kills · flash"],
       ["flashDeaths", "Flash deaths", [12, 13, 19, 20], "Opening deaths · flash"],
       ["enemyAssists", "Enemy assists", [14, 15, 16], "Opening deaths · enemy assists"]],
-    clutches: [["performance", "Performance", [0, 1, 2, 3, 4], "Clutches"], ["economics", "Economics", [5, 6, 7, 8, 9, 10], "Clutch economics"]],
+    clutches: [["performance", "Performance", [0, 1, 2, 3, 4], "Clutches"]],
     multikills: [["regular", "Regular", [0, 1, 2, 3, 4, 5], "Multi-kills"], ["true", "True", [6, 7, 8, 9, 10], "True multi-kills"]],
     killContext: [["visibility", "Visibility and cover", [0, 1, 2, 3, 4], "Visibility and cover"], ["readiness", "Readiness", [5, 6, 7, 8], "Readiness"]],
     movement: [["state", "State", [0, 1, 2, 3], "Movement"], ["speed", "Speed", [4, 5, 6, 7], "Movement speed"]],

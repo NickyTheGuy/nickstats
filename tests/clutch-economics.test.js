@@ -226,7 +226,7 @@ test("pooled impact distinguishes negative, zero, incomplete, and unavailable me
   assert.equal(summarize({}).average, null);
 });
 
-test("Player and Groups render aggregate and size estimates per attempt without sample-count notes", () => {
+test("Player and Groups keep clutch economics hidden from profile rendering", () => {
   const elements = new Map();
   const ctx = vm.createContext({ window: { NickStatsProfileUI: {
     cards: (target, cards) => { target.cards = cards; }, list() {}, strip() {}, table() {}
@@ -244,19 +244,11 @@ test("Player and Groups render aggregate and size estimates per attempt without 
     ...predictionCounters(2, 0, 0, 3, [2, 0, 0, 1], 7000) }, "nickstats.match/27");
   for (const prefix of ["player", "combo"]) {
     ctx.window.NickStatsProfile.render({ prefix, headlineId: `${prefix}Headline`, side: "ALL", summary: { stats }, maps: [] });
-    const target = elements.get(`${prefix}ClutchEconomicsStats`);
-    assert.equal(target.cards.length, 6);
-    assert.equal(target.cards[0][0], "All / attempt");
-    assert.equal(target.cards[0][1], "+$2,800");
-    assert.equal(target.cards[0][2], "");
-    assert.equal(target.cards[5][0], "1v1 / attempt");
-    assert.equal(target.cards[5][1], "+$2,800");
-    assert.equal(target.cards[1][1], "—");
-    assert.equal(target.cards[5][2], "");
+    assert.equal(elements.has(`${prefix}ClutchEconomicsStats`), false);
   }
   const html = require("./helpers/profile-template")();
-  assert.ok(html.includes('id="playerClutchEconomicsStats"'));
-  assert.ok(html.includes('title="Expected Clutch Value"'));
+  assert.ok(!html.includes('id="playerClutchEconomicsStats"'));
+  assert.ok(!html.includes('title="Expected Clutch Value"'));
   assert.ok(!html.includes('ClutchEconomicsCoverage'));
   assert.ok(!html.includes('id="playerClutchEconomicsTable"'));
 });

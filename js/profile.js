@@ -200,13 +200,6 @@
         return [`1v${opponents}`, `${integer(wins)} / ${integer(attempts)}`, attempts ? `${percent(100 * ratio(wins, attempts))} won · ${integer(Math.max(0, attempts - wins))} failed` : "No attempts"];
       })
     ]);
-    const economics = clutchEconomySummary(rawStats);
-    const money = window.NickStatsScoreboard.money;
-    const impact = $(`${prefix}ClutchEconomicsStats`);
-    if (impact) window.NickStatsProfileUI.cards(impact, [["All / attempt", economics], ...[5, 4, 3, 2, 1].map(size => [`1v${size} / attempt`, economics.bySize[size]])]
-      .map(([label, value]) => [label, money(value.average), value.average != null
-        ? "" : economics.available ? "Not enough history" : "Reparse demos for estimates",
-      value.average == null ? "" : semanticClass(value.average, 0, 0)]));
     const multikillRounds = [2, 3, 4, 5].reduce((total, kills) => total + number(s[`kill_rounds_${kills}k`]), 0);
     fillStrip(`${prefix}MultikillStats`, [
       ["Multi-kill %", percent(100 * ratio(multikillRounds, rounds)), `${integer(multikillRounds)} of ${integer(rounds)} rounds`],

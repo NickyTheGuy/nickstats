@@ -98,10 +98,13 @@ test("match body groups match header order with Initiation and Trades independen
     loss_die_ct1_victory: 7000, loss_die_ct1_victory_dead: 7000 };
   for (const mode of ["totals", "round"]) {
     state.scoreboardValueMode = mode;
-    assert.deepEqual(Array.from(render(player).cells).filter(cell => cell.className?.split(" ").includes("clutches-cell")).map(cell => cell.text),
-      ["+$2,800", "—", "—", "—", "—", "+$2,800"]);
-    assert.deepEqual(Array.from(render({ ...player, clutch_economics_available: false }).cells).filter(cell => cell.className?.split(" ").includes("clutches-cell")).map(cell => cell.text),
-      Array(6).fill("—"));
+    const stale = Array.from(render(player).cells).filter(cell => cell.className?.split(" ").includes("clutches-cell")).map(cell => cell.text);
+    state.subgroups = { clutches: "performance" };
+    const normal = Array.from(render(player).cells).filter(cell => cell.className?.split(" ").includes("clutches-cell")).map(cell => cell.text);
+    assert.deepEqual(stale, normal);
+    assert.equal(stale.length, 5);
+    assert.ok(stale.every(value => !String(value).includes("$")));
+    state.subgroups = { clutches: "economics" };
   }
 });
 
@@ -114,7 +117,7 @@ test("first-contact round percentage sorts by frequency and excludes missing mat
   assert.equal(matchSorts.initiationRoundPercent.modes[0].value({ ...highFrequency, rounds_played: 0 }), null);
 });
 
-test("clutch economics pools measured outcomes and cycles matching columns and widths", () => {
+test("clutch economics calculations remain available while scoreboard cycles keep performance only", () => {
   const counters = { win_survive_count: 2, win_survive_ct1_count: 2, win_survive_ct1_forecast: 2,
     win_survive_ct1_victory: 14000, win_survive_ct1_victory_dead: 14000,
     loss_die_count: 3, loss_die_ct1_count: 3, loss_die_ct1_forecast: 1,
@@ -128,9 +131,8 @@ test("clutch economics pools measured outcomes and cycles matching columns and w
   const layout = { expanded: { clutches: true }, subgroups: {} };
   assert.equal(Scoreboard.focus(layout, "clutches", Scoreboard.columns.clutches[0]).length, 5);
   Scoreboard.cycle(layout, "clutches");
-  assert.deepEqual(Array.from(Scoreboard.focus(layout, "clutches", Scoreboard.columns.clutches[0])),
-    ["All / attempt", "1v5 / attempt", "1v4 / attempt", "1v3 / attempt", "1v2 / attempt", "1v1 / attempt"]);
-  assert.equal(Scoreboard.minimumWidths(layout, "clutches").length, 6);
+  assert.deepEqual(Array.from(Scoreboard.focus(layout, "clutches", Scoreboard.columns.clutches[0])), ["1v5", "1v4", "1v3", "1v2", "1v1"]);
+  assert.equal(Scoreboard.minimumWidths(layout, "clutches").length, 5);
   for (const [field, expected] of [["average", 2800], ["size1", 2800], ["size5", null]]) {
     const spec = matchSorts[`clutchEconomics_${field}`];
     assert.equal(spec.modes[0].value({ clutch_economics: counters }), expected);
@@ -138,7 +140,7 @@ test("clutch economics pools measured outcomes and cycles matching columns and w
   }
 });
 
-test("quick comparison economics columns preserve dollars and sample coverage in every value mode", () => {
+test("quick comparison hides economics even when a saved layout requests it", () => {
   const state = { expandedGroups: { clutches: true }, valueMode: "totals" };
   const layout = { expanded: state.expandedGroups, subgroups: { clutches: "economics" } };
   const context = { state, Scoreboard, number: value => Number(value) || 0,
@@ -158,13 +160,11 @@ test("quick comparison economics columns preserve dollars and sample coverage in
     clutch_econ_loss_die_count: 3, clutch_econ_loss_die_ct1_count: 3, clutch_econ_loss_die_ct1_forecast: 1,
     clutch_econ_loss_die_ct1_victory: 7000, clutch_econ_loss_die_ct1_victory_dead: 7000 } } };
   const columns = api.renderTable([item]).filter(column => column.group === "clutches");
-  assert.equal(columns.length, 6);
+  assert.equal(columns.length, 5);
   for (const mode of ["totals", "round", "match"]) {
     state.valueMode = mode;
-    assert.deepEqual(Array.from(columns, column => api.displayedValue(column, item)), ["+$2,800", "—", "—", "—", "—", "+$2,800"]);
-    assert.deepEqual(Array.from(columns, column => api.columnSortValue(column, item)), [2800, null, null, null, null, 2800]);
-    assert.deepEqual(Array.from(columns, column => api.displayedLabel(column)), ["All / attempt", "1v5 / attempt", "1v4 / attempt", "1v3 / attempt", "1v2 / attempt", "1v1 / attempt"]);
-    assert.deepEqual(Array.from(columns, column => api.displayedValue(column, { rows: [], stats: {} })), Array(6).fill("—"));
+    assert.ok(columns.every(column => !column.key.startsWith("clutch-economy-")));
+    assert.deepEqual(Array.from(columns, column => column.label), ["1v5", "1v4", "1v3", "1v2", "1v1"]);
   }
 });
 
