@@ -3894,9 +3894,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-map { position: relative; background: #151c25; overflow: hidden; flex: 1; min-height: 0; }
 .analyzer-map canvas { display: block; width: 100%; height: 100%; object-fit: contain; }
 .analyzer-map-status { position: absolute; inset: 45% 10%; text-align: center; color: #dce3ee; }
-.analyzer-map-zoom { position: absolute; right: 8px; top: 8px; display: flex; gap: 3px; z-index: 3; }
-.analyzer-map-zoom button { background: #182332; color: #f0f4ff; border: 1px solid #64748b; border-radius: 5px; padding: 5px 10px; }
-.analyzer-map-zoom button:disabled { opacity: .45; }
 .analyzer-controls { position: absolute; left: 10px; top: 10px; z-index: 4; max-width: calc(100% - 20px); }
 .analyzer-controls-toggle { box-shadow: var(--shadow); }
 .analyzer-control-panel { display: grid; gap: 12px; width: min(410px, calc(100cqw - 20px)); max-height: calc(72vh - 75px); max-height: min(65vh, calc(100cqh - 65px)); overflow-y: auto; overflow-x: hidden; margin-top: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
@@ -4004,7 +4001,6 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-control-panel .date-range-calendars { grid-template-columns: minmax(0,1fr); }
 .analyzer-control-panel .date-range-menu > summary, .analyzer-control-panel .manual-filter-menu > summary { font-family: inherit; font-size: 13px; font-weight: 600; }
 .analyzer-area-rectangle { position: absolute; pointer-events: none; border: 2px solid #63d2ff; background: #63d2ff22; z-index: 2; }
-.analyzer-map-zoom button[aria-pressed=true] { background: #36576d; border-color: #63d2ff; }
 .analyzer-area-summary { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); z-index: 3; width: min(240px,calc(100% - 24px)); padding: 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel); color: var(--text); box-shadow: var(--shadow); font-size: 13px; }
 .analyzer-area-summary header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .analyzer-area-summary .player-metric-row { min-height: 28px; padding: 4px 0; }
@@ -4143,3 +4139,5 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
   .playback-time-full { display: none; }
   .playback-time-compact { display: inline; font-size: 11px; }
 }
+
+.analyzer-map[data-panning],.analyzer-map[data-panning] .combat-hit-target { cursor: grabbing; }

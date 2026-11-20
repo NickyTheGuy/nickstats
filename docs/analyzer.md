@@ -136,8 +136,7 @@ radar area; selection pauses playback. Click selects the owning player-round of
 a marker. The outcome panel counts distinct selected rounds out of all currently
 filtered rounds and shows their percentage. Selection stores the player-rounds
 and grenades captured by the gesture, so playback, scrubbing, zoom and pan do not
-change it. Shift/Ctrl/Command adds another click or box to the selection. Use Pan
-(available when zoomed), middle-drag or Alt-drag to pan. Empty-map click, Escape
+change it. Shift/Ctrl/Command adds another click or box to the selection. Right-drag to pan; scroll or pinch to zoom. Empty-map click, Escape
 or the panel's close button clears selection. Changing filters preserves playback
 time while a selection exists, clamped to the available round duration.
 
@@ -174,8 +173,7 @@ layer. There is no selection-target mode. A click selects the marker's owning
 player-round, rather than querying a small geographic box; grouped coincident
 markers retain all their represented player-rounds. A plain click/drag replaces
 selection. Shift/Ctrl/Command-click or drag adds to it, including across floors
-and playback times. Empty-map click or Escape clears it. Pan uses its explicit
-button, middle-drag or Alt-drag, leaving Shift-drag available for selection.
+and playback times. Empty-map click or Escape clears it. Right-drag pans, leaving left-drag and Shift-drag available for selection.
 
 A drag selects the visible marker centers inside its rectangle. Kills use their
 drawn killer markers and deaths their drawn victim markers, including their
@@ -457,3 +455,13 @@ The shared `RangeSlider` owns native accessible handles, ordered bounds, keyboar
 controls and track/touch dragging. On narrow viewers the timeline spans a full
 row, with a compact interval readout below. This update is frontend-only and
 requires no migration or demo reparse.
+
+### Map gestures (2026.11.19.7)
+
+Scroll over either map pane to zoom from 1× to 4× around the pointer. Left-click
+and left-drag select; right-drag pans without changing selection or pausing
+playback. Map-only context-menu suppression keeps right-drag uninterrupted.
+Touchscreens support two-finger pinch and pan. The focused canvas also accepts
+plus/minus to zoom, arrow keys to pan, and 0 or Home to fit the map. Explicit
+zoom and Select/Pan controls are removed. Each floor remembers its own camera;
+these gestures use already loaded movement and make no movement requests.

@@ -117,7 +117,8 @@ viewer classes and scroll locks; normal resized dimensions remain intact.
 Combat tooltips portal inside the native fullscreen element so they remain
 visible in the browser's top layer. The timer uses the shared `Readout`; its
 mobile row is centered across the full playback bar, while speed and playback
-buttons are vertically centered in the first row. Zoom controls sit at the top of each map. Its speed menu opens
+buttons are vertically centered in the first row. Each map supports pointer-centered wheel zoom, right-drag pan and left-drag selection.
+Touchscreens use two-finger pinch/pan; focused maps support keyboard zoom/pan. Its speed menu opens
 upward to avoid being clipped by the viewer. All/CT/T uses the shared profile
 segmented-control styling. Compact pressed-state chips replace checkboxes for
 players, utility, combat and numbered rounds; the same chip style is used for

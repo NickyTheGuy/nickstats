@@ -26,6 +26,5 @@ export default function SelectionMarkers({candidates,players,view,selection,onSe
     className={`combat-hit-target analyzer-selection-marker ${group.kind}-hit-target`} label={group.labels.join('; ')} content={group.labels.map((label,i)=><div key={i}>{label}</div>)}
     aria-pressed={group.items.every(item=>entrySelected(item,chosen))}
     onClick={event=>onSelect(group.items,event.shiftKey||event.ctrlKey||event.metaKey)}
-    onContextMenu={event=>{if(event.ctrlKey){event.preventDefault();onSelect(group.items,true);}}}
     style={{left:group.x-(group.kind==='kill'?20:12),top:group.y-12,width:group.kind==='kill'?40:24,height:24,touchAction:'none'}} />)}</div>;
 }
