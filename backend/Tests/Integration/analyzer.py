@@ -237,6 +237,66 @@ try:
     text=json.dumps(second,separators=(',', ':')).replace("'","''")
     sql(f"UPDATE player_round_phase_stats SET stats_json='{text}' WHERE match_player_id=1 AND round_number=2")
     assert {r['condition'] for r in request('/players/1/round-conditions',auth=False)['matches'][0]['slices']} == {'opening_kill','no_opening'}
+    # Trade filters use the selected player's round in both directions. The
+    # five-match teammate threshold is global, not limited to this request.
+    sql("INSERT INTO players(id,steam_id,current_name) VALUES(4,4,'Four')")
+    sql("INSERT INTO match_players(match_id,match_team_id,player_slot,player_id,display_name) VALUES(1,1,3,4,'Four')")
+    for match in range(2,6):
+        sql(f"""
+          INSERT INTO matches(id,demo_sha256,payload_schema,nickstats_build,parser_name,parser_version,parser_config_id,map_name,rounds)
+          VALUES({match},UNHEX(LPAD(HEX({match}),64,'0')),'nickstats.match/27','integration','test','1',1,'de_mirage',2);
+          INSERT INTO match_teams(id,match_id,team_slot,source_team_id,display_name) VALUES({match*10},{match},0,'a','A'),({match*10+1},{match},1,'b','B');
+          INSERT INTO match_players(match_id,match_team_id,player_slot,player_id,display_name)
+          VALUES({match},{match*10},0,1,'One'),({match},{match*10},1,2,'Two'),({match},{match*10+1},2,3,'Three');
+        """)
+        if match < 5:
+            sql(f"INSERT INTO match_players(match_id,match_team_id,player_slot,player_id,display_name) VALUES({match},{match*10},3,4,'Four')")
+    def save_trade_round(actor,number,value,buy,enemy,result,side='CT'):
+        text=json.dumps(value,separators=(',', ':')).replace("'","''")
+        sql(f"""INSERT INTO player_round_phase_stats(match_id,match_player_id,round_number,side,buy_type,opponent_buy_type,round_result,stats_json)
+          VALUES(1,{actor},{number},'{side}','{buy}','{enemy}','{result}','{text}')
+          ON DUPLICATE KEY UPDATE side=VALUES(side),buy_type=VALUES(buy_type),opponent_buy_type=VALUES(opponent_buy_type),round_result=VALUES(round_result),stats_json=VALUES(stats_json)""")
+    save_trade_round(1,1,base | {'trades':[[1,10,7,5],[2,90,80,70],[3,90,80,70]]},'full','eco','win')
+    save_trade_round(1,2,second | {'trades':[[1,4,2,1]]},'pistol','pistol','loss')
+    save_trade_round(1,25,base | {'opening':[0,1],'hero':True,'trades':[[1,2,1,0]]},'force','full','loss','T')
+    # Deliberately different teammate buys/openings: incoming must still use One.
+    save_trade_round(2,1,base | {'opening':[0,1],'trades':[[0,8,6,4]]},'pistol','eco','win')
+    save_trade_round(2,2,base | {'trades':[[0,3,2,1]]},'full','pistol','loss')
+    save_trade_round(2,25,base | {'trades':[[0,2,1,0]]},'eco','full','loss','T')
+    sql("""INSERT INTO trade_side_stats(match_id,trader_match_player_id,teammate_match_player_id,trader_side,opportunities,attempts,successes,opening_successes)
+      VALUES(1,1,2,'CT',14,9,6,0),(1,2,1,'CT',11,8,5,0),(1,1,2,'T',2,1,0,0),(1,2,1,'T',2,1,0,0),
+            (1,1,3,'CT',90,80,70,0),(1,1,4,'CT',90,80,70,0)""")
+    def trades(filters=None, player=1):
+        return request(f'/players/{player}/trade-teammates',{'match_ids':[1,1],'side':'ALL',**(filters or {})},auth=False)
+    def assert_trades(filters,outgoing,incoming):
+        result=trades(filters)
+        assert [r['id'] for r in result['outgoing']] == [2], (filters,result)
+        assert [r['id'] for r in result['incoming']] == [2], (filters,result)
+        for direction,counts in [('outgoing',outgoing),('incoming',incoming)]:
+            assert [result[direction][0][k] for k in ['opportunities','attempts','trades']] == counts,(filters,result)
+    assert_trades({},[16,10,6],[13,9,5])
+    assert_trades({'side':'CT'},[14,9,6],[11,8,5])
+    assert_trades({'buy':'full'},[10,7,5],[8,6,4])
+    assert_trades({'buy':'pistol'},[4,2,1],[3,2,1])
+    assert_trades({'buy':'hero'},[2,1,0],[2,1,0])
+    assert_trades({'opponent_buy':'full'},[2,1,0],[2,1,0])
+    assert_trades({'round_result':'loss'},[6,3,1],[5,3,1])
+    assert_trades({'round_phase':'REGULATION'},[14,9,6],[11,8,5])
+    assert_trades({'round_phase':'OVERTIME','side':'T'},[2,1,0],[2,1,0])
+    assert_trades({'round_condition':'opening_kill'},[10,7,5],[8,6,4])
+    assert_trades({'round_condition':'opening_death'},[2,1,0],[2,1,0])
+    assert_trades({'round_condition':'opening_attempt'},[12,8,5],[10,7,4])
+    assert_trades({'round_condition':'no_opening'},[4,2,1],[3,2,1])
+    assert_trades({'buy':'full','opponent_buy':'eco','round_result':'win','side':'CT','round_phase':'REGULATION','round_condition':'opening_kill'},[10,7,5],[8,6,4])
+    assert trades({'buy':'pistol','side':'T'}) == {'outgoing':[],'incoming':[]}
+    # Publicly inspect another profile, and exclude four-game friends/opponents.
+    assert [r['id'] for r in trades(player=2)['outgoing']] == [1]
+    assert trades(player=3) == {'outgoing':[],'incoming':[]}
+    sql("UPDATE player_round_phase_stats SET stats_json=JSON_REMOVE(stats_json,'$.opening') WHERE match_player_id=1 AND round_number=2")
+    assert trades({'round_condition':'no_opening'}) == {'outgoing':[],'incoming':[]}
+    for key in ['buy','opponent_buy','round_result','round_phase','round_condition']:
+        request('/players/1/trade-teammates',{'match_ids':[1],'side':'ALL',key:'bad'},auth=False,expected=400)
+    print('Trade integration passed: recurring teammates, both directions, all round filters, intersections, public profiles, legacy unknowns.')
     print('Analyzer integration passed: auth, rosters, chunk checksums, atomic publication, projection, date/tag preservation, stale fingerprints.')
 finally:
     server.terminate()
