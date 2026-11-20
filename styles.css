@@ -4150,3 +4150,5 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-selection-matches { display:flex;flex-wrap:wrap;gap:8px;margin:16px 0; }
 .analyzer-selection-context { display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:16px 0; }
 .analyzer-area-summary { width:min(320px,calc(100% - 24px)); }
+
+.analyzer-area-summary { top:calc(var(--analyzer-header-height,56px) + 8px); bottom:var(--analyzer-playback-clearance,110px); height:fit-content; max-height:calc(100% - var(--analyzer-header-height,56px) - var(--analyzer-playback-clearance,110px) - 8px); margin-block:auto; transform:none; }

@@ -15,10 +15,11 @@ export default function PlaybackControls({ time, duration, playing, setPlaying, 
   useLayoutEffect(()=>{
     const controls=host.current,frame=controls.parentElement;
     const locate=()=>{const box=frame.getBoundingClientRect(),height=controls.getBoundingClientRect().height;
-      setBottom(Math.max(10,Math.min(box.height-height-66,box.bottom-innerHeight+10)));};
+      const offset=Math.max(10,Math.min(box.height-height-66,box.bottom-innerHeight+10));
+      setBottom(offset);frame.style.setProperty('--analyzer-playback-clearance',`${offset+height+10}px`);};
     const observer=new ResizeObserver(locate);observer.observe(frame);observer.observe(controls);
     window.addEventListener('scroll',locate,true);window.addEventListener('resize',locate);locate();
-    return ()=>{observer.disconnect();window.removeEventListener('scroll',locate,true);window.removeEventListener('resize',locate);};
+    return ()=>{observer.disconnect();window.removeEventListener('scroll',locate,true);window.removeEventListener('resize',locate);frame.style.removeProperty('--analyzer-playback-clearance');};
   },[]);
   return <div ref={host} className={`analyzer-playback${events.length?' with-events':''}`} style={{bottom}}>
     <Button className="button button-primary" disabled={!duration} onClick={() => { if (time >= duration) onSeek(0); setPlaying(!playing); }} aria-label={playing ? 'Pause playback' : 'Play playback'}>{playing ? 'Pause' : 'Play'}</Button>
