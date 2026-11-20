@@ -29,6 +29,7 @@ func requireUploadAuthorization(_ request: Request) throws {
 }
 
 func routes(_ app: Application) throws {
+    roundConditionRoutes(app)
     accountFriendsRoutes(app)
     manualFilterRoutes(app)
     try analyzerRoutes(app)

@@ -214,6 +214,29 @@ try:
     assert request('/analyzer/matches?match=1')['matches'][0].get('capture') is None
     request('/analyzer/captures/'+capture,expected=404)
     request('/analyzer/utility/search',query,expected=409)
+    # Independent round-condition summaries: full-round totals, disjoint
+    # opening cohorts, and unknown legacy rounds must never become no-attempt.
+    request('/players/99999/round-conditions',auth=False,expected=404)
+    sql("INSERT INTO player_side_stats(match_player_id,side,rounds_played) VALUES(1,'CT',2)")
+    assert request('/players/1/round-conditions',auth=False)['matches'][0]['covered_rounds'] == 0
+    base = {'rounds':[1,1],'kda':[3,0,1,1,250],'kast_rounds':1,'opening':[1,0],
+            'trade_kills':0,'trade_d':[0,0,0],'utility':[0,0],'speed':[0,0,None,0,0,None]*2,
+            'clutches':[0]*5,'kill_rounds':[0,0,1,0,0],'weapons':[['ak47',3,10,250,1,5]],
+            'duels':[],'trades':[],'contexts':[],'assisted_by':[],'flashes':[]}
+    second = base | {'rounds':[1,0],'kda':[0,1,0,0,20],'kast_rounds':0,'opening':[0,1],'weapons':[]}
+    for number,value in [(1,base),(2,second)]:
+        text=json.dumps(value,separators=(',', ':')).replace("'","''")
+        sql(f"UPDATE player_round_phase_stats SET stats_json='{text}',buy_type='full',opponent_buy_type='eco' WHERE match_player_id=1 AND round_number={number}")
+    cohorts = request('/players/1/round-conditions',auth=False)['matches'][0]
+    assert cohorts['expected_rounds'] == cohorts['covered_rounds'] == 2
+    assert {r['condition'] for r in cohorts['slices']} == {'opening_kill','opening_death'}
+    kill = next(r for r in cohorts['slices'] if r['condition']=='opening_kill')
+    assert kill['rounds'] == [1] and kill['stats']['kills'] == 3 and kill['stats']['damage'] == 250
+    assert kill['buy_type']=='full' and kill['opponent_buy_type']=='eco'
+    second['opening']=[0,0]
+    text=json.dumps(second,separators=(',', ':')).replace("'","''")
+    sql(f"UPDATE player_round_phase_stats SET stats_json='{text}' WHERE match_player_id=1 AND round_number=2")
+    assert {r['condition'] for r in request('/players/1/round-conditions',auth=False)['matches'][0]['slices']} == {'opening_kill','no_opening'}
     print('Analyzer integration passed: auth, rosters, chunk checksums, atomic publication, projection, date/tag preservation, stale fingerprints.')
 finally:
     server.terminate()

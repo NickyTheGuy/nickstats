@@ -289,6 +289,10 @@ private struct ComparisonFlashTargets {
     var teamByPlayerSlot: [Int: Int64]
 }
 
+func flattenedConditionStats(_ value: SideStatsPayload,ownSlot: Int,ownTeam: Int64,teams: [Int:Int64]) -> [String:Double] {
+    flattenedBuyStats(value,flashTargets:ComparisonFlashTargets(ownPlayerSlot:ownSlot,ownTeamID:ownTeam,teamByPlayerSlot:teams))
+}
+
 func flattenedBuyStats(_ value: SideStatsPayload) -> [String: Double] {
     flattenedBuyStats(value, flashTargets: nil)
 }
