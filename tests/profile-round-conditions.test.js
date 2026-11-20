@@ -29,3 +29,17 @@ test('Filtered rating and ADR use pooled selected player rounds rather than whol
 test('Condition leaf slices intersect filters once, retaining hero rounds in All and requiring hero for Hero',async()=>{
  const {conditionSliceMatches,conditionCoverage}=await api(),{data,matches}=fixture(),row=data.matches[0].slices[2];assert.equal(conditionSliceMatches(row),true);assert.equal(conditionSliceMatches(row,{heroOnly:true}),true);assert.equal(conditionSliceMatches({...row,hero:false},{buy:'hero'}),false);assert.equal(conditionSliceMatches(row,{side:'CT'}),false);assert.equal(conditionSliceMatches(row,{opponentBuy:'full'}),false);assert.equal(conditionSliceMatches(row,{roundResult:'win'}),false);assert.equal(conditionSliceMatches(row,{roundPhase:'OVERTIME'}),false);assert.deepEqual(conditionCoverage(matches,data),{covered:5,expected:6});
 });
+
+test('Condition responses accept signed clutch economics while rejecting invalid counters and nonfinite values',async()=>{
+ const {validateRoundConditions}=await api();
+ const signed=['differential','swing','team_cash_change','enemy_cash_change','save_impact','t1_victory','ct5_victory_dead','t3_failure','ct2_failure_late'];
+ for(const outcome of ['win_survive','win_die','loss_survive','loss_die']){
+  const {data}=fixture();
+  for(const field of signed)data.matches[0].slices[0].stats[`clutch_econ_${outcome}_${field}`]=-5000;
+  assert.equal(validateRoundConditions(JSON.parse(JSON.stringify(data)),1).matches[0].slices[0].stats[`clutch_econ_${outcome}_swing`],-5000);
+ }
+ for(const [key,value] of [['kills',-1],['clutch_econ_loss_die_count',-1],['clutch_econ_loss_die_saved',-1],['clutch_econ_unknown_swing',-1],['damage',NaN],['damage',Infinity],['damage','200']]){
+  const {data}=fixture();data.matches[0].slices[0].stats[key]=value;
+  assert.throws(()=>validateRoundConditions(data,1),/Invalid condition statistic/);
+ }
+});

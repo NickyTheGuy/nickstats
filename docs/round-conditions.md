@@ -1,4 +1,4 @@
-# Profile round conditions — 2026.11.20.4
+# Profile round conditions — 2026.11.20.6
 
 Individual player profiles now have an optional Round conditions filter alongside
 side, buy, round-result, phase, map, date and tag filters. All keeps the ordinary
@@ -40,3 +40,9 @@ Comparison, Graphs, Groups, match history, sessions and Analyzer keep their norm
 statistics. Conditions are a separate optional view, not a replacement for the
 existing profile. The backend cohort slices and frontend matching helpers can
 support additional condition families later.
+
+Build 2026.11.20.6 fixes frontend validation of signed clutch economy deltas and
+forecasts. Negative differential, swing, cash changes, save impact and outcome
+forecasts are valid; counters and resource totals still reject negative values.
+This fixes “Invalid condition statistics” across opening choices without changing
+saved data. The fix itself requires only the rebuilt frontend, with no reparse.
