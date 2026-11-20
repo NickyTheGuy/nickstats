@@ -36,6 +36,10 @@
 
   function render({ prefix, headlineId, summary, side, result = "ALL", roundResult = "ALL", maps }) {
     const rawStats = summary.stats || {}, s = availability.materialize(rawStats), rounds = number(s.rounds), sideAll = side === "ALL";
+    const unavailableSections=new Set(['RoundStateKillStats','RoundStateDeathStats','KillStageStats','EconomyStats','TimingAverageStats','PhaseStats']);
+    const conditionRows=(target,rows)=>summary.conditioned&&unavailableSections.has(target.slice(prefix.length))?rows.map(([label,,,className])=>[label,'—','Unavailable for round conditions',className]):summary.conditioned&&!rounds&&target===headlineId?rows.map(([label,,,className])=>[label,'—','No matching rounds','']):rows;
+    const fillCards=(target,rows)=>window.NickStatsProfileUI.cards($(target),conditionRows(target,rows));
+    const fillStrip=(target,rows)=>window.NickStatsProfileUI.strip($(target),conditionRows(target,rows));
     const statAvailable = key => availability.available(rawStats, key);
     const statInteger = key => statAvailable(key) ? integer(s[key]) : "—";
     const availabilityNote = (key, note) => {
@@ -67,7 +71,7 @@
     const scoreCard = (label, sample, className) => {
       if (!sample?.count) return [label, "—", `No scored ${className === "player-score-win" ? "wins" : "losses"}`, className];
       const margin = number(sample.margin), sign = margin > 0 ? "+" : margin < 0 ? "−" : "";
-      return [label, `${decimal(sample.for, 1)}–${decimal(sample.against, 1)}`, `${integer(sample.count)} scored match${sample.count === 1 ? "" : "es"} · ${sign}${decimal(Math.abs(margin), 1)} average margin`, className];
+      return [label, `${decimal(sample.for, 1)}–${decimal(sample.against, 1)}`, `${integer(sample.count)} scored match${sample.count === 1 ? "" : "es"}${summary.conditioned?" · whole-match scores":""} · ${sign}${decimal(Math.abs(margin), 1)} average margin`, className];
     };
     const roundWins = number(s.round_wins), roundLosses = Math.max(0, rounds - roundWins);
     const roundNote = roundResult === "ALL"

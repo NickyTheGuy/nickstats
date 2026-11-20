@@ -30,9 +30,26 @@
   const state = {
     profiles: new Map(), activeId: null, graphPlayers: new Set(), recent: readRecent(),
     display: "profile", view: "overview", historyView: "matches", profileQueue: [], pendingProfiles: new Set(), profileLoading: false, requestedProfileId: null, refreshController: null, profilesStale: false,
-    side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL", maps: []
+    roundCondition: "ALL", side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL", maps: []
   };
   const activeProfile = () => state.profiles.get(state.activeId) || null;
+  const conditionAPI=window.NickStatsRoundConditions;
+  const conditionUI=window.NickStatsRoundConditionsUI.create('playerRoundConditionFilter',{
+    onChange:value=>{state.roundCondition=value;renderCurrentDisplay();},
+    onRetry:()=>{const profile=activeProfile();if(profile){profile.conditionError='';loadRoundConditions(profile);}}
+  });
+  async function loadRoundConditions(profile){
+    if(profile.conditionController)return;
+    const controller=new AbortController();profile.conditionController=controller;profile.conditionError='';
+    conditionUI.update({value:state.roundCondition,loading:true,error:''});
+    try{
+      const response=await fetch(`/nickstats/api/players/${profile.payload.player.id}/round-conditions`,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
+      const body=await response.json().catch(()=>null);if(!response.ok)throw Error(body?.reason||`Round conditions returned HTTP ${response.status}.`);
+      controller.signal.throwIfAborted();profile.roundConditions=conditionAPI.validateRoundConditions(body,profile.payload.player.id);profile.summaryCache?.clear();
+    }catch(error){if(!controller.signal.aborted)profile.conditionError=error.message;}
+    finally{if(profile.conditionController===controller)profile.conditionController=null;if(activeProfile()===profile&&!controller.signal.aborted&&state.display==='profile')renderProfile();}
+  }
+
   const mapFilter = window.NickStatsMapFilterUI.create("playerMapFilter", {
     formatLabel: value => titleCase(value.replace(/^de_/, "")),
     onChange: values => { state.maps = values; if (activeProfile()) renderCurrentDisplay(); }
@@ -116,6 +133,7 @@
     profileSectionTabs.set(view, { notify: false });
     document.querySelectorAll("[data-player-profile-view]").forEach(panel => { panel.hidden = panel.dataset.playerProfileView !== view; });
     syncStatsToolbar();
+    if (state.display === "profile" && activeProfile() && state.roundCondition !== "ALL") renderProfile();
     if (view === "matches" && state.display === "profile" && activeProfile()) renderPlayerMatches();
   }
   let sessionReturnDisplay = "profile";
@@ -134,6 +152,7 @@
 
   function syncStatsToolbar() {
     $("playerStatsToolbar").hidden = state.display === "session" || (state.display === "profile" && state.view === "matches");
+    $("playerRoundConditionFilter").hidden=state.display!=="profile"||state.view==="matches";
     syncTradeTeammates();
   }
 
@@ -144,7 +163,8 @@
       matchIds: profile ? matchesFor(profile.payload).map(match => match.id) : [],
       side: state.side,
       active: Boolean(profile) && !$("playersPage").hidden && state.display === "profile" && state.view === "trades",
-      unsupported: state.buy !== "ALL" || state.opponentBuy !== "ALL" || state.roundResult !== "ALL" || state.roundPhase !== "ALL" || state.heroOnly,
+      roundCondition: state.roundCondition!=="ALL",
+      unsupported: state.roundCondition!=="ALL" || state.buy !== "ALL" || state.opponentBuy !== "ALL" || state.roundResult !== "ALL" || state.roundPhase !== "ALL" || state.heroOnly,
       onPlayer: id => loadProfile(id)
     });
   }
@@ -354,9 +374,9 @@
   function matchView(match, side, buy = "ALL", roundResult = "ALL", opponentBuy = "ALL", roundPhase = "ALL", heroOnly = false) {
     const stats = {}, weapons = new Map();
     const selected = (match.sides || []).filter(row =>
-      economyRowMatches(row, buy, opponentBuy, roundResult, roundPhase, heroOnly) &&
+      (match.round_condition?conditionAPI.conditionSliceMatches(row,{buy,opponentBuy,roundResult,roundPhase,heroOnly}):economyRowMatches(row, buy, opponentBuy, roundResult, roundPhase, heroOnly)) &&
       (side === "ALL" || row.side === side));
-    if (!selected.length && !heroOnly && roundPhase === "ALL" && side === "ALL" && buy === "ALL" && opponentBuy === "ALL" && roundResult === "ALL") mergeStats(stats, { rounds: match.rounds, kills: match.kills, deaths: match.deaths, assists: match.assists, headshots: match.headshots, damage: match.damage, kast_rounds: match.kast_rounds });
+    if (!match.round_condition && !selected.length && !heroOnly && roundPhase === "ALL" && side === "ALL" && buy === "ALL" && opponentBuy === "ALL" && roundResult === "ALL") mergeStats(stats, { rounds: match.rounds, kills: match.kills, deaths: match.deaths, assists: match.assists, headshots: match.headshots, damage: match.damage, kast_rounds: match.kast_rounds });
     for (const row of selected) {
       mergeStats(stats, row.stats);
       for (const weapon of row.weapons || []) {
@@ -377,10 +397,10 @@
     }
     return { rating: samples ? total / samples : null, samples };
   }
-  function aggregate(matches, side, buy = "ALL", roundResult = "ALL", opponentBuy = "ALL", roundPhase = "ALL", heroOnly = false, teammateRatings = {}) {
+  function aggregate(matches, side, buy = "ALL", roundResult = "ALL", opponentBuy = "ALL", roundPhase = "ALL", heroOnly = false, teammateRatings = {}, condition = "ALL") {
     const stats = {}, weapons = new Map();
     const views = matches.map(match => matchView(match, side, buy, roundResult, opponentBuy, roundPhase, heroOnly));
-    const qualifyingMatches = roundPhase === "ALL" && !heroOnly ? matches : views.filter(view => number(view.stats.rounds) > 0).map(view => view.match);
+    const qualifyingMatches = condition === "ALL" && roundPhase === "ALL" && !heroOnly ? matches : views.filter(view => number(view.stats.rounds) > 0).map(view => view.match);
     const teammateAverage = averageTeammateRating(views, teammateRatings);
     for (const view of views) {
       availability.add(stats, view.stats, view.match.schema);
@@ -395,9 +415,9 @@
     const kpr = ratio(kills, rounds), dpr = ratio(deaths, rounds), apr = ratio(assists, rounds), adr = ratio(stats.damage, rounds), kast = 100 * ratio(stats.kast_rounds, rounds);
     const impact = 2.13 * kpr + .42 * apr - .41;
     const rating = rounds ? Math.max(0, .0073 * kast + .3591 * kpr - .5329 * dpr + .2372 * impact + .0032 * adr + .1587) : 0;
-    const matchWinRate = !heroOnly && roundPhase === "ALL" && side === "ALL" && buy === "ALL" && opponentBuy === "ALL" && roundResult === "ALL";
+    const matchWinRate = condition === "ALL" && !heroOnly && roundPhase === "ALL" && side === "ALL" && buy === "ALL" && opponentBuy === "ALL" && roundResult === "ALL";
     return {
-      stats: availability.materialize(stats), weapons: [...weapons.values()].sort((a, b) => b.kills - a.kills || b.damage - a.damage),
+      conditioned:condition!=="ALL", stats: availability.materialize(stats), weapons: [...weapons.values()].sort((a, b) => b.kills - a.kills || b.damage - a.damage),
       matches: qualifyingMatches.length, wins, losses, draws, rounds, rating, kd: ratio(kills, deaths), adr, kast,
       teammateRating: teammateAverage.rating, teammateSamples: teammateAverage.samples,
       winRate: matchWinRate ? 100 * ratio(wins, qualifyingMatches.length) : 100 * ratio(stats.round_wins, rounds), winRateKind: matchWinRate ? "match" : "round", scores: scoreBreakdown(qualifyingMatches)
@@ -408,15 +428,16 @@
     const selectedMaps = new Set(state.maps);
     return (payload.matches || []).filter(match => (!selectedMaps.size || selectedMaps.has(match.map)) && matchResultMatches(match.result, state.result) && dateFilter.matches(match.played_at) && manualFilter.matches(match));
   }
-  function aggregationKey(map = "ALL") {
-    return [state.side, state.buy, state.heroOnly, state.opponentBuy, state.roundResult, state.roundPhase, state.result, [...state.maps].sort().join(","), dateFilter.from, dateFilter.through, map].join("|");
+  function aggregationKey(map = "ALL", condition = "ALL") {
+    return [condition, state.side, state.buy, state.heroOnly, state.opponentBuy, state.roundResult, state.roundPhase, state.result, [...state.maps].sort().join(","), dateFilter.from, dateFilter.through, map].join("|");
   }
-  function summaryFor(profile, map = "ALL") {
+  function summaryFor(profile, map = "ALL", condition = "ALL") {
     profile.summaryCache ||= new Map();
-    const key = aggregationKey(map);
+    const key = aggregationKey(map,condition);
     if (!profile.summaryCache.has(key)) {
-      const matches = matchesFor(profile.payload).filter(match => map === "ALL" || match.map === map);
-      profile.summaryCache.set(key, aggregate(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly, profile.payload.teammateRatings));
+      const base = matchesFor(profile.payload).filter(match => map === "ALL" || match.map === map);
+      const matches=condition==='ALL'?base:conditionAPI.conditionMatches(base,profile.roundConditions,condition);
+      profile.summaryCache.set(key, aggregate(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly, profile.payload.teammateRatings,condition));
     }
     return profile.summaryCache.get(key);
   }
@@ -497,18 +518,30 @@
 
   function renderProfile() {
     const profile = activeProfile(); if (!profile) return;
-    const payload = profile.payload, player = payload.player || {}, matches = matchesFor(payload), summary = summaryFor(profile);
+    const condition=state.view==='matches'?'ALL':state.roundCondition;
+    ui.playerProfileName.update({text:profile.payload.player?.name||'Unknown player'});
+    conditionUI.update({value:state.roundCondition,loading:Boolean(profile.conditionController),error:profile.conditionError||''});
+    const waiting=condition!=='ALL'&&!profile.roundConditions;
+    $('playerHeadlineStats').hidden=waiting;$('playerProfileBody').hidden=waiting;
+    if(waiting){
+      ui.playerProfileStatus.update({text:profile.conditionError||'Loading round conditions…',error:Boolean(profile.conditionError)});
+      if(!profile.conditionController&&!profile.conditionError)void loadRoundConditions(profile);return;
+    }
+    const payload = profile.payload, player = payload.player || {}, matches = matchesFor(payload);
+    let summary;try{summary=summaryFor(profile,'ALL',condition);}catch(error){profile.roundConditions=null;profile.conditionError=error.message;renderProfile();return;}
+    const coverage=profile.roundConditions?conditionAPI.conditionCoverage(matches,profile.roundConditions):{covered:0,expected:0};
+    conditionUI.update({rounds:summary.rounds,...coverage,loading:false,error:''});
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     ui.playerProfileName.update({ text: player.name || "Unknown player" });
     const buyLabel = state.buy === "ALL" ? "All buys" : state.buy === "hero" ? "Hero rounds" : `${titleCase(state.buy)} buys`;
     const opponentBuyLabel = state.opponentBuy === "ALL" ? "All enemy buys" : `vs ${titleCase(state.opponentBuy)}`;
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
-    ui.playerProfileMeta.update({ text: `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${state.maps.length ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}` });
+    ui.playerProfileMeta.update({ text: `Steam ${player.steam_id || "unknown"} · ${integer(summary.matches)} match${summary.matches === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${condition!=="ALL"?` · ${conditionAPI.roundConditions.find(([key])=>key===condition)[1]} · ${integer(summary.rounds)} matching rounds`:""}${state.maps.length ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}` });
     const maps = new Map(); for (const match of matches) { const current = maps.get(match.map) || { name: match.map, rows: [] }; current.rows.push(match); maps.set(match.map, current); }
-    const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: summaryFor(profile, map.name) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
+    const mapRows = [...maps.values()].map(map => ({ name: map.name, summary: summaryFor(profile, map.name,condition) })).filter(row=>condition==="ALL"||row.summary.rounds>0).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "player", headlineId: "playerHeadlineStats", summary, side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
     syncTradeTeammates();
-    $("playerProfile").hidden = false; ui.playerProfileStatus.update({ text: "" });
+    $("playerProfile").hidden = false; ui.playerProfileStatus.update({ text: "",error:false });
   }
 
   function activateProfile(id) {
@@ -519,6 +552,7 @@
     setPlayerView(state.view); setPlayerDisplay(state.display);
   }
   function closeProfile(id) {
+    state.profiles.get(String(id))?.conditionController?.abort();
     id = String(id); const ids = [...state.profiles.keys()], index = ids.indexOf(id);
     state.profiles.get(id)?.matchHistory?.controller?.abort();
     state.profiles.delete(id); state.graphPlayers.delete(id);
@@ -601,6 +635,7 @@
       updated.forEach(([id, payload]) => {
         const profile = state.profiles.get(id);
         if (profile) {
+          profile.conditionController?.abort();profile.conditionController=null;profile.roundConditions=null;profile.conditionError='';
           profile.payload = payload;
           profile.summaryCache?.clear();
           profile.graphCache?.clear();
@@ -633,6 +668,7 @@
     state.refreshController?.abort();
     state.refreshController = null;
     for (const profile of state.profiles.values()) {
+      profile.conditionController?.abort();profile.conditionController=null;profile.roundConditions=null;profile.conditionError='';
       profile.matchHistory?.controller?.abort();
       if (profile.matchHistory) {
         profile.matchHistory.loaded = false;
@@ -687,6 +723,7 @@
     window.NickStatsSegmentedUI.create("playerResultFilter", { onChange: result => { state.result = result; if (activeProfile()) renderCurrentDisplay(); } }),
   ];
   function resetPlayerFilters() {
+    state.roundCondition="ALL";conditionUI.update({value:"ALL",error:"",loading:false});
     window.NickStatsFilters.resetProfileFilters({ state, mapFilter, dateFilter, tagFilter: manualFilter, toggles: playerFilterToggles, onReset: () => {
       state.profiles.forEach(profile => {
         profile.summaryCache?.clear(); profile.graphCache?.clear(); profile.manualHistoryOffset = 0; profile.sessionHistoryOffset = 0;

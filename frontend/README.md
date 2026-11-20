@@ -293,3 +293,9 @@ Marker clicks use atomic subtraction/toggling; drag gestures continue to use
 `mergeSelection`. MapWindow collects visible entries from both panes for the I
 shortcut. `visibleMapCandidates` supplies the same clipping rules to marker
 rendering and inversion, keeping viewport selection consistent after zoom/pan.
+
+`RoundConditionFilter` reuses ToggleGroup and the existing profile toolbar. Its
+state module validates disjoint coverage and filters leaf slices; individual
+profile summaries compose those slices with the normal filters. The data is
+requested only after selecting a condition and is invalidated with profile data.
+See `docs/round-conditions.md` for semantics and deployment.

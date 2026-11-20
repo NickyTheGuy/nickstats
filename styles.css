@@ -4154,3 +4154,8 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 .analyzer-area-summary { top:calc(var(--analyzer-header-height,56px) + 8px); bottom:var(--analyzer-playback-clearance,110px); height:fit-content; max-height:calc(100% - var(--analyzer-header-height,56px) - var(--analyzer-playback-clearance,110px) - 8px); margin-block:auto; transform:none; }
 .analyzer-selection-player-tabs { display:flex;gap:5px;overflow-x:auto;flex-wrap:nowrap;overscroll-behavior-x:contain;scrollbar-width:thin;margin:8px 0; }
 .analyzer-selection-player-tabs [role=tab] { flex:0 0 auto;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px; }
+#playerRoundConditionFilter { flex-basis:100%; }
+.profile-round-conditions { display:grid;gap:6px; }
+.profile-round-conditions > .side-toggle { display:flex;flex-wrap:wrap;max-width:100%; }
+.profile-round-conditions .side-toggle button { white-space:nowrap; }
+#playerHeadlineStats[hidden],#playerProfileBody[hidden],#playerRoundConditionFilter[hidden] { display:none; }

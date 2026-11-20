@@ -17,9 +17,9 @@ function TradeTable({rows,onPlayer,label}) {
   </table></div>;
 }
 
-export default function TradeTeammates({playerId,matchIds = [],side = 'ALL',active,unsupported,onPlayer}) {
+export default function TradeTeammates({playerId,matchIds = [],side = 'ALL',active,unsupported,roundCondition=false,onPlayer}) {
   const view = useTradeTeammates(tradeSelection(playerId,matchIds,side),active,unsupported);
-  const note = unsupported ? 'Set buy, opponent buy, round result and phase to All to see teammate breakdowns. Match filters and player side are supported.'
+  const note = roundCondition ? 'Teammate breakdowns are unavailable for round conditions.' : unsupported ? 'Set buy, opponent buy, round result and phase to All to see teammate breakdowns. Match filters and player side are supported.'
     : view.status === 'error' ? view.error : view.status !== 'ready' ? 'Loading teammate trades…' : '';
   return <div className="trade-teammate-cards">
     {[['outgoing','03','Teammates you traded','Your chances and attempts to trade each teammate, and the trades you completed.'],
