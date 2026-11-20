@@ -35,6 +35,7 @@ export default function Analyzer({entryStore}) {
   const entry=useSyncExternalStore(entryStore.subscribe,entryStore.getSnapshot);
   const matchFilters=useMatchFilters(savedSource);
   const [area,setArea]=useState(null),[openMenu,setOpenMenu]=useState(null);
+  const [summaryScope,setSummaryScope]=useRememberedState(preference('summaryScope'),null,value=>['selection','rounds','matches'].includes(value)?value:null);
   const [roundFocus,setRoundFocus]=useRememberedState(preference('focus'),null,focusPreferences),[utilityResults,setUtilityResults]=useState(null);
   const [showEnemies,setShowEnemies]=useRememberedState(preference('showEnemies'),false,boolean),[display,setDisplay]=useRememberedState(preference('display'),createDisplay,displayPreferences),[enemyDisplay,setEnemyDisplay]=useRememberedState(preference('enemyDisplay'),createDisplay,displayPreferences);
   const [mode,setMode]=useState(savedSource.mode),[queryPlayers,setQueryPlayers]=useState(null);
@@ -156,7 +157,7 @@ export default function Analyzer({entryStore}) {
       area={area?.map===mapName?area:null} areaSummary={areaSummary} onSelectItems={selectItems} onClearSelection={()=>setArea(null)} onAreaStart={()=>setPlaying(false)}
       clockOverlay={!result&&mode==='match'&&rounds.length===1&&<RoundClock round={rounds[0]} time={time} />}
       combatOverlay={rounds.length===1&&<KillFeed events={combat.feed} time={time} startTime={startTime} players={mapPlayers} colors={colors} />}
-      areaOverlay={areaSummary&&<AreaSummary summary={areaSummary} loading={busy||loadingRounds} onClear={()=>setArea(null)} onFocus={focusArea} />}
+      areaOverlay={areaSummary&&<AreaSummary summary={areaSummary} rounds={rounds} items={area.items} replays={mapReplays} scope={summaryScope} onScope={setSummaryScope} loading={busy||loadingRounds} onClear={()=>setArea(null)} onFocus={focusArea} />}
       status={<><FormMessage className="analyzer-status">{status}</FormMessage><FormMessage error className="analyzer-error">{error}</FormMessage>
         {(busy||loadingRounds)&&<IconButton label="Cancel loading" className="button button-secondary" controlSize={30} onClick={()=>{operation.current?.abort();roundOperation.current?.abort();}}><path d="m6 6 12 12M6 18 18 6" /></IconButton>}
       </>}

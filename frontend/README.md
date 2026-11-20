@@ -277,3 +277,9 @@ filters and view choices persist; positions and result payloads do not. The last
 loaded source resumes only on the Analyzer page, with filters restored before
 movement loads. Drafts wait for submission, explicit new routes take priority,
 and private tag choices are scoped to the account. Playback resumes paused.
+
+Analyzer selection scopes use `selection-scope.mjs` for exact event/cohort
+calculations and `selection-matches.mjs` for lazy match-scoped statistics.
+`SelectionMetrics` is shared by the map popup and routed Selection page.
+Private friends are held by the account friends store, cleared on account changes,
+and edited using the normal player-search and button components.

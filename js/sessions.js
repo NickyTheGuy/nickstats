@@ -5,7 +5,11 @@
     const entry = tabs.get(active); if (entry) { profiles.delete(entry.playerID); load(entry); }
   } });
   let active = null, pending = null;
+  const selectionStorage = "nickstats.analyzerSelections.v1";
+  function savedSelections() { try { const value=JSON.parse(sessionStorage.getItem(selectionStorage)||"{}");return value&&typeof value==='object'&&!Array.isArray(value)?value:{}; } catch { return {}; } }
   const route = () => {
+    const selection=location.hash.match(/^#session\/selection\/([a-f0-9-]{36})$/);
+    if(selection)return {key:`selection/${selection[1]}`,kind:'selection',label:'Analyzer selection'};
     const match = location.hash.match(/^#session\/(\d+)\/(\d+)$/);
     return match ? { playerID: match[1], anchorID: match[2], key: `${match[1]}/${match[2]}` } : null;
   };
@@ -25,7 +29,7 @@
   }
   function renderTabs() {
     window.NickStatsNavigationUI.sessions({
-      entries: [...tabs].map(([key, entry]) => ({ key, label: entry.label || `Session for player #${entry.playerID}, match #${entry.anchorID}` })),
+      entries: [...tabs].map(([key, entry]) => ({ key, kind:entry.kind, label: entry.label || `Session for player #${entry.playerID}, match #${entry.anchorID}` })),
       active, onSelect: key => { location.hash = `#session/${key}`; }, onClose: closeTab
     });
   }
@@ -98,6 +102,12 @@
     if (!tabs.has(current.key)) tabs.set(current.key, current);
     window.NickStatsPlayerBrowser.showSession(); renderTabs();
     const entry = tabs.get(current.key);
+    if(entry.kind==='selection') {
+      pending?.controller.abort();pending=null;
+      const context=entry.context||savedSelections()[entry.key];
+      if(!context?.matches?.length){comparison.error('This selection is no longer available. Open it again from Analyzer.');return;}
+      entry.context=context;entry.label=`Selection · ${context.matches.length} matches`;renderTabs();comparison.selection(context);return;
+    }
     if (entry.players) { pending?.controller.abort(); pending = null; display(entry); }
     else if (pending?.key !== current.key) load(entry);
   }
@@ -108,7 +118,14 @@
     profiles.clear(); tabs.forEach(entry => { delete entry.players; });
     pending?.controller.abort(); pending = null; sync();
   });
-  window.NickStatsSessions = Object.freeze({ hasTabs: () => tabs.size > 0, open(playerID, anchorID, profile) {
+  window.NickStatsSessions = Object.freeze({ hasTabs: () => tabs.size > 0, openSelection(context) {
+    if(!context?.matches?.length||context.matches.length>1000)throw new Error('Select between 1 and 1,000 saved matches.');
+    const id=crypto.randomUUID(),key=`selection/${id}`,value={...context,id},saved=savedSelections();
+    saved[key]=value;const entries=Object.entries(saved).slice(-8),text=JSON.stringify(Object.fromEntries(entries));
+    if(text.length>2000000)throw new Error('This selection is too large to remember. Narrow the selection.');
+    try { sessionStorage.setItem(selectionStorage,text); } catch { throw new Error('Could not remember this selection. Browser storage is full.'); }
+    tabs.set(key,{key,kind:'selection',context:value,label:`Selection · ${context.matches.length} matches`});location.hash=`#session/${key}`;
+  }, open(playerID, anchorID, profile) {
     if (!/^[1-9]\d*$/.test(String(playerID)) || !/^[1-9]\d*$/.test(String(anchorID))) return;
     if (profile) profiles.set(String(playerID), profile);
     location.hash = `#session/${playerID}/${anchorID}`;

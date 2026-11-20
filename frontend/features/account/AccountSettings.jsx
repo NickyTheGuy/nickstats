@@ -1,3 +1,4 @@
+import FriendsSettings from './FriendsSettings.jsx';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPlayerSearch } from '../players/state/player-search.mjs';
 import Modal from '../../shared/components/layout/Modal.jsx';
@@ -42,6 +43,7 @@ export default function AccountSettings({ session, api, onPlayer, onPassword, on
         </div>
         <Button className="button button-secondary demo-account-player-clear" id="demoAccountPlayerClear" hidden={session.player_id == null} disabled={mutation.busy} onClick={() => changePlayer(null)}>Clear selected player</Button>
       </section>
+      <FriendsSettings username={session.username} />
       <PasswordForm busy={mutation.busy} error={operation === 'password' ? mutation.error : ''} onSubmit={fields => {
         setOperation('password'); mutation.run(() => api.password(fields), onPassword);
       }} />

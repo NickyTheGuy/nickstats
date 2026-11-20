@@ -13,7 +13,7 @@
     });
     const currentRoute = location.hash.slice(1);
     const validMatchDetail = next === "match" && /^match\/\d+$/.test(currentRoute);
-    const validSessionDetail = next === "players" && /^session\/\d+\/\d+$/.test(currentRoute);
+    const validSessionDetail = next === "players" && /^session\/(?:\d+\/\d+|selection\/[a-f0-9-]{36})$/.test(currentRoute);
     const validAnalyzerDetail = next === "analyzer" && currentRoute.startsWith("analyzer/");
     if (updateHash && location.hash !== `#${next}` && !validMatchDetail && !validSessionDetail && !validAnalyzerDetail) history.replaceState(null, "", `#${next}`);
     window.dispatchEvent(new CustomEvent("nickstats:page", { detail: { page: next } }));

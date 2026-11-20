@@ -478,3 +478,42 @@ Completed capture indexing survives cancellation or retry. Results appear only
 when the complete search succeeds. `Server-Timing` on utility search requests
 separates index preparation, storage reads, decoding, writes and the actual query.
 Deploy the backend and built frontend together. No reparse or migration is needed.
+
+### Selection scopes and friends (2026.11.20.1)
+
+The selection popup switches between Selection (exact event markers), Rounds
+(full selected player-round outcomes) and Matches (full selected player-match
+outcomes). Selecting a cell initially defaults to Rounds; event-only selections
+default to Selection. An explicitly chosen scope is remembered. Player-cell
+selection alone does not invent event kills/deaths. Exact markers keep stable
+identities across scrubbing, projection, enemy changes and duplicate gestures.
+Exact-event rating and win rate are unavailable. Match win rate counts each team
+once per match; round win rate counts each team once per round. Match statistics
+are loaded lazily with match-scoped wire-4 requests, not full player histories.
+
+Open selected matches creates a routed Selection tab beside sessions/profiles.
+It preserves the selected events and player-round summary separately from the
+whole-match comparison. Match links open the normal full-match tab. Returning,
+back navigation and reload retain the selection snapshot in session storage
+(up to eight selections, bounded to 2 MB and 1,000 matches); movement is omitted.
+Focus selection still restricts Analyzer to the selected player-round instances.
+
+Account settings now has a private Friends list. In Rounds mode, the selection
+popup groups outcomes by Solo (zero friends among four teammates), Mixed (one to
+three), and All friends (four). Only same-team players count, never yourself.
+Where the account has a representative player, their team is the reference so
+selecting several teammates does not change the category. Other teams and
+incomplete five-player rosters are shown as Other / unknown team. Without a
+representative player the selected player is the reference. These are roster
+categories, not proof of matchmaking party membership. Rates show known team-round
+sample counts, K-D and rating; missing saved metrics remain unavailable. This
+uses already-loaded rosters; it does not fetch or reparse movement. Friends is
+currently an account setting and Analyzer breakdown, not a global profile filter.
+
+Deploy migration 023, rebuild backend, then deploy the built frontend. The
+conditional-statistics explorer remains a separate future feature.
+
+The private friends API is `GET /auth/friends` and `POST /auth/friends` with
+`player_id` and `friend` (boolean). Both require a signed account session;
+the upload token alone is insufficient. Mutations are idempotent, account-isolated,
+limited to 500 friends, and return private/no-store responses.

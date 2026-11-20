@@ -10,7 +10,7 @@ export function PlayerWorkspaceTabs({ player = {}, sessions = {} }) {
     ...profiles.map(profile => [`profile:${profile.id}`, profile.name, {
       onClose: () => player.onClose(profile.id), closeLabel: `Close ${profile.name} profile`, tabProps: { 'aria-controls': 'playerProfileBody' }
     }]),
-    ...entries.map(entry => [`session:${entry.key}`, 'Session', {
+    ...entries.map(entry => [`session:${entry.key}`, entry.kind==='selection'?'Selection':'Session', {
       onClose: () => sessions.onClose(entry.key), closeLabel: `Close ${entry.label}`,
       tabProps: { 'aria-controls': 'sessionView', title: entry.label, 'aria-label': entry.label }, itemProps: { 'data-session-tab': entry.key }
     }])

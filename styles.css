@@ -4141,3 +4141,12 @@ summary { cursor: pointer; color: var(--text); font-weight: 800; }
 }
 
 .analyzer-map[data-panning],.analyzer-map[data-panning] .combat-hit-target { cursor: grabbing; }
+.account-friend-row { display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0; }
+.analyzer-friends-table { width:100%;font-size:11px;border-collapse:collapse; }
+.analyzer-friends-table caption { text-align:left;font-weight:600;margin:8px 0; }
+.analyzer-friends-table th,.analyzer-friends-table td { text-align:right;padding:4px; }
+.analyzer-friends-table th:first-child { text-align:left; }
+.analyzer-area-summary { max-height:calc(100% - 100px);overflow:auto; }
+.analyzer-selection-matches { display:flex;flex-wrap:wrap;gap:8px;margin:16px 0; }
+.analyzer-selection-context { display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin:16px 0; }
+.analyzer-area-summary { width:min(320px,calc(100% - 24px)); }

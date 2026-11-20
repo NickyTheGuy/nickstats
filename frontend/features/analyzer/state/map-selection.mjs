@@ -1,3 +1,4 @@
+import { eventSelectionKey } from './selection-scope.mjs';
 import { onLevel,positionAt,worldToRadar } from './replay.mjs';
 import { combatMarkers } from './combat.mjs';
 import { utilityVisible,projectilePosition } from './utility.mjs';
@@ -10,7 +11,7 @@ import { utilitySelectionData } from './utility-selection.mjs';
 export { utilityKeys } from './utility-selection.mjs';
 export function entrySelected(item,selection) {
   const row=selection instanceof Map?selection.get(actorKey(item)):selection.find(e=>actorKey(e)===actorKey(item));
-  return Boolean(row&&(!item.utilities.length||item.utilities.every(key=>row.utilities.includes(key))));
+  return Boolean(row&&(!item.cell||row.cell)&&(!item.events?.length||item.events.every(key=>row.events?.includes(key)))&&(!item.utilities.length||item.utilities.every(key=>row.utilities.includes(key))));
 }
 export const actorKey=entry=>JSON.stringify([entry.roundKey,entry.player]);
 // Snapshot identities, rather than a live geographic query: scrubbing, zooming,
@@ -19,7 +20,7 @@ export function mergeSelection(previous,incoming,append=false) {
   const actors=new Map();
   for(const item of [...(append?previous:[]),...incoming]) {
     const key=actorKey(item),old=actors.get(key);
-    actors.set(key,{...item,utilities:[...new Set([...(old?.utilities||[]),...(item.utilities||[])])]});
+    actors.set(key,{...item,...(old?.cell||item.cell?{cell:true}:{}),...(old?.events||item.events?{events:[...new Set([...(old?.events||[]),...(item.events||[])])]}:{}),utilities:[...new Set([...(old?.utilities||[]),...(item.utilities||[])])]});
   }
   return [...actors.values()];
 }
@@ -31,7 +32,7 @@ export function selectionCandidates(rounds,{map,level,time,startTime=0,players,s
     for(const channel of roundChannels(round,{rosters,players,side,display:initialDisplay,enemyDisplay})) {
     const selected=channel.ids,cells=channel.ids,side=channel.side,{display:settings}=channel;
     const showPlayers=settings.players,layers=settings.combat,utilities=settings.utilities,history=settings.utilityLayers.includes('History'),live=settings.utilityLayers.includes('Live');
-    const add=(kind,player,actorSide,x,y,details={})=>items.push({kind,x,y,round,...details,entry:{roundKey,player,side:actorSide,utilities:details.utilityKey==null?[]:[details.utilityKey]}});
+    const add=(kind,player,actorSide,x,y,details={})=>items.push({kind,x,y,round,...details,entry:{roundKey,player,side:actorSide,...(kind==='player'?{cell:true}:{}),...(details.event?{events:[eventSelectionKey(kind,details.event)]}:{}),utilities:details.utilityKey==null?[]:[details.utilityKey]}});
     if(showPlayers&&time<=round.duration)for(const track of round.tracks) {
       if(!cells.has(track.player)||!playerAlive(round,track.player,time))continue;
       const s=positionAt(track.samples,time);

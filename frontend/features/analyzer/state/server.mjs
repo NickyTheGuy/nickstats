@@ -69,7 +69,7 @@ export async function loadCaptureHeaders(matches,{signal,onStatus=()=>{}}={},req
     for(const match of batch) {
       const index=byID.get(match.capture);
       if(!index?.header||!Array.isArray(index.rounds))throw new Error('Movement captures changed. Find matches again.');
-      replays.push({...index.header,rounds:index.rounds,capture:match.capture,matchID:String(match.id),teams:Object.fromEntries((match.players||[]).filter(p=>p.steam_id&&p.team!=null).map(p=>[`steam:${p.steam_id}`,p.team]))});
+      replays.push({...index.header,rounds:index.rounds,capture:match.capture,matchID:String(match.id),played_at:match.played_at??null,roster:match.players||[],teams:Object.fromEntries((match.players||[]).filter(p=>p.steam_id&&p.team!=null).map(p=>[`steam:${p.steam_id}`,p.team]))});
     }
   }
   return replays;
