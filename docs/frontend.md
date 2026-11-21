@@ -248,8 +248,8 @@ Root `styles.css` remains a compatibility entry, not a file to edit.
 
 Profile result, side, phase, buy and opening conditions share the
 `segmented-control` class and `ToggleGroup` component. Filter labels and spacing
-use `filter-field`; React compositions can use
-`frontend/shared/components/forms/FilterField.jsx`.
+use `filter-field`. The opening choices use the same field/label/mount structure
+as their neighboring filters; status text wraps within the control width.
 
 Run `npm run format` after editing the frontend. `npm run format:check` is also
 run by CI. Do not manually condense JSX props, callbacks or nested expressions

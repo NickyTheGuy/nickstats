@@ -18,3 +18,10 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
+
+/* Status text wraps within the control's width instead of widening its field. */
+.filter-field__message {
+  contain: inline-size;
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}

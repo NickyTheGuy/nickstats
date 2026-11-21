@@ -29,16 +29,17 @@ The root `styles.css` is a small compatibility entry for older static hosts.
 
 ## Reuse before adding a rule
 
-- `filter-field` owns the label and vertical spacing. React code uses the shared
-  `FilterField` component; static mount-point wrappers use the same class.
+- `filter-field` owns the label and vertical spacing. Segmented filters use the
+  same field wrapper, label and `react-segmented-filter` mount structure. Status
+  text uses `filter-field__message` so it wraps without widening the control.
 - `segmented-control` owns the appearance of mutually exclusive compact choices.
   Use `ToggleGroup` with that class. `MultiToggleGroup` uses it by default for
   compatible multiple-choice controls. Do not add another feature-specific copy
   for side, phase, result or opening conditions.
 - Feature styles should describe layout or a real contextual difference. Button
   alignment belongs to `Button` / `IconButton`, not repeated feature overrides.
-- The opening filter's `profiles/round-conditions.css` only controls its full-width
-  toolbar slot and hidden states; its labels/buttons inherit the shared rules.
+- The opening filter fits its contents, like side/result/phase. Its remaining
+  `profiles/round-conditions.css` rules only handle hidden states.
 
 `index.css` lists imports in cascade order. The initial split preserves the old
 rule order, including responsive overrides. Add styles to their owning module;

@@ -1,5 +1,4 @@
 import ToggleGroup from '../../shared/components/forms/ToggleGroup.jsx';
-import FilterField from '../../shared/components/forms/FilterField.jsx';
 import FormMessage from '../../shared/components/feedback/FormMessage.jsx';
 import Button from '../../shared/components/buttons/Button.jsx';
 import { roundConditions } from './state/round-conditions.mjs';
@@ -35,7 +34,7 @@ export default function RoundConditionFilter({
   const status = error || (loading ? 'Loading round conditions…' : summary);
 
   return (
-    <FilterField label="Round conditions">
+    <>
       <ToggleGroup
         label="Player round conditions"
         value={value}
@@ -43,12 +42,16 @@ export default function RoundConditionFilter({
         onChange={onChange}
         className="segmented-control"
       />
-      {value !== 'ALL' && <FormMessage error={Boolean(error)}>{status}</FormMessage>}
+      {value !== 'ALL' && (
+        <FormMessage error={Boolean(error)} className="filter-field__message">
+          {status}
+        </FormMessage>
+      )}
       {value !== 'ALL' && error && (
         <Button className="button button-secondary" onClick={onRetry}>
           Retry conditions
         </Button>
       )}
-    </FilterField>
+    </>
   );
 }

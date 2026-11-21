@@ -152,7 +152,7 @@
 
   function syncStatsToolbar() {
     $("playerStatsToolbar").hidden = state.display === "session" || (state.display === "profile" && state.view === "matches");
-    $("playerRoundConditionFilter").hidden=state.display!=="profile"||state.view==="matches";
+    $("playerRoundConditionField").hidden = state.display !== "profile" || state.view === "matches";
     syncTradeTeammates();
   }
 
