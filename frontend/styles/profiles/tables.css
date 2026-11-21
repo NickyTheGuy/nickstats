@@ -1,0 +1,80 @@
+.player-profile-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.player-profile-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.player-profile-table th,
+.player-profile-table td {
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.player-profile-table th:first-child,
+.player-profile-table td:first-child {
+  text-align: left;
+}
+
+.player-profile-table thead th {
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.player-table-sort-button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.player-table-sort-button::after {
+  content: ' ↕';
+  color: var(--muted);
+}
+
+.player-table-sort-button.active::after {
+  color: var(--accent-ink);
+}
+.player-table-sort-button[data-direction='asc']::after {
+  content: ' ↑';
+}
+.player-table-sort-button[data-direction='desc']::after {
+  content: ' ↓';
+}
+
+.player-table-sort-button:hover,
+.player-table-sort-button:focus-visible {
+  color: var(--text);
+  outline: none;
+}
+
+.player-profile-table tbody th {
+  color: var(--text);
+}
+
+.player-profile-table tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.player-profile-table tbody tr:hover {
+  background: rgba(233, 86, 49, 0.055);
+}

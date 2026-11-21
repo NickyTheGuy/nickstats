@@ -7,5 +7,5 @@ window.NickStatsMatchMatrixUI = Object.freeze({
   render(target, teams, kind) {
     if (!roots.has(target)) roots.set(target, createRoot(target));
     roots.get(target).render(<MatrixTable {...matchMatrix(teams, kind)} />);
-  }
+  },
 });

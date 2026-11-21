@@ -17,7 +17,7 @@ const accountPlayerMigration = fs.readFileSync(path.join(root, "database", "migr
 
 test("browser login uses a persistent server session instead of storing the upload token", () => {
   assert.match(frontend, /fetch\(`\$\{AUTH_ENDPOINT\}\/session`/);
-  for (const endpoint of ['login', 'logout', 'password', 'player']) assert.ok(api.includes(`post('${endpoint}'`));
+  for (const endpoint of ['login', 'logout', 'password', 'player']) assert.ok(new RegExp(`post\\(\\s*'${endpoint}'`).test(api));
   assert.doesNotMatch(frontend, /uploadToken|Authorization.*Bearer/);
 });
 

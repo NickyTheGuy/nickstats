@@ -1,0 +1,27 @@
+.segmented-control {
+  display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.segmented-control button {
+  white-space: nowrap;
+  min-width: 42px;
+  min-height: 29px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.segmented-control button.active {
+  background: var(--accent);
+  color: var(--text);
+}

@@ -15,11 +15,25 @@ window.NickStatsComparisonUI = {
   create({ prefix, title, description, mapsLabel }) {
     const store = createComparisonStore();
     const root = createRoot(document.getElementById(`${prefix}QuickApp`));
-    root.render(<ComparisonRoot store={store} prefix={prefix} title={title} description={description} mapsLabel={mapsLabel} />);
+    root.render(
+      <ComparisonRoot
+        store={store}
+        prefix={prefix}
+        title={title}
+        description={description}
+        mapsLabel={mapsLabel}
+      />,
+    );
     return {
-      render(input) { store.update({ input }); },
-      reset() { store.update({ input: null, resetKey: store.getSnapshot().resetKey + 1 }); },
-      destroy() { root.unmount(); }
+      render(input) {
+        store.update({ input });
+      },
+      reset() {
+        store.update({ input: null, resetKey: store.getSnapshot().resetKey + 1 });
+      },
+      destroy() {
+        root.unmount();
+      },
     };
-  }
+  },
 };

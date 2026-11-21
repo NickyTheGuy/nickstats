@@ -8,6 +8,6 @@ export default defineConfig({
   build: {
     outDir: 'assets/ui',
     emptyOutDir: true,
-    lib: { entry: 'frontend/main.jsx', name: 'NickStatsUIBundle', formats: ['iife'], fileName: () => 'nickstats-ui.js' }
+    lib: { entry: 'frontend/main.jsx', name: 'NickStatsUIBundle', formats: ['iife'], fileName: () => 'nickstats-ui.js', cssFileName: 'nickstats-ui' }
   }
 });

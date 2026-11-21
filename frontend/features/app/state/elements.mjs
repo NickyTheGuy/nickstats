@@ -1,146 +1,156 @@
 export const shellElements = {
-  "playerAnalyze": { "as": "button", "text": "Analyze", "className": "button button-secondary", "type": "button" },
-  "groupAnalyze": { "as": "button", "text": "Analyze", "className": "button button-secondary", "type": "button" },
-  "matchListRefreshButton": {
-    "as": "button",
-    "text": "Refresh",
-    "className": "button button-secondary",
-    "type": "button"
+  playerAnalyze: {
+    as: 'button',
+    text: 'Analyze',
+    className: 'button button-secondary',
+    type: 'button',
   },
-  "matchResetFilters": {
-    "as": "button",
-    "text": "Reset filters",
-    "className": "button button-secondary filter-reset",
-    "type": "button"
+  groupAnalyze: {
+    as: 'button',
+    text: 'Analyze',
+    className: 'button button-secondary',
+    type: 'button',
   },
-  "demoResetFilters": {
-    "as": "button",
-    "text": "Reset filters",
-    "className": "button button-secondary filter-reset",
-    "type": "button"
+  matchListRefreshButton: {
+    as: 'button',
+    text: 'Refresh',
+    className: 'button button-secondary',
+    type: 'button',
   },
-  "groupBuildButton": {
-    "as": "button",
-    "text": "Build profiles",
-    "className": "button button-primary",
-    "type": "button",
-    "disabled": true
+  matchResetFilters: {
+    as: 'button',
+    text: 'Reset filters',
+    className: 'button button-secondary filter-reset',
+    type: 'button',
   },
-  "groupClearButton": {
-    "as": "button",
-    "text": "Clear",
-    "className": "button button-secondary",
-    "type": "button",
-    "disabled": true
+  demoResetFilters: {
+    as: 'button',
+    text: 'Reset filters',
+    className: 'button button-secondary filter-reset',
+    type: 'button',
   },
-  "groupResetFilters": {
-    "as": "button",
-    "text": "Reset filters",
-    "className": "button button-secondary filter-reset",
-    "type": "button"
+  groupBuildButton: {
+    as: 'button',
+    text: 'Build profiles',
+    className: 'button button-primary',
+    type: 'button',
+    disabled: true,
   },
-  "playerResetFilters": {
-    "as": "button",
-    "text": "Reset filters",
-    "className": "button button-secondary filter-reset",
-    "type": "button"
+  groupClearButton: {
+    as: 'button',
+    text: 'Clear',
+    className: 'button button-secondary',
+    type: 'button',
+    disabled: true,
   },
-  "playerHistoryResetFilters": {
-    "as": "button",
-    "text": "Reset filters",
-    "className": "button button-secondary filter-reset",
-    "type": "button"
+  groupResetFilters: {
+    as: 'button',
+    text: 'Reset filters',
+    className: 'button button-secondary filter-reset',
+    type: 'button',
   },
-  "matchListStatus": {
-    "as": "div",
-    "text": "Loading stored matches…",
-    "className": "match-list-status",
-    "role": "status",
-    "aria-live": "polite"
+  playerResetFilters: {
+    as: 'button',
+    text: 'Reset filters',
+    className: 'button button-secondary filter-reset',
+    type: 'button',
   },
-  "matchDetailStatus": {
-    "as": "div",
-    "text": "",
-    "className": "match-detail-loading",
-    "role": "status",
-    "aria-live": "polite"
+  playerHistoryResetFilters: {
+    as: 'button',
+    text: 'Reset filters',
+    className: 'button button-secondary filter-reset',
+    type: 'button',
   },
-  "groupStatus": {
-    "as": "div",
-    "text": "Choose at least two players.",
-    "className": "status",
-    "role": "status",
-    "aria-live": "polite"
+  matchListStatus: {
+    as: 'div',
+    text: 'Loading stored matches…',
+    className: 'match-list-status',
+    role: 'status',
+    'aria-live': 'polite',
   },
-  "playerMatchesStatus": {
-    "as": "div",
-    "text": "",
-    "className": "match-list-status",
-    "role": "status",
-    "aria-live": "polite"
+  matchDetailStatus: {
+    as: 'div',
+    text: '',
+    className: 'match-detail-loading',
+    role: 'status',
+    'aria-live': 'polite',
   },
-  "playerGraphPlayerStatus": {
-    "as": "span",
-    "text": "Choose players to graph"
+  groupStatus: {
+    as: 'div',
+    text: 'Choose at least two players.',
+    className: 'status',
+    role: 'status',
+    'aria-live': 'polite',
   },
-  "playerProfileName": {
-    "as": "h2",
-    "text": "Player"
+  playerMatchesStatus: {
+    as: 'div',
+    text: '',
+    className: 'match-list-status',
+    role: 'status',
+    'aria-live': 'polite',
   },
-  "playerProfileMeta": {
-    "as": "p",
-    "text": ""
+  playerGraphPlayerStatus: {
+    as: 'span',
+    text: 'Choose players to graph',
   },
-  "playerProfileStatus": {
-    "as": "div",
-    "text": "",
-    "className": "player-profile-status",
-    "role": "status",
-    "aria-live": "polite"
+  playerProfileName: {
+    as: 'h2',
+    text: 'Player',
   },
-  "playerDataStatus": {
-    "as": "div",
-    "text": "",
-    "className": "player-profile-status",
-    "role": "status",
-    "aria-live": "polite",
-    "hidden": true
+  playerProfileMeta: {
+    as: 'p',
+    text: '',
   },
-  "comboProfileTitle": {
-    "as": "h2",
-    "text": "Included player"
+  playerProfileStatus: {
+    as: 'div',
+    text: '',
+    className: 'player-profile-status',
+    role: 'status',
+    'aria-live': 'polite',
   },
-  "comboProfileMeta": {
-    "as": "p",
-    "text": ""
+  playerDataStatus: {
+    as: 'div',
+    text: '',
+    className: 'player-profile-status',
+    role: 'status',
+    'aria-live': 'polite',
+    hidden: true,
   },
-  "matchListPagination": {
-    "className": "match-list-pagination",
-    "previousId": "matchListPreviousButton",
-    "nextId": "matchListNextButton",
-    "labelId": "matchListPageLabel"
+  comboProfileTitle: {
+    as: 'h2',
+    text: 'Included player',
   },
-  "playerMatchesPagination": {
-    "className": "match-list-pagination",
-    "previousId": "playerMatchesPrevious",
-    "nextId": "playerMatchesNext",
-    "labelId": "playerMatchesPageLabel"
+  comboProfileMeta: {
+    as: 'p',
+    text: '',
   },
-  "comboMatchesStatus": {
-    "as": "div",
-    "text": "",
-    "className": "match-list-status",
-    "role": "status",
-    "aria-live": "polite"
+  matchListPagination: {
+    className: 'match-list-pagination',
+    previousId: 'matchListPreviousButton',
+    nextId: 'matchListNextButton',
+    labelId: 'matchListPageLabel',
   },
-  "comboGraphPlayerStatus": {
-    "as": "span",
-    "text": "Choose players to graph"
+  playerMatchesPagination: {
+    className: 'match-list-pagination',
+    previousId: 'playerMatchesPrevious',
+    nextId: 'playerMatchesNext',
+    labelId: 'playerMatchesPageLabel',
   },
-  "comboMatchesPagination": {
-    "className": "match-list-pagination",
-    "previousId": "comboMatchesPrevious",
-    "nextId": "comboMatchesNext",
-    "labelId": "comboMatchesPageLabel"
-  }
+  comboMatchesStatus: {
+    as: 'div',
+    text: '',
+    className: 'match-list-status',
+    role: 'status',
+    'aria-live': 'polite',
+  },
+  comboGraphPlayerStatus: {
+    as: 'span',
+    text: 'Choose players to graph',
+  },
+  comboMatchesPagination: {
+    className: 'match-list-pagination',
+    previousId: 'comboMatchesPrevious',
+    nextId: 'comboMatchesNext',
+    labelId: 'comboMatchesPageLabel',
+  },
 };

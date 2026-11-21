@@ -9,5 +9,5 @@ window.NickStatsGroupUI = Object.freeze({
   render(target, props) {
     if (!roots.has(target)) roots.set(target, createRoot(target));
     roots.get(target).render(<GroupBuilder {...props} />);
-  }
+  },
 });

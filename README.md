@@ -180,7 +180,7 @@ If a demo contains no recognizable completed rounds, the app offers a small diag
 ## Files
 
 - `index.html` — interface markup
-- `styles.css` — presentation
+- `frontend/styles/` — organized CSS source, built into `assets/ui/nickstats-ui.css`; `styles.css` is a compatibility entry
 - `js/navigation.js` — Match, Player, and Groups navigation
 - `js/demo.js` — demo upload, worker control, and scoreboard rendering
 - `js/demo-worker.js` — local CS2 demo parsing and aggregation

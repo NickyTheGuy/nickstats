@@ -62,7 +62,7 @@ Start with [the frontend guide](../frontend/README.md). `frontend/main.jsx` only
 | Sections and value-mode buttons | `frontend/shared/scoreboard/ComparisonControls.jsx` |
 | Scoreboard table markup, group headings, cell layout | `frontend/shared/scoreboard/Scoreboard.jsx` |
 | Sort buttons | `frontend/shared/components/tables/SortHeading.jsx` |
-| Colors, spacing, typography | `styles.css` |
+| CSS modules, shared controls, colors and typography | `frontend/styles/` — see its [guide](../frontend/styles/README.md) |
 | Which statistics appear and how values are formatted | `js/quick-comparison.js` |
 | Session data fetching and URL/tab behavior | `js/sessions.js` |
 | Aggregation and stat formulas | `js/players.js`, `js/stat-availability.js`, `js/scoreboard.js` |
@@ -238,3 +238,19 @@ raw percentage calculations. `js/players.js` supplies the active profile's filte
 match IDs and side. Sorting runs before optional DataTable pagination, so page
 changes never restrict the sort to one page. This feature needs the new backend
 read endpoint documented in `backend/README.md`; it keeps the existing schema.
+
+## Readable source and shared controls
+
+The stylesheet source is organized under `frontend/styles/`. The build bundles
+those modules into `assets/ui/nickstats-ui.css`; deploy it alongside the JS bundle
+in `assets/ui/`. No additional source folder needs to be copied to nginx.
+Root `styles.css` remains a compatibility entry, not a file to edit.
+
+Profile result, side, phase, buy and opening conditions share the
+`segmented-control` class and `ToggleGroup` component. Filter labels and spacing
+use `filter-field`; React compositions can use
+`frontend/shared/components/forms/FilterField.jsx`.
+
+Run `npm run format` after editing the frontend. `npm run format:check` is also
+run by CI. Do not manually condense JSX props, callbacks or nested expressions
+into single lines; let the formatter keep them consistent.

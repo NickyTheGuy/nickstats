@@ -8,6 +8,8 @@ window.NickStatsChartUI = Object.freeze({
   render(target, model, { frameClassName } = {}) {
     if (!roots.has(target)) roots.set(target, createRoot(target));
     const chart = <Chart model={model} id={model.id || `${target.id}Svg`} />;
-    roots.get(target).render(frameClassName ? <div className={frameClassName}>{chart}</div> : chart);
-  }
+    roots
+      .get(target)
+      .render(frameClassName ? <div className={frameClassName}>{chart}</div> : chart);
+  },
 });

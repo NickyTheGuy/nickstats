@@ -8,5 +8,5 @@ window.NickStatsGraphSettingsUI = Object.freeze({
     const root = createRoot(document.getElementById(`${prefix}GraphSettingsApp`));
     root.render(<GraphSettings store={store} prefix={prefix} />);
     return store;
-  }
+  },
 });

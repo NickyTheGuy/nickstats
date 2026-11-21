@@ -1,0 +1,188 @@
+.combo-player-profile {
+  padding: 22px;
+}
+.combo-profile-toolbar,
+#playerStatsToolbar {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(32, 26, 29, 0.03);
+}
+.combo-profile-toolbar {
+  margin: 0;
+}
+.combo-profile-footnote {
+  margin: 14px 2px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.unified-profile-tabs {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
+}
+.combo-display-panel[data-combo-display-panel='profile'] {
+  display: grid;
+  gap: 18px;
+}
+.player-display-panel[hidden],
+.combo-display-panel[hidden] {
+  display: none;
+}
+.quick-comparison-panel {
+  min-width: 0;
+  padding: 22px;
+}
+.quick-comparison-heading {
+  margin-bottom: 16px;
+}
+.quick-comparison-heading h2,
+.quick-comparison-heading p {
+  margin: 0;
+}
+.quick-comparison-heading p {
+  margin-top: 5px;
+  color: var(--muted);
+}
+.quick-comparison-controls {
+  display: block;
+  width: 100%;
+  margin-bottom: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.quick-comparison-sections {
+  width: 100%;
+  color: var(--text);
+  font-weight: 600;
+}
+.scoreboard-control-panel,
+.quick-comparison-sections {
+  display: grid;
+  gap: 0;
+  margin-bottom: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.48);
+}
+.scoreboard-section-bar,
+.scoreboard-value-toggle {
+  display: grid;
+  grid-template-columns: 94px minmax(0, 1fr);
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 12px;
+}
+.scoreboard-control-row + .scoreboard-control-row {
+  border-top: 1px solid var(--line);
+}
+.scoreboard-button-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.scoreboard-section-bar > strong,
+.scoreboard-value-toggle > strong {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.065em;
+  line-height: 1.25;
+  text-transform: uppercase;
+}
+.scoreboard-section-bar button,
+.scoreboard-value-toggle button {
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.scoreboard-value-toggle button:hover,
+.scoreboard-value-toggle button:focus-visible {
+  color: var(--text);
+  background: rgba(233, 86, 49, 0.08);
+  outline: none;
+}
+.scoreboard-section-button:hover,
+.scoreboard-section-button:focus-visible {
+  color: var(--text);
+  opacity: 0.9;
+  outline: 2px solid rgba(233, 86, 49, 0.24);
+  outline-offset: 1px;
+}
+.scoreboard-preset-button:hover,
+.scoreboard-preset-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(233, 86, 49, 0.08) !important;
+  outline: none;
+}
+.scoreboard-value-toggle button.active {
+  border-color: rgba(233, 86, 49, 0.38);
+  color: var(--text);
+  background: rgba(233, 86, 49, 0.09);
+  box-shadow: inset 0 -2px var(--accent);
+}
+.scoreboard-section-button {
+  border-top-width: 3px !important;
+  opacity: 0.66;
+}
+.scoreboard-section-button.active {
+  color: var(--text);
+  opacity: 1;
+  box-shadow: inset 0 -2px var(--accent);
+}
+.scoreboard-preset-button {
+  background: rgba(32, 26, 29, 0.04) !important;
+}
+.scoreboard-utility-basis {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  justify-self: start;
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+}
+.scoreboard-value-toggle {
+  grid-template-columns: 94px auto auto minmax(160px, 1fr);
+}
+.scoreboard-control-note {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.scoreboard-value-toggle button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  box-shadow: none;
+}
+@media (max-width: 760px) {
+  .scoreboard-section-bar,
+  .scoreboard-value-toggle {
+    grid-template-columns: 1fr;
+  }
+  .scoreboard-utility-basis {
+    padding: 7px 0 0;
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+}
+.quick-comparison-map-tabs {
+  max-width: 100%;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+.quick-comparison-map-tabs .match-browser-tab {
+  flex: 0 0 auto;
+}

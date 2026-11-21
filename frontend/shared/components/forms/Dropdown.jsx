@@ -1,11 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
 
-export default function Dropdown({ summary, className, closeKey, children, open: controlledOpen, onOpenChange, summaryLabel, onKeyDown, align='start' }) {
+export default function Dropdown({
+  summary,
+  className,
+  closeKey,
+  children,
+  open: controlledOpen,
+  onOpenChange,
+  summaryLabel,
+  onKeyDown,
+  align = 'start',
+}) {
   const menu = useRef(null);
   const [localOpen, setLocalOpen] = useState(false);
   const open = controlledOpen ?? localOpen;
   const setOpen = onOpenChange || setLocalOpen;
-  useEffect(() => { if (closeKey !== undefined) setOpen(false); }, [closeKey]);
+  useEffect(() => {
+    if (closeKey !== undefined) setOpen(false);
+  }, [closeKey]);
   useEffect(() => {
     if (!open) return;
     function dismiss(event) {
@@ -23,8 +35,20 @@ export default function Dropdown({ summary, className, closeKey, children, open:
     setOpen(false);
     menu.current.querySelector('summary').focus();
   }
-  return <details ref={menu} className={className} open={open} onToggle={event => { if (event.currentTarget.open !== open) setOpen(event.currentTarget.open); }} onKeyDown={escape}>
-    <summary className="ui-dropdown-trigger" data-align={align} aria-label={summaryLabel}>{summary}</summary>
-    {children}
-  </details>;
+  return (
+    <details
+      ref={menu}
+      className={className}
+      open={open}
+      onToggle={(event) => {
+        if (event.currentTarget.open !== open) setOpen(event.currentTarget.open);
+      }}
+      onKeyDown={escape}
+    >
+      <summary className="ui-dropdown-trigger" data-align={align} aria-label={summaryLabel}>
+        {summary}
+      </summary>
+      {children}
+    </details>
+  );
 }

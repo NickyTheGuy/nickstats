@@ -6,9 +6,11 @@ export default function useChartTooltip(model, svg) {
   const active = selection?.model === model ? selection.mark : null;
   const hide = () => setSelection(null);
   useEffect(() => {
-    const outside = event => { if (!svg.current?.contains(event.target)) setSelection(null); };
+    const outside = (event) => {
+      if (!svg.current?.contains(event.target)) setSelection(null);
+    };
     document.addEventListener('pointerdown', outside, true);
     return () => document.removeEventListener('pointerdown', outside, true);
   }, [svg]);
-  return { active, hide, show: mark => setSelection({ model, mark }) };
+  return { active, hide, show: (mark) => setSelection({ model, mark }) };
 }

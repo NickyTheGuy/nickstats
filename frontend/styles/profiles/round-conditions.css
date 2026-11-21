@@ -1,0 +1,8 @@
+#playerRoundConditionFilter {
+  flex-basis: 100%;
+}
+#playerHeadlineStats[hidden],
+#playerProfileBody[hidden],
+#playerRoundConditionFilter[hidden] {
+  display: none;
+}

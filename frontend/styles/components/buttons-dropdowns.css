@@ -1,0 +1,112 @@
+/* Shared controls own their content alignment. Feature classes may deliberately
+   override layout (e.g. table headers); menu rows request start alignment. */
+:where(.ui-button, .button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  line-height: 1.25;
+  vertical-align: middle;
+  text-align: center;
+}
+:where(.ui-button[data-align='start']) {
+  justify-content: flex-start;
+  text-align: left;
+}
+:where(.ui-button[data-align='end']) {
+  justify-content: flex-end;
+  text-align: right;
+}
+.ui-button[hidden] {
+  display: none;
+}
+:where(.ui-icon-button) {
+  padding: 6px;
+}
+.ui-icon-button > svg {
+  display: block;
+  flex: 0 0 auto;
+}
+:where(.ui-dropdown-trigger) {
+  display: flex;
+  align-items: center;
+  line-height: 1.25;
+}
+:where(.ui-dropdown-trigger[data-align='center']) {
+  justify-content: center;
+  text-align: center;
+}
+:where(.ui-dropdown-trigger[data-align='start']) {
+  justify-content: flex-start;
+  text-align: left;
+}
+.ui-dropdown-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: inherit;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.ui-dropdown-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ui-dropdown-caret {
+  display: block;
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+[open] > .ui-dropdown-trigger .ui-dropdown-caret {
+  transform: rotate(180deg);
+}
+.ui-readout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  line-height: 1.25;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.ui-fullscreen-target {
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  resize: none !important;
+}
+.ui-fullscreen-fallback {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9000;
+}
+
+/* Icon-only controls center geometry in their own grid cell, independent of
+   text line boxes and feature-specific button padding. Size the control and
+   glyph separately through IconButton's controlSize and size props. */
+.ui-button.ui-icon-button {
+  display: inline-grid;
+  place-items: center;
+  gap: 0;
+  line-height: 0;
+  padding: var(--icon-button-padding, 6px);
+}
+.ui-icon-button > svg {
+  grid-area: 1 / 1;
+  align-self: center;
+  justify-self: center;
+}
+.ui-button.ui-icon-button[data-control-size] {
+  inline-size: var(--icon-button-size);
+  block-size: var(--icon-button-size);
+  min-inline-size: var(--icon-button-size);
+  min-block-size: var(--icon-button-size);
+  padding: 0;
+}

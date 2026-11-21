@@ -12,9 +12,19 @@ function render(target, Component, props) {
   roots.get(target).render(<Component {...props} />);
 }
 window.NickStatsProfileUI = Object.freeze({
-  cards(target, cards) { render(target, StatCards, { cards }); },
-  list(target, metrics) { render(target, MetricList, { metrics }); },
-  strip(target, metrics) { render(target, CountStrip, { metrics }); },
-  trades(target, props) { render(target, TradeTeammates, props); },
-  table(target, headers, rows, sortRows) { render(target, DataTable, { headers, rows, sortRows }); }
+  cards(target, cards) {
+    render(target, StatCards, { cards });
+  },
+  list(target, metrics) {
+    render(target, MetricList, { metrics });
+  },
+  strip(target, metrics) {
+    render(target, CountStrip, { metrics });
+  },
+  trades(target, props) {
+    render(target, TradeTeammates, props);
+  },
+  table(target, headers, rows, sortRows) {
+    render(target, DataTable, { headers, rows, sortRows });
+  },
 });

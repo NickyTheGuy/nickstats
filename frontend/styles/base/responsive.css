@@ -1,0 +1,220 @@
+@media (max-width: 700px) {
+  .graph-player-picker {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .graph-player-choices {
+    justify-content: flex-start;
+  }
+  .player-graph-builder {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .player-graph-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .graph-stat-controls {
+    width: 100%;
+  }
+  .graph-display-controls {
+    box-sizing: border-box;
+    width: 100%;
+  }
+  .graph-display-controls > div > .graph-option-field {
+    flex: 1 1 140px;
+  }
+  .graph-stat-controls > label,
+  .graph-stat-controls > .graph-option-field,
+  .react-metric-picker > .graph-option-field,
+  .graph-statistic-field {
+    min-width: 0;
+    flex: 1;
+  }
+  .player-graph-controls select,
+  .player-graph-controls input[type='search'] {
+    width: 100%;
+    min-width: 0;
+  }
+  .app-hero {
+    align-items: start;
+  }
+
+  .app-account-button {
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .demo-account-player-search > div {
+    grid-template-columns: 1fr;
+  }
+
+  .app-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .match-library-panel {
+    padding: 16px;
+  }
+
+  .match-banner {
+    aspect-ratio: 8 / 3;
+    padding: 12px 14px;
+  }
+
+  .match-banner-top {
+    align-items: flex-start;
+  }
+
+  .match-banner-identity,
+  .match-banner-date {
+    max-width: 55%;
+    font-size: 10px;
+  }
+
+  .match-banner-date {
+    text-align: right;
+  }
+
+  .match-banner-scoreline {
+    gap: 7px;
+  }
+
+  .match-banner-team {
+    font-size: clamp(14px, 4.6vw, 20px);
+  }
+
+  .match-banner-score {
+    font-size: clamp(34px, 12vw, 52px);
+  }
+
+  .match-banner-score-separator {
+    font-size: clamp(23px, 7vw, 34px);
+  }
+
+  .match-list-item {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 8px 12px;
+    min-height: 92px;
+    padding-right: 12px;
+  }
+
+  .match-list-map-art {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    min-height: 90px;
+  }
+
+  .match-list-item.has-preview .match-list-map-art {
+    grid-row: 1 / span 3;
+  }
+
+  .match-list-preview {
+    grid-column: 2;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 0 0 10px;
+  }
+
+  .match-list-identity,
+  .match-list-result {
+    grid-column: 2;
+  }
+
+  .match-list-result {
+    gap: 6px;
+    justify-content: flex-start;
+  }
+
+  .match-list-team {
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .match-list-team-name {
+    max-width: 90px;
+    font-size: 12px;
+  }
+
+  .match-list-score {
+    min-width: 34px;
+    min-height: 32px;
+    padding: 4px 7px;
+    font-size: 17px;
+  }
+
+  .demo-diagnostics-body {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .player-search-panel,
+  .player-profile {
+    padding: 16px;
+  }
+
+  .player-search-heading,
+  .player-profile-header {
+    align-items: stretch;
+  }
+
+  .player-search-form {
+    grid-template-columns: 1fr;
+  }
+
+  .group-builder-panel {
+    padding: 16px;
+  }
+
+  .group-builder-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .group-search-form,
+  .group-search-results {
+    grid-template-columns: 1fr;
+  }
+
+  .combo-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .player-search-results,
+  .player-headline-stats,
+  .player-detail-grid,
+  .player-section-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .player-metric-list {
+    grid-template-columns: 1fr;
+  }
+
+  .player-count-item {
+    padding: 10px 4px;
+  }
+
+  .player-count-item span {
+    font-size: 9px;
+    letter-spacing: 0;
+  }
+
+  .player-economy-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .player-clutch-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .player-profile-header {
+    flex-direction: column;
+  }
+
+  .player-headline-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

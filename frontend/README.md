@@ -27,6 +27,12 @@ Within a feature:
 - `adapters/` contains bridges called by the existing JavaScript data controllers. Features with one bridge can put it directly in `mount.jsx`; features with several bridges load them from that entry point.
 - Further subfolders describe a real group of related components, such as `players/search/`.
 
+## Styling and formatting
+
+CSS source lives in [`styles/`](styles/README.md), organized by feature and shared
+control. The build produces a single stylesheet in `assets/ui/`. Use
+`npm run format` and `npm run format:check` for frontend JavaScript, JSX and CSS.
+
 ## Shared code
 
 `shared/components/` groups reusable primitives by purpose: `buttons/`, `forms/`, `feedback/`, `layout/`, `navigation/`, `players/`, `stats/` and `tables/`. `shared/scoreboard/` contains the table and display controls reused by Match, comparisons and Sessions. Shared hooks live in `shared/hooks/`; shared table-sort logic lives in `shared/state/`.

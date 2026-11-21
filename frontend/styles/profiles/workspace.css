@@ -1,0 +1,94 @@
+.player-open-profiles {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.player-open-tab {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+.player-open-tab.active {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+.player-open-tab-label,
+.player-open-tab-close {
+  min-height: 34px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 800;
+}
+.player-open-tab-label {
+  padding: 6px 8px 6px 11px;
+}
+.player-open-tab.single .player-open-tab-label {
+  padding-right: 11px;
+}
+.player-open-tab-close {
+  width: 30px;
+  padding: 0 7px;
+  font-size: 18px;
+  line-height: 1;
+}
+.player-open-tab.active .player-open-tab-label {
+  color: var(--text);
+}
+.player-open-tab-close:hover,
+.player-open-tab-close:focus-visible {
+  background: rgba(210, 62, 69, 0.14);
+  color: var(--red);
+}
+
+.player-profile[hidden],
+.player-profile-view[hidden] {
+  display: none;
+}
+
+.player-profile-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 22px;
+  align-items: end;
+}
+
+.player-profile-header h2 {
+  margin: 5px 0 2px;
+  font-size: clamp(28px, 4vw, 44px);
+  letter-spacing: -0.035em;
+}
+
+.player-profile-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.player-headline-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 18px 0 20px;
+}
+
+.stats-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+.stats-toolbar[hidden],
+.stats-toolbar [hidden] {
+  display: none;
+}

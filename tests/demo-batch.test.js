@@ -12,7 +12,7 @@ const source = fs.readFileSync(path.join(__dirname, "..", "js", "demo.js"), "utf
 
 test("the demo picker accepts and displays a multi-file queue", () => {
   assert.match(html, /id="demoUploadApp"/);
-  assert.match(picker, /type="file" multiple/);
+  assert.match(picker, /type="file"\s+multiple/);
   assert.match(queue, /id="demoBatch"[\s\S]*?id="demoBatchBar"[\s\S]*?id="demoBatchList"/);
   assert.match(picker, /onFiles\(event\.target\.files\)/);
   assert.match(picker, /onFiles\(event\.dataTransfer\.files\)/);

@@ -1,0 +1,396 @@
+.combo-heading {
+  align-items: start;
+}
+.combo-limit {
+  padding: 8px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 820;
+  white-space: nowrap;
+}
+
+.combo-roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.combo-player-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--panel-2);
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+
+.combo-player-card.is-include {
+  border-color: rgba(112, 155, 52, 0.55);
+  background: rgba(112, 155, 52, 0.08);
+}
+
+.combo-player-card.is-exclude {
+  border-color: rgba(210, 62, 69, 0.55);
+  background: rgba(210, 62, 69, 0.07);
+}
+
+.combo-player-meta {
+  min-width: 0;
+}
+.combo-player-meta strong,
+.combo-player-meta small {
+  display: block;
+}
+.combo-player-meta strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.combo-player-meta small {
+  margin-top: 2px;
+  color: var(--muted);
+}
+
+.combo-choice {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.combo-choice button {
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 820;
+}
+
+.combo-choice button[data-choice='include'][aria-pressed='true'] {
+  background: var(--green);
+  color: #fff;
+}
+.combo-choice button[data-choice='exclude'][aria-pressed='true'] {
+  background: var(--red);
+  color: #fff;
+}
+.combo-actions {
+  margin-top: 18px;
+}
+.combo-results {
+  display: grid;
+  gap: 18px;
+}
+.combo-results[hidden] {
+  display: none;
+}
+.combo-player-line {
+  min-width: 96px;
+  white-space: nowrap;
+}
+.combo-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--line);
+}
+
+.combo-stat {
+  padding: 18px;
+  background: var(--panel-2);
+}
+.combo-stat strong {
+  display: block;
+  margin-top: 3px;
+  font-size: clamp(25px, 4vw, 37px);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+
+.combo-stat small {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+}
+.combo-profile-panel {
+  --combo-profile-accent: var(--blue);
+  padding: 22px;
+  border-top: 3px solid var(--combo-profile-accent);
+}
+
+.combo-profile-panel[data-metric-group='trades'] {
+  --combo-profile-accent: var(--section-trades);
+}
+.combo-profile-panel[data-metric-group='openings'] {
+  --combo-profile-accent: var(--amber);
+  border-top-style: dashed;
+}
+.combo-profile-panel[data-metric-group='utility'] {
+  --combo-profile-accent: var(--blue);
+  border-top-style: double;
+}
+.combo-profile-panel[data-metric-group='context'],
+.combo-profile-panel[data-metric-group='contextDeaths'] {
+  --combo-profile-accent: var(--section-context);
+  border-top-style: ridge;
+}
+.combo-profile-panel[data-metric-group='rounds'] {
+  --combo-profile-accent: var(--green);
+  border-top-style: dotted;
+}
+.combo-profile-panel[data-metric-group='movement'] {
+  --combo-profile-accent: var(--section-movement);
+  border-top-style: dashed;
+}
+
+.combo-profile-heading {
+  display: flex;
+  gap: 18px;
+  align-items: end;
+  justify-content: space-between;
+}
+
+.combo-profile-heading h2 {
+  margin: 4px 0 2px;
+  font-size: clamp(25px, 4vw, 38px);
+  letter-spacing: -0.035em;
+}
+
+.combo-profile-heading p,
+.combo-profile-category-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.combo-profile-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.combo-profile-controls > div > span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.combo-condition-toggle button {
+  min-width: 74px;
+}
+.combo-condition-toggle button:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.combo-profile-players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 18px 0 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.combo-profile-players button {
+  padding: 7px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.combo-profile-players button.active {
+  border-color: var(--combo-profile-accent);
+  background: color-mix(in srgb, var(--combo-profile-accent) 14%, transparent);
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--combo-profile-accent);
+}
+
+.combo-profile-headline,
+.combo-profile-metrics {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.combo-profile-stat {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: linear-gradient(145deg, rgba(32, 26, 29, 0.04), rgba(255, 255, 255, 0.01));
+}
+
+.combo-profile-stat > span,
+.combo-profile-stat > small {
+  display: block;
+}
+.combo-profile-stat > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.combo-profile-stat > strong {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: clamp(19px, 2.4vw, 28px);
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.combo-profile-stat > small {
+  margin-top: 5px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combo-profile-category-heading {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  margin: 19px 0 9px;
+}
+
+.combo-profile-category-heading h3 {
+  margin: 0;
+  color: var(--combo-profile-accent);
+  font-size: 14px;
+}
+.combo-profile-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+}
+.combo-profile-metrics .combo-profile-stat {
+  border-top: 2px solid var(--combo-profile-accent);
+}
+.combo-profile-metrics .combo-profile-stat > strong {
+  font-size: clamp(17px, 2vw, 22px);
+}
+.combo-profile-empty {
+  grid-column: 1 / -1;
+}
+.result-win {
+  color: var(--green);
+  font-weight: 800;
+}
+.result-loss {
+  color: var(--red);
+  font-weight: 800;
+}
+.result-tie {
+  color: var(--amber);
+  font-weight: 800;
+}
+.match-link {
+  color: var(--accent-ink);
+  text-decoration: none;
+}
+.match-link:hover {
+  text-decoration: underline;
+}
+.empty {
+  padding: 28px;
+  color: var(--muted);
+  text-align: center;
+}
+
+@media (max-width: 850px) {
+  .shell {
+    width: min(100% - 20px, 1380px);
+    padding-top: 30px;
+  }
+  .hero {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  .privacy {
+    justify-self: start;
+  }
+  .fact-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .combo-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .combo-profile-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .combo-profile-headline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .status {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .fact-grid {
+    grid-template-columns: 1fr;
+  }
+  .mode-tabs {
+    display: flex;
+    width: 100%;
+  }
+  .tab-button {
+    flex: 1;
+    padding-inline: 8px;
+  }
+  .combo-player-card {
+    grid-template-columns: 1fr;
+  }
+  .combo-choice {
+    width: 100%;
+  }
+  .combo-choice button {
+    flex: 1;
+  }
+  .combo-profile-panel {
+    padding: 16px;
+  }
+  .combo-profile-controls {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .combo-profile-controls .segmented-control {
+    display: flex;
+  }
+  .combo-profile-controls .segmented-control button {
+    flex: 1;
+  }
+  .combo-profile-category-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+}

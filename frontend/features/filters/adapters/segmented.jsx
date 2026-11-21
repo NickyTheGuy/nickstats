@@ -10,6 +10,10 @@ window.NickStatsSegmentedUI = {
     const store = createSegmentedFilter({ ...config, ...options });
     const root = createRoot(document.getElementById(target));
     root.render(<SegmentedFilter store={store} config={config} />);
-    return Object.assign(store, { destroy() { root.unmount(); } });
-  }
+    return Object.assign(store, {
+      destroy() {
+        root.unmount();
+      },
+    });
+  },
 };

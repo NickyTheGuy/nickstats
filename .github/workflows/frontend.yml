@@ -1,9 +1,9 @@
 name: Frontend
 on:
   push:
-    paths: ['frontend/**', 'assets/ui/**', 'js/**', 'tests/**', 'package*.json', 'vite.config.mjs', '.github/workflows/frontend.yml']
+    paths: ['frontend/**', 'assets/ui/**', 'js/**', 'tests/**', 'package*.json', 'vite.config.mjs', '.github/workflows/frontend.yml', '.prettierrc.json']
   pull_request:
-    paths: ['frontend/**', 'assets/ui/**', 'js/**', 'tests/**', 'package*.json', 'vite.config.mjs', '.github/workflows/frontend.yml']
+    paths: ['frontend/**', 'assets/ui/**', 'js/**', 'tests/**', 'package*.json', 'vite.config.mjs', '.github/workflows/frontend.yml', '.prettierrc.json']
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -14,6 +14,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - run: npm run format:check
       - run: npm run build
       - run: git diff --exit-code -- assets/ui
       - run: npm test

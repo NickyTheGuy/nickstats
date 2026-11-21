@@ -1,0 +1,572 @@
+.quick-comparison-table {
+  min-width: 900px;
+  table-layout: fixed;
+}
+.player-profile-table.quick-comparison-table :is(th, td) {
+  text-align: center;
+}
+.player-profile-table.quick-comparison-table th.demo-toggle-heading,
+.player-profile-table.quick-comparison-table th.demo-group-detail {
+  padding: 0;
+}
+.player-profile-table.quick-comparison-table .player-table-sort-button {
+  min-height: 38px;
+  padding: 8px 7px;
+  text-align: center;
+  font-weight: 850;
+}
+.quick-comparison-table tbody tr > :first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--panel-2);
+}
+.quick-comparison-table thead tr:first-child > th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface);
+}
+.quick-comparison-table :is(th, td).demo-group-start {
+  border-left: 2px solid rgba(65, 55, 60, 0.24);
+}
+.quick-comparison-table :is(th, td).demo-group-end {
+  border-right: 2px solid rgba(65, 55, 60, 0.24);
+}
+.quick-comparison-empty {
+  margin: 14px 2px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.player-stat-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(145deg, #ffffff, var(--surface));
+}
+
+.player-stat-card > span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.player-stat-card > strong {
+  display: block;
+  margin-top: 5px;
+  font-size: clamp(22px, 3vw, 32px);
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+
+.player-stat-card > small {
+  display: block;
+  margin-top: 7px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-stat-card.rating-good > strong {
+  color: var(--green);
+}
+.player-stat-card.rating-average > strong {
+  color: var(--amber);
+}
+.player-stat-card.rating-bad > strong {
+  color: var(--red);
+}
+.player-stat-card.player-score-win > strong {
+  color: var(--green);
+}
+.player-stat-card.player-score-loss > strong {
+  color: var(--red);
+}
+
+.player-profile-tabs {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.player-profile-tab {
+  flex: 1 0 auto;
+  min-height: 38px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.player-profile-tab.active {
+  background: var(--panel-2);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+
+.player-profile-tab[data-player-view='utility'].active {
+  --tab-active-accent: var(--blue);
+}
+.player-profile-tab[data-player-view='trades'].active {
+  --tab-active-accent: var(--section-trades);
+}
+.player-profile-tab[data-player-view='openings'].active {
+  --tab-active-accent: var(--amber);
+}
+.player-profile-tab[data-player-view='context'].active {
+  --tab-active-accent: var(--section-context);
+}
+.player-profile-tab[data-player-view='rounds'].active {
+  --tab-active-accent: var(--green);
+}
+.player-profile-tab[data-player-view='roundState'].active {
+  --tab-active-accent: var(--section-timing);
+}
+.player-profile-tab[data-player-view='movement'].active {
+  --tab-active-accent: var(--section-movement);
+}
+.player-profile-tab[data-player-view='graphs'].active {
+  --tab-active-accent: var(--blue);
+}
+.player-profile-tab[data-combo-profile-view='utility'].active {
+  --tab-active-accent: var(--blue);
+}
+.player-profile-tab[data-combo-profile-view='trades'].active {
+  --tab-active-accent: var(--section-trades);
+}
+.player-profile-tab[data-combo-profile-view='openings'].active {
+  --tab-active-accent: var(--amber);
+}
+.player-profile-tab[data-combo-profile-view='context'].active {
+  --tab-active-accent: var(--section-context);
+}
+.player-profile-tab[data-combo-profile-view='rounds'].active {
+  --tab-active-accent: var(--green);
+}
+.player-profile-tab[data-combo-profile-view='roundState'].active {
+  --tab-active-accent: var(--section-timing);
+}
+.player-profile-tab[data-combo-profile-view='movement'].active {
+  --tab-active-accent: var(--section-movement);
+}
+.player-profile-tab[data-combo-profile-view='graphs'].active {
+  --tab-active-accent: var(--blue);
+}
+
+/* One interaction model for every true tab list. */
+:is(
+  .data-tabs,
+  .mode-tabs,
+  .demo-result-tabs,
+  .match-browser-tabs,
+  .player-open-profiles,
+  .player-profile-tabs
+) {
+  gap: 5px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+  box-shadow: none;
+}
+
+:is(.data-tab, .tab-button, .demo-result-tab, .match-browser-tab, .player-profile-tab) {
+  --tab-active-accent: var(--accent);
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 850;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+:is(.data-tab, .tab-button, .demo-result-tab, .match-browser-tab, .player-profile-tab):hover:not(
+    :disabled
+  ) {
+  border-color: var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  outline: none;
+}
+
+:is(
+  .data-tab,
+  .tab-button,
+  .demo-result-tab,
+  .match-browser-tab,
+  .player-profile-tab
+):focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid rgba(233, 86, 49, 0.28);
+  outline-offset: 1px;
+}
+
+:is(
+  .data-tab[aria-selected='true'],
+  .tab-button[aria-selected='true'],
+  .demo-result-tab.active,
+  .match-browser-tab.active,
+  .player-profile-tab.active
+) {
+  border-color: var(--line-strong);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow:
+    inset 0 -3px 0 var(--tab-active-accent),
+    0 1px 3px rgba(54, 38, 44, 0.1);
+}
+
+.player-open-tab {
+  --tab-active-accent: var(--accent);
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.player-open-tab:hover {
+  border-color: var(--line);
+  background: var(--panel-2);
+}
+.player-open-tab.active {
+  border-color: var(--line-strong);
+  background: var(--panel);
+  box-shadow:
+    inset 0 -3px 0 var(--tab-active-accent),
+    0 1px 3px rgba(54, 38, 44, 0.1);
+}
+
+.player-open-profiles[hidden] {
+  display: none;
+}
+
+.player-profile-view {
+  padding-top: 16px;
+}
+
+.player-context-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--section-context);
+  border-radius: 0 9px 9px 0;
+  background: rgba(225, 82, 30, 0.12);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.player-round-state-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--section-timing);
+  border-radius: 0 9px 9px 0;
+  background: rgba(181, 101, 61, 0.12);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.player-movement-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--section-movement);
+  border-radius: 0 9px 9px 0;
+  background: rgba(145, 71, 177, 0.11);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.player-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.player-section-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.player-section-grid-thirds {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.player-stat-section {
+  --profile-accent: var(--blue);
+  --profile-accent-rgb: 91, 128, 210;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--profile-accent);
+  border-radius: 14px;
+  background: linear-gradient(
+    145deg,
+    rgba(var(--profile-accent-rgb), 0.13),
+    rgba(255, 255, 255, 0.76) 56%
+  );
+}
+
+.trade-teammate-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  margin-top: 14px;
+}
+.trade-teammate-card {
+  width: 100%;
+  box-sizing: border-box;
+}
+.trade-teammate-card .player-profile-table {
+  min-width: 640px;
+}
+.trade-teammate-card .muted,
+.trade-teammate-cards > .muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+.trade-player-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  text-transform: none;
+  color: var(--blue);
+  cursor: pointer;
+}
+.trade-player-link:hover,
+.trade-player-link:focus-visible {
+  text-decoration: underline;
+}
+.trade-teammate-card tbody th {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: inherit;
+}
+.table-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+[data-player-profile-view='utility'] .player-stat-section,
+[data-combo-profile-panel='utility'] .player-stat-section {
+  --profile-accent: var(--blue);
+  --profile-accent-rgb: 91, 128, 210;
+  border-top-style: double;
+}
+
+[data-player-profile-view='trades'] .player-stat-section,
+[data-combo-profile-panel='trades'] .player-stat-section {
+  --profile-accent: var(--section-trades);
+  --profile-accent-rgb: 35, 154, 133;
+}
+
+[data-player-profile-view='openings'] .player-stat-section,
+[data-combo-profile-panel='openings'] .player-stat-section {
+  --profile-accent: var(--amber);
+  --profile-accent-rgb: 225, 153, 24;
+  border-top-style: dashed;
+}
+
+[data-player-profile-view='context'] .player-stat-section,
+[data-combo-profile-panel='context'] .player-stat-section {
+  --profile-accent: var(--section-context);
+  --profile-accent-rgb: 225, 82, 30;
+  border-top-style: ridge;
+}
+
+[data-player-profile-view='rounds'] .player-stat-section,
+[data-combo-profile-panel='rounds'] .player-stat-section {
+  --profile-accent: var(--green);
+  --profile-accent-rgb: 112, 155, 52;
+  border-top-style: dotted;
+}
+
+[data-player-profile-view='roundState'] .player-stat-section,
+[data-combo-profile-panel='roundState'] .player-stat-section {
+  --profile-accent: var(--section-timing);
+  --profile-accent-rgb: 181, 101, 61;
+  border-top-style: double;
+}
+
+[data-player-profile-view='movement'] .player-stat-section,
+[data-combo-profile-panel='movement'] .player-stat-section {
+  --profile-accent: var(--section-movement);
+  --profile-accent-rgb: 145, 71, 177;
+  border-top-style: dashed;
+}
+
+.player-stat-section > header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 13px;
+}
+
+.player-stat-section > header > span {
+  display: grid;
+  flex: 0 0 29px;
+  width: 29px;
+  height: 29px;
+  place-items: center;
+  border: 1px solid var(--profile-accent);
+  border-radius: 50%;
+  color: var(--profile-accent);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.player-stat-section h3 {
+  margin: 0;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.player-stat-section header p {
+  margin: 1px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.player-stat-section .player-detail-grid {
+  grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+  gap: 7px;
+}
+
+.player-stat-section .player-stat-card {
+  padding: 11px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.player-stat-section .player-stat-card > strong {
+  font-size: clamp(19px, 2vw, 25px);
+}
+
+.player-stat-section .player-stat-card > small {
+  white-space: normal;
+}
+
+.player-stat-section-single {
+  max-width: 900px;
+}
+
+.player-metric-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 18px;
+}
+
+.player-metric-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 35px;
+  border-bottom: 1px solid rgba(65, 55, 60, 0.16);
+}
+
+.player-metric-row span,
+.player-metric-row small {
+  display: block;
+}
+.player-metric-row span {
+  color: var(--text-soft);
+  font-size: 12px;
+}
+.player-metric-row small {
+  color: var(--muted);
+  font-size: 10px;
+}
+.player-metric-row strong {
+  color: var(--profile-accent);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.player-round-sections {
+  display: grid;
+  gap: 14px;
+}
+
+.player-round-state-sections {
+  margin-top: 14px;
+}
+
+.player-count-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid rgba(65, 55, 60, 0.18);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.68);
+}
+.player-timing-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 12px;
+}
+.player-economy-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.player-clutch-strip {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.player-multikill-strip {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.player-count-item {
+  display: grid;
+  gap: 1px;
+  justify-items: center;
+  padding: 12px 8px;
+  border-right: 1px solid rgba(65, 55, 60, 0.18);
+}
+
+.player-count-item:last-child {
+  border-right: 0;
+}
+.player-count-item strong {
+  color: var(--profile-accent);
+  font-size: clamp(21px, 3vw, 30px);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.player-count-item span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.player-count-item small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 9px;
+  white-space: nowrap;
+}

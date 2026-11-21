@@ -14,7 +14,7 @@ const workspace = fs.readFileSync(path.join(__dirname, "../frontend/features/nav
 const controlsSource = fs.readFileSync(path.join(__dirname, "../frontend/shared/scoreboard/ComparisonControls.jsx"), "utf8");
 const viewSource = fs.readFileSync(path.join(__dirname, "../frontend/shared/scoreboard/Scoreboard.jsx"), "utf8");
 const tableSource = fs.readFileSync(path.join(__dirname, "../frontend/shared/scoreboard/ScoreboardTable.jsx"), "utf8");
-const styles = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
+const styles = require('./helpers/styles')();
 
 test("match and quick comparison use React scoreboards without legacy DOM rendering", () => {
   const shared = html.indexOf("./js/scoreboard.js");
@@ -110,7 +110,7 @@ test("quick comparison uses shared React sections, rate controls and measured ta
   assert.match(viewSource, /getBoundingClientRect\(\)\.width/);
   assert.match(viewSource, /scrollGroupIntoView/);
   assert.match(viewSource, /event\.key\?\.toLowerCase\(\) !== 'r'/);
-  assert.match(tableSource, /onClick=\{event => cycleGroup/);
+  assert.match(tableSource, /onClick=\{\(event\) => cycleGroup/);
   assert.match(scoreboardSource, /multikills: \[\["regular", "Regular"[\s\S]*?\["true", "True"/);
   assert.doesNotMatch(componentSource, /scoreboard-subgroup-bar/);
 });
@@ -128,7 +128,7 @@ test("quick comparison serves the group scoreboard and standalone player profile
   assert.match(playersSource, /NickStatsComparisonUI\.create\(\{ prefix: "player"(?:,| \})/);
   assert.match(compareSource, /NickStatsComparisonUI\.create\(\{ prefix: "combo"(?:,| \})/);
   assert.doesNotMatch(html, />Profiles<\/button>/);
-  assert.match(workspace, /\['quick', 'Quick comparison'/);
+  assert.match(workspace, /\[\s*'quick',\s*'Quick comparison'/);
   assert.match(html, /data-player-display-panel="profile"/);
   assert.match(html, /data-player-display-panel="quick" hidden/);
   assert.doesNotMatch(html, /id="playerQuickPlayers"/);
@@ -165,8 +165,8 @@ test("player, group, and match views share a two-row economy matchup control", (
 });
 
 test("quick comparison and graphs precede individual players in both workspace tab lists", () => {
-  assert.equal((workspace.match(/\['quick', 'Quick comparison'/g) || []).length, 2);
-  assert.equal((workspace.match(/\['graphs', 'Graphs'/g) || []).length, 2);
+  assert.equal((workspace.match(/\[\s*'quick',\s*'Quick comparison'/g) || []).length, 2);
+  assert.equal((workspace.match(/\[\s*'graphs',\s*'Graphs'/g) || []).length, 2);
   assert.match(workspace, /'Quick comparison'[\s\S]*?'Graphs'[\s\S]*?profiles\.map/);
 });
 

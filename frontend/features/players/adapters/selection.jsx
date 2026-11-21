@@ -11,7 +11,13 @@ function render(target, Component, props) {
   roots.get(target).render(<Component {...props} />);
 }
 window.NickStatsPlayerSelectionUI = Object.freeze({
-  roster(target, props) { render(target, PlayerRoster, props); },
-  recent(target, props) { render(target, RecentPlayers, props); },
-  graphs(target, props) { render(target, GraphPlayerChoices, props); }
+  roster(target, props) {
+    render(target, PlayerRoster, props);
+  },
+  recent(target, props) {
+    render(target, RecentPlayers, props);
+  },
+  graphs(target, props) {
+    render(target, GraphPlayerChoices, props);
+  },
 });

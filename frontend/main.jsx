@@ -1,3 +1,5 @@
+import './styles/index.css';
+
 // Register feature UI adapters before the deferred data controllers initialize.
 import './features/app/mount.jsx';
 import './features/profiles/mount.jsx';

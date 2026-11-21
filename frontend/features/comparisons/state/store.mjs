@@ -4,10 +4,13 @@ export function createComparisonStore() {
   const listeners = new Set();
   return {
     getSnapshot: () => snapshot,
-    subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
     update(patch) {
       snapshot = { ...snapshot, ...patch };
-      listeners.forEach(listener => listener());
-    }
+      listeners.forEach((listener) => listener());
+    },
   };
 }
