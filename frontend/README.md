@@ -307,6 +307,11 @@ requested only after selecting a condition and is invalidated with profile data.
 See `docs/round-conditions.md` for semantics and deployment.
 
 Round conditions share `profiles/state/round-conditions-client.mjs` across player
-and group profiles/comparisons. The client owns the lazy request queue, bounded
+and group profiles/comparisons/graphs. The client owns the lazy request queue, bounded
 cache and freshness. `round-conditions.mjs` owns cohort validation and projection;
 Group team rules always run on unmodified histories before that projection.
+
+Graphs use the same cohort projection. `js/graphs.js` owns match/session sample
+pooling and the shared `roundMatchesFor` helper, which computes full-history
+round differential before selecting appearances. Conditioned graphs fetch only
+selected players and do not use unfiltered hidden players for their domains.

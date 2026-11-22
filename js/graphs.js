@@ -150,7 +150,19 @@
     ]]
   ];
 
-  const registry = new Map(metrics.flatMap(([group, entries]) => entries.map(([id, label, value, digits, suffix = ""]) => [id, { id, group, label, value, digits, suffix }])));
+  const conditionUnsupported = new Set([
+    'teammate_rating', 'team_win_survivors', 'opponent_win_survivors',
+    'clawback_kr', 'bozo_dr', 'even_kr', 'even_dr', 'advantage_kr',
+    'outnumbered_dr', 'cleanup_kr', 'cleanup_dr'
+  ]);
+  const conditionUnsupportedGroups = new Set(['Economy', 'Kill stage', 'Round timing']);
+  const conditionMetricSupported = metric => !conditionUnsupported.has(metric.id) && !conditionUnsupportedGroups.has(metric.group);
+  const registry = new Map(metrics.flatMap(([group, entries]) => entries.map(([id, label, value, digits, suffix = '']) => {
+    const metric = { id, group, label, digits, suffix };
+    return [id, { ...metric, value: (stats, sample) => stats.__conditioned && !conditionMetricSupported(metric)
+      ? Number.NaN : value(stats, sample) }];
+  })));
+
   function syncTagMetrics() {
     for (const id of registry.keys()) if (id.startsWith("tag:")) registry.delete(id);
     const store = window.NickStatsManualFilters?.store;
@@ -187,6 +199,9 @@
   function statsForMatch(match, side = "ALL", buy = "ALL", roundResult = "ALL", opponentBuy = "ALL", roundPhase = "ALL", heroOnly = false) {
     const stats = {}, sides = match.sides || match.sideRows || [];
     const selected = sides.filter(row => {
+      if (match.round_condition) return window.NickStatsRoundConditions.conditionSliceMatches(row, {
+        side, buy, roundResult, opponentBuy, roundPhase, heroOnly
+      });
       const rowOpponentBuy = row.opponent_buy_type || "ALL";
       const economyMatches = opponentBuy !== "ALL"
         ? rowOpponentBuy === opponentBuy && (buy === "ALL" || (buy === "hero" ? ["eco", "force"].includes(row.buy_type) : row.buy_type === buy)) &&
@@ -200,8 +215,9 @@
       mergeStats(stats, row.stats);
       stats.awp_kills = number(stats.awp_kills) + (row.weapons || []).filter(weapon => String(weapon.weapon).toLowerCase() === "awp").reduce((sum, weapon) => sum + number(weapon.kills), 0);
     });
-    if (!selected.length && !heroOnly && roundPhase === "ALL" && side === "ALL" && buy === "ALL" && opponentBuy === "ALL" && roundResult === "ALL") mergeStats(stats, match.legacy || match);
+    if (!match.round_condition && !selected.length && !heroOnly && roundPhase === "ALL" && side === "ALL" && buy === "ALL" && opponentBuy === "ALL" && roundResult === "ALL") mergeStats(stats, match.legacy || match);
     stats.__schema = match.schema;
+    if (match.round_condition) stats.__conditioned = true;
     return stats;
   }
 
@@ -213,9 +229,38 @@
       map: match.map,
       stats: {
         ...statsForMatch(match, side, buy, roundResult, opponentBuy, roundPhase, heroOnly),
-        ...teammateRatingCounters(match, teammateRatings)
+        ...(match.round_condition ? {} : teammateRatingCounters(match, teammateRatings))
       }
     })).filter(sample => number(sample.stats.rounds) > 0);
+  }
+
+  function roundMatchesFor(matches, filters = {}) {
+    return matches.map(match => {
+      const history = match.condition_round_history || match.round_kills || [];
+      const complete = window.NickStatsRoundTimeline.withDifferentials(history);
+      if (!match.round_condition) {
+        return { round_kills: complete.filter(row => window.NickStatsRoundTimeline.matchesFilters(row, filters)) };
+      }
+      const allowed = new Set((match.sides || match.sideRows || [])
+        .filter(row => window.NickStatsRoundConditions.conditionSliceMatches(row, {
+          side: filters.side, buy: filters.buy, opponentBuy: filters.opponentBuy,
+          roundResult: filters.result, roundPhase: filters.phase, heroOnly: filters.heroOnly
+        })).flatMap(row => row.rounds));
+      const differentials = new Map(complete.map(row => [row.round, row.differential]));
+      return { round_kills: history.filter(row => allowed.has(row.round)).map(row => {
+        const point = { ...row };
+        delete point.differential;
+        if (differentials.has(row.round)) point.differential = differentials.get(row.round);
+        return point;
+      }) };
+    });
+  }
+
+  function setPending(prefix, pending) {
+    for (const id of ['GraphSummary', 'GraphChartApp', 'GraphLegend', 'GraphNoteApp']) {
+      const node = document.getElementById(`${prefix}${id}`);
+      if (node) (id === 'GraphChartApp' ? node.parentElement : node).hidden = pending;
+    }
   }
 
   function teammateRatingCounters(match, ratings) {
@@ -639,8 +684,9 @@
     const prepared = prepare(state.series), domainPrepared = prepare(state.domainSeries);
     const roundPrepared = roundsMode ? state.series.map(series => ({ ...series, roundValues: window.NickStatsRoundTimeline.averages(series.roundMatches || [], {}, roundMetric) })).filter(series => series.roundValues.length) : [];
     chart.viewBox = !roundsMode && ["distribution", "relationship"].includes(settings.type) ? "0 0 900 460" : "0 0 900 420";
-    const note = roundsMode
-      ? `Each ${settings.style === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances. Older demos need reparsing.`
+    const unavailable = state.conditioned && (!conditionMetricSupported(metric) || (relationship && !conditionMetricSupported(xMetric)));
+    const note = unavailable ? "This statistic is unavailable for round conditions." : roundsMode
+      ? `Each ${settings.style === "bars" ? "bar" : "point"} is average ${roundLabel(metric)} in that exact numbered round among matches where the player played it. Gaps mean no appearances.${state.conditioned ? ' Only qualifying player-rounds are included.' : ' Older demos need reparsing.'}`
       : relationship
       ? range?.error ? `${range.error} Showing automatic buckets until valid.` : `X sets the buckets; Y is the average ${unit} value. ${sessionsMode ? "Sessions" : "Matches"} missing either value are excluded.`
       : settings.type === "distribution"
@@ -649,7 +695,7 @@
           : ""
       : `Each ${unit} gets one horizontal slot in date order. ${sessionsMode ? "Sessions" : "Matches"} without dates are excluded. Lines pause across long gaps in a player's games. Hover for the exact date and value.`;
     const shown = roundsMode ? roundPrepared : prepared;
-    window.NickStatsGraphOutputUI.render(prefix, { series: shown, roundsMode, relationship, metric, xMetric, unit, colors, format, note });
+    window.NickStatsGraphOutputUI.render(prefix, { series: shown, roundsMode, relationship, metric, xMetric, unit, colors, format, note, conditioned: state.conditioned, unavailable });
     if (!shown.length) { window.NickStatsChartUI.render(target, chart); return; }
     if (roundsMode) { drawRounds(chart, roundPrepared, metric, settings.style); window.NickStatsChartUI.render(target, chart); return; }
     if (relationship) drawRelationship(chart, prepared, domainPrepared, xMetric, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
@@ -657,13 +703,13 @@
     window.NickStatsChartUI.render(target, chart);
   }
 
-  function render({ prefix, series, domainSeries = series, independent = false }) {
+  function render({ prefix, series, domainSeries = series, independent = false, conditioned = false }) {
     if (!document.getElementById(`${prefix}GraphSettingsApp`)) return;
     syncTagMetrics();
     const previous = graphState.get(prefix);
     const account = window.NickStatsManualFilters?.store.account || null;
     const sameAccount = previous?.account === account;
-    graphState.set(prefix, { account, series: series || [], domainSeries: domainSeries || series || [], independent,
+    graphState.set(prefix, { account, series: series || [], domainSeries: domainSeries || series || [], independent, conditioned,
       settings: previous?.settings || window.NickStatsGraphSettingsUI.create(prefix, () => draw(prefix)), metricId: registry.has(previous?.metricId) ? previous.metricId : "rating",
       xAxis: { metricId: registry.has(previous?.xAxis?.metricId) ? previous.xAxis.metricId : "opening_attempt_rate",
         category: registry.has(previous?.xAxis?.metricId) && (account || previous.xAxis.category !== "Tags") ? previous.xAxis.category : "Opening",
@@ -685,5 +731,5 @@
     draw(prefix);
   }
 
-  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, relationshipSamples, relationshipBuckets, syncTagMetrics, metricChoices, statsForMatch, samplesForMatches, sessionSamples, datedTrendSeries, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks, roundSeriesModel, render });
+  window.NickStatsGraphs = Object.freeze({ metrics: registry, colors, relationshipSamples, relationshipBuckets, syncTagMetrics, metricChoices, statsForMatch, samplesForMatches, roundMatchesFor, setPending, sessionSamples, datedTrendSeries, distributionBounds, niceDistributionBounds, parseBucketRange, parseCutoffs, dateTicks, roundSeriesModel, render });
 })();

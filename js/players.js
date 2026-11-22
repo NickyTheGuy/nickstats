@@ -51,6 +51,7 @@
       if (profile.roundConditions !== data) {
         profile.roundConditions = data;
         profile.summaryCache?.clear();
+        profile.graphCache?.clear();
       }
     }
     conditionUI.update({ value: state.roundCondition, loading: view.loading, error: view.error,
@@ -60,7 +61,7 @@
 
   conditionClient.subscribe(() => {
     if (state.roundCondition !== 'ALL' && !state.profilesStale && !$('playersPage').hidden &&
-        ['profile', 'quick'].includes(state.display)) renderCurrentDisplay();
+        ['profile', 'quick', 'graphs'].includes(state.display)) renderCurrentDisplay();
   });
 
   const mapFilter = window.NickStatsMapFilterUI.create("playerMapFilter", {
@@ -165,7 +166,7 @@
 
   function syncStatsToolbar() {
     $("playerStatsToolbar").hidden = state.display === "session" || (state.display === "profile" && state.view === "matches");
-    $("playerRoundConditionField").hidden = ["graphs", "session"].includes(state.display) || (state.display === "profile" && state.view === "matches");
+    $("playerRoundConditionField").hidden = state.display === "session" || (state.display === "profile" && state.view === "matches");
     syncTradeTeammates();
   }
 
@@ -467,21 +468,48 @@
   }
   function renderGraphs() {
     if (!activeProfile()) return;
-    const availableSeries = [...state.profiles.entries()].map(([id, candidate], colorIndex) => {
-      const matches = matchesFor(candidate.payload);
-      candidate.graphCache ||= new Map();
-      const key = aggregationKey();
-      if (!candidate.graphCache.has(key)) {
-        candidate.graphCache.set(key, window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly, candidate.payload.teammateRatings));
-      }
-      return { id, colorIndex, label: candidate.payload.player?.name || "Unknown player", samples: candidate.graphCache.get(key), sessionMatches: candidate.payload.matches || [],
-        roundMatches: matches.map(match => ({ round_kills: window.NickStatsRoundTimeline.withDifferentials(match.round_kills).filter(row => window.NickStatsRoundTimeline.matchesFilters(row, {
-          side: state.side, buy: state.buy, opponentBuy: state.opponentBuy, result: state.roundResult, phase: state.roundPhase, heroOnly: state.heroOnly
-        })) })) };
-    });
+    const condition = state.roundCondition;
+    const selectedProfiles = [...state.profiles].filter(([id]) => state.graphPlayers.has(id));
+    const view = condition !== 'ALL' ? prepareRoundConditions(selectedProfiles.map(([, profile]) => profile)) : { ready: true };
+    window.NickStatsGraphs.setPending('player', !view.ready);
+    if (!view.ready) return;
+    const candidates = condition === 'ALL' ? [...state.profiles] : selectedProfiles;
+    let availableSeries, failedPlayerID;
+    try {
+      availableSeries = candidates.map(([id, candidate]) => {
+        failedPlayerID = id;
+        const base = matchesFor(candidate.payload);
+        const matches = condition === 'ALL' || !base.length ? base
+          : conditionAPI.conditionMatches(base, candidate.roundConditions, condition);
+        candidate.graphCache ||= new Map();
+        const key = aggregationKey('ALL', condition);
+        if (!candidate.graphCache.has(key)) {
+          candidate.graphCache.set(key, window.NickStatsGraphs.samplesForMatches(matches, state.side,
+            state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly,
+            candidate.payload.teammateRatings));
+        }
+        return { id, colorIndex: [...state.profiles.keys()].indexOf(id), label: candidate.payload.player?.name || 'Unknown player',
+          samples: candidate.graphCache.get(key), sessionMatches: candidate.payload.matches || [],
+          roundMatches: window.NickStatsGraphs.roundMatchesFor(matches, {
+            side: state.side, buy: state.buy, opponentBuy: state.opponentBuy,
+            result: state.roundResult, phase: state.roundPhase, heroOnly: state.heroOnly
+          }) };
+      });
+    } catch (error) {
+      conditionClient.reportError(failedPlayerID, error);
+      conditionUI.update({ loading: false, error: error.message });
+      window.NickStatsGraphs.setPending('player', true);
+      return;
+    }
     const series = availableSeries.filter(candidate => state.graphPlayers.has(candidate.id));
-    window.NickStatsGraphs.render({ prefix: "player", series, domainSeries: availableSeries, independent: true });
+    const coverage = condition === 'ALL' ? [] : selectedProfiles.map(([, profile]) =>
+      conditionAPI.conditionCoverage(matchesFor(profile.payload), profile.roundConditions || { matches: [] }));
+    conditionUI.update({ value: condition, loading: false, error: '', playerCount: series.length,
+      rounds: series.reduce((n, item) => n + item.samples.reduce((sum, sample) => sum + number(sample.stats.rounds), 0), 0),
+      covered: coverage.reduce((n, row) => n + row.covered, 0), expected: coverage.reduce((n, row) => n + row.expected, 0) });
+    window.NickStatsGraphs.render({ prefix: 'player', series, domainSeries: availableSeries, independent: true, conditioned: condition !== 'ALL' });
   }
+
   function quickSummary(matches, cachedSummary = null) {
     const summary = cachedSummary || aggregate(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly), stats = summary.stats;
     const openingKills = number(stats.opening_kills), openingDeaths = number(stats.opening_deaths);

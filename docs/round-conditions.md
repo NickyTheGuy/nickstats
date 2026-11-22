@@ -1,7 +1,7 @@
-# Round conditions — 2026.11.21.3
+# Round conditions — 2026.11.21.4
 
 Round conditions are available on individual player profiles, Player Quick
-Comparison, group profiles and Group Quick Comparison. All keeps the ordinary
+Comparison, group profiles and Group Quick Comparison, plus Player/Group Graphs. All keeps the ordinary
 statistics. Opening kill and Opening death select those player rounds; Attempted
 combines the two disjoint cohorts. No attempt selects known rounds with neither.
 An opening attempt means an opening kill/death, not every shot before first blood.
@@ -26,7 +26,7 @@ GET /players/:id/round-conditions using existing saved player_round_phase_stats.
 The response contains disjoint opening cohorts with sparse full-round counters,
 weapon totals and their round numbers; it does not load full demos or movement.
 
-One shared frontend client serves all four views. It deduplicates in-flight reads
+One shared frontend client serves all profile, comparison and graph views. It deduplicates in-flight reads
 and limits cold requests to two at a time. A group profile reads only the selected
 player with eligible matches; comparisons read their required players. Switching
 conditions, ordinary filters, map tabs or group rosters reuses the responses.
@@ -58,9 +58,28 @@ unavailable for round conditions. These views never reuse whole-match values for
 unsupported statistics. Empty samples show no rating. Teammate trade tables on
 individual profiles also follow the condition through their existing endpoint.
 
-Graphs, match history, sessions and Analyzer keep their normal statistics; their
+Match history, session tabs and Analyzer keep their normal statistics; their
 views hide the opening-condition control. Conditions are an optional view, not
 a replacement for the current profile.
+
+## Graphs
+
+Match distributions, trends and X vs. Y use full-round totals from each player's
+qualifying rounds. Session graphs preserve boundaries from complete histories,
+then pool only those matching match samples; filtering does not create artificial
+session boundaries. Numbered-round graphs retain only the qualifying round
+appearances. Their differential uses the complete match's score progression,
+computed before filtering, consistent with existing side/buy filters. Missing
+score history excludes differential points without discarding known K/D/damage.
+
+Only selected graph players trigger condition reads. Conditioned graph bucket
+ranges use those selected players; All retains its existing all-player domain.
+Changing graph type, statistic, scope or conditions reuses loaded data. The graph
+sample cache includes the condition and is cleared when its cohort data changes.
+Old charts, summaries, legends and notes stay hidden while new data loads or
+fails; the player choices and settings remain usable. Unsupported statistics
+show an explicit unavailable message rather than zero-valued points. Empty conditioned round graphs report no qualifying samples rather than
+recommending a reparse.
 
 ## Deployment
 

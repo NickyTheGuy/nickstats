@@ -77,6 +77,7 @@ export function conditionMatches(matches, data, condition) {
     return {
       ...match,
       round_condition: condition,
+      condition_round_history: match.round_kills || [],
       sides,
       round_kills: (match.round_kills || []).filter((row) => rounds.has(row.round)),
     };

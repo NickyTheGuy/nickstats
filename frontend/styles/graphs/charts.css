@@ -530,3 +530,11 @@
     outline-offset: -3px;
   }
 }
+
+/* Loading a different cohort must not leave an old chart or summary visible. */
+.graph-summary[hidden],
+.player-graph-frame[hidden],
+.graph-legend[hidden],
+.graph-note-mount[hidden] {
+  display: none;
+}

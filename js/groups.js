@@ -58,7 +58,7 @@
   });
   conditionClient.subscribe(() => {
     if (state.roundCondition !== 'ALL' && !$('groupsPage').hidden && state.players.length &&
-        ['profile', 'quick'].includes(state.comboDisplay)) runCombination();
+        ['profile', 'quick', 'graphs'].includes(state.comboDisplay)) runCombination();
   });
 
   function prepareGroupConditions(current, players) {
@@ -431,7 +431,7 @@
 
   function setComboProfileView(view, { render = true } = {}) {
     state.comboView = view;
-    $("groupRoundConditionField").hidden = state.comboDisplay === "graphs" || (state.comboDisplay === "profile" && view === "matches");
+    $("groupRoundConditionField").hidden = (state.comboDisplay === "profile" && view === "matches");
     profileSectionTabs.set(view, { notify: false });
     document.querySelectorAll("[data-combo-profile-panel]").forEach(panel => { panel.hidden = panel.dataset.comboProfilePanel !== view; });
     if (render && state.comboDisplay === "profile" && state.roundCondition !== "ALL") runCombination();
@@ -443,8 +443,7 @@
     document.querySelectorAll('[data-combo-display-panel]').forEach(panel => {
       panel.hidden = panel.dataset.comboDisplayPanel !== state.comboDisplay;
     });
-    $('groupRoundConditionField').hidden = state.comboDisplay === 'graphs' ||
-      (state.comboDisplay === 'profile' && state.comboView === 'matches');
+    $('groupRoundConditionField').hidden = state.comboDisplay === 'profile' && state.comboView === 'matches';
     if (render) runCombination();
   }
 
@@ -508,15 +507,41 @@
       }
     });
     ui.comboGraphPlayerStatus.update({ text: `${selectedCount} of ${current.profiles.length} players selected` });
-    const series = current.profiles.map((candidate, colorIndex) => {
-      const matches = comboProfileRows(current, candidate);
-      return { id: idFor(candidate), colorIndex, label: candidate.label, sessionMatches: candidate.rows,
-        samples: window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly, candidate.teammateRatings),
-        roundMatches: matches.map(match => ({ round_kills: window.NickStatsRoundTimeline.withDifferentials(match.round_kills).filter(row => window.NickStatsRoundTimeline.matchesFilters(row, {
-          side: state.side, buy: state.buy, opponentBuy: state.opponentBuy, result: state.roundResult, phase: state.roundPhase, heroOnly: state.heroOnly
-        })) })) };
-    });
-    window.NickStatsGraphs.render({ prefix: "combo", series: series.filter(player => state.graphPlayers.has(player.id)), domainSeries: series, independent: false });
+    const condition = state.roundCondition || 'ALL';
+    const selectedPlayers = current.profiles.filter(player => state.graphPlayers.has(idFor(player)));
+    const view = condition !== 'ALL' ? prepareGroupConditions(current, selectedPlayers) : { ready: true };
+    window.NickStatsGraphs.setPending('combo', !view.ready);
+    if (!view.ready) return;
+    const candidates = condition === 'ALL' ? current.profiles : selectedPlayers;
+    let series;
+    try {
+      series = candidates.map(candidate => {
+        const matches = condition === 'ALL' ? comboProfileRows(current, candidate) : conditionRows(current, candidate, condition);
+        return { id: idFor(candidate), colorIndex: current.profiles.indexOf(candidate), label: candidate.label, sessionMatches: candidate.rows,
+          samples: window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult,
+            state.opponentBuy, state.roundPhase, state.heroOnly, candidate.teammateRatings),
+          roundMatches: window.NickStatsGraphs.roundMatchesFor(matches, {
+            side: state.side, buy: state.buy, opponentBuy: state.opponentBuy,
+            result: state.roundResult, phase: state.roundPhase, heroOnly: state.heroOnly
+          }) };
+      });
+    } catch (error) {
+      state.groupStale = true;
+      conditionUI.update({ loading: false, error: error.message });
+      window.NickStatsGraphs.setPending('combo', true);
+      return;
+    }
+    const selectedSeries = series.filter(player => state.graphPlayers.has(player.id));
+    if (condition === 'ALL') conditionUI.update({ value: condition, loading: false, error: '' });
+    else {
+      const coverage = selectedPlayers.map(player => conditionAPI.conditionCoverage(
+        comboProfileRows(current, player).map(row => ({ id: row.id, rounds: row.legacy.rounds })),
+        view.data.get(player.profileId) || { matches: [] }));
+      conditionUI.update({ value: condition, loading: false, error: '', playerCount: selectedSeries.length,
+        rounds: selectedSeries.reduce((n, item) => n + item.samples.reduce((sum, sample) => sum + num(sample.stats.rounds), 0), 0),
+        covered: coverage.reduce((n, row) => n + row.covered, 0), expected: coverage.reduce((n, row) => n + row.expected, 0) });
+    }
+    window.NickStatsGraphs.render({ prefix: 'combo', series: selectedSeries, domainSeries: series, independent: false, conditioned: condition !== 'ALL' });
   }
 
   function runCombination() {

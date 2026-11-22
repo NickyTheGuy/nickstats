@@ -54,10 +54,10 @@ test("standalone group graphs preserve player selection across redraws and cap i
   let choices;
   const nodes = new Map(), calls = [], current = { profiles: Array.from({ length: 6 }, (_, i) => ({ profileId: String(i), label: `Player ${i}`, teammateRatings: {3:1.2} })) };
   const state = { graphPlayers: null, side: "CT", buy: "full", roundResult: "win", opponentBuy: "eco", roundPhase: "REGULATION", heroOnly: false };
-  const sandbox = { state, ui: { comboGraphPlayerStatus: { update() {} } }, $: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); }, el: (_, text) => new Node(text),
+  const sandbox = { state, conditionUI: {update() {}}, ui: { comboGraphPlayerStatus: { update() {} } }, $: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); }, el: (_, text) => new Node(text),
     comboProfileRows: (_, player) => [{ id: player.profileId, round_kills: [] }],
     window: { NickStatsPlayerSelectionUI: { graphs: (_target, props) => { choices = props; } },
-      NickStatsGraphs: { samplesForMatches: (...args) => args, render: options => calls.push(options) },
+      NickStatsGraphs: { setPending() {}, roundMatchesFor: rows => rows, samplesForMatches: (...args) => args, render: options => calls.push(options) },
       NickStatsRoundTimeline: { withDifferentials: rows => rows, matchesFilters: () => true } }
   };
   const render = vm.runInNewContext(`${functionSource(groupsSource, "renderComboGraphs", "runCombination")}\nrenderComboGraphs`, sandbox);

@@ -22,6 +22,8 @@ export function graphOutputModel({
   colors,
   format,
   note,
+  conditioned = false,
+  unavailable = false,
 }) {
   const cards = series.map((series, index) => {
     const colorIndex = series.colorIndex ?? index;
@@ -53,8 +55,12 @@ export function graphOutputModel({
     note,
     empty: cards.length
       ? ''
-      : roundsMode
-        ? 'No per-round data for these matches. Reparse older demos to add round data.'
-        : `No qualifying ${unit} samples for this statistic.`,
+      : unavailable
+        ? 'This statistic is unavailable for round conditions.'
+        : roundsMode
+          ? conditioned
+            ? 'No qualifying round samples for this statistic.'
+            : 'No per-round data for these matches. Reparse older demos to add round data.'
+          : `No qualifying ${unit} samples for this statistic.`,
   };
 }
