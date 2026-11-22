@@ -29,7 +29,7 @@
 
   const state = {
     profiles: new Map(), activeId: null, graphPlayers: new Set(), recent: readRecent(),
-    display: "profile", view: "overview", historyView: "matches", profileQueue: [], pendingProfiles: new Set(), profileLoading: false, requestedProfileId: null, refreshController: null, profilesStale: false,
+    display: "profile", view: "overview", historyView: "matches", historySort: "newest", profileQueue: [], pendingProfiles: new Set(), profileLoading: false, requestedProfileId: null, refreshController: null, profilesStale: false,
     roundCondition: "ALL", side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL", maps: []
   };
   const activeProfile = () => state.profiles.get(state.activeId) || null;
@@ -64,9 +64,16 @@
         ['profile', 'quick', 'graphs'].includes(state.display)) renderCurrentDisplay();
   });
 
-  const mapFilter = window.NickStatsMapFilterUI.create("playerMapFilter", {
+  const mapFilter = window.NickStatsMapFilterUI.create(["playerMapFilter", "playerHistoryMapFilter"], {
     formatLabel: value => titleCase(value.replace(/^de_/, "")),
-    onChange: values => { state.maps = values; if (activeProfile()) renderCurrentDisplay(); }
+    onChange: values => {
+      state.maps = values;
+      resetHistoryPages();
+      if (activeProfile()) {
+        renderCurrentDisplay();
+        if (state.display === 'profile' && state.view === 'matches') renderPlayerMatches();
+      }
+    }
   });
   const dateFilter = window.NickStatsDateFilterUI.create(["playerDateFilter", "playerHistoryDateFilter"], {
     onChange: () => {
@@ -210,6 +217,18 @@
       onSelect: id => loadProfile(id, { scroll: false }), onClear: clearRecent });
   }
 
+  function resetHistoryPages() {
+    state.profiles.forEach(profile => {
+      profile.manualHistoryOffset = 0;
+      profile.sessionHistoryOffset = 0;
+      if (profile.matchHistory) {
+        profile.matchHistory.controller?.abort();
+        Object.assign(profile.matchHistory, { loaded: false, loading: false, controller: null });
+      }
+    });
+  }
+
+  const localHistory = () => manualFilter.active || state.historySort !== 'newest';
   function matchHistory(profile) {
     if (!profile.matchHistory) {
       profile.matchHistory = { loaded: false, loading: false, offset: 0, matches: [], controller: null };
@@ -226,7 +245,7 @@
     const profile = activeProfile();
     if (!profile) return;
     if (state.historyView === "sessions") { renderPlayerSessions(profile); return; }
-    if (manualFilter.active) { renderManualPlayerMatches(profile); return; }
+    if (localHistory()) { renderLocalPlayerMatches(profile); return; }
     const history = matchHistory(profile);
     const status = ui.playerMatchesStatus;
     if (!history.loaded && !history.loading) {
@@ -251,16 +270,18 @@
       ? `Matches ${history.offset + 1}–${history.offset + history.matches.length}` : "" });
   }
 
-  function renderManualPlayerMatches(profile) {
+  function renderLocalPlayerMatches(profile) {
     // All compact profile matches are already loaded. Do not query the public API
     // with private filter conditions, or paginate before applying the conditions.
-    const rows = (profile.payload.matches || []).filter(match => manualFilter.matches(match) && dateFilter.matches(match.played_at));
+    const filtered = (profile.payload.matches || []).filter(match => mapFilter.matches(match.map) && manualFilter.matches(match) && dateFilter.matches(match.played_at));
+    const rows = window.NickStatsMatchHistory.sort(filtered, state.historySort,
+      match => window.NickStatsGraphs.metrics.get('rating').value(match));
     const offset = Math.max(0, Math.min(profile.manualHistoryOffset || 0, Math.max(0, Math.ceil(rows.length / MATCH_HISTORY_LIMIT) - 1) * MATCH_HISTORY_LIMIT));
     profile.manualHistoryOffset = offset;
     const matches = profileMatchSummaries(profile, rows.slice(offset, offset + MATCH_HISTORY_LIMIT));
     matchList.render($("playerMatchesList"), matches, openHistoryMatch, { editableTags: true });
     const status = ui.playerMatchesStatus; status.update({ error: false });
-    status.update({ text: `${rows.length} matching match${rows.length === 1 ? "" : "es"} · ${manualFilter.summary()} · Unknown excluded` });
+    status.update({ text: `${rows.length} matching match${rows.length === 1 ? "" : "es"}${manualFilter.active ? ` · ${manualFilter.summary()} · Unknown excluded` : ""}` });
     ui.playerMatchesPagination.update({ hidden: rows.length <= MATCH_HISTORY_LIMIT });
     ui.playerMatchesPagination.update({ previousDisabled: offset === 0 });
     ui.playerMatchesPagination.update({ nextDisabled: offset + MATCH_HISTORY_LIMIT >= rows.length });
@@ -285,7 +306,7 @@
 
   function renderPlayerSessions(profile) {
     const sessions = window.NickStatsMatchSessions.filter(window.NickStatsMatchSessions.group(profile.payload.matches || []),
-      match => manualFilter.matches(match) && dateFilter.matches(match.played_at));
+      match => mapFilter.matches(match.map) && manualFilter.matches(match) && dateFilter.matches(match.played_at));
     const offset = Math.max(0, Math.min(profile.sessionHistoryOffset || 0,
       Math.max(0, Math.ceil(sessions.length / MATCH_HISTORY_LIMIT) - 1) * MATCH_HISTORY_LIMIT));
     profile.sessionHistoryOffset = offset;
@@ -338,6 +359,7 @@
         offset: String(Math.max(0, offset))
       });
       dateFilter.appendQuery(parameters);
+      if (state.maps.length) parameters.set("maps", state.maps.join(","));
       const profilePlayerID = profile.payload.player?.id;
       if (profilePlayerID) parameters.set("viewer_player_id", profilePlayerID);
       const payload = await apiJson(await fetch(`${MATCH_ENDPOINT}?${parameters}`, {
@@ -489,7 +511,7 @@
             candidate.payload.teammateRatings));
         }
         return { id, colorIndex: [...state.profiles.keys()].indexOf(id), label: candidate.payload.player?.name || 'Unknown player',
-          samples: candidate.graphCache.get(key), sessionMatches: candidate.payload.matches || [],
+          samples: candidate.graphCache.get(key), sessionMatches: candidate.payload.matches || [], sessionProfile: candidate.payload,
           roundMatches: window.NickStatsGraphs.roundMatchesFor(matches, {
             side: state.side, buy: state.buy, opponentBuy: state.opponentBuy,
             result: state.roundResult, phase: state.roundPhase, heroOnly: state.heroOnly
@@ -753,17 +775,25 @@
     initialMessage: "Search for a player to open their profile." });
   const profileSectionTabs = window.NickStatsSectionTabsUI.create("playerDetailTabsApp", { kind: "player", onChange: setPlayerView });
   window.NickStatsSegmentedUI.create("playerHistoryViewFilter", { onChange: view => {
-      state.historyView = view; $("playerSessionsHelp").hidden = view !== "sessions"; renderPlayerMatches();
+      state.historyView = view;
+      $("playerSessionsHelp").hidden = view !== "sessions";
+      $("playerHistorySortApp").style.display = view === "sessions" ? "none" : "contents";
+      renderPlayerMatches();
     } });
+  const historySort = window.NickStatsMatchHistory.create('playerHistorySortApp', value => {
+    state.historySort = value;
+    resetHistoryPages();
+    if (activeProfile()) renderPlayerMatches();
+  });
   ui.playerMatchesPagination = window.NickStatsShellUI.pagination("playerMatchesPagination", () => {
     const profile = activeProfile(); if (!profile) return;
     if (state.historyView === "sessions") { profile.sessionHistoryOffset = Math.max(0, (profile.sessionHistoryOffset || 0) - MATCH_HISTORY_LIMIT); renderPlayerMatches(); return; }
-    if (manualFilter.active) { profile.manualHistoryOffset = Math.max(0, (profile.manualHistoryOffset || 0) - MATCH_HISTORY_LIMIT); renderPlayerMatches(); return; }
+    if (localHistory()) { profile.manualHistoryOffset = Math.max(0, (profile.manualHistoryOffset || 0) - MATCH_HISTORY_LIMIT); renderPlayerMatches(); return; }
     loadPlayerMatches(profile, Math.max(0, matchHistory(profile).offset - MATCH_HISTORY_LIMIT));
   }, () => {
     const profile = activeProfile(); if (!profile) return;
     if (state.historyView === "sessions") { profile.sessionHistoryOffset = (profile.sessionHistoryOffset || 0) + MATCH_HISTORY_LIMIT; renderPlayerMatches(); return; }
-    if (manualFilter.active) { profile.manualHistoryOffset = (profile.manualHistoryOffset || 0) + MATCH_HISTORY_LIMIT; renderPlayerMatches(); return; }
+    if (localHistory()) { profile.manualHistoryOffset = (profile.manualHistoryOffset || 0) + MATCH_HISTORY_LIMIT; renderPlayerMatches(); return; }
     loadPlayerMatches(profile, matchHistory(profile).offset + MATCH_HISTORY_LIMIT);
   });
 
@@ -787,6 +817,8 @@
     window.NickStatsSegmentedUI.create("playerResultFilter", { onChange: result => { state.result = result; if (activeProfile()) renderCurrentDisplay(); } }),
   ];
   function resetPlayerFilters() {
+    state.historySort = "newest";
+    historySort.reset();
     state.roundCondition="ALL";conditionClient.cancelQueued();conditionUI.update({value:"ALL",error:"",loading:false});
     window.NickStatsFilters.resetProfileFilters({ state, mapFilter, dateFilter, tagFilter: manualFilter, toggles: playerFilterToggles, onReset: () => {
       state.profiles.forEach(profile => {

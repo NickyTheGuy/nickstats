@@ -483,6 +483,21 @@
     chart.add(chartMark("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Average ${yMetric.label}`));
   }
 
+  function sampleNavigation(series, point, unit) {
+    if (!/^[1-9]\d*$/.test(String(point.id))) return null;
+    if (unit === "Session") {
+      if (!/^[1-9]\d*$/.test(String(series.id))) return null;
+      return {
+        href: `#session/${series.id}/${point.id}`,
+        label: `Open session for ${series.label}`,
+        onActivate: window.NickStatsSessions
+          ? () => window.NickStatsSessions.open(series.id, point.id, series.sessionProfile)
+          : undefined
+      };
+    }
+    return { href: `#match/${point.id}`, label: `Open match #${point.id}` };
+  }
+
   function drawTrend(chart, prepared, metric, displayStyle = "line", unit = "Match") {
     const allPoints = prepared.flatMap(series => series.values);
     if (!allPoints.length) return;
@@ -548,6 +563,7 @@
         const mark = displayStyle === "bars"
           ? chartMark("rect", { x: x + (seriesIndex - (prepared.length - 1) / 2) * barWidth - barWidth / 2, y: Math.min(y, zeroY), width: barWidth, height: Math.max(2, Math.abs(y - zeroY)), fill: colors[colorIndex % colors.length], class: "graph-series-bar" })
           : chartMark("circle", { cx: x, cy: y, r: 4, fill: colors[colorIndex % colors.length], class: "graph-point" });
+        mark.navigation = sampleNavigation(series, point, unit);
         const date = point.date > 0 ? new Date(point.date * 1000).toLocaleDateString() : `${unit} #${point.id}`;
         chart.add(mark); attachTooltip(mark, `${series.label} · ${date}${point.matchIDs ? ` · ${point.matchIDs.length} matches` : ""}: ${format(point.value, metric)}`, x, y);
       });

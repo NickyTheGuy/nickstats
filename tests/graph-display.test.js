@@ -65,6 +65,7 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   context.window.NickStatsGraphs.render({ prefix: "player", series: dated });
   const datedBars = svg.marks.filter(child => child.type === "rect" && child.attributes.class === "graph-series-bar");
   assert.equal(datedBars.length, 6);
+  assert.deepEqual(datedBars.map(bar => bar.navigation.href), ["#match/1", "#match/2", "#match/1", "#match/2", "#match/1", "#match/2"]);
   assert.ok(datedBars.every(bar => bar.attributes.x >= 68 && bar.attributes.x + bar.attributes.width <= 864));
   assert.ok(svg.marks.some(child => child.type === "text" && /Aug \d+/.test(child.text)));
   const mixedDates = dated.slice(0,2).map((player,index) => ({...player, samples:[...player.samples,

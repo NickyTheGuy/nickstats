@@ -39,7 +39,7 @@ test("session history paginates whole sessions and keeps match opening and tags"
   const sandbox = { window: { NickStatsSessions: { open: (...args) => openedSessions.push(args) }, NickStatsMatchSessions: context.window.NickStatsMatchSessions },
     MATCH_HISTORY_LIMIT: 25,
     $: id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); },
-    manualFilter: { active: false, matches: () => true }, dateFilter: { matches: () => true },
+    mapFilter: { matches: () => true }, manualFilter: { active: false, matches: () => true }, dateFilter: { matches: () => true },
     profileMatchSummaries: (_, rows) => rows, openHistoryMatch: () => {},
     aggregate: rows => ({ rating: 1.2, adr: 80, stats: { kills: rows.length * 20, deaths: rows.length * 10, assists: rows.length * 5 } }),
     matchList: { renderSessions: (list, sessions, onOpen, options) => calls.push({ list, sessions, onOpen, options }) }

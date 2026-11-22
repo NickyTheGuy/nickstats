@@ -44,6 +44,10 @@ function ProfileLayout({ prefix }) {
       >
         {prefix === 'player' && (
           <div className="stats-toolbar player-history-date">
+            <div className="filter-field">
+              <span>Map</span>
+              <div className="map-multiselect" id={`${prefix}HistoryMapFilter`} />
+            </div>
             <div
               className="date-range-filter"
               id={`${prefix}HistoryDateFilter`}
@@ -55,6 +59,7 @@ function ProfileLayout({ prefix }) {
               id={`${prefix}HistoryManualFilter`}
               hidden
             />
+            <span id={`${prefix}HistorySortApp`} style={{ display: 'contents' }} />
             <span id={`${prefix}HistoryResetFiltersApp`} style={{ display: 'contents' }} />
           </div>
         )}

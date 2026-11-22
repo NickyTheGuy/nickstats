@@ -331,7 +331,12 @@
       const renderStart = now();
       const ratingsByPlayer = new Map(ratings);
       const players = (payload.players || []).map(player => ({
-        ...normalizePlayer(player), teammateRatings: ratingsByPlayer.get(String(player.id)) || {}
+        ...normalizePlayer(player),
+        profilePayload: {
+          player: { id: player.id, name: player.name, steam_id: player.steam_id },
+          matches: player.matches || []
+        },
+        teammateRatings: ratingsByPlayer.get(String(player.id)) || {}
       }));
       if (controller.signal.aborted) return;
       state.players = players.sort((a, b) => a.label.localeCompare(b.label));
@@ -517,7 +522,7 @@
     try {
       series = candidates.map(candidate => {
         const matches = condition === 'ALL' ? comboProfileRows(current, candidate) : conditionRows(current, candidate, condition);
-        return { id: idFor(candidate), colorIndex: current.profiles.indexOf(candidate), label: candidate.label, sessionMatches: candidate.rows,
+        return { id: idFor(candidate), colorIndex: current.profiles.indexOf(candidate), label: candidate.label, sessionMatches: candidate.rows, sessionProfile: candidate.profilePayload,
           samples: window.NickStatsGraphs.samplesForMatches(matches, state.side, state.buy, state.roundResult,
             state.opponentBuy, state.roundPhase, state.heroOnly, candidate.teammateRatings),
           roundMatches: window.NickStatsGraphs.roundMatchesFor(matches, {

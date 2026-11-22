@@ -538,3 +538,13 @@
 .graph-note-mount[hidden] {
   display: none;
 }
+
+.graph-point-link,
+.graph-point-link > * {
+  cursor: pointer;
+}
+
+.graph-point-link:focus-visible > * {
+  stroke: var(--text);
+  stroke-width: 2px;
+}
