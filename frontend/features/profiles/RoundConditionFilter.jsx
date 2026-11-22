@@ -20,6 +20,8 @@ export default function RoundConditionFilter({
   loading = false,
   error = '',
   rounds = 0,
+  playerCount = 1,
+  loadedPlayers = 0,
   covered = 0,
   expected = 0,
   onChange,
@@ -29,9 +31,18 @@ export default function RoundConditionFilter({
     covered < expected
       ? ` · condition data available for ${covered.toLocaleString()} of ${expected.toLocaleString()} rounds`
       : '';
-  const roundLabel = rounds === 1 ? 'matching round' : 'matching rounds';
+  const roundLabel =
+    playerCount > 1
+      ? 'matching player-rounds'
+      : rounds === 1
+        ? 'matching round'
+        : 'matching rounds';
   const summary = `${rounds.toLocaleString()} ${roundLabel} · full-round stats${coverageNote}`;
-  const status = error || (loading ? 'Loading round conditions…' : summary);
+  const loadingStatus =
+    playerCount > 1
+      ? `Loading round conditions… ${loadedPlayers} of ${playerCount} players`
+      : 'Loading round conditions…';
+  const status = error || (loading ? loadingStatus : summary);
 
   return (
     <>

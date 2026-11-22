@@ -46,6 +46,9 @@ export default function useComparison(input, resetKey) {
   useEffect(() => {
     if (model && model.map !== state.map) dispatch({ type: 'map', value: model.map });
   }, [model, state.map]);
+  useEffect(() => {
+    if (model && input?.onSamples) input.onSamples(model.sampleSizes, model.map);
+  }, [model, input]);
   const actions = useMemo(
     () => ({
       sections: shared.set,

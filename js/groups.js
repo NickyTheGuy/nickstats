@@ -41,9 +41,42 @@
     selected: new Map(savedRoster.map(({ player }) => [String(player.id), player])), players: [],
     rules: rules.normalizeEditorRules(savedQuery?.rules || rules.legacyRules(savedRoster), savedRoster.map(({ player }) => player.id)),
     groupController: null, groupStale: false, groupLoadedAt: 0,
-    side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL",
+    roundCondition: "ALL", side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL",
     comboPlayerId: "", comboView: "overview", comboDisplay: "profile", graphPlayers: null, matchListKey: "", matchListOffset: 0
   };
+
+  const conditionAPI = window.NickStatsRoundConditions;
+  const conditionClient = window.NickStatsRoundConditionData;
+  let conditionPlayers = [];
+  const conditionUI = window.NickStatsRoundConditionsUI.create('groupRoundConditionFilter', {
+    onChange: value => { state.roundCondition = value; if (value === "ALL") conditionClient.cancelQueued(); runCombination(); },
+    onRetry: () => {
+      if (state.groupStale) { void buildGroup({ refresh: true }); return; }
+      conditionClient.retry(conditionPlayers);
+      runCombination();
+    }
+  });
+  conditionClient.subscribe(() => {
+    if (state.roundCondition !== 'ALL' && !$('groupsPage').hidden && state.players.length &&
+        ['profile', 'quick'].includes(state.comboDisplay)) runCombination();
+  });
+
+  function prepareGroupConditions(current, players) {
+    conditionPlayers = players.filter(player => comboProfileRows(current, player).length)
+      .map(player => ({ id: player.profileId, label: player.label }));
+    const view = state.groupStale
+      ? { ready: false, loading: false, error: 'Matches changed. Build profiles to update.', data: new Map() }
+      : conditionClient.prepare(conditionPlayers);
+    conditionUI.update({ value: state.roundCondition, loading: view.loading, error: view.error,
+      playerCount: view.total || conditionPlayers.length, loadedPlayers: view.loaded || 0 });
+    return view;
+  }
+
+  function conditionRows(current, player, condition) {
+    const rows = comboProfileRows(current, player);
+    if (condition === 'ALL' || !rows.length) return rows;
+    return conditionAPI.conditionGroupRows(rows, conditionClient.get(player.profileId)?.data, condition);
+  }
 
   function num(value) {
     const result = Number(value);
@@ -95,6 +128,10 @@
 
   function selectedView(row) {
     const selected = (row.sideRows || []).filter(side => {
+      if (row.round_condition) return conditionAPI.conditionSliceMatches(side, {
+        side: state.side, buy: state.buy, opponentBuy: state.opponentBuy,
+        roundResult: state.roundResult, roundPhase: state.roundPhase, heroOnly: state.heroOnly
+      });
       const rowOpponentBuy = side.opponent_buy_type || "ALL";
       const economyMatches = state.opponentBuy !== "ALL"
         ? rowOpponentBuy === state.opponentBuy && (state.buy === "ALL" || (state.buy === "hero" ? ["eco", "force"].includes(side.buy_type) : side.buy_type === state.buy)) &&
@@ -112,7 +149,7 @@
         current.kills += num(weapon.kills); current.damage += num(weapon.damage); current.shots += num(weapon.shots); current.hits += num(weapon.hits); current.rounds_used += num(weapon.rounds_used); weapons.set(weapon.weapon, current);
       });
     });
-    if (!selected.length && !state.heroOnly && state.roundPhase === "ALL" && state.side === "ALL" && state.buy === "ALL" && state.opponentBuy === "ALL" && state.roundResult === "ALL") mergeStats(stats, row.legacy);
+    if (!row.round_condition && !selected.length && !state.heroOnly && state.roundPhase === "ALL" && state.side === "ALL" && state.buy === "ALL" && state.opponentBuy === "ALL" && state.roundResult === "ALL") mergeStats(stats, row.legacy);
     return { stats, weapons };
   }
 
@@ -134,8 +171,8 @@
     };
   }
 
-  function summarize(rows) {
-    const qualifyingRows = state.roundPhase === "ALL" && !state.heroOnly ? rows : rows.filter(row => num(selectedView(row).stats.rounds) > 0);
+  function summarize(rows, condition = "ALL") {
+    const qualifyingRows = condition === "ALL" && state.roundPhase === "ALL" && !state.heroOnly ? rows : rows.filter(row => num(selectedView(row).stats.rounds) > 0);
     const n = qualifyingRows.length;
     const stats = {}, weapons = new Map();
     rows.forEach(row => { const view = selectedView(row); availability.add(stats, view.stats, row.schema); view.weapons.forEach((weapon, name) => { const current = weapons.get(name) || { kills: 0, damage: 0, shots: 0, hits: 0, rounds_used: 0 }; Object.keys(current).forEach(key => current[key] += num(weapon[key])); weapons.set(name, current); }); });
@@ -151,9 +188,10 @@
     const multikillRounds = [2, 3, 4, 5].reduce((total, kills) => total + num(stats[`kill_rounds_${kills}k`]), 0);
     const trueMultikillRounds = trueMultikills
       ? num(trueMultikills.true_multikill_rounds) : 0;
-    const matchWinRate = !state.heroOnly && state.roundPhase === "ALL" && state.side === "ALL" && state.buy === "ALL" && state.opponentBuy === "ALL" && state.roundResult === "ALL";
+    const matchWinRate = condition === "ALL" && !state.heroOnly && state.roundPhase === "ALL" && state.side === "ALL" && state.buy === "ALL" && state.opponentBuy === "ALL" && state.roundResult === "ALL";
     const result = {
       ...materialized,
+      conditioned: condition !== "ALL", rounds,
       n, wins, losses, ties,
       scores: scoreBreakdown(qualifyingRows, { scoreFor: row => row.score?.[0], scoreAgainst: row => row.score?.[1] }),
       winRate: matchWinRate ? (n ? 100 * wins / n : 0) : (rounds ? 100 * num(stats.round_wins) / rounds : 0), winRateKind: matchWinRate ? "match" : "round",
@@ -391,19 +429,23 @@
     description: "Compare selected players in matches satisfying the team rules.", mapsLabel: "Group quick comparison maps" });
   const manualFilter = window.NickStatsTagFilterUI.create("groupManualFilter", { onChange: () => { if (state.players.length) runCombination(); } });
 
-  function setComboProfileView(view) {
+  function setComboProfileView(view, { render = true } = {}) {
     state.comboView = view;
+    $("groupRoundConditionField").hidden = state.comboDisplay === "graphs" || (state.comboDisplay === "profile" && view === "matches");
     profileSectionTabs.set(view, { notify: false });
     document.querySelectorAll("[data-combo-profile-panel]").forEach(panel => { panel.hidden = panel.dataset.comboProfilePanel !== view; });
+    if (render && state.comboDisplay === "profile" && state.roundCondition !== "ALL") runCombination();
   }
 
-  function setComboDisplay(display) {
-    state.comboDisplay = ["quick", "graphs"].includes(display) ? display : "profile";
+  function setComboDisplay(display, { render = true } = {}) {
+    state.comboDisplay = ['quick', 'graphs'].includes(display) ? display : 'profile';
     renderComboTabs(findCombination());
-    document.querySelectorAll("[data-combo-display-panel]").forEach(panel => {
+    document.querySelectorAll('[data-combo-display-panel]').forEach(panel => {
       panel.hidden = panel.dataset.comboDisplayPanel !== state.comboDisplay;
     });
-    if (state.comboDisplay === "graphs") renderComboGraphs(findCombination());
+    $('groupRoundConditionField').hidden = state.comboDisplay === 'graphs' ||
+      (state.comboDisplay === 'profile' && state.comboView === 'matches');
+    if (render) runCombination();
   }
 
   function renderComboTabs(current) {
@@ -411,7 +453,7 @@
     window.NickStatsNavigationUI.group({
       profiles: current.profiles.map(player => ({ id: player.profileId, name: player.label })),
       display: state.comboDisplay, activeId: state.comboPlayerId, onDisplay: setComboDisplay,
-      onSelect: id => { state.comboPlayerId = id; state.comboDisplay = "profile"; renderComboProfile(current); setComboDisplay("profile"); }
+      onSelect: id => { state.comboPlayerId = id; setComboDisplay("profile"); }
     });
   }
 
@@ -419,19 +461,35 @@
     if (!current.profiles.some(player => player.profileId === state.comboPlayerId)) state.comboPlayerId = current.profiles[0].profileId;
     renderComboTabs(current);
     const player = current.profiles.find(item => item.profileId === state.comboPlayerId);
-    const rows = comboProfileRows(current, player), stats = summarize(rows);
+    const condition = state.comboView === 'matches' ? 'ALL' : state.roundCondition;
+    ui.comboProfileTitle.update({ text: player.label });
+    const view = condition !== 'ALL' ? prepareGroupConditions(current, [player]) : { ready: true };
+    $('comboProfileHeadline').hidden = !view.ready;
+    $('comboProfileBody').hidden = !view.ready;
+    if (!view.ready) {
+      ui.comboProfileMeta.update({ text: view.error || 'Loading round conditions…' });
+      return;
+    }
+    let rows;
+    try { rows = conditionRows(current, player, condition); }
+    catch (error) { state.groupStale = true; conditionUI.update({ loading: false, error: error.message }); $('comboProfileHeadline').hidden = true; $('comboProfileBody').hidden = true; return; }
+    const stats = summarize(rows, condition);
+    const coverage = condition !== 'ALL' ? conditionAPI.conditionCoverage(
+      comboProfileRows(current, player).map(row => ({ id: row.id, rounds: row.legacy.rounds })),
+      conditionClient.get(player.profileId)?.data || { matches: [] }) : { covered: 0, expected: 0 };
+    conditionUI.update({ value: state.roundCondition, rounds: stats.rounds, ...coverage, loading: false, error: '', playerCount: 1 });
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     ui.comboProfileTitle.update({ text: player.label });
     const buyLabel = state.buy === "ALL" ? "All buys" : state.buy === "hero" ? "Hero rounds" : `${titleCase(state.buy)} buys`;
     const opponentBuyLabel = state.opponentBuy === "ALL" ? "All enemy buys" : `vs ${titleCase(state.opponentBuy)}`;
     const roundLabel = state.roundResult === "ALL" ? "All rounds" : state.roundResult === "win" ? "Rounds won" : "Rounds lost";
-    ui.comboProfileMeta.update({ text: `Steam ${player.steamId || "unknown"} · ${integer(stats.n)} qualifying match${stats.n === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}` });
+    ui.comboProfileMeta.update({ text: `Steam ${player.steamId || "unknown"} · ${integer(stats.n)} qualifying match${stats.n === 1 ? "" : "es"} · ${sideLabel} · ${buyLabel} · ${opponentBuyLabel} · ${roundLabel} · ${state.roundPhase === "ALL" ? "All phases" : state.roundPhase === "REGULATION" ? "Regulation" : "Overtime"} · ${resultFilterLabel(state.result)}${condition !== "ALL" ? ` · ${conditionAPI.roundConditions.find(([key]) => key === condition)[1]} · ${integer(stats.rounds)} matching rounds` : ""}${mapFilter.size ? ` · ${mapFilter.summary()}` : ""}${dateFilter.active ? ` · ${dateFilter.summary()}` : ""}${manualFilter.active ? ` · ${manualFilter.summary()}` : ""}` });
     const maps = new Map(); rows.forEach(row => { const collection = maps.get(row.map) || []; collection.push(row); maps.set(row.map, collection); });
-    const normalize = source => ({ stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate, winRateKind: source.winRateKind, scores: source.scores });
-    const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches)) })).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
+    const normalize = source => ({ conditioned: source.conditioned, stats: source, weapons: source.weapons, matches: source.n, wins: source.wins, losses: source.losses, draws: source.ties, rating: source.rating, kd: source.kd, adr: source.adr, kast: source.kast, winRate: source.winRate, winRateKind: source.winRateKind, scores: source.scores });
+    const mapRows = [...maps.entries()].map(([name, mapMatches]) => ({ name, summary: normalize(summarize(mapMatches, condition)) })).filter(row => condition === "ALL" || row.summary.stats.rounds > 0).sort((a, b) => b.summary.matches - a.summary.matches || a.name.localeCompare(b.name));
     window.NickStatsProfile.render({ prefix: "combo", headlineId: "comboProfileHeadline", summary: normalize(stats), side: state.side, result: state.result, roundResult: state.roundResult, maps: mapRows });
-    renderComboMatches(rows, player);
-    setComboProfileView(state.comboView);
+    renderComboMatches(comboProfileRows(current, player), player);
+    setComboProfileView(state.comboView, { render: false });
   }
 
   function renderComboGraphs(current) {
@@ -463,19 +521,50 @@
 
   function runCombination() {
     const current = findCombination();
-    if (!current) { $("comboResults").hidden = true; return; }
+    if (!current) { $('comboResults').hidden = true; return; }
     renderComboWarnings(current);
-    renderComboProfile(current);
-    quickComparison.render({
-      players: current.profiles.map(player => ({ ...player, rows: comboProfileRows(current, player) })),
-      summarize,
-      metaSuffix: "Matching friendly/enemy team rules"
-    });
-    $("comboResults").hidden = false;
-    setComboDisplay(state.comboDisplay);
+    if (state.comboDisplay === 'profile') renderComboProfile(current);
+    else if (state.comboDisplay === 'graphs') renderComboGraphs(current);
+    else {
+      const condition = state.roundCondition;
+      const view = condition !== 'ALL' ? prepareGroupConditions(current, current.profiles) : { ready: true };
+      $('comboQuickApp').hidden = !view.ready;
+      if (view.ready) {
+        let players;
+        try {
+          players = current.profiles.map(player => {
+            const rows = conditionRows(current, player, condition);
+            return { ...player, id: player.profileId, rows: condition === 'ALL' ? rows
+              : rows.filter(row => num(selectedView(row).stats.rounds) > 0) };
+          });
+        } catch (error) {
+          state.groupStale = true;
+          conditionUI.update({ loading: false, error: error.message });
+          $('comboQuickApp').hidden = true;
+        }
+        if (players) {
+          conditionUI.update({ value: condition, loading: false, error: '', playerCount: players.length });
+          quickComparison.render({ players, summarize: rows => summarize(rows, condition), conditioned: condition !== 'ALL',
+            onSamples: condition === 'ALL' ? undefined : (samples, map) => {
+              const coverage = current.profiles.map(player => conditionAPI.conditionCoverage(
+                comboProfileRows(current, player).filter(row => map === 'ALL' || row.map === map)
+                  .map(row => ({ id: row.id, rounds: row.legacy.rounds })),
+                view.data.get(player.profileId) || { matches: [] }));
+              conditionUI.update({ rounds: samples.reduce((n, sample) => n + sample.rounds, 0),
+                covered: coverage.reduce((n, row) => n + row.covered, 0), expected: coverage.reduce((n, row) => n + row.expected, 0) });
+            },
+            metaSuffix: ['Matching friendly/enemy team rules', condition !== 'ALL' && conditionAPI.roundConditions.find(([key]) => key === condition)[1]].filter(Boolean).join(' · ') });
+        }
+      }
+    }
+    $('comboResults').hidden = false;
+    setComboDisplay(state.comboDisplay, { render: false });
   }
 
   function clear() {
+    state.roundCondition = "ALL";
+    conditionClient.cancelQueued();
+    conditionUI.update({ value: "ALL", loading: false, error: "" });
     dateFilter.reset();
     state.groupController?.abort();
     state.selected.clear();
@@ -513,6 +602,9 @@
   const groupRoundResultFilter = window.NickStatsSegmentedUI.create("groupRoundResultFilter", { onChange: roundResult => { state.roundResult = roundResult; runCombination(); } });
   const groupRoundPhaseFilter = window.NickStatsSegmentedUI.create("groupRoundPhaseFilter", { onChange: phase => { state.roundPhase = phase; runCombination(); } });
   ui.groupResetFilters = window.NickStatsShellUI.button("groupResetFilters", () => {
+    state.roundCondition = "ALL";
+    conditionClient.cancelQueued();
+    conditionUI.update({ value: "ALL", loading: false, error: "" });
     window.NickStatsFilters.resetProfileFilters({ state, mapFilter, dateFilter, tagFilter: manualFilter,
       toggles: [groupSideFilter, groupBuyFilter, groupEnemyBuyFilter, groupRoundResultFilter, groupRoundPhaseFilter, comboResultFilter],
       onReset: () => { if (state.players.length) runCombination(); } });

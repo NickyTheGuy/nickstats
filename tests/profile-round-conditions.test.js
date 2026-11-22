@@ -43,3 +43,26 @@ test('Condition responses accept signed clutch economics while rejecting invalid
   assert.throws(()=>validateRoundConditions(data,1),/Invalid condition statistic/);
  }
 });
+
+test('Group conditions keep only eligible matches, preserve rule identities and aggregate each player independently',async()=>{
+ const conditionAPI=await api(),{data}=fixture();
+ const rows=[{id:'1',map:'de_mirage',schema:'nickstats.match/27',legacy:{rounds:3,kills:99},
+   teammateIds:['2'],opponentIds:['3'],sideRows:[],round_kills:[1,2,3].map(round=>({round}))}];
+ const selected=conditionAPI.conditionGroupRows(rows,data,'opening_attempt');
+ assert.equal(selected.length,1);assert.equal(selected[0].id,'1');
+ assert.deepEqual(selected[0].teammateIds,['2']);assert.equal(selected[0].sideRows.length,2);
+ assert.equal(selected[0].sideRows.reduce((n,row)=>n+row.stats.kills,0),4);
+ assert.deepEqual(selected[0].round_kills,[{round:1},{round:2}]);
+ assert.equal(rows[0].legacy.kills,99);assert.equal(rows[0].sideRows.length,0);
+ const context=vm.createContext({state:{side:'ALL',buy:'ALL',opponentBuy:'ALL',roundResult:'ALL',roundPhase:'ALL',heroOnly:false},conditionAPI,
+   num:value=>Number(value)||0,scoreBreakdown:()=>null});
+ vm.runInContext(fs.readFileSync('js/stat-availability.js','utf8'),Object.assign(context,{window:{}}));
+ context.availability=context.window.NickStatsAvailability;
+ const source=fs.readFileSync('js/groups.js','utf8');
+ vm.runInContext(source.slice(source.indexOf('  function playerRating('),source.indexOf('  function populateMaps(')),context);
+ const summary=context.summarize(selected,'opening_attempt');
+ assert.equal(summary.n,1);assert.equal(summary.rounds,2);assert.equal(summary.kills,4);assert.equal(summary.adr,175);
+ assert.equal(summary.winRateKind,'round');assert.equal(summary.winRate,50);assert.equal(summary.conditioned,true);
+ context.state.buy='pistol';
+ const empty=context.summarize(selected,'opening_attempt');assert.equal(empty.n,0);assert.equal(empty.rounds,0);assert.equal(empty.kills||0,0);
+});

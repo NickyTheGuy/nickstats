@@ -409,10 +409,20 @@
       ].filter(segment => !segment.group || groupVisible(segment.group));
       const columns = segments.flatMap(segment => {
         const minimums = segment.group ? minimumWidthsForGroup(segment.group) : [160, 72, 82, 82, 72];
-        return segment.columns.map((column, index) => ({
-        ...column, minimumWidth: minimums[index] || 58, group: segment.group, groupStart: Boolean(segment.group) && index === 0,
-        groupEnd: Boolean(segment.group) && index === segment.columns.length - 1
-      }));
+        return segment.columns.map((column, index) => {
+          const unavailable = state.input?.conditioned && (['roundState', 'killStage', 'timing'].includes(segment.group) || column.key === 'teammate-rating');
+          const emptyRate = item => state.input?.conditioned && !number(item.stats.rounds) &&
+            ['rating', 'teammate-rating', 'win-rate'].includes(column.key);
+          return {
+            ...column,
+            value: item => unavailable || emptyRate(item) ? null : column.value(item),
+            format: (item, ...args) => unavailable || emptyRate(item) ? '—' : column.format(item, ...args),
+            className: item => emptyRate(item) ? '' : typeof column.className === 'function' ? column.className(item) : column.className,
+            description: unavailable ? 'Unavailable for round conditions' : column.description,
+            minimumWidth: minimums[index] || 58, group: segment.group, groupStart: Boolean(segment.group) && index === 0,
+            groupEnd: Boolean(segment.group) && index === segment.columns.length - 1
+          };
+        });
       });
       const sort = state.sort;
       const ordered = comparison.map((item, index) => ({ item, index }));
@@ -428,7 +438,7 @@
         const columnView = original => {
           const column = columns.find(column => column.key === original.key) || original;
           return {
-            ...column, label: displayedLabel(column), description: Scoreboard.columnDescriptions?.[column.label],
+            ...column, label: displayedLabel(column), description: column.description || Scoreboard.columnDescriptions?.[column.label],
             ariaSort: sort?.key === column.key ? (sort.direction === "asc" ? "ascending" : "descending") : "none",
             direction: sort?.key === column.key ? sort.direction : null
           };
@@ -446,6 +456,7 @@
             shortcut: next ? `${segment.label} detail: ${subgroup[1]}. Press R or tap to switch to ${next[1]}` : null };
         });
         onUpdate({ ...viewMeta, headings, columns: columns.map(columnView),
+          sampleSizes: comparison.map(item => ({ id: item.player.id, rounds: number(item.stats.rounds) })),
           rows: ordered.map(({ item }) => ({ id: item.player.id, cells: columns.map(column => ({
             key: column.key, text: displayedValue(column, item),
             className: [typeof column.className === "function" ? column.className(item) : column.className,

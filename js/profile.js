@@ -37,7 +37,17 @@
   function render({ prefix, headlineId, summary, side, result = "ALL", roundResult = "ALL", maps }) {
     const rawStats = summary.stats || {}, s = availability.materialize(rawStats), rounds = number(s.rounds), sideAll = side === "ALL";
     const unavailableSections=new Set(['RoundStateKillStats','RoundStateDeathStats','KillStageStats','EconomyStats','TimingAverageStats','PhaseStats']);
-    const conditionRows=(target,rows)=>summary.conditioned&&unavailableSections.has(target.slice(prefix.length))?rows.map(([label,,,className])=>[label,'—','Unavailable for round conditions',className]):summary.conditioned&&!rounds&&target===headlineId?rows.map(([label,,,className])=>[label,'—','No matching rounds','']):rows;
+    const conditionRows = (target, rows) => {
+      if (!summary.conditioned) return rows;
+      if (unavailableSections.has(target.slice(prefix.length))) {
+        return rows.map(([label, , , className]) => [label, '—', 'Unavailable for round conditions', className]);
+      }
+      if (target !== headlineId) return rows;
+      return rows.map(row => {
+        if (!rounds) return [row[0], '—', 'No matching rounds', ''];
+        return row[0] === 'Teammate rating' ? [row[0], '—', 'Unavailable for round conditions', ''] : row;
+      });
+    };
     const fillCards=(target,rows)=>window.NickStatsProfileUI.cards($(target),conditionRows(target,rows));
     const fillStrip=(target,rows)=>window.NickStatsProfileUI.strip($(target),conditionRows(target,rows));
     const statAvailable = key => availability.available(rawStats, key);

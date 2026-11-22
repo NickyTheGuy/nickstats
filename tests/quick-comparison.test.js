@@ -172,7 +172,7 @@ test("quick comparison and graphs precede individual players in both workspace t
 
 test("quick comparison uses every open profile while graphs auto-select new profiles", () => {
   assert.match(playersSource, /graphPlayers: new Set\(\)/);
-  assert.match(playersSource, /players: \[\.\.\.state\.profiles\.entries\(\)\][\s\S]*?\.map\(\(\[id, candidate\]\)/);
+  assert.match(playersSource, /players = \[\.\.\.state\.profiles\]\.map\(\(\[id, candidate\]\)/);
   assert.doesNotMatch(playersSource, /playerQuickPlayers|playerQuickPlayerStatus/);
   assert.match(playersSource, /if \(state\.graphPlayers\.size < MAX_GRAPH_PLAYERS\) state\.graphPlayers\.add\(key\)/);
   assert.match(playersSource, /if \(state\.display === "quick"\) renderQuickComparison\(\);/);

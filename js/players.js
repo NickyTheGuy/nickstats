@@ -33,22 +33,35 @@
     roundCondition: "ALL", side: "ALL", buy: "ALL", heroOnly: false, opponentBuy: "ALL", roundResult: "ALL", roundPhase: "ALL", result: "ALL", maps: []
   };
   const activeProfile = () => state.profiles.get(state.activeId) || null;
-  const conditionAPI=window.NickStatsRoundConditions;
-  const conditionUI=window.NickStatsRoundConditionsUI.create('playerRoundConditionFilter',{
-    onChange:value=>{state.roundCondition=value;renderCurrentDisplay();},
-    onRetry:()=>{const profile=activeProfile();if(profile){profile.conditionError='';loadRoundConditions(profile);}}
+  const conditionAPI = window.NickStatsRoundConditions;
+  const conditionClient = window.NickStatsRoundConditionData;
+  let conditionPlayers = [];
+  const conditionUI = window.NickStatsRoundConditionsUI.create('playerRoundConditionFilter', {
+    onChange: value => { state.roundCondition = value; if (value === "ALL") conditionClient.cancelQueued(); renderCurrentDisplay(); },
+    onRetry: () => { conditionClient.retry(conditionPlayers); renderCurrentDisplay(); }
   });
-  async function loadRoundConditions(profile){
-    if(profile.conditionController)return;
-    const controller=new AbortController();profile.conditionController=controller;profile.conditionError='';
-    conditionUI.update({value:state.roundCondition,loading:true,error:''});
-    try{
-      const response=await fetch(`/nickstats/api/players/${profile.payload.player.id}/round-conditions`,{cache:'no-store',signal:controller.signal,headers:{Accept:'application/json'}});
-      const body=await response.json().catch(()=>null);if(!response.ok)throw Error(body?.reason||`Round conditions returned HTTP ${response.status}.`);
-      controller.signal.throwIfAborted();profile.roundConditions=conditionAPI.validateRoundConditions(body,profile.payload.player.id);profile.summaryCache?.clear();
-    }catch(error){if(!controller.signal.aborted)profile.conditionError=error.message;}
-    finally{if(profile.conditionController===controller)profile.conditionController=null;if(activeProfile()===profile&&!controller.signal.aborted&&state.display==='profile')renderProfile();}
+
+  function prepareRoundConditions(profiles) {
+    conditionPlayers = profiles.filter(profile => matchesFor(profile.payload).length).map(profile => ({
+      id: profile.payload.player.id, label: profile.payload.player.name
+    }));
+    const view = conditionClient.prepare(conditionPlayers);
+    for (const profile of profiles) {
+      const data = view.data.get(String(profile.payload.player.id));
+      if (profile.roundConditions !== data) {
+        profile.roundConditions = data;
+        profile.summaryCache?.clear();
+      }
+    }
+    conditionUI.update({ value: state.roundCondition, loading: view.loading, error: view.error,
+      playerCount: view.total, loadedPlayers: view.loaded });
+    return view;
   }
+
+  conditionClient.subscribe(() => {
+    if (state.roundCondition !== 'ALL' && !state.profilesStale && !$('playersPage').hidden &&
+        ['profile', 'quick'].includes(state.display)) renderCurrentDisplay();
+  });
 
   const mapFilter = window.NickStatsMapFilterUI.create("playerMapFilter", {
     formatLabel: value => titleCase(value.replace(/^de_/, "")),
@@ -152,7 +165,7 @@
 
   function syncStatsToolbar() {
     $("playerStatsToolbar").hidden = state.display === "session" || (state.display === "profile" && state.view === "matches");
-    $("playerRoundConditionField").hidden = state.display !== "profile" || state.view === "matches";
+    $("playerRoundConditionField").hidden = ["graphs", "session"].includes(state.display) || (state.display === "profile" && state.view === "matches");
     syncTradeTeammates();
   }
 
@@ -400,7 +413,7 @@
     const stats = {}, weapons = new Map();
     const views = matches.map(match => matchView(match, side, buy, roundResult, opponentBuy, roundPhase, heroOnly));
     const qualifyingMatches = condition === "ALL" && roundPhase === "ALL" && !heroOnly ? matches : views.filter(view => number(view.stats.rounds) > 0).map(view => view.match);
-    const teammateAverage = averageTeammateRating(views, teammateRatings);
+    const teammateAverage = condition === "ALL" ? averageTeammateRating(views, teammateRatings) : { rating: null, samples: 0 };
     for (const view of views) {
       availability.add(stats, view.stats, view.match.schema);
       for (const weapon of view.weapons) {
@@ -435,7 +448,7 @@
     const key = aggregationKey(map,condition);
     if (!profile.summaryCache.has(key)) {
       const base = matchesFor(profile.payload).filter(match => map === "ALL" || match.map === map);
-      const matches=condition==='ALL'?base:conditionAPI.conditionMatches(base,profile.roundConditions,condition);
+      const matches = condition === 'ALL' || !base.length ? base : conditionAPI.conditionMatches(base, profile.roundConditions, condition);
       profile.summaryCache.set(key, aggregate(matches, state.side, state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly, profile.payload.teammateRatings,condition));
     }
     return profile.summaryCache.get(key);
@@ -493,17 +506,41 @@
   }
   function renderQuickComparison() {
     if (!activeProfile()) return;
-    quickComparison.render({
-      players: [...state.profiles.entries()]
-        .map(([id, candidate]) => ({
-          id,
-          label: candidate.payload.player?.name || "Unknown player",
-          rows: matchesFor(candidate.payload),
-          summarize: (rows, map) => quickSummary(rows, summaryFor(candidate, map))
-        })),
-      summarize: quickSummary,
-      metaSuffix: resultFilterLabel(state.result)
-    });
+    const profiles = [...state.profiles.values()];
+    const condition = state.roundCondition;
+    const view = condition !== 'ALL' ? prepareRoundConditions(profiles) : { ready: true };
+    $('playerQuickApp').hidden = !view.ready;
+    if (!view.ready) return;
+    let players, failedPlayerID;
+    try {
+      players = [...state.profiles].map(([id, candidate]) => {
+        failedPlayerID = id;
+        const base = matchesFor(candidate.payload);
+        const rows = condition === 'ALL' || !base.length ? base
+          : conditionAPI.conditionMatches(base, candidate.roundConditions, condition);
+        return {
+          id, label: candidate.payload.player?.name || 'Unknown player',
+          rows: condition === 'ALL' ? rows : rows.filter(row => number(matchView(row, state.side,
+            state.buy, state.roundResult, state.opponentBuy, state.roundPhase, state.heroOnly).stats.rounds) > 0),
+          summarize: (rows, map) => quickSummary(rows, summaryFor(candidate, map, condition))
+        };
+      });
+    } catch (error) {
+      conditionUI.update({ loading: false, error: error.message });
+      $('playerQuickApp').hidden = true;
+      conditionClient.reportError(failedPlayerID, error);
+      return;
+    }
+    if (condition === 'ALL') conditionUI.update({ value: condition, loading: false, error: '', playerCount: 1 });
+    quickComparison.render({ players, summarize: quickSummary, conditioned: condition !== 'ALL',
+      onSamples: condition === 'ALL' ? undefined : (samples, map) => {
+        const coverage = profiles.map(profile => conditionAPI.conditionCoverage(
+          matchesFor(profile.payload).filter(match => map === 'ALL' || match.map === map),
+          profile.roundConditions || { matches: [] }));
+        conditionUI.update({ rounds: samples.reduce((n, sample) => n + sample.rounds, 0),
+          covered: coverage.reduce((n, row) => n + row.covered, 0), expected: coverage.reduce((n, row) => n + row.expected, 0) });
+      },
+      metaSuffix: [resultFilterLabel(state.result), condition !== 'ALL' && conditionAPI.roundConditions.find(([key]) => key === condition)[1]].filter(Boolean).join(' · ') });
   }
 
   function renderOpenTabs() {
@@ -519,17 +556,18 @@
     const profile = activeProfile(); if (!profile) return;
     const condition=state.view==='matches'?'ALL':state.roundCondition;
     ui.playerProfileName.update({text:profile.payload.player?.name||'Unknown player'});
-    conditionUI.update({value:state.roundCondition,loading:Boolean(profile.conditionController),error:profile.conditionError||''});
-    const waiting=condition!=='ALL'&&!profile.roundConditions;
-    $('playerHeadlineStats').hidden=waiting;$('playerProfileBody').hidden=waiting;
-    if(waiting){
-      ui.playerProfileStatus.update({text:profile.conditionError||'Loading round conditions…',error:Boolean(profile.conditionError)});
-      if(!profile.conditionController&&!profile.conditionError)void loadRoundConditions(profile);return;
+    const view = condition !== 'ALL' ? prepareRoundConditions([profile]) : { ready: true };
+    const waiting = !view.ready;
+    $('playerHeadlineStats').hidden = waiting;
+    $('playerProfileBody').hidden = waiting;
+    if (waiting) {
+      ui.playerProfileStatus.update({ text: view.error || 'Loading round conditions…', error: Boolean(view.error) });
+      return;
     }
     const payload = profile.payload, player = payload.player || {}, matches = matchesFor(payload);
-    let summary;try{summary=summaryFor(profile,'ALL',condition);}catch(error){profile.roundConditions=null;profile.conditionError=error.message;renderProfile();return;}
+    let summary;try{summary=summaryFor(profile,'ALL',condition);}catch(error){conditionClient.reportError(profile.payload.player.id,error);renderProfile();return;}
     const coverage=profile.roundConditions?conditionAPI.conditionCoverage(matches,profile.roundConditions):{covered:0,expected:0};
-    conditionUI.update({rounds:summary.rounds,...coverage,loading:false,error:''});
+    conditionUI.update({value: state.roundCondition, rounds:summary.rounds,...coverage,loading:false,error:'',playerCount:1});
     const sideLabel = state.side === "ALL" ? "All sides" : state.side;
     ui.playerProfileName.update({ text: player.name || "Unknown player" });
     const buyLabel = state.buy === "ALL" ? "All buys" : state.buy === "hero" ? "Hero rounds" : `${titleCase(state.buy)} buys`;
@@ -551,7 +589,6 @@
     setPlayerView(state.view); setPlayerDisplay(state.display);
   }
   function closeProfile(id) {
-    state.profiles.get(String(id))?.conditionController?.abort();
     id = String(id); const ids = [...state.profiles.keys()], index = ids.indexOf(id);
     state.profiles.get(id)?.matchHistory?.controller?.abort();
     state.profiles.delete(id); state.graphPlayers.delete(id);
@@ -634,7 +671,7 @@
       updated.forEach(([id, payload]) => {
         const profile = state.profiles.get(id);
         if (profile) {
-          profile.conditionController?.abort();profile.conditionController=null;profile.roundConditions=null;profile.conditionError='';
+          conditionClient.invalidate(profile.payload.player.id); profile.roundConditions = null;
           profile.payload = payload;
           profile.summaryCache?.clear();
           profile.graphCache?.clear();
@@ -667,7 +704,7 @@
     state.refreshController?.abort();
     state.refreshController = null;
     for (const profile of state.profiles.values()) {
-      profile.conditionController?.abort();profile.conditionController=null;profile.roundConditions=null;profile.conditionError='';
+      conditionClient.invalidate(profile.payload.player.id); profile.roundConditions = null;
       profile.matchHistory?.controller?.abort();
       if (profile.matchHistory) {
         profile.matchHistory.loaded = false;
@@ -722,7 +759,7 @@
     window.NickStatsSegmentedUI.create("playerResultFilter", { onChange: result => { state.result = result; if (activeProfile()) renderCurrentDisplay(); } }),
   ];
   function resetPlayerFilters() {
-    state.roundCondition="ALL";conditionUI.update({value:"ALL",error:"",loading:false});
+    state.roundCondition="ALL";conditionClient.cancelQueued();conditionUI.update({value:"ALL",error:"",loading:false});
     window.NickStatsFilters.resetProfileFilters({ state, mapFilter, dateFilter, tagFilter: manualFilter, toggles: playerFilterToggles, onReset: () => {
       state.profiles.forEach(profile => {
         profile.summaryCache?.clear(); profile.graphCache?.clear(); profile.manualHistoryOffset = 0; profile.sessionHistoryOffset = 0;

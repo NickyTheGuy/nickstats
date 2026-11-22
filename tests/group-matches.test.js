@@ -51,7 +51,7 @@ test("Groups match list shows the selected player's team rules and result with t
   assert.equal(calls.at(-1).matches.length, 0);
   assert.equal(nodes.get("comboMatchesPagination").text, "");
   assert.match(nodes.get("comboMatchesStatus").text, /^0 qualifying matches/);
-  assert.match(source, /renderComboMatches\(rows, player\);/);
+  assert.match(source, /renderComboMatches\(comboProfileRows\(current, player\), player\);/);
 });
 
 test("Groups match pagination preserves the page for tag updates and resets on changed matches", () => {

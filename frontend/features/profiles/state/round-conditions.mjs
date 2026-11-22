@@ -110,3 +110,10 @@ export function conditionCoverage(matches, data) {
     expected: matches.reduce((n, row) => n + row.rounds, 0),
   };
 }
+
+// Group eligibility is resolved on the original histories before this projection.
+export function conditionGroupRows(rows, data, condition) {
+  if (condition === 'ALL' || !rows.length) return rows;
+  const matches = rows.map((row) => ({ ...row, rounds: row.legacy.rounds }));
+  return conditionMatches(matches, data, condition).map((row) => ({ ...row, sideRows: row.sides }));
+}

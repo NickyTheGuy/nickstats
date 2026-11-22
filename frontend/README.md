@@ -305,3 +305,8 @@ state module validates disjoint coverage and filters leaf slices; individual
 profile summaries compose those slices with the normal filters. The data is
 requested only after selecting a condition and is invalidated with profile data.
 See `docs/round-conditions.md` for semantics and deployment.
+
+Round conditions share `profiles/state/round-conditions-client.mjs` across player
+and group profiles/comparisons. The client owns the lazy request queue, bounded
+cache and freshness. `round-conditions.mjs` owns cohort validation and projection;
+Group team rules always run on unmodified histories before that projection.
