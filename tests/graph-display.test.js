@@ -212,4 +212,24 @@ test("bars and lines render for match trends and exact-round deaths", async () =
   assert.match(output.cards[0].lines[1],/^Y · Teammate rating: Mean 1.25/);
   assert.equal(output.cards[0].lines[2],'2 paired matches');
 
+  // Two matches contribute equally even though their qualifying round counts
+  // differ. Changing a label to "rounds" would falsely imply 10% versus 90%.
+  choose('ADR');
+  settings.set('scope','match');
+  settings.set('type','distribution');
+  const conditionedSeries=[{label:'Player',samples:[
+    {id:'one-round',stats:{rounds:1,damage:10,__conditioned:true}},
+    {id:'nine-rounds',stats:{rounds:9,damage:900,__conditioned:true}}
+  ]}];
+  context.window.NickStatsGraphs.render({prefix:'player',series:conditionedSeries,conditioned:true});
+  const labels=svg.marks.filter(mark=>mark.attributes.class==='graph-series-bar').map(mark=>mark.tooltip.label).filter(label=>!label.includes(': 0.0%'));
+  assert.equal(labels.length,2);
+  assert.ok(labels.every(label=>/50\.0% of qualifying match samples.*matching rounds only/.test(label)));
+  assert.ok(svg.marks.some(mark=>mark.text==='Share of qualifying match samples'));
+  assert.match(output.note,/one sample calculated from its matching rounds.*count these samples equally/);
+  assert.equal(output.cards[0].lines[1],'2 match samples · 10 matching rounds');
+  context.window.NickStatsGraphs.render({prefix:'player',series:conditionedSeries});
+  assert.ok(svg.marks.some(mark=>mark.text==='Share of matches'));
+  assert.equal(output.cards[0].lines.length,1);
+
 });

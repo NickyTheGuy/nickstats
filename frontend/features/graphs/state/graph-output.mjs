@@ -42,7 +42,18 @@ export function graphOutputModel({
           return `${axis ? `${axis} · ${axisMetric.label}: ` : ''}${summaryLine(values, axisMetric, format)}${relationship ? '' : ` · n=${values.length}`}`;
         });
     if (!roundsMode && relationship)
-      lines.push(`${series.values.length} paired ${unit === 'session' ? 'sessions' : 'matches'}`);
+      lines.push(
+        `${series.values.length} paired ${conditioned ? `${unit} samples` : unit === 'session' ? 'sessions' : 'matches'}`,
+      );
+    if (!roundsMode && conditioned) {
+      const roundCount = series.values.reduce(
+        (sum, point) => sum + Number(point.stats?.rounds || 0),
+        0,
+      );
+      lines.push(
+        `${relationship ? '' : `${series.values.length} ${unit} samples · `}${roundCount} matching rounds`,
+      );
+    }
     return {
       id: String(series.id ?? `series-${colorIndex}`),
       label: series.label,

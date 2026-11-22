@@ -356,7 +356,7 @@
     }
   }
 
-  function drawDistribution(chart, prepared, domainSeries, metric, bins, displayStyle, customRange = null, units = "matches") {
+  function drawDistribution(chart, prepared, domainSeries, metric, bins, displayStyle, customRange = null, units = "matches", conditioned = false) {
     const bounds = niceDistributionBounds(domainSeries.length ? domainSeries : prepared, metric, bins);
     if (!bounds) return;
     const { min, max, binWidth } = bounds;
@@ -400,10 +400,12 @@
       if (bins > 10) attributes.transform = `rotate(${bins > 17 ? -55 : -35} ${x} ${y})`;
       chart.add(chartMark("text", attributes, label));
     }
+    const sampleUnits = conditioned ? `qualifying ${units === 'sessions' ? 'session' : 'match'} samples` : units;
+    const scopeLabel = conditioned ? ' · matching rounds only' : '';
     const pointTitle = (series, value, index) => {
-      if (edges) return `${series.label}: ${value.toFixed(1)}% of ${units} · ${bucketLabel(index)}`;
+      if (edges) return `${series.label}: ${value.toFixed(1)}% of ${sampleUnits}${scopeLabel} · ${bucketLabel(index)}`;
       const lower = formatBoundary(min + index * binWidth), upper = formatBoundary(min + (index + 1) * binWidth);
-      return `${series.label}: ${value.toFixed(1)}% of ${units} · ${lower} ≤ value ${index === bins - 1 ? "≤" : "<"} ${upper}`;
+      return `${series.label}: ${value.toFixed(1)}% of ${sampleUnits}${scopeLabel} · ${lower} ≤ value ${index === bins - 1 ? "≤" : "<"} ${upper}`;
     };
     if (displayStyle === "line") {
       histograms.forEach((series, seriesIndex) => {
@@ -440,7 +442,7 @@
       });
     }
     chart.add(chartMark("text", { x: left + width / 2, y: 448, class: "graph-axis-title", "text-anchor": "middle" }, metric.label));
-    chart.add(chartMark("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Share of ${units}`));
+    chart.add(chartMark("text", { x: 17, y: top + height / 2, class: "graph-axis-title", transform: `rotate(-90 17 ${top + height / 2})`, "text-anchor": "middle" }, `Share of ${sampleUnits}`));
   }
 
   function drawRelationship(chart, prepared, domainPrepared, xMetric, yMetric, bins, displayStyle, customRange, units = "matches") {
@@ -694,12 +696,15 @@
         : mode === "manual" ? "Enter comma-separated cutoffs. For example, 5, 10, 15 makes <5, 5–<10, 10–<15, and ≥15."
           : ""
       : `Each ${unit} gets one horizontal slot in date order. ${sessionsMode ? "Sessions" : "Matches"} without dates are excluded. Lines pause across long gaps in a player's games. Hover for the exact date and value.`;
+    const sampleNote = state.conditioned && !roundsMode && !unavailable
+      ? `Each ${unit} contributes one sample calculated from its matching rounds.${settings.type === 'distribution' ? ' Percentages count these samples equally.' : ''}` : '';
+    const displayNote = [sampleNote, note].filter(Boolean).join(' ');
     const shown = roundsMode ? roundPrepared : prepared;
-    window.NickStatsGraphOutputUI.render(prefix, { series: shown, roundsMode, relationship, metric, xMetric, unit, colors, format, note, conditioned: state.conditioned, unavailable });
+    window.NickStatsGraphOutputUI.render(prefix, { series: shown, roundsMode, relationship, metric, xMetric, unit, colors, format, note: displayNote, conditioned: state.conditioned, unavailable });
     if (!shown.length) { window.NickStatsChartUI.render(target, chart); return; }
     if (roundsMode) { drawRounds(chart, roundPrepared, metric, settings.style); window.NickStatsChartUI.render(target, chart); return; }
     if (relationship) drawRelationship(chart, prepared, domainPrepared, xMetric, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
-    else settings.type === "trend" ? drawTrend(chart, prepared, metric, settings.style, sessionsMode ? "Session" : "Match") : drawDistribution(chart, prepared, domainPrepared, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches");
+    else settings.type === "trend" ? drawTrend(chart, prepared, metric, settings.style, sessionsMode ? "Session" : "Match") : drawDistribution(chart, prepared, domainPrepared, metric, settings.bucketCount, settings.style, range?.edges ? range : null, sessionsMode ? "sessions" : "matches", state.conditioned);
     window.NickStatsChartUI.render(target, chart);
   }
 

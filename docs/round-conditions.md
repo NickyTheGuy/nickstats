@@ -1,4 +1,4 @@
-# Round conditions — 2026.11.21.4
+# Round conditions — 2026.11.21.5
 
 Round conditions are available on individual player profiles, Player Quick
 Comparison, group profiles and Group Quick Comparison, plus Player/Group Graphs. All keeps the ordinary
@@ -87,3 +87,10 @@ This extension needs only a frontend update when the round-conditions backend is
 already deployed. No endpoint, schema or parser changes are introduced. Current
 saved full phase payloads need no reparse; reparse older matches only if their
 missing condition coverage is wanted. Dates, tags and friends are untouched.
+
+Distribution percentages count equally weighted match/session samples, not
+individual rounds. With a condition, each such sample is calculated only from
+its matching rounds. Labels explicitly say qualifying match/session samples;
+summaries also show the matching round count. A match with one matching round and
+a match with ten matching rounds each contribute one distribution sample. This
+is separate from the profile's pooled rating over all matching rounds.
